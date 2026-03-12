@@ -161,13 +161,16 @@ struct ContentView: View {
             }
 
             VStack(spacing: 0) {
-                if let activeTab = tabManager.activeTab {
-                    WebView(tab: activeTab)
-                        .environmentObject(viewModel)
-                        .id(activeTab.id)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                
-                    if activeTab.lastNavigationHadNetworkError {
+                ZStack {
+                    ForEach(tabManager.tabs) { tab in
+                        WebView(tab: tab)
+                            .environmentObject(viewModel)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .opacity(tab.id == tabManager.activeTabID ? 1 : 0)
+                            .accessibilityHidden(tab.id != tabManager.activeTabID)
+                    }
+                    
+                    if let activeTab = tabManager.activeTab, activeTab.lastNavigationHadNetworkError {
                         if activeTab.isDNSError {
                             SiteUnreachableView(host: activeTab.url?.host ?? "This site")
                                 .padding(30)
@@ -176,8 +179,10 @@ struct ContentView: View {
                                 .padding(30)
                         }
                     }
-                } else {
-                    PlaceholderView()
+                    
+                    if tabManager.activeTab == nil {
+                        PlaceholderView()
+                    }
                 }
 
                 StatusBar(tab: tabManager.activeTab)
