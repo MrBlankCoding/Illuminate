@@ -6,7 +6,7 @@
 import Foundation
 import SwiftUI
 
-struct TabGroup: Identifiable, Codable {
+struct TabGroup: Identifiable, Codable, Sendable {
     let id: UUID
     var name: String
     var color: String // Hex string

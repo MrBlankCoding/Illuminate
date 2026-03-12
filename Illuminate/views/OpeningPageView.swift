@@ -192,7 +192,7 @@ struct OpeningPageView: View {
 
         guard
             let escaped = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
-            let url = URL(string: "https://suggestqueries.google.com/complete/search?client=firefox&q=\(escaped)")
+            let url = URL(string: "https://suggestqueries.google.com/complete/search?client=chrome&q=\(escaped)")
         else {
             return []
         }

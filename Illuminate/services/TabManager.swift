@@ -17,6 +17,19 @@ struct ClosedTabSnapshot {
 @MainActor
 final class TabManager: ObservableObject {
 
+    private enum Defaults {
+        static let themeColor = "89BBFF"
+        static let maxRecentlyClosed = 25
+        static let saveDebounce: UInt64 = 500_000_000
+    }
+
+    private enum SuspensionPolicy {
+        static let highTabCount = 25
+        static let medTabCount = 10
+        static let liveLimitHigh = 5
+        static let liveLimitMed = 8
+    }
+
     static let shared = TabManager()
     static let sharedPlaceholder = TabManager(isPersistenceEnabled: false)
 
@@ -24,6 +37,9 @@ final class TabManager: ObservableObject {
     @Published private(set) var activeTabID: UUID?
     @Published private(set) var tabGroups: [TabGroup] = []
     @Published var hoveredSidebarTabID: UUID?
+    @Published var isResizing: Bool = false
+    @Published var isFullScreen: Bool = false
+    @Published var backgroundImagePalette: [Color] = []
 
     @Published var windowThemeColor: Color {
         didSet {
@@ -32,15 +48,11 @@ final class TabManager: ObservableObject {
         }
     }
 
-    @Published var backgroundImagePalette: [Color] = []
-
     @Published var backgroundImageURL: String {
         didSet {
-            guard isPersistenceEnabled else { return }
+            guard isPersistenceEnabled, !isInitializing else { return }
             userDefaults.set(backgroundImageURL, forKey: "backgroundImageURL")
-            if !isInitializing {
-                updateThemeFromBackground(setTheme: true)
-            }
+            updateThemeFromBackground(setTheme: true)
         }
     }
 
@@ -58,27 +70,10 @@ final class TabManager: ObservableObject {
         }
     }
 
-    @Published var isResizing: Bool = false
-    @Published var isFullScreen: Bool = false
-
     @Published var userInterfaceStyle: UIStyle {
         didSet {
             guard isPersistenceEnabled else { return }
             userDefaults.set(userInterfaceStyle.rawValue, forKey: "userInterfaceStyle")
-        }
-    }
-
-    enum UIStyle: String, CaseIterable {
-        case dark
-        case light
-        case system
-
-        var colorScheme: ColorScheme? {
-            switch self {
-            case .dark: return .dark
-            case .light: return .light
-            case .system: return nil
-            }
         }
     }
 
@@ -87,14 +82,30 @@ final class TabManager: ObservableObject {
         return tabs.first { $0.id == activeTabID }
     }
 
+    var canReopenTab: Bool { !recentlyClosed.isEmpty }
+
     private let notificationCenter: NotificationCenter
     private let hibernationManager: TabHibernationManager
     private let urlSynchronizer: URLSynchronizer
     private let userDefaults: UserDefaults
     private let isPersistenceEnabled: Bool
+    private let cachedSessionURL: URL
 
     private var recentlyClosed: [ClosedTabSnapshot] = []
     private var isInitializing = true
+    private var pendingSaveTask: Task<Void, Never>?
+
+    enum UIStyle: String, CaseIterable {
+        case dark, light, system
+
+        var colorScheme: ColorScheme? {
+            switch self {
+            case .dark:   return .dark
+            case .light:  return .light
+            case .system: return nil
+            }
+        }
+    }
 
     @MainActor
     init(
@@ -109,40 +120,25 @@ final class TabManager: ObservableObject {
         self.urlSynchronizer = urlSynchronizer ?? URLSynchronizer.shared
         self.userDefaults = userDefaults
         self.isPersistenceEnabled = isPersistenceEnabled
+        self.cachedSessionURL = Self.makeSessionURL()
 
-        let savedHex = isPersistenceEnabled ? (userDefaults.string(forKey: "windowThemeColor") ?? "89BBFF") : "89BBFF"
+        // Resolve persisted or default values
+        let savedHex = isPersistenceEnabled
+            ? (userDefaults.string(forKey: "windowThemeColor") ?? Defaults.themeColor)
+            : Defaults.themeColor
         self.windowThemeColor = Color(hex: savedHex)
-
-        self.backgroundImageURL = isPersistenceEnabled ? (userDefaults.string(forKey: "backgroundImageURL") ?? "") : ""
-        self.showSidebar = isPersistenceEnabled ? (userDefaults.object(forKey: "showSidebar") as? Bool ?? true) : true
-        self.showBackgroundBehindSidebar = isPersistenceEnabled ? (userDefaults.object(forKey: "showBackgroundBehindSidebar") as? Bool ?? true) : true
-
-        let savedStyle = isPersistenceEnabled ? (userDefaults.string(forKey: "userInterfaceStyle") ?? "dark") : "dark"
+        self.backgroundImageURL = isPersistenceEnabled
+            ? (userDefaults.string(forKey: "backgroundImageURL") ?? "") : ""
+        self.showSidebar = isPersistenceEnabled
+            ? (userDefaults.bool(forKey: "showSidebar", default: true)) : true
+        self.showBackgroundBehindSidebar = isPersistenceEnabled
+            ? (userDefaults.bool(forKey: "showBackgroundBehindSidebar", default: true)) : true
+        let savedStyle = isPersistenceEnabled
+            ? (userDefaults.string(forKey: "userInterfaceStyle") ?? "dark") : "dark"
         self.userInterfaceStyle = UIStyle(rawValue: savedStyle) ?? .dark
 
         if isPersistenceEnabled {
-            if let savedGroupsData = userDefaults.data(forKey: "savedTabGroups"),
-               let savedGroups = try? JSONDecoder().decode([TabGroup].self, from: savedGroupsData) {
-                tabGroups = savedGroups
-            }
-
-            if let savedTabsData = userDefaults.data(forKey: "savedTabs"),
-               let savedPayloads = try? JSONDecoder().decode([TabTransferPayload].self, from: savedTabsData) {
-                tabs = savedPayloads.map { payload in
-                    let tab = Tab(payload: payload)
-                    tab.onMetadataUpdate = { [weak self] in
-                        Task { @MainActor [weak self] in
-                            self?.saveState()
-                        }
-                    }
-                    return tab
-                }
-            }
-
-            if let savedActiveTabIDString = userDefaults.string(forKey: "savedActiveTabID"),
-               let savedActiveTabID = UUID(uuidString: savedActiveTabIDString) {
-                activeTabID = savedActiveTabID
-            }
+            restoreSession()
         }
 
         setupObservers()
@@ -157,130 +153,64 @@ final class TabManager: ObservableObject {
         }
     }
 
-    func clearAllTabs() {
-        tabs.removeAll()
-        activeTabID = nil
-        saveState()
+    private static func makeSessionURL() -> URL {
+        let appSupport = FileManager.default
+            .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("Illuminate", isDirectory: true)
+        try? FileManager.default.createDirectory(at: appSupport, withIntermediateDirectories: true)
+        return appSupport.appendingPathComponent("session.json")
     }
 
-    private func setupObservers() {
-        notificationCenter.addObserver(forName: .newTab, object: nil, queue: .main) { [weak self] _ in
-            Task { @MainActor [weak self] in self?.createTab() }
-        }
-
-        notificationCenter.addObserver(forName: .reloadActiveTab, object: nil, queue: .main) { [weak self] _ in
-            Task { @MainActor [weak self] in self?.activeTab?.reload() }
-        }
-
-        notificationCenter.addObserver(forName: .goBack, object: nil, queue: .main) { [weak self] _ in
-            Task { @MainActor [weak self] in self?.activeTab?.webView?.goBack() }
-        }
-
-        notificationCenter.addObserver(forName: .goForward, object: nil, queue: .main) { [weak self] _ in
-            Task { @MainActor [weak self] in self?.activeTab?.webView?.goForward() }
-        }
-
-        notificationCenter.addObserver(forName: .reopenTab, object: nil, queue: .main) { [weak self] _ in
-            Task { @MainActor [weak self] in self?.reopenLastClosedTab() }
-        }
-
-        notificationCenter.addObserver(forName: .nextTab, object: nil, queue: .main) { [weak self] _ in
-            Task { @MainActor [weak self] in self?.nextTab() }
-        }
-
-        notificationCenter.addObserver(forName: .previousTab, object: nil, queue: .main) { [weak self] _ in
-            Task { @MainActor [weak self] in self?.previousTab() }
-        }
-
-        notificationCenter.addObserver(forName: NSNotification.Name("closeActiveTab"), object: nil, queue: .main) { [weak self] _ in
-            Task { @MainActor [weak self] in self?.closeActiveTab() }
-        }
-
-        notificationCenter.addObserver(forName: .toggleSidebar, object: nil, queue: .main) { [weak self] _ in
-            Task { @MainActor [weak self] in
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-                    self?.showSidebar.toggle()
-                }
-            }
-        }
-
-        notificationCenter.addObserver(forName: .openDevTools, object: nil, queue: .main) { [weak self] _ in
-            Task { @MainActor [weak self] in
-                self?.activeTab?.openDevTools()
-            }
-        }
-
-        notificationCenter.addObserver(forName: .zoomIn, object: nil, queue: .main) { [weak self] _ in
-            Task { @MainActor [weak self] in
-                self?.activeTab?.zoomIn()
-            }
-        }
-
-        notificationCenter.addObserver(forName: .zoomOut, object: nil, queue: .main) { [weak self] _ in
-            Task { @MainActor [weak self] in
-                self?.activeTab?.zoomOut()
-            }
-        }
-
-        notificationCenter.addObserver(forName: .resetZoom, object: nil, queue: .main) { [weak self] _ in
-            Task { @MainActor [weak self] in
-                self?.activeTab?.resetZoom()
-            }
+    private func restoreSession() {
+        if let data = try? Data(contentsOf: cachedSessionURL),
+           let state = try? JSONDecoder().decode(SessionState.self, from: data) {
+            tabGroups = state.tabGroups
+            activeTabID = state.activeTabID
+            tabs = state.tabs.map { makeTab(from: $0) }
+        } else {
+            tabs = [Tab()]
         }
     }
 
-    private func updateThemeFromBackground(setTheme: Bool) {
-        guard let url = URL(string: backgroundImageURL), !backgroundImageURL.isEmpty else {
-            backgroundImagePalette = []
-            return
-        }
-
-        Task {
-            let palette = await ImageColorExtractor.shared.extractPalette(from: url)
-
-            await MainActor.run {
-                withAnimation(.easeInOut(duration: 0.8)) {
-                    backgroundImagePalette = palette
-                    if setTheme, let first = palette.first {
-                        windowThemeColor = first
-                    }
-                }
-            }
-        }
+    private func makeTab(from payload: TabTransferPayload) -> Tab {
+        let tab = Tab(payload: payload)
+        tab.onMetadataUpdate = { [weak self] in self?.saveState() }
+        return tab
     }
 
     private func saveState() {
         guard isPersistenceEnabled else { return }
 
-        if let encodedGroups = try? JSONEncoder().encode(tabGroups) {
-            userDefaults.set(encodedGroups, forKey: "savedTabGroups")
-        }
+        pendingSaveTask?.cancel()
+        pendingSaveTask = Task { [weak self] in
+            guard let self else { return }
+            try? await Task.sleep(nanoseconds: Defaults.saveDebounce)
+            guard !Task.isCancelled else { return }
 
-        let payloads = tabs.map { $0.toTransferPayload() }
+            let state = SessionState(
+                tabs: self.tabs.map { $0.toTransferPayload() },
+                tabGroups: self.tabGroups,
+                activeTabID: self.activeTabID
+            )
+            let url = self.cachedSessionURL
 
-        if let encodedTabs = try? JSONEncoder().encode(payloads) {
-            userDefaults.set(encodedTabs, forKey: "savedTabs")
-        }
-
-        if let activeTabID {
-            userDefaults.set(activeTabID.uuidString, forKey: "savedActiveTabID")
+            Task.detached(priority: .background) {
+                if let data = try? JSONEncoder().encode(state) {
+                    try? data.write(to: url, options: .atomic)
+                }
+            }
         }
     }
 
     @discardableResult
     func createTab(url: URL? = nil) -> Tab {
         let tab = Tab(url: url)
-        tab.onMetadataUpdate = { [weak self] in
-            Task { @MainActor [weak self] in
-                self?.saveState()
-            }
-        }
+        tab.onMetadataUpdate = { [weak self] in self?.saveState() }
         tabs.append(tab)
         withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
             switchTo(tab.id)
         }
         applyHibernationPolicy()
-        saveState()
 
         if url == nil {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
@@ -295,20 +225,15 @@ final class TabManager: ObservableObject {
         guard let index = tabs.firstIndex(where: { $0.id == id }) else { return }
 
         let tab = tabs[index]
-        recentlyClosed.append(ClosedTabSnapshot(payload: tab.toTransferPayload()))
-
+        pushRecentlyClosed(tab.toTransferPayload())
         tabs.remove(at: index)
-        
-        // Clean up assets for this tab
-        let paths = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)
-        let base = paths[0].appendingPathComponent("Illuminate/TabAssets", isDirectory: true)
-        let tabFolder = base.appendingPathComponent(id.uuidString, isDirectory: true)
-        try? FileManager.default.removeItem(at: tabFolder)
+        removeTabAssets(for: id)
 
         if activeTabID == id {
             withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-                if let lastID = tabs.last?.id {
-                    switchTo(lastID)
+                let nextID = tabs.isEmpty ? nil : (tabs[safe: index] ?? tabs.last)?.id
+                if let nextID {
+                    switchTo(nextID)
                 } else {
                     activeTabID = nil
                     syncActiveTabURL()
@@ -324,22 +249,23 @@ final class TabManager: ObservableObject {
         closeTab(id: activeTabID)
     }
 
+    func clearAllTabs() {
+        tabs.forEach { pushRecentlyClosed($0.toTransferPayload()) }
+        tabs.removeAll()
+        activeTabID = nil
+        syncActiveTabURL()
+        saveState()
+    }
+
     @discardableResult
     func reopenLastClosedTab() -> Tab? {
         guard let snapshot = recentlyClosed.popLast() else { return nil }
-
-        let tab = Tab(payload: snapshot.payload)
-        tab.onMetadataUpdate = { [weak self] in
-            Task { @MainActor [weak self] in
-                self?.saveState()
-            }
-        }
+        let tab = makeTab(from: snapshot.payload)
         tabs.append(tab)
         withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
             switchTo(tab.id)
         }
         saveState()
-
         return tab
     }
 
@@ -349,68 +275,37 @@ final class TabManager: ObservableObject {
     }
 
     func nextTab() {
-        guard let currentID = activeTabID,
-              let index = tabs.firstIndex(where: { $0.id == currentID }) else { return }
+        cycleTab(by: +1)
+    }
 
-        let nextIndex = (index + 1) % tabs.count
+    func previousTab() {
+        cycleTab(by: -1)
+    }
+
+    private func cycleTab(by delta: Int) {
+        guard let currentID = activeTabID,
+              let index = tabs.firstIndex(where: { $0.id == currentID }),
+              tabs.count > 1 else { return }
+
+        let nextIndex = (index + delta + tabs.count) % tabs.count
         withAnimation(.spring(response: 0.3, dampingFraction: 0.78)) {
             switchTo(tabs[nextIndex].id)
         }
     }
 
-    func previousTab() {
-        guard let currentID = activeTabID,
-              let index = tabs.firstIndex(where: { $0.id == currentID }) else { return }
-
-        let prevIndex = (index - 1 + tabs.count) % tabs.count
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.78)) {
-            switchTo(tabs[prevIndex].id)
-        }
-    }
-
     func switchTo(_ id: UUID) {
-        if activeTabID == id { return }
-
+        guard activeTabID != id else { return }
         setActiveTab(id)
         applySuspensionPolicy()
     }
 
-    private func applySuspensionPolicy() {
-        let liveTabs = tabs.filter { $0.webView != nil && $0.id != activeTabID }
-
-        let limit: Int
-        if tabs.count > 25 {
-            limit = 5
-        } else if tabs.count > 10 {
-            limit = 8
-        } else {
-            // Keep all tabs loaded if less than 10
-            return
-        }
-
-        if liveTabs.count > limit {
-            let sorted = liveTabs.sorted { $0.lastAccessed < $1.lastAccessed }
-            let toSuspend = liveTabs.count - limit
-
-            for i in 0..<toSuspend {
-                if tabs.count > 25 {
-                    sorted[i].suspend()
-                } else {
-                    sorted[i].freeze()
-                }
-            }
-        }
-    }
-
     func setActiveTab(_ id: UUID?) {
         activeTabID = id
-
         if let tab = tabs.first(where: { $0.id == id }) {
             tab.markActivated()
             tab.markAccessed()
             tab.thaw()
         }
-
         syncActiveTabURL()
         applyHibernationPolicy()
         applySuspensionPolicy()
@@ -419,15 +314,8 @@ final class TabManager: ObservableObject {
 
     func updateTabURL(tabID: UUID, url: URL?) {
         guard let tab = tabs.first(where: { $0.id == tabID }) else { return }
-
-        DispatchQueue.main.async {
-            tab.url = url
-        }
-
-        if tabID == activeTabID {
-            syncActiveTabURL()
-        }
-
+        tab.url = url
+        if tabID == activeTabID { syncActiveTabURL() }
         saveState()
     }
 
@@ -438,19 +326,13 @@ final class TabManager: ObservableObject {
 
     func removeTabGroup(id: UUID) {
         tabGroups.removeAll { $0.id == id }
-
-        for tab in tabs where tab.groupID == id {
-            tab.groupID = nil
-        }
-
+        tabs.filter { $0.groupID == id }.forEach { $0.groupID = nil }
         saveState()
     }
 
     func toggleGroupExpansion(id: UUID) {
-        if let index = tabGroups.firstIndex(where: { $0.id == id }) {
-            tabGroups[index].isExpanded.toggle()
-        }
-
+        guard let index = tabGroups.firstIndex(where: { $0.id == id }) else { return }
+        tabGroups[index].isExpanded.toggle()
         saveState()
     }
 
@@ -466,5 +348,94 @@ final class TabManager: ObservableObject {
     private func applyHibernationPolicy() {
         guard tabs.count > 50 else { return }
         hibernationManager.hibernateInactiveTabs(tabs: tabs, activeTabID: activeTabID)
+    }
+
+    private func applySuspensionPolicy() {
+        let count = tabs.count
+        guard count > SuspensionPolicy.medTabCount else { return }
+
+        let limit = count > SuspensionPolicy.highTabCount
+            ? SuspensionPolicy.liveLimitHigh
+            : SuspensionPolicy.liveLimitMed
+
+        let liveTabs = tabs.filter { $0.webView != nil && $0.id != activeTabID }
+        guard liveTabs.count > limit else { return }
+
+        let toSuspend = liveTabs.count - limit
+        liveTabs
+            .sorted { $0.lastAccessed < $1.lastAccessed }
+            .prefix(toSuspend)
+            .forEach { count > SuspensionPolicy.highTabCount ? $0.suspend() : $0.freeze() }
+    }
+
+    private func pushRecentlyClosed(_ payload: TabTransferPayload) {
+        recentlyClosed.append(ClosedTabSnapshot(payload: payload))
+        if recentlyClosed.count > Defaults.maxRecentlyClosed {
+            recentlyClosed.removeFirst()
+        }
+    }
+
+    private func removeTabAssets(for id: UUID) {
+        let paths = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)
+        let folder = paths[0]
+            .appendingPathComponent("Illuminate/TabAssets", isDirectory: true)
+            .appendingPathComponent(id.uuidString, isDirectory: true)
+        try? FileManager.default.removeItem(at: folder)
+    }
+
+    private func updateThemeFromBackground(setTheme: Bool) {
+        guard !backgroundImageURL.isEmpty, let url = URL(string: backgroundImageURL) else {
+            backgroundImagePalette = []
+            return
+        }
+        Task {
+            let palette = await ImageColorExtractor.shared.extractPalette(from: url)
+            await MainActor.run {
+                withAnimation(.easeInOut(duration: 0.8)) {
+                    backgroundImagePalette = palette
+                    if setTheme, let first = palette.first {
+                        windowThemeColor = first
+                    }
+                }
+            }
+        }
+    }
+
+    private func setupObservers() {
+        let pairs: [(Notification.Name, () -> Void)] = [
+            (.newTab,             { [weak self] in self?.createTab() }),
+            (.reloadActiveTab,    { [weak self] in self?.activeTab?.reload() }),
+            (.goBack,             { [weak self] in self?.activeTab?.webView?.goBack() }),
+            (.goForward,          { [weak self] in self?.activeTab?.webView?.goForward() }),
+            (.reopenTab,          { [weak self] in self?.reopenLastClosedTab() }),
+            (.nextTab,            { [weak self] in self?.nextTab() }),
+            (.previousTab,        { [weak self] in self?.previousTab() }),
+            (.toggleSidebar,      { [weak self] in
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                    self?.showSidebar.toggle()
+                }
+            }),
+            (.openDevTools,       { [weak self] in self?.activeTab?.openDevTools() }),
+            (.zoomIn,             { [weak self] in self?.activeTab?.zoomIn() }),
+            (.zoomOut,            { [weak self] in self?.activeTab?.zoomOut() }),
+            (.resetZoom,          { [weak self] in self?.activeTab?.resetZoom() }),
+            (NSNotification.Name("closeActiveTab"), { [weak self] in self?.closeActiveTab() }),
+        ]
+
+        for (name, handler) in pairs {
+            notificationCenter.addObserver(forName: name, object: nil, queue: .main) { _ in handler() }
+        }
+    }
+}
+
+private extension Collection {
+    subscript(safe index: Index) -> Element? {
+        indices.contains(index) ? self[index] : nil
+    }
+}
+
+private extension UserDefaults {
+    func bool(forKey key: String, default defaultValue: Bool) -> Bool {
+        object(forKey: key) as? Bool ?? defaultValue
     }
 }

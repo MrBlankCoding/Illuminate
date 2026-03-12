@@ -33,6 +33,7 @@ final class Tab: ObservableObject, Identifiable {
     @Published var hasMixedContentWarning: Bool
     @Published var lastNavigationHadNetworkError: Bool
     @Published var lastNetworkErrorMessage: String?
+    @Published var isDNSError: Bool = false
     @Published var hoveredLinkURLString: String?
     @Published var canGoBack: Bool = false
     @Published var canGoForward: Bool = false
@@ -47,6 +48,8 @@ final class Tab: ObservableObject, Identifiable {
     @Published var hasPiPCandidate: Bool = false
 
     private(set) weak var webView: WKWebView?
+    private var lastSnapshotAt: Date = .distantPast
+    private var isFetchingAssets = false
 
     var onMetadataUpdate: (() -> Void)?
     private(set) var lastActivatedAt: Date
@@ -122,6 +125,7 @@ final class Tab: ObservableObject, Identifiable {
 
         let newWebView = WKWebView(frame: .zero, configuration: configuration)
         newWebView.isInspectable = true
+        WebKitManager.shared.applySafariUserAgent(to: newWebView)
         objc_setAssociatedObject(
             newWebView,
             &webViewTabOwnerKey,
@@ -130,7 +134,9 @@ final class Tab: ObservableObject, Identifiable {
         )
         webView = newWebView
         setupWebViewObservers(newWebView)
-        isHibernated = false
+        DispatchQueue.main.async { [weak self] in
+            self?.isHibernated = false
+        }
     }
 
     func attachWebView(_ candidate: WKWebView) throws {
@@ -146,7 +152,9 @@ final class Tab: ObservableObject, Identifiable {
         )
         webView = candidate
         setupWebViewObservers(candidate)
-        isHibernated = false
+        DispatchQueue.main.async { [weak self] in
+            self?.isHibernated = false
+        }
     }
 
     func detachWebView() {
@@ -182,30 +190,27 @@ final class Tab: ObservableObject, Identifiable {
         )
     }
 
-    func suspend() {
+    func suspend(allowSnapshot: Bool = true) {
         guard let webView else {
-            // If no webView exists, still mark as hibernated
             isHibernated = true
             return
         }
-        webView.stopLoading()
-
-        let config = WKSnapshotConfiguration()
-        webView.takeSnapshot(with: config) { [weak self] image, _ in
-            guard let self, let image else { return }
-            Task { @MainActor in
-                self.snapshot = image.downsampled(toWidth: 400)
-                self.saveAssets()
-            }
+        
+        if allowSnapshot {
+            refreshSnapshot()
         }
-
+        
+        webView.stopLoading()
         hibernatedState = captureState()
         detachWebView()
         isHibernated = true
         isLoading = false
     }
 
-    func hibernate() {
+    func hibernate(shouldSnapshot: Bool = false) {
+        if shouldSnapshot {
+            refreshSnapshot()
+        }
         isFrozen = false
         hibernatedState = captureState()
         detachWebView()
@@ -217,6 +222,7 @@ final class Tab: ObservableObject, Identifiable {
         guard isHibernated else { return }
 
         let restoredWebView = WKWebView(frame: .zero, configuration: configuration)
+        WebKitManager.shared.applySafariUserAgent(to: restoredWebView)
 
         do {
             try attachWebView(restoredWebView)
@@ -242,12 +248,18 @@ final class Tab: ObservableObject, Identifiable {
 
     func refreshSnapshot() {
         guard let webView else { return }
+        
+        let now = Date()
+        guard now.timeIntervalSince(lastSnapshotAt) > 10 else { return } // Max once every 10s
+        lastSnapshotAt = now
+        
         let config = WKSnapshotConfiguration()
         webView.takeSnapshot(with: config) { [weak self] image, _ in
             guard let self = self, let image = image else { return }
             let downsampled = image.downsampled(toWidth: 400)
             DispatchQueue.main.async {
                 self.snapshot = downsampled
+                self.saveAssets()
             }
         }
     }
@@ -308,18 +320,24 @@ final class Tab: ObservableObject, Identifiable {
 
     private func saveAssets() {
         let folder = assetsURL
-        try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let faviconData = favicon?.pngData()
+        let snapshotData = snapshot?.jpegData(compressionQuality: 0.7)
 
-        if let data = favicon?.pngData() {
-            try? data.write(to: folder.appendingPathComponent("favicon.png"))
-        }
-        if let data = snapshot?.jpegData(compressionQuality: 0.7) {
-            try? data.write(to: folder.appendingPathComponent("snapshot.jpg"))
+        Task.detached(priority: .background) {
+            try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+
+            if let data = faviconData {
+                try? data.write(to: folder.appendingPathComponent("favicon.png"))
+            }
+            if let data = snapshotData {
+                try? data.write(to: folder.appendingPathComponent("snapshot.jpg"))
+            }
         }
     }
 
     func loadAssets() {
-        guard favicon == nil, snapshot == nil else { return }
+        guard favicon == nil, snapshot == nil, !isFetchingAssets else { return }
+        isFetchingAssets = true
         let folder = assetsURL
 
         Task.detached(priority: .utility) { [weak self] in
@@ -331,6 +349,7 @@ final class Tab: ObservableObject, Identifiable {
 
             await MainActor.run { [weak self] in
                 guard let self else { return }
+                self.isFetchingAssets = false
                 if let data = faviconData  { self.favicon   = NSImage(data: data) }
                 if let data = snapshotData { self.snapshot  = NSImage(data: data) }
             }
@@ -338,7 +357,6 @@ final class Tab: ObservableObject, Identifiable {
     }
 
     func toTransferPayload() -> TabTransferPayload {
-        saveAssets()
         return TabTransferPayload(
             id: id,
             url: url,
@@ -393,10 +411,12 @@ final class Tab: ObservableObject, Identifiable {
             let sel = NSSelectorFromString("processIdentifier")
             if webView.responds(to: sel),
                let pidObj = webView.perform(sel)?.takeUnretainedValue() {
-                if let num = pidObj as? Int32 {
-                    processIdentifier = num
-                } else if let num = pidObj as? NSNumber {
-                    processIdentifier = num.int32Value
+                DispatchQueue.main.async { [weak self] in
+                    if let num = pidObj as? Int32 {
+                        self?.processIdentifier = num
+                    } else if let num = pidObj as? NSNumber {
+                        self?.processIdentifier = num.int32Value
+                    }
                 }
             }
         }

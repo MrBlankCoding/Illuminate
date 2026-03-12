@@ -31,7 +31,8 @@ struct WebViewRepresentable: NSViewRepresentable {
         tab.createWebViewIfNeeded(configuration: WebKitManager.shared.makeConfiguration())
         
         guard let webView = tab.webView else {
-            return WKWebView(frame: .zero, configuration: WebKitManager.shared.makeConfiguration())
+            let fallback = WebKitManager.shared.makeWebView()
+            return fallback
         }
         
         webView.navigationDelegate = context.coordinator

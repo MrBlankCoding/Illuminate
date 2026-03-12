@@ -32,6 +32,7 @@ final class WebKitManager: ObservableObject {
             : .nonPersistent()
 
         configuration.defaultWebpagePreferences.allowsContentJavaScript = true
+        configuration.defaultWebpagePreferences.preferredContentMode = .desktop
 
         let preferences = WKPreferences()
         preferences.isTextInteractionEnabled = true
@@ -53,13 +54,11 @@ final class WebKitManager: ObservableObject {
         applySafariUserAgent(to: webView)
         return webView
     }
-
+    // i supposed UA needs to be updated in the future but for now this will work
+    // also appending Illuminate/1.0 to the end of the UA so that websites can detect that we're using Illuminate and potentially serve a custom experience in the future :p
     func applySafariUserAgent(to webView: WKWebView) {
-        webView.evaluateJavaScript("navigator.userAgent") { result, _ in
-            if let ua = result as? String {
-                AppLog.info("Current UA: \(ua)")
-                webView.customUserAgent = ua
-            }
-        }
+        let safariUA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.3.1 Safari/605.1.15 Chrome/122.0.0.0 Illuminate/1.0"
+        webView.customUserAgent = safariUA
+        AppLog.info("Set custom UA: \(safariUA)")
     }
 }

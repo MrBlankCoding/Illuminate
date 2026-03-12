@@ -536,6 +536,7 @@ private struct BookmarkIconButton: View {
     let faviconURL: URL?
     let action: () -> Void
     @State private var isHovered = false
+    @State private var faviconImage: NSImage?
 
     var body: some View {
         Button(action: action) {
@@ -544,19 +545,11 @@ private struct BookmarkIconButton: View {
                     .fill(Color.bgSurface.opacity(0.75))
                     .frame(width: 36, height: 36)
 
-                if let faviconURL {
-                    AsyncImage(url: faviconURL) { phase in
-                        if let image = phase.image {
-                            image
-                                .resizable()
-                                .scaledToFit()
-                                .frame(width: 20, height: 20)
-                        } else {
-                            fallbackFavicon
-                                .font(.system(size: 16, weight: .semibold))
-                                .foregroundStyle(tabManager.windowThemeColor)
-                        }
-                    }
+                if let faviconImage {
+                    Image(nsImage: faviconImage)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 20, height: 20)
                 } else {
                     fallbackFavicon
                         .font(.system(size: 16, weight: .semibold))
@@ -578,7 +571,19 @@ private struct BookmarkIconButton: View {
         .onHover { hovering in
             isHovered = hovering
         }
+        .onAppear {
+            loadFavicon()
+        }
         .hoverCursor(.pointingHand)
         .help(bookmark.title.isEmpty ? bookmark.url : bookmark.title)
+    }
+
+    private func loadFavicon() {
+        guard let url = faviconURL else { return }
+        Task {
+            if let image = await FaviconCache.shared.fetchImage(for: url) {
+                self.faviconImage = image
+            }
+        }
     }
 }

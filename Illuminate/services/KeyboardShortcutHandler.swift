@@ -5,18 +5,79 @@
 //  Created by MrBlankCoding on 3/8/26.
 //
 
-
-import Foundation
 import AppKit
+import Foundation
 
 final class KeyboardShortcutHandler {
+    private struct Shortcut {
+        enum Trigger {
+            case character(String)
+            case keyCode(UInt16)
+        }
+        let modifiers: NSEvent.ModifierFlags
+        let trigger: Trigger
+        let action: Notification.Name
+    }
+
+    /// Arrow key codes
+    private enum KeyCode {
+        static let leftArrow:  UInt16 = 123
+        static let rightArrow: UInt16 = 124
+        static let downArrow:  UInt16 = 125
+        static let upArrow:    UInt16 = 126
+    }
+
+    private let shortcuts: [Shortcut] = [
+        // ⌘ + character
+        .init(modifiers: .command, trigger: .character("t"),      action: .newTab),
+        .init(modifiers: .command, trigger: .character("w"),      action: .closeActiveTab),
+        .init(modifiers: .command, trigger: .character("l"),      action: .focusURLBar),
+        .init(modifiers: .command, trigger: .character("r"),      action: .reloadActiveTab),
+        .init(modifiers: .command, trigger: .character("s"),      action: .toggleSidebar),
+        .init(modifiers: .command, trigger: .character("b"),      action: .bookmarkTab),
+        .init(modifiers: .command, trigger: .character("f"),      action: .findInPage),
+        .init(modifiers: .command, trigger: .character("+"),      action: .zoomIn),
+        .init(modifiers: .command, trigger: .character("="),      action: .zoomIn),
+        .init(modifiers: .command, trigger: .character("-"),      action: .zoomOut),
+        .init(modifiers: .command, trigger: .character("0"),      action: .resetZoom),
+        // ⌘ + arrow keys
+        .init(modifiers: .command, trigger: .keyCode(KeyCode.leftArrow),  action: .goBack),
+        .init(modifiers: .command, trigger: .keyCode(KeyCode.rightArrow), action: .goForward),
+        .init(modifiers: .command, trigger: .keyCode(KeyCode.downArrow),  action: .nextTab),
+        .init(modifiers: .command, trigger: .keyCode(KeyCode.upArrow),    action: .previousTab),
+        // ⌘⇧ + character
+        .init(modifiers: [.command, .shift], trigger: .character("i"), action: .openDevTools),
+        .init(modifiers: [.command, .shift], trigger: .character("t"), action: .reopenTab),
+    ]
+
     private let notificationCenter: NotificationCenter
     private var eventMonitor: Any?
 
     init(notificationCenter: NotificationCenter = .default) {
         self.notificationCenter = notificationCenter
-        startMonitoring()
+        // Manual monitoring disabled to prevent double-triggering with SwiftUI Commands
+        // startMonitoring()
     }
+
+    func bookmarkTab() {
+        post(.bookmarkTab)
+    }
+
+    func openNewTab() { post(.newTab) }
+    func closeActiveTab() { post(.closeActiveTab) }
+    func reopenTab() { post(.reopenTab) }
+    func focusURLBar() { post(.focusURLBar) }
+    func reloadActiveTab() { post(.reloadActiveTab) }
+    func goBack() { post(.goBack) }
+    func goForward() { post(.goForward) }
+    func nextTab() { post(.nextTab) }
+    func previousTab() { post(.previousTab) }
+    func toggleSidebar() { post(.toggleSidebar) }
+    func findInPage() { post(.findInPage) }
+    func openDevTools() { post(.openDevTools) }
+    func zoomIn() { post(.zoomIn) }
+    func zoomOut() { post(.zoomOut) }
+    func resetZoom() { post(.resetZoom) }
 
     deinit {
         if let monitor = eventMonitor {
@@ -26,170 +87,70 @@ final class KeyboardShortcutHandler {
 
     private func startMonitoring() {
         eventMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            guard let self = self else { return event }
-            let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-            
-            if modifiers == [.command, .shift] {
-                if let chars = event.charactersIgnoringModifiers?.lowercased() {
-                    switch chars {
-                    case "i":
-                        self.openDevTools()
-                        return nil
-                    case "t":
-                        self.reopenTab()
-                        return nil
-                    default:
-                        break
-                    }
-                }
-            } else if modifiers == .command {
-                if let chars = event.charactersIgnoringModifiers?.lowercased() {
-                    switch chars {
-                    case "t":
-                        self.openNewTab()
-                        return nil
-                    case "w":
-                        self.closeActiveTab()
-                        return nil
-                    case "l":
-                        self.focusURLBar()
-                        return nil
-                    case "r":
-                        self.reloadActiveTab()
-                        return nil
-                    case "s":
-                        self.toggleSidebar()
-                        return nil
-                    case "b":
-                        self.bookmarkTab()
-                        return nil
-                    case "f":
-                        self.findInPage()
-                        return nil
-                    case "+", "=":
-                        self.zoomIn()
-                        return nil
-                    case "-":
-                        self.zoomOut()
-                        return nil
-                    case "0":
-                        self.resetZoom()
-                        return nil
-                    default:
-                        break
-                    }
-                }
-                
-                switch event.keyCode {
-                case 123: // Left Arrow
-                    self.goBack()
-                    return nil
-                case 124: // Right Arrow
-                    self.goForward()
-                    return nil
-                case 125: // Down Arrow
-                    self.nextTab()
-                    return nil
-                case 126: // Up Arrow
-                    self.previousTab()
-                    return nil
-                default:
-                    break
-                }
-            }
-            return event
+            self?.handle(event) ?? event
         }
     }
 
-    func openNewTab() {
-        notificationCenter.post(name: .newTab, object: nil)
+    // returns nil
+    private func handle(_ event: NSEvent) -> NSEvent? {
+        let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        let chars = event.charactersIgnoringModifiers?.lowercased()
+
+        for shortcut in shortcuts {
+            guard shortcut.modifiers == modifiers else { continue }
+            let matches: Bool
+            switch shortcut.trigger {
+            case .character(let c): matches = chars == c
+            case .keyCode(let code): matches = event.keyCode == code
+            }
+            if matches {
+                post(shortcut.action)
+                return nil
+            }
+        }
+        return event
     }
 
-    func focusURLBar() {
-        notificationCenter.post(name: .focusURLBar, object: nil)
-    }
-
-    func reloadActiveTab() {
-        notificationCenter.post(name: .reloadActiveTab, object: nil)
-    }
-
-    func goBack() {
-        notificationCenter.post(name: .goBack, object: nil)
-    }
-
-    func goForward() {
-        notificationCenter.post(name: .goForward, object: nil)
-    }
-
-    func bookmarkTab() {
-        notificationCenter.post(name: .bookmarkTab, object: nil)
-    }
-
-    func reopenTab() {
-        notificationCenter.post(name: .reopenTab, object: nil)
-    }
-
-    func nextTab() {
-        notificationCenter.post(name: .nextTab, object: nil)
-    }
-
-    func previousTab() {
-        notificationCenter.post(name: .previousTab, object: nil)
-    }
-
-    func closeActiveTab() {
-        notificationCenter.post(name: NSNotification.Name("closeActiveTab"), object: nil)
-    }
-
-    func toggleSidebar() {
-        notificationCenter.post(name: .toggleSidebar, object: nil)
-    }
-
-    func findInPage() {
-        notificationCenter.post(name: .findInPage, object: nil)
-    }
-
-    func zoomIn() {
-        notificationCenter.post(name: .zoomIn, object: nil)
-    }
-
-    func zoomOut() {
-        notificationCenter.post(name: .zoomOut, object: nil)
-    }
-
-    func resetZoom() {
-        notificationCenter.post(name: .resetZoom, object: nil)
-    }
-
-    func openDevTools() {
-        AppLog.ui("Shortcut: Command-Shift-I captured")
-        notificationCenter.post(name: .openDevTools, object: nil)
+    private func post(_ name: Notification.Name) {
+        AppLog.ui("Shortcut fired: \(name.rawValue)")
+        notificationCenter.post(name: name, object: nil)
     }
 }
 
+private extension Notification.Name {
+    static let closeActiveTab = Notification.Name("closeActiveTab")
+}
+
+
+// TODO: Create an actual manager
 final class BackgroundResourceManager {
     func start() {
         AppLog.info("BackgroundResourceManager started")
     }
 }
 
+// TODO: Replace logging stub with real integrity/policy checks.
 final class RuntimeSecurityMonitor {
+
     private let notificationCenter: NotificationCenter
-    private var observer: NSObjectProtocol?
+    private var observers: [NSObjectProtocol] = []
 
     init(notificationCenter: NotificationCenter = .default) {
         self.notificationCenter = notificationCenter
     }
 
     func startMonitoring() {
-        observer = notificationCenter.addObserver(forName: .newTab, object: nil, queue: .main) { _ in
-            AppLog.security("Runtime check passed for New Tab action")
+        observe(.newTab) { AppLog.security("Runtime check passed for New Tab action") }
+    }
+
+    private func observe(_ name: Notification.Name, handler: @escaping () -> Void) {
+        let token = notificationCenter.addObserver(forName: name, object: nil, queue: .main) { _ in
+            handler()
         }
+        observers.append(token)
     }
 
     deinit {
-        if let observer {
-            notificationCenter.removeObserver(observer)
-        }
+        observers.forEach { notificationCenter.removeObserver($0) }
     }
 }

@@ -60,7 +60,7 @@ final class ContentViewModel: ObservableObject {
             destination = absolute
         } else if trimmed.contains(" ") || !trimmed.contains(".") {
             let query = trimmed.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? trimmed
-            destination = URL(string: "https://www.google.com/search?q=\(query)")
+            destination = URL(string: "https://www.google.com/search?q=\(query)&sourceid=chrome")
         } else {
             destination = URL(string: "https://\(trimmed)")
         }

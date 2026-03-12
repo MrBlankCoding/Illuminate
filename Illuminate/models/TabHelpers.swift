@@ -29,6 +29,12 @@ struct TabTransferPayload: Codable, Sendable {
     var groupID: UUID?
 }
 
+struct SessionState: Codable, Sendable {
+    let tabs: [TabTransferPayload]
+    let tabGroups: [TabGroup]
+    let activeTabID: UUID?
+}
+
 enum TabError: LocalizedError {
     case webViewOwnershipConflict
 

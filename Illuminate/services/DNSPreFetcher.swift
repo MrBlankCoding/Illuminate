@@ -23,7 +23,8 @@ final class DNSPreFetcher {
         let script = """
         (function() {
             try {
-                const anchors = Array.from(document.querySelectorAll('a[href]'));
+                // Limit to first 100 links to avoid performance issues on huge pages
+                const anchors = Array.from(document.querySelectorAll('a[href]')).slice(0, 100);
                 const urls = anchors.map(a => a.href).filter(Boolean);
                 const hosts = Array.from(new Set(urls.map(u => {
                     try {
@@ -31,7 +32,7 @@ final class DNSPreFetcher {
                     } catch (e) {
                         return null;
                     }
-                }).filter(Boolean)));
+                }).filter(h => h && h !== window.location.hostname)));
                 return hosts;
             } catch (e) {
                 return [];
@@ -47,16 +48,22 @@ final class DNSPreFetcher {
             }
             
             guard let hosts = result as? [String], !hosts.isEmpty else { return }
-            self.resolveHosts(hosts)
+            
+            Task {
+                await self.resolveHosts(hosts)
+            }
         }
     }
     
-    private func resolveHosts(_ hosts: [String]) {
+    private func resolveHosts(_ hosts: [String]) async {
         let uniqueHosts = Array(Set(hosts))
         
-        queue.async {
+        // Parallelize resolution using TaskGroup
+        await withTaskGroup(of: Void.self) { group in
             for host in uniqueHosts {
-                self.resolve(host: host)
+                group.addTask(priority: .background) {
+                    self.resolve(host: host)
+                }
             }
         }
     }

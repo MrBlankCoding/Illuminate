@@ -6,108 +6,96 @@
 //
 
 import SwiftUI
-import SwiftData
 
 struct AppCommands: Commands {
     let shortcutHandler: KeyboardShortcutHandler
 
     var body: some Commands {
+
         CommandMenu("Browser") {
-            Button("New Tab") {
-                shortcutHandler.openNewTab()
+            Group {
+                BrowserCommand("New Tab",            shortcut: "t")                     { .newTab }
+                BrowserCommand("Close Tab",          shortcut: "w")                     { .closeActiveTab }
+                BrowserCommand("Reopen Closed Tab",  shortcut: "t", modifiers: [.command, .shift]) { .reopenTab }
+                BrowserCommand("Focus URL Bar",      shortcut: "l")                     { .focusURLBar }
+                BrowserCommand("Refresh Page",       shortcut: "r")                     { .reloadActiveTab }
             }
-            .keyboardShortcut("t", modifiers: .command)
-
-            Button("Close Tab") {
-                shortcutHandler.closeActiveTab()
-            }
-            .keyboardShortcut("w", modifiers: .command)
-
-            Button("Reopen Closed Tab") {
-                shortcutHandler.reopenTab()
-            }
-            .keyboardShortcut("t", modifiers: [.command, .shift])
-
-            Button("Focus URL Bar") {
-                shortcutHandler.focusURLBar()
-            }
-            .keyboardShortcut("l", modifiers: .command)
-
-            Button("Refresh Page") {
-                shortcutHandler.reloadActiveTab()
-            }
-            .keyboardShortcut("r", modifiers: .command)
-            
-            Divider()
-            
-            Button("Go Back") {
-                shortcutHandler.goBack()
-            }
-            .keyboardShortcut(.leftArrow, modifiers: .command)
-            
-            Button("Go Forward") {
-                shortcutHandler.goForward()
-            }
-            .keyboardShortcut(.rightArrow, modifiers: .command)
-            
-            Divider()
-            
-            Button("Next Tab") {
-                shortcutHandler.nextTab()
-            }
-            .keyboardShortcut(.downArrow, modifiers: .command)
-            
-            Button("Previous Tab") {
-                shortcutHandler.previousTab()
-            }
-            .keyboardShortcut(.upArrow, modifiers: .command)
-            
-            Divider()
-            
-            Button("Toggle Sidebar") {
-                shortcutHandler.toggleSidebar()
-            }
-            .keyboardShortcut("s", modifiers: .command)
 
             Divider()
 
-            Button("Find in Page") {
-                shortcutHandler.findInPage()
+            Group {
+                BrowserCommand("Go Back",    shortcut: .leftArrow)  { .goBack }
+                BrowserCommand("Go Forward", shortcut: .rightArrow) { .goForward }
             }
-            .keyboardShortcut("f", modifiers: .command)
 
             Divider()
 
-            Button("Developer Tools") {
-                shortcutHandler.openDevTools()
+            Group {
+                BrowserCommand("Next Tab",     shortcut: .downArrow) { .nextTab }
+                BrowserCommand("Previous Tab", shortcut: .upArrow)   { .previousTab }
             }
-            .keyboardShortcut("i", modifiers: [.command, .shift])
+
+            Divider()
+
+            BrowserCommand("Toggle Sidebar", shortcut: "s") { .toggleSidebar }
+
+            Divider()
+
+            BrowserCommand("Find in Page",    shortcut: "f")                          { .findInPage }
+            BrowserCommand("Developer Tools", shortcut: "i", modifiers: [.command, .shift]) { .openDevTools }
         }
 
-        CommandGroup(replacing: .newItem) {
-            // Removes 'New Window' and 'New Private Window'
-        }
-        
+        CommandGroup(replacing: .newItem) {}
         CommandGroup(replacing: .toolbar) {
-            // Removes 'Show Tab Bar' and 'Show All Tabs'
-            Button("Zoom In") {
-                shortcutHandler.zoomIn()
-            }
-            .keyboardShortcut("+", modifiers: .command)
-            
-            Button("Zoom Out") {
-                shortcutHandler.zoomOut()
-            }
-            .keyboardShortcut("-", modifiers: .command)
-            
-            Button("Actual Size") {
-                shortcutHandler.resetZoom()
-            }
-            .keyboardShortcut("0", modifiers: .command)
+            BrowserCommand("Zoom In",     shortcut: "+") { .zoomIn }
+            BrowserCommand("Zoom Out",    shortcut: "-") { .zoomOut }
+            BrowserCommand("Actual Size", shortcut: "0") { .resetZoom }
         }
-        
-        CommandGroup(replacing: .sidebar) {
-            // Removes 'Show Sidebar' (system version)
-        }
+
+        CommandGroup(replacing: .sidebar) {}
     }
+}
+
+private struct BrowserCommand: View {
+    private let title: String
+    private let notification: () -> Notification.Name
+    private let keyEquivalent: KeyEquivalent
+    private let modifiers: EventModifiers
+
+    init(
+        _ title: String,
+        shortcut: String,
+        modifiers: EventModifiers = .command,
+        _ notification: @escaping () -> Notification.Name
+    ) {
+        self.title = title
+        self.keyEquivalent = KeyEquivalent(shortcut.first ?? " ")
+        self.modifiers = modifiers
+        self.notification = notification
+    }
+
+    init(
+        _ title: String,
+        shortcut: KeyEquivalent,
+        modifiers: EventModifiers = .command,
+        _ notification: @escaping () -> Notification.Name
+    ) {
+        self.title = title
+        self.keyEquivalent = shortcut
+        self.modifiers = modifiers
+        self.notification = notification
+    }
+
+    var body: some View {
+        Button(title) { post() }
+            .keyboardShortcut(keyEquivalent, modifiers: modifiers)
+    }
+
+    private func post() {
+        NotificationCenter.default.post(name: notification(), object: nil)
+    }
+}
+
+private extension Notification.Name {
+    static let closeActiveTab = Notification.Name("closeActiveTab")
 }

@@ -168,8 +168,13 @@ struct ContentView: View {
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 
                     if activeTab.lastNavigationHadNetworkError {
-                        NoInternetView(message: activeTab.lastNetworkErrorMessage ?? "Please check your connection and try again.")
-                            .padding(30)
+                        if activeTab.isDNSError {
+                            SiteUnreachableView(host: activeTab.url?.host ?? "This site")
+                                .padding(30)
+                        } else {
+                            NoInternetView(message: activeTab.lastNetworkErrorMessage ?? "Please check your connection and try again.")
+                                .padding(30)
+                        }
                     }
                 } else {
                     PlaceholderView()

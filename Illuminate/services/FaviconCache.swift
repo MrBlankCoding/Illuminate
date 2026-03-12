@@ -54,6 +54,23 @@ final class FaviconCache {
         return nil
     }
 
+    func fetchImage(for url: URL) async -> NSImage? {
+        if let cached = image(for: url) {
+            return cached
+        }
+
+        do {
+            let (data, _) = try await URLSession.shared.data(from: url)
+            if let image = NSImage(data: data) {
+                set(image, for: url)
+                return image
+            }
+        } catch {
+            AppLog.info("Failed to fetch favicon for \(url.absoluteString): \(error.localizedDescription)")
+        }
+        return nil
+    }
+
     func set(_ image: NSImage, for key: URL) {
         lock.lock()
         defer { lock.unlock() }
