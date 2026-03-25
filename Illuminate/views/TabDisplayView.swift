@@ -25,7 +25,7 @@ struct TabDisplayView: View {
     var body: some View {
         ZStack(alignment: .topLeading) {
             VStack(spacing: 0) {
-                VStack(spacing: 0) {
+                VStack(alignment: .leading, spacing: 0) {
                     HStack(spacing: 0) {
                         TrafficLightsView()
                             .padding(.leading, 4)
@@ -75,7 +75,7 @@ struct TabDisplayView: View {
             }
             .padding(.bottom, 12)
             }
-            .padding(.horizontal, 12)
+            .padding(.horizontal, 8)
             .frame(maxHeight: .infinity)
             .contentShape(Rectangle())
             .onTapGesture {
@@ -97,21 +97,10 @@ struct TabDisplayView: View {
         .background(
             ZStack {
                 Rectangle()
-                    .fill(.ultraThinMaterial)
-                    .opacity(0.4)
+                    .fill(.thinMaterial)
+                    .ignoresSafeArea()
 
                 tabManager.windowThemeColor.opacity(0.12)
-
-                EllipticalGradient(
-                    gradient: Gradient(colors: [
-                        tabManager.windowThemeColor.opacity(0.4),
-                        tabManager.windowThemeColor.opacity(0.15),
-                        Color.clear
-                    ]),
-                    center: .topLeading,
-                    startRadiusFraction: 0,
-                    endRadiusFraction: 1.2
-                )
             }
         )
         .overlay(
@@ -127,7 +116,7 @@ struct TabDisplayView: View {
     }
 
     private var tabsListContent: some View {
-        VStack(alignment: .leading, spacing: 5) {
+        LazyVStack(alignment: .leading, spacing: 5) {
             newTabButton
             ForEach(tabManager.tabGroups) { group in
                 TabGroupSection(group: group)
@@ -161,7 +150,7 @@ struct TabDisplayView: View {
             .padding(.vertical, 4)
             .transition(.scale.combined(with: .opacity))
     }
-    
+    // new tab or tab new?
     private var newTabButton: some View {
         Button {
             tabManager.createTab()
@@ -184,26 +173,20 @@ struct TabDisplayView: View {
                 Spacer(minLength: 0)
                 Color.clear.frame(width: 28, height: 28)
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 10)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
             .background(
-                RoundedRectangle(cornerRadius: 12)
+                RoundedRectangle(cornerRadius: 8)
                     .fill(hoveredNewTabButton ? Color.bgSurface.opacity(0.5) : Color.clear)
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 12)
+                RoundedRectangle(cornerRadius: 8)
                     .strokeBorder(
                         style: StrokeStyle(lineWidth: 1, dash: [4, 3])
                     )
                     .foregroundStyle(Color.borderGlass.opacity(hoveredNewTabButton ? 1.0 : 0.5))
             )
-            .scaleEffect(hoveredNewTabButton ? 1.02 : 1.0)
-            .shadow(
-                color: hoveredNewTabButton ? tabManager.windowThemeColor.opacity(0.18) : .clear,
-                radius: hoveredNewTabButton ? 8 : 0,
-                y: hoveredNewTabButton ? 2 : 0
-            )
-            .animation(.spring(response: 0.2, dampingFraction: 0.82), value: hoveredNewTabButton)
+            .animation(.easeInOut(duration: 0.15), value: hoveredNewTabButton)
         }
         .buttonStyle(.plain)
         .onHover { hovering in

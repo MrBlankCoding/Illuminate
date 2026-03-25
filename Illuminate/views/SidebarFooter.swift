@@ -39,7 +39,6 @@ struct SidebarFooter: View {
                                     Circle()
                                         .strokeBorder(isPiPHovered ? Color.borderGlass : Color.clear, lineWidth: 1)
                                 )
-                                .scaleEffect(isPiPHovered ? 1.06 : 1.0)
                                 .animation(.easeInOut(duration: 0.14), value: isPiPHovered)
                         }
                         .buttonStyle(.plain)
@@ -72,7 +71,6 @@ struct SidebarFooter: View {
                                 Circle()
                                     .strokeBorder(isSettingsHovered ? Color.borderGlass : Color.clear, lineWidth: 1)
                             )
-                            .scaleEffect(isSettingsHovered ? 1.06 : 1.0)
                             .animation(.easeInOut(duration: 0.14), value: isSettingsHovered)
                     }
                     .buttonStyle(.plain)
@@ -97,7 +95,6 @@ struct SidebarFooter: View {
                                     Circle()
                                         .strokeBorder(isDownloadsHovered ? Color.borderGlass : Color.clear, lineWidth: 1)
                                 )
-                                .scaleEffect(isDownloadsHovered ? 1.06 : 1.0)
                                 .animation(.easeInOut(duration: 0.14), value: isDownloadsHovered)
                         }
                         .buttonStyle(.plain)

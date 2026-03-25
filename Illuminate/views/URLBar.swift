@@ -100,6 +100,7 @@ struct URLBar: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
+        .frame(width: isFocused ? 380 : nil, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: 12)
                 .fill(
@@ -127,7 +128,7 @@ struct URLBar: View {
         )
         .focusRing(isFocused)
         .font(.system(size: 14, weight: .medium, design: .rounded))
-        .animation(.easeInOut(duration: 0.15), value: isFocused)
+        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: isFocused)
         .hoverCursor(.iBeam)
         .onAppear {
             if addressText.isEmpty {

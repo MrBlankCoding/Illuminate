@@ -22,13 +22,15 @@ struct ContentView: View {
             HStack(alignment: .top, spacing: 0) {
                 if tabManager.showSidebar {
                     TabDisplayView()
-                        .frame(width: 240)
+                        .frame(width: 220)
                         .frame(maxHeight: .infinity)
                         .transition(.move(edge: .leading).combined(with: .opacity))
+                        .zIndex(2)
                 }
 
                 browserContent
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .zIndex(1)
             }
             .overlayPreferenceValue(TabRowFramePreferenceKey.self) { preferences in
                 GeometryReader { geometry in
@@ -99,11 +101,10 @@ struct ContentView: View {
                         }
                         .mask(
                             HStack(spacing: 0) {
-                                let isNewTabPage = tabManager.activeTab?.url == nil
-                                let showInSidebar = isNewTabPage && tabManager.showBackgroundBehindSidebar
+                                let showInSidebar = tabManager.showBackgroundBehindSidebar
                                 
                                 Rectangle()
-                                    .frame(width: tabManager.showSidebar ? 240 : 0)
+                                    .frame(width: tabManager.showSidebar ? 220 : 0)
                                     .opacity(showInSidebar ? 1.0 : 0.0)
                                 Rectangle()
                             }
@@ -162,12 +163,11 @@ struct ContentView: View {
 
             VStack(spacing: 0) {
                 ZStack {
-                    ForEach(tabManager.tabs) { tab in
-                        WebView(tab: tab)
+                    if let activeTab = tabManager.activeTab {
+                        WebView(tab: activeTab)
+                            .id(activeTab.id)
                             .environmentObject(viewModel)
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
-                            .opacity(tab.id == tabManager.activeTabID ? 1 : 0)
-                            .accessibilityHidden(tab.id != tabManager.activeTabID)
                     }
                     
                     if let activeTab = tabManager.activeTab, activeTab.lastNavigationHadNetworkError {

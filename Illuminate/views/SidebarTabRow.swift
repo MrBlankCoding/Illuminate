@@ -33,13 +33,13 @@ struct SidebarTabRow: View {
                 Spacer(minLength: 0)
                 Color.clear.frame(width: 28, height: 28)
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 10)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
             .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(isActive ? Color.bgElevated : (tab.groupID != nil ? Color.primary.opacity(0.12) : (isHovered ? Color.bgSurface.opacity(0.85) : Color.clear)))
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(isActive ? Color.bgElevated : (tab.groupID != nil ? Color.primary.opacity(0.12) : (isHovered ? tabManager.windowThemeColor.opacity(0.15) : Color.clear)))
             )
-            .contentShape(RoundedRectangle(cornerRadius: 12))
+            .contentShape(RoundedRectangle(cornerRadius: 8))
             .onTapGesture {
                 onSelect()
             }
@@ -64,35 +64,13 @@ struct SidebarTabRow: View {
                 .transition(.opacity)
             }
         }
-        .onAppear {
-            tab.loadAssets()
-        }
         .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            isHovered ? tabManager.windowThemeColor.opacity(0.18) : .clear,
-                            .clear
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
+            RoundedRectangle(cornerRadius: 8)
+                .strokeBorder(isActive ? Color.borderGlass : (isHovered ? Color.borderGlass.opacity(0.6) : Color.clear), lineWidth: 1)
                 .allowsHitTesting(false)
         )
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .strokeBorder(isActive ? Color.borderGlass : (isHovered ? Color.borderGlass.opacity(0.4) : Color.clear), lineWidth: 1)
-                .allowsHitTesting(false)
-        )
-        .scaleEffect(isHovered ? 1.02 : 1.0)
-        .shadow(
-            color: isHovered ? tabManager.windowThemeColor.opacity(0.25) : .clear,
-            radius: isHovered ? 10 : 0,
-            y: isHovered ? 4 : 0
-        )
-        .animation(.spring(response: 0.22, dampingFraction: 0.8), value: isHovered)
+        .animation(.easeInOut(duration: 0.15), value: isHovered)
+        .animation(.easeInOut(duration: 0.15), value: isActive)
         .contextMenu {
             Button("Copy Link") {
                 onCopyLink()

@@ -116,25 +116,20 @@ final class FaviconCache: @unchecked Sendable {
     }
 
     nonisolated func fetchImage(for url: URL) async -> NSImage? {
-        NSLog("[FaviconCache] fetchImage for \(url.absoluteString)")
         if let cached = image(for: url) {
-            NSLog("[FaviconCache] Found in memory/disk cache for \(url.absoluteString)")
             return cached
         }
 
         let requestKey = normalizedRequestKey(for: url)
-        NSLog("[FaviconCache] requestKey: '\(requestKey)'")
 
         do {
             let data = try await inFlightRequests.value(for: requestKey) { [fetchData] key in
-                NSLog("[FaviconCache] Calling fetchData for \(key)")
                 return try await fetchData(key)
             }
 
             guard let fetchedImage = await MainActor.run(body: {
                 NSImage(data: data)
             }) else {
-                NSLog("[FaviconCache] Failed to decode image data for \(url.absoluteString)")
                 return nil
             }
 
@@ -145,7 +140,6 @@ final class FaviconCache: @unchecked Sendable {
             set(fetchedImage, for: url)
             return fetchedImage
         } catch {
-            NSLog("[FaviconCache] Failed to fetch favicon for \(url.absoluteString): \(error.localizedDescription)")
         }
         return nil
     }
