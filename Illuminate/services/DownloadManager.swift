@@ -29,11 +29,20 @@ struct DownloadTask: Identifiable {
 
 final class DownloadManager: NSObject, ObservableObject, WKDownloadDelegate {
     static let shared = DownloadManager()
+    static let downloadsDidChangeNotification = Notification.Name("DownloadManager.downloadsDidChange")
     
     @Published var downloads: [DownloadTask] = []
     
     private override init() {
         super.init()
+    }
+
+    private func notifyDownloadsDidChange() {
+        NotificationCenter.default.post(
+            name: Self.downloadsDidChangeNotification,
+            object: self,
+            userInfo: ["hasActiveDownloads": downloads.contains { !$0.isCompleted && !$0.isFailed }]
+        )
     }
     
     func startDownload(from url: URL, to destinationURL: URL) {
@@ -54,9 +63,11 @@ final class DownloadManager: NSObject, ObservableObject, WKDownloadDelegate {
         
         if Thread.isMainThread {
             self.downloads.append(task)
+            notifyDownloadsDidChange()
         } else {
             DispatchQueue.main.sync {
                 self.downloads.append(task)
+                self.notifyDownloadsDidChange()
             }
         }
         
@@ -71,6 +82,7 @@ final class DownloadManager: NSObject, ObservableObject, WKDownloadDelegate {
                     if let index = self.downloads.firstIndex(where: { $0.id == id }) {
                         self.downloads[index].isFailed = true
                         self.downloads[index].error = error
+                        self.notifyDownloadsDidChange()
                     }
                 }
                 return
@@ -91,6 +103,7 @@ final class DownloadManager: NSObject, ObservableObject, WKDownloadDelegate {
                     if let index = self.downloads.firstIndex(where: { $0.id == id }) {
                         self.downloads[index].isFailed = true
                         self.downloads[index].error = error
+                        self.notifyDownloadsDidChange()
                     }
                 }
                 return
@@ -100,6 +113,7 @@ final class DownloadManager: NSObject, ObservableObject, WKDownloadDelegate {
                 if let index = self.downloads.firstIndex(where: { $0.id == id }) {
                     self.downloads[index].isCompleted = true
                     self.downloads[index].progress = 1.0
+                    self.notifyDownloadsDidChange()
                 }
             }
         }.resume()
@@ -130,9 +144,11 @@ final class DownloadManager: NSObject, ObservableObject, WKDownloadDelegate {
         
         if Thread.isMainThread {
             self.downloads.append(task)
+            notifyDownloadsDidChange()
         } else {
             DispatchQueue.main.sync {
                 self.downloads.append(task)
+                self.notifyDownloadsDidChange()
             }
         }
         
@@ -147,6 +163,7 @@ final class DownloadManager: NSObject, ObservableObject, WKDownloadDelegate {
                     if let index = self.downloads.firstIndex(where: { $0.id == id }) {
                         self.downloads[index].isFailed = true
                         self.downloads[index].error = error
+                        self.notifyDownloadsDidChange()
                     }
                 }
                 return
@@ -157,7 +174,7 @@ final class DownloadManager: NSObject, ObservableObject, WKDownloadDelegate {
             }
             
             let fileManager = FileManager.default
-            let downloadsFolder = fileManager.urls(for: .downloadsDirectory, in: .userDomainMask).first!
+            let downloadsFolder = fileManager.illuminateDownloadsDirectory()
             let suggestedName = (response?.suggestedFilename).flatMap { $0.isEmpty ? nil : $0 } ?? filename
             var destinationURL = downloadsFolder.appendingPathComponent(suggestedName)
             var counter = 1
@@ -176,6 +193,7 @@ final class DownloadManager: NSObject, ObservableObject, WKDownloadDelegate {
                     if let index = self.downloads.firstIndex(where: { $0.id == id }) {
                         self.downloads[index].isFailed = true
                         self.downloads[index].error = error
+                        self.notifyDownloadsDidChange()
                     }
                 }
                 return
@@ -186,6 +204,7 @@ final class DownloadManager: NSObject, ObservableObject, WKDownloadDelegate {
                     self.downloads[index].destinationURL = destinationURL
                     self.downloads[index].isCompleted = true
                     self.downloads[index].progress = 1.0
+                    self.notifyDownloadsDidChange()
                 }
             }
         }.resume()
@@ -210,9 +229,11 @@ final class DownloadManager: NSObject, ObservableObject, WKDownloadDelegate {
         
         if Thread.isMainThread {
             self.downloads.append(task)
+            notifyDownloadsDidChange()
         } else {
             DispatchQueue.main.sync {
                 self.downloads.append(task)
+                self.notifyDownloadsDidChange()
             }
         }
         
@@ -222,16 +243,18 @@ final class DownloadManager: NSObject, ObservableObject, WKDownloadDelegate {
     func clearDownloads() {
         if Thread.isMainThread {
             self.downloads.removeAll()
+            notifyDownloadsDidChange()
         } else {
             DispatchQueue.main.sync {
                 self.downloads.removeAll()
+                self.notifyDownloadsDidChange()
             }
         }
     }
     
     func download(_ download: WKDownload, decideDestinationUsing response: URLResponse, suggestedFilename: String, completionHandler: @escaping (URL?) -> Void) {
         let fileManager = FileManager.default
-        let downloadsFolder = fileManager.urls(for: .downloadsDirectory, in: .userDomainMask).first!
+        let downloadsFolder = fileManager.illuminateDownloadsDirectory()
         let destinationURL = downloadsFolder.appendingPathComponent(suggestedFilename)
         var finalURL = destinationURL
         var counter = 1
@@ -245,6 +268,7 @@ final class DownloadManager: NSObject, ObservableObject, WKDownloadDelegate {
         DispatchQueue.main.async {
             if let index = self.downloads.firstIndex(where: { $0.download === download }) {
                 self.downloads[index].destinationURL = finalURL
+                self.notifyDownloadsDidChange()
             }
         }
         
@@ -257,6 +281,7 @@ final class DownloadManager: NSObject, ObservableObject, WKDownloadDelegate {
         DispatchQueue.main.async {
             if let index = self.downloads.firstIndex(where: { $0.download === download }) {
                 self.downloads[index].progress = progress
+                self.notifyDownloadsDidChange()
             }
         }
     }
@@ -266,6 +291,7 @@ final class DownloadManager: NSObject, ObservableObject, WKDownloadDelegate {
             if let index = self.downloads.firstIndex(where: { $0.download === download }) {
                 self.downloads[index].isCompleted = true
                 self.downloads[index].progress = 1.0
+                self.notifyDownloadsDidChange()
             }
         }
     }
@@ -275,6 +301,7 @@ final class DownloadManager: NSObject, ObservableObject, WKDownloadDelegate {
             if let index = self.downloads.firstIndex(where: { $0.download === download }) {
                 self.downloads[index].isFailed = true
                 self.downloads[index].error = error
+                self.notifyDownloadsDidChange()
             }
         }
     }

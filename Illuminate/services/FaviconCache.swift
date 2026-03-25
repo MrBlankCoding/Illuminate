@@ -9,8 +9,6 @@
 import AppKit
 import Foundation
 
-// THis works for now but I think I want to build on this later
-
 final class FaviconCache: @unchecked Sendable {
     private enum FaviconFetchError: LocalizedError {
         case unsupportedScheme(String?)
@@ -26,37 +24,61 @@ final class FaviconCache: @unchecked Sendable {
         }
     }
 
+    private enum DataURLDecoder {
+        static func decode(_ rawURL: String) -> Data? {
+            guard rawURL.hasPrefix("data:"),
+                  let commaIndex = rawURL.firstIndex(of: ",")
+            else {
+                return nil
+            }
+
+            let metadata = rawURL[..<commaIndex]
+            let payload = String(rawURL[rawURL.index(after: commaIndex)...])
+
+            if metadata.localizedCaseInsensitiveContains(";base64") {
+                let cleanPayload = payload.removingPercentEncoding ?? payload
+                return Data(base64Encoded: cleanPayload, options: .ignoreUnknownCharacters)
+            }
+
+            return (payload.removingPercentEncoding ?? payload).data(using: .utf8)
+        }
+    }
+
     static let shared = FaviconCache(capacity: 128)
 
     private let capacity: Int
     nonisolated(unsafe) private var storage: [URL: NSImage] = [:]
     nonisolated(unsafe) private var order: [URL] = []
     private let lock = NSLock()
-    private let fileManager = FileManager.default
     private let cacheURL: URL
-    private let fetchData: @Sendable (URL) async throws -> Data
-    private let inFlightRequests = AsyncRequestDeduplicator<URL, NSImage?>()
+    private let fetchData: @Sendable (String) async throws -> Data
+    private let inFlightRequests = AsyncRequestDeduplicator<String, Data>()
 
     init(
         capacity: Int,
         cacheDirectory: URL? = nil,
-        fetchData: (@Sendable (URL) async throws -> Data)? = nil
+        fetchData: (@Sendable (String) async throws -> Data)? = nil
     ) {
         self.capacity = max(8, capacity)
         if let fetchData {
             self.fetchData = fetchData
         } else {
-            self.fetchData = { url in
+            self.fetchData = { rawURL in
+                if rawURL.hasPrefix("data:") {
+                    guard let data = DataURLDecoder.decode(rawURL) else {
+                        throw FaviconFetchError.invalidDataURL
+                    }
+                    return data
+                }
+
+                guard let url = URL(string: rawURL) else {
+                    throw FaviconFetchError.invalidDataURL
+                }
+
                 switch url.scheme?.lowercased() {
                 case "http", "https":
                     let (data, _) = try await URLSession.shared.data(from: url)
                     return data
-                case "data":
-                    do {
-                        return try Data(contentsOf: url)
-                    } catch {
-                        throw FaviconFetchError.invalidDataURL
-                    }
                 default:
                     throw FaviconFetchError.unsupportedScheme(url.scheme)
                 }
@@ -66,12 +88,12 @@ final class FaviconCache: @unchecked Sendable {
         if let customDir = cacheDirectory {
             self.cacheURL = customDir
         } else {
-            let paths = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask)
-            let appSupport = paths[0].appendingPathComponent("Illuminate", isDirectory: true)
-            cacheURL = appSupport.appendingPathComponent("Favicons", isDirectory: true)
+            cacheURL = FileManager.default
+                .illuminateAppSupportDirectory()
+                .appendingPathComponent("Favicons", isDirectory: true)
         }
         
-        try? fileManager.createDirectory(at: cacheURL, withIntermediateDirectories: true)
+        try? FileManager.default.createDirectory(at: cacheURL, withIntermediateDirectories: true)
     }
 
     nonisolated func image(for key: URL) -> NSImage? {
@@ -94,25 +116,43 @@ final class FaviconCache: @unchecked Sendable {
     }
 
     nonisolated func fetchImage(for url: URL) async -> NSImage? {
+        NSLog("[FaviconCache] fetchImage for \(url.absoluteString)")
         if let cached = image(for: url) {
+            NSLog("[FaviconCache] Found in memory/disk cache for \(url.absoluteString)")
             return cached
         }
 
-        do {
-            return try await inFlightRequests.value(for: url) { [self] in
-                if let cached = image(for: url) {
-                    return cached
-                }
+        let requestKey = normalizedRequestKey(for: url)
+        NSLog("[FaviconCache] requestKey: '\(requestKey)'")
 
-                let data = try await fetchData(url)
-                guard let image = NSImage(data: data) else { return nil }
-                set(image, for: url)
-                return image
+        do {
+            let data = try await inFlightRequests.value(for: requestKey) { [fetchData] key in
+                NSLog("[FaviconCache] Calling fetchData for \(key)")
+                return try await fetchData(key)
             }
+
+            guard let fetchedImage = await MainActor.run(body: {
+                NSImage(data: data)
+            }) else {
+                NSLog("[FaviconCache] Failed to decode image data for \(url.absoluteString)")
+                return nil
+            }
+
+            if let cached = image(for: url) {
+                return cached
+            }
+
+            set(fetchedImage, for: url)
+            return fetchedImage
         } catch {
-            print("[Illuminate][INFO] Failed to fetch favicon for \(url.absoluteString): \(error.localizedDescription)")
+            NSLog("[FaviconCache] Failed to fetch favicon for \(url.absoluteString): \(error.localizedDescription)")
         }
         return nil
+    }
+
+    nonisolated private func normalizedRequestKey(for url: URL) -> String {
+        let s = url.absoluteString
+        return s.isEmpty ? "INVALID_URL" : s
     }
 
     nonisolated func set(_ image: NSImage, for key: URL) {
@@ -139,8 +179,17 @@ final class FaviconCache: @unchecked Sendable {
     }
     
     nonisolated private func diskURL(for key: URL) -> URL {
-        let name = key.absoluteString.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? UUID().uuidString
-        return cacheURL.appendingPathComponent(name).appendingPathExtension("png")
+        let name = normalizedRequestKey(for: key)
+        let hash = stableHash(name)
+        return cacheURL.appendingPathComponent(hash).appendingPathExtension("png")
+    }
+
+    nonisolated private func stableHash(_ string: String) -> String {
+        var hash: UInt64 = 5381
+        for byte in string.utf8 {
+            hash = ((hash << 5) &+ hash) &+ UInt64(byte)
+        }
+        return String(format: "%016llx", hash)
     }
     
     nonisolated private func saveToDisk(_ image: NSImage, key: URL) {
@@ -158,11 +207,15 @@ final class FaviconCache: @unchecked Sendable {
     nonisolated private func loadFromDisk(_ key: URL) -> NSImage? {
         let url = diskURL(for: key)
         guard let data = try? Data(contentsOf: url) else { return nil }
-        return NSImage(data: data)
+        guard let image = NSImage(data: data) else {
+            try? FileManager.default.removeItem(at: url)
+            return nil
+        }
+        return image
     }
     
     nonisolated private func removeFromDisk(_ key: URL) {
         let url = diskURL(for: key)
-        try? fileManager.removeItem(at: url)
+        try? FileManager.default.removeItem(at: url)
     }
 }

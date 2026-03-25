@@ -10,17 +10,13 @@
 // malware.test lolllll
 import Foundation
 
-final class SafeBrowsingManager {
-    static let shared = SafeBrowsingManager()
-
-    private let blockedHosts: Set<String> = [
+enum SafeBrowsingManager {
+    private static let blockedHosts: Set<String> = [
         "malware.test",
         "phishing.test"
     ]
 
-    private init() {}
-
-    func isUnsafe(_ url: URL) -> Bool {
+    static func isUnsafe(_ url: URL) -> Bool {
         guard let host = url.host?.lowercased() else {
             return false
         }

@@ -119,7 +119,7 @@ struct DownloadRow: View {
     }
     
     private func showInFinder() {
-        let downloadsFolder = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first!
+        let downloadsFolder = FileManager.default.illuminateDownloadsDirectory()
         let fileURL = task.destinationURL ?? downloadsFolder.appendingPathComponent(task.filename)
         NSWorkspace.shared.selectFile(fileURL.path, inFileViewerRootedAtPath: downloadsFolder.path)
     }

@@ -42,7 +42,9 @@ final class WebKitManager: ObservableObject {
         configuration.userContentController = WKUserContentController()
         configuration.preferences.setValue(true, forKey: "developerExtrasEnabled")
 
-        if let ruleList = AdBlockService.shared.contentRuleList {
+        let adBlockService = AdBlockService.shared
+        adBlockService.prepareIfNeeded()
+        if let ruleList = adBlockService.contentRuleList {
             configuration.userContentController.add(ruleList)
         }
 

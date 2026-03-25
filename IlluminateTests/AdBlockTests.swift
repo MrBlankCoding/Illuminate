@@ -20,6 +20,7 @@ struct AdBlockTests {
 
     @Test func testContentRuleListCreation() async throws {
         let adBlock = AdBlockService(userDefaults: createTestUserDefaults())
+        adBlock.prepareIfNeeded()
         
         // Give it more time for potentially large EasyList parsing and compilation
         var attempts = 0
@@ -42,6 +43,7 @@ struct AdBlockTests {
         
         // Enable
         adBlock.isEnabled = true
+        adBlock.prepareIfNeeded()
         
         var attempts = 0
         while adBlock.contentRuleList == nil && attempts < 10 {
@@ -59,6 +61,7 @@ struct AdBlockTests {
 
     @Test func testAllowlist() async throws {
         let adBlock = AdBlockService(userDefaults: createTestUserDefaults())
+        adBlock.prepareIfNeeded()
         
         var attempts = 0
         while adBlock.contentRuleList == nil && attempts < 10 {

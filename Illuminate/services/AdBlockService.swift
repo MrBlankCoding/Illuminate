@@ -17,7 +17,11 @@ final class AdBlockService: ObservableObject {
     @Published var isEnabled: Bool = true {
         didSet {
             userDefaults.set(isEnabled, forKey: "adBlockEnabled")
-            updateContentRuleList()
+            if isEnabled {
+                prepareIfNeeded()
+            } else {
+                clearContentRuleList()
+            }
         }
     }
     
@@ -28,6 +32,8 @@ final class AdBlockService: ObservableObject {
     private var allowlistedHosts: Set<String> = []
     private let userDefaults: UserDefaults
     private let ruleListIdentifier: String
+    private var hasPreparedRuleList = false
+    private var isPreparingRuleList = false
 
     init(
         userDefaults: UserDefaults = .standard,
@@ -38,26 +44,29 @@ final class AdBlockService: ObservableObject {
         let storedEnabled = userDefaults.object(forKey: "adBlockEnabled") as? Bool ?? true
         self.isEnabled = storedEnabled
         loadDefaultRules()
-        
-        if storedEnabled {
-            // Initial compilation if not found
-            WKContentRuleListStore.default().lookUpContentRuleList(forIdentifier: ruleListIdentifier) { [weak self] list, _ in
-                if let list = list {
-                    DispatchQueue.main.async {
-                        self?.contentRuleList = list
-                    }
-                } else {
-                    self?.updateContentRuleList()
+    }
+
+    func prepareIfNeeded() {
+        guard isEnabled, !hasPreparedRuleList, !isPreparingRuleList else { return }
+        isPreparingRuleList = true
+
+        WKContentRuleListStore.default().lookUpContentRuleList(forIdentifier: ruleListIdentifier) { [weak self] list, _ in
+            guard let self else { return }
+            if let list = list {
+                DispatchQueue.main.async {
+                    self.contentRuleList = list
+                    self.hasPreparedRuleList = true
+                    self.isPreparingRuleList = false
                 }
+            } else {
+                self.updateContentRuleList()
             }
         }
     }
 
     private func updateContentRuleList() {
         guard isEnabled else {
-            DispatchQueue.main.async { [weak self] in
-                self?.contentRuleList = nil
-            }
+            clearContentRuleList()
             return
         }
 
@@ -66,6 +75,9 @@ final class AdBlockService: ObservableObject {
         WKContentRuleListStore.default().compileContentRuleList(forIdentifier: ruleListIdentifier, encodedContentRuleList: rules) { [weak self] (list: WKContentRuleList?, error: Error?) in
             if let error = error {
                 print("AdBlockService: Failed to compile rules: \(error)")
+                DispatchQueue.main.async {
+                    self?.isPreparingRuleList = false
+                }
                 return
             }
             
@@ -73,6 +85,8 @@ final class AdBlockService: ObservableObject {
                 print("AdBlockService: Successfully compiled rules")
                 DispatchQueue.main.async {
                     self?.contentRuleList = contentList
+                    self?.hasPreparedRuleList = true
+                    self?.isPreparingRuleList = false
                 }
             }
         }
@@ -163,5 +177,13 @@ final class AdBlockService: ObservableObject {
     func addAllowlistHost(_ host: String) {
         self.allowlistedHosts.insert(host.lowercased())
         self.updateContentRuleList()
+    }
+
+    private func clearContentRuleList() {
+        DispatchQueue.main.async { [weak self] in
+            self?.contentRuleList = nil
+            self?.hasPreparedRuleList = false
+            self?.isPreparingRuleList = false
+        }
     }
 }

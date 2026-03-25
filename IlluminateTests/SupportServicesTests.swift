@@ -13,12 +13,10 @@ import Testing
 struct SupportServicesTests {
 
     @Test func safeBrowsingBlocksKnownHostsOnly() {
-        let manager = SafeBrowsingManager.shared
-
-        #expect(manager.isUnsafe(URL(string: "https://malware.test/path")!) == true)
-        #expect(manager.isUnsafe(URL(string: "https://PHISHING.TEST")!) == true)
-        #expect(manager.isUnsafe(URL(string: "https://example.com")!) == false)
-        #expect(manager.isUnsafe(URL(fileURLWithPath: "/tmp/file")) == false)
+        #expect(SafeBrowsingManager.isUnsafe(URL(string: "https://malware.test/path")!) == true)
+        #expect(SafeBrowsingManager.isUnsafe(URL(string: "https://PHISHING.TEST")!) == true)
+        #expect(SafeBrowsingManager.isUnsafe(URL(string: "https://example.com")!) == false)
+        #expect(SafeBrowsingManager.isUnsafe(URL(fileURLWithPath: "/tmp/file")) == false)
     }
 
     @Test func circuitBreakerStopsAfterConfiguredBurstAndResets() {
@@ -49,12 +47,12 @@ struct SupportServicesTests {
         let deduplicator = AsyncRequestDeduplicator<String, Int>()
         let counter = LockedCounter()
 
-        async let first = deduplicator.value(for: "same-key") {
+        async let first = deduplicator.value(for: "same-key") { _ in
             counter.increment()
             try await Task.sleep(nanoseconds: 100_000_000)
             return 42
         }
-        async let second = deduplicator.value(for: "same-key") {
+        async let second = deduplicator.value(for: "same-key") { _ in
             counter.increment()
             return 7
         }

@@ -61,9 +61,9 @@ final class Tab: ObservableObject, Identifiable {
     private var cancellables = Set<AnyCancellable>()
 
     private var assetsURL: URL {
-        let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        let base = support
-            .appendingPathComponent("Illuminate/TabAssets", isDirectory: true)
+        let base = FileManager.default
+            .illuminateAppSupportDirectory()
+            .appendingPathComponent("TabAssets", isDirectory: true)
             .appendingPathComponent(id.uuidString, isDirectory: true)
         try? FileManager.default.createDirectory(at: base, withIntermediateDirectories: true)
         return base

@@ -22,7 +22,6 @@ struct WebViewRepresentable: NSViewRepresentable {
             webScriptBridge: WebScriptBridge.shared,
             adBlockService: adBlockService,
             dohService: DNSOverHTTPSService.shared,
-            safeBrowsing: SafeBrowsingManager.shared,
             faviconCache: FaviconCache.shared
         )
     }

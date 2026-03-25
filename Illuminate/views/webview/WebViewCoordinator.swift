@@ -17,7 +17,6 @@ extension WebViewRepresentable {
         private let webScriptBridge: WebScriptBridge
         private let adBlockService: AdBlockService
         private let dohService: DNSOverHTTPSService
-        private let safeBrowsing: SafeBrowsingManager
         private let faviconCache: FaviconCache
         private let preconnectManager = NavigationPreconnectManager.shared
 
@@ -55,7 +54,6 @@ extension WebViewRepresentable {
             webScriptBridge: WebScriptBridge,
             adBlockService: AdBlockService,
             dohService: DNSOverHTTPSService,
-            safeBrowsing: SafeBrowsingManager,
             faviconCache: FaviconCache
         ) {
             self.tab = tab
@@ -63,7 +61,6 @@ extension WebViewRepresentable {
             self.webScriptBridge = webScriptBridge
             self.adBlockService = adBlockService
             self.dohService = dohService
-            self.safeBrowsing = safeBrowsing
             self.faviconCache = faviconCache
             self.lastLoadedURL = tab.url
         }
@@ -228,6 +225,10 @@ extension WebViewRepresentable {
                 DNSPreFetcher.shared.prefetchLinks(in: webView)
             }
 
+            if let fallbackFaviconURL = defaultFaviconURL(for: webView.url) {
+                Task { await self.loadFavicon(from: fallbackFaviconURL, for: tab) }
+            }
+
             webView.evaluateJavaScript(Self.videoDetectionScript) { [weak tab] result, _ in
                 if let hasVideo = result as? Bool {
                     DispatchQueue.main.async { tab?.hasPiPCandidate = hasVideo }
@@ -271,7 +272,7 @@ extension WebViewRepresentable {
                 decisionHandler(.cancel)
                 return
             }
-            guard !safeBrowsing.isUnsafe(url) else {
+            guard !SafeBrowsingManager.isUnsafe(url) else {
                 AppLog.security("Blocked unsafe URL: \(url.absoluteString)")
                 decisionHandler(.cancel)
                 return
@@ -476,6 +477,23 @@ extension WebViewRepresentable {
             default:
                 return nil
             }
+        }
+
+        private func defaultFaviconURL(for pageURL: URL?) -> URL? {
+            guard
+                let pageURL,
+                let scheme = pageURL.scheme?.lowercased(),
+                let host = pageURL.host,
+                scheme == "http" || scheme == "https"
+            else {
+                return nil
+            }
+
+            var components = URLComponents()
+            components.scheme = scheme
+            components.host = host
+            components.path = "/favicon.ico"
+            return components.url
         }
 
         private func loadFavicon(from url: URL, for tab: Tab) async {

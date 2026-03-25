@@ -27,8 +27,9 @@ struct IlluminateTests {
             return img
         }
 
-        let paths = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)
-        let base = paths[0].appendingPathComponent("Illuminate/TabAssets", isDirectory: true)
+        let base = FileManager.default
+            .illuminateAppSupportDirectory()
+            .appendingPathComponent("TabAssets", isDirectory: true)
         let tabFolder = base.appendingPathComponent(tabID.uuidString, isDirectory: true)
         try? FileManager.default.createDirectory(at: tabFolder, withIntermediateDirectories: true)
 

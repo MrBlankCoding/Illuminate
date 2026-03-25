@@ -10,13 +10,11 @@ import SwiftUI
 struct SidebarFooter: View {
     var activeTab: Tab?
     @EnvironmentObject private var tabManager: TabManager
-    @State private var showingSettings = false
     @State private var showingDownloads = false
     @State private var isSettingsHovered = false
     @State private var isDownloadsHovered = false
-    @State private var isToggleHovered = false
     @State private var isPiPHovered = false
-    @ObservedObject private var downloadManager = DownloadManager.shared
+    @State private var hasActiveDownloads = false
 
     var body: some View {
         VStack(spacing: 12) {
@@ -83,7 +81,7 @@ struct SidebarFooter: View {
                     }
                     .hoverCursor(.pointingHand)
 
-                    if downloadManager.downloads.contains(where: { !$0.isCompleted && !$0.isFailed }) {
+                    if hasActiveDownloads {
                         Button {
                             showingDownloads = true
                         } label: {
@@ -121,6 +119,11 @@ struct SidebarFooter: View {
                 }
             }
             .padding(.horizontal, 2)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: DownloadManager.downloadsDidChangeNotification)) { notification in
+            if let hasActiveDownloads = notification.userInfo?["hasActiveDownloads"] as? Bool {
+                self.hasActiveDownloads = hasActiveDownloads
+            }
         }
     }
 }

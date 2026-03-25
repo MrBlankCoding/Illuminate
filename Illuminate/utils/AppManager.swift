@@ -28,3 +28,24 @@ extension Notification.Name {
     static let zoomChanged = Notification.Name("app.zoomChanged")
     static let toggleFullScreen = Notification.Name("app.toggleFullScreen")
 }
+
+extension FileManager {
+    func illuminateAppSupportDirectory() -> URL {
+        let baseDirectory = urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+            ?? homeDirectoryForCurrentUser
+                .appendingPathComponent("Library", isDirectory: true)
+                .appendingPathComponent("Application Support", isDirectory: true)
+
+        let appDirectory = baseDirectory.appendingPathComponent("Illuminate", isDirectory: true)
+        try? createDirectory(at: appDirectory, withIntermediateDirectories: true)
+        return appDirectory
+    }
+
+    func illuminateDownloadsDirectory() -> URL {
+        let downloadsDirectory = urls(for: .downloadsDirectory, in: .userDomainMask).first
+            ?? temporaryDirectory.appendingPathComponent("Downloads", isDirectory: true)
+
+        try? createDirectory(at: downloadsDirectory, withIntermediateDirectories: true)
+        return downloadsDirectory
+    }
+}

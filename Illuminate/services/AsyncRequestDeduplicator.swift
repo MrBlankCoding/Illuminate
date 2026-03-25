@@ -17,14 +17,14 @@ actor AsyncRequestDeduplicator<Key: Hashable, Value> {
 
     func value(
         for key: Key,
-        operation: @Sendable @escaping () async throws -> Value
+        operation: @Sendable @escaping (Key) async throws -> Value
     ) async throws -> Value {
         if let entry = tasks[key] {
             return try await entry.task.value
         }
 
         let task = Task<Value, Error> { @Sendable in
-            try await operation()
+            try await operation(key)
         }
         let token = UUID()
         tasks[key] = Entry(token: token, task: task)

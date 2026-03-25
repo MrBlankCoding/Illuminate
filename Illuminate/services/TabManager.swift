@@ -154,10 +154,7 @@ final class TabManager: ObservableObject {
     }
 
     private static func makeSessionURL() -> URL {
-        let appSupport = FileManager.default
-            .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("Illuminate", isDirectory: true)
-        try? FileManager.default.createDirectory(at: appSupport, withIntermediateDirectories: true)
+        let appSupport = FileManager.default.illuminateAppSupportDirectory()
         return appSupport.appendingPathComponent("session.json")
     }
 
