@@ -14,6 +14,7 @@ struct TabDisplayView: View {
     @EnvironmentObject private var viewModel: ContentViewModel
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Bookmark.title) private var bookmarks: [Bookmark]
+    @Binding var hoveredSidebarTabID: UUID?
     @State private var hoveredTabID: UUID?
     @State private var hoveredNewTabButton = false
     @State private var dropTargetID: UUID?
@@ -33,7 +34,7 @@ struct TabDisplayView: View {
                         Spacer()
                         
                         if let activeTab = tabManager.activeTab {
-                            NavigationControls(tab: activeTab, showsRefreshButton: true)
+                            NavigationControls(tab: activeTab, themeColor: tabManager.windowThemeColor)
                         } else {
                             HStack(spacing: 4) {
                                 Image(systemName: "chevron.left").opacity(0.2)
@@ -51,6 +52,7 @@ struct TabDisplayView: View {
                     URLBar(
                         activeTab: tabManager.activeTab,
                         addressText: $viewModel.addressBarText,
+                        themeColor: tabManager.windowThemeColor,
                         onNavigate: viewModel.navigateToAddressBarURL
                     )
                     .padding(.bottom, 12)
@@ -119,7 +121,7 @@ struct TabDisplayView: View {
         LazyVStack(alignment: .leading, spacing: 5) {
             newTabButton
             ForEach(tabManager.tabGroups) { group in
-                TabGroupSection(group: group)
+                TabGroupSection(group: group, hoveredSidebarTabID: $hoveredSidebarTabID)
             }
 
             ForEach(tabManager.tabs.filter { $0.groupID == nil }) { tab in
@@ -198,6 +200,7 @@ struct TabDisplayView: View {
     private func tabRow(tab: Tab) -> some View {
         SidebarTabRow(
             tab: tab,
+            themeColor: tabManager.windowThemeColor,
             isActive: tab.id == tabManager.activeTabID,
             isHovered: hoveredTabID == tab.id,
             onSelect: {
@@ -221,7 +224,7 @@ struct TabDisplayView: View {
         .onHover { hovering in
             withAnimation(.easeInOut(duration: 0.16)) {
                 hoveredTabID = hovering ? tab.id : nil
-                tabManager.hoveredSidebarTabID = hoveredTabID
+                hoveredSidebarTabID = hoveredTabID
             }
         }
         .onDrag {
@@ -362,6 +365,7 @@ struct TabDropDelegate: DropDelegate {
 struct TabGroupSection: View {
     @EnvironmentObject var tabManager: TabManager
     let group: TabGroup
+    @Binding var hoveredSidebarTabID: UUID?
     @State private var isHovered = false
     @State private var hoveredTabID: UUID?
 
@@ -417,6 +421,7 @@ struct TabGroupSection: View {
                     ForEach(tabManager.tabs.filter { $0.groupID == group.id }) { tab in
                         SidebarTabRow(
                             tab: tab,
+                            themeColor: tabManager.windowThemeColor,
                             isActive: tab.id == tabManager.activeTabID,
                             isHovered: hoveredTabID == tab.id,
                             onSelect: {
@@ -442,7 +447,7 @@ struct TabGroupSection: View {
                         .onHover { hovering in
                             withAnimation(.easeInOut(duration: 0.16)) {
                                 hoveredTabID = hovering ? tab.id : nil
-                                tabManager.hoveredSidebarTabID = hoveredTabID
+                                hoveredSidebarTabID = hoveredTabID
                             }
                         }
                         .onDrag {

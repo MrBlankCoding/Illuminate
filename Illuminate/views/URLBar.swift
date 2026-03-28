@@ -10,9 +10,9 @@ import SwiftUI
 import AppKit
 
 struct URLBar: View {
-    @EnvironmentObject private var tabManager: TabManager
     let activeTab: Tab?
     @Binding var addressText: String
+    let themeColor: Color
     let onNavigate: () -> Void
 
     @ObservedObject private var urlSynchronizer = URLSynchronizer.shared
@@ -26,12 +26,14 @@ struct URLBar: View {
         HStack(spacing: 8) {
             Image(systemName: statusIcon)
                 .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(isFocused ? tabManager.windowThemeColor : Color.textSecondary)
+                .foregroundStyle(isFocused ? themeColor : Color.textSecondary)
 
             TextField("Search or enter URL", text: $addressText)
                 .font(.system(size: 12, weight: .medium, design: .rounded))
                 .textFieldStyle(.plain)
                 .foregroundStyle(Color.textPrimary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .layoutPriority(1)
                 .focused($isFocused)
                 .onSubmit {
                     onNavigate()
@@ -48,7 +50,7 @@ struct URLBar: View {
                             .frame(width: 20, height: 20)
                             .background(
                                 Circle()
-                                    .fill(isCopyHovered ? tabManager.windowThemeColor.opacity(0.16) : Color.clear)
+                                    .fill(isCopyHovered ? themeColor.opacity(0.16) : Color.clear)
                             )
                             .overlay(
                                 Circle()
@@ -70,15 +72,15 @@ struct URLBar: View {
                     } label: {
                         Image(systemName: "shield.fill")
                             .font(.system(size: 11, weight: .bold))
-                            .foregroundStyle(showingCookieManager ? Color.white : tabManager.windowThemeColor)
+                            .foregroundStyle(showingCookieManager ? Color.white : themeColor)
                             .frame(width: 22, height: 22)
                             .background(
                                 Circle()
-                                    .fill(showingCookieManager ? tabManager.windowThemeColor : (isCookieHovered ? tabManager.windowThemeColor.opacity(0.18) : Color.clear))
+                                    .fill(showingCookieManager ? themeColor : (isCookieHovered ? themeColor.opacity(0.18) : Color.clear))
                             )
                             .overlay(
                                 Circle()
-                                    .strokeBorder(isCookieHovered || showingCookieManager ? tabManager.windowThemeColor.opacity(0.3) : Color.clear, lineWidth: 1)
+                                    .strokeBorder(isCookieHovered || showingCookieManager ? themeColor.opacity(0.3) : Color.clear, lineWidth: 1)
                             )
                     }
                     .buttonStyle(.plain)
@@ -97,10 +99,11 @@ struct URLBar: View {
                         .frame(width: 46, height: 20)
                 }
             }
+            .fixedSize(horizontal: true, vertical: false)
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
-        .frame(width: isFocused ? 380 : nil, alignment: .leading)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: 12)
                 .fill(

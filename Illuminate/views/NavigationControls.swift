@@ -10,7 +10,7 @@ import WebKit
 
 struct NavigationControls: View {
     @ObservedObject var tab: Tab
-    var showsRefreshButton: Bool = true
+    let themeColor: Color
 
     var body: some View {
         HStack(spacing: 4) {
@@ -34,13 +34,19 @@ struct NavigationControls: View {
     }
 
     private func navButton(systemName: String, isEnabled: Bool, isGreyedOut: Bool = false, action: @escaping () -> Void) -> some View {
-        NavigationControlButton(systemName: systemName, isEnabled: isEnabled, isGreyedOut: isGreyedOut, action: action)
+        NavigationControlButton(
+            systemName: systemName,
+            themeColor: themeColor,
+            isEnabled: isEnabled,
+            isGreyedOut: isGreyedOut,
+            action: action
+        )
     }
 }
 
 private struct NavigationControlButton: View {
-    @EnvironmentObject private var tabManager: TabManager
     let systemName: String
+    let themeColor: Color
     let isEnabled: Bool
     var isGreyedOut: Bool = false
     let action: () -> Void
@@ -54,7 +60,7 @@ private struct NavigationControlButton: View {
                 .frame(width: 28, height: 28)
                 .background(
                     Circle()
-                        .fill(isEnabled && isHovered && !isGreyedOut ? tabManager.windowThemeColor.opacity(0.25) : Color.clear)
+                        .fill(isEnabled && isHovered && !isGreyedOut ? themeColor.opacity(0.25) : Color.clear)
                 )
                 .overlay(
                     Circle()

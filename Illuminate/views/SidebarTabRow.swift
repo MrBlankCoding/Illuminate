@@ -2,12 +2,15 @@
 //  SidebarTabRow.swift
 //  Illuminate
 //
+//  Created by MrBlankCoding on 3/8/26.
+//
+
 
 import SwiftUI
 
 struct SidebarTabRow: View {
-    @EnvironmentObject private var tabManager: TabManager
     @ObservedObject var tab: Tab
+    let themeColor: Color
     let isActive: Bool
     let isHovered: Bool
     let onSelect: () -> Void
@@ -17,27 +20,40 @@ struct SidebarTabRow: View {
 
     var body: some View {
         ZStack(alignment: .trailing) {
-            // Main Tab Row Layer
             HStack(spacing: 10) {
                 Capsule()
-                    .fill(isActive ? tabManager.windowThemeColor : Color.clear)
+                    .fill(isActive ? themeColor : Color.clear)
                     .frame(width: 4, height: 20)
 
-                favicon(for: tab, isActive: isActive)
+                faviconPlate
 
-                Text(tab.title.isEmpty ? "New Tab" : tab.title)
-                    .font(.system(size: 13, weight: isActive ? .semibold : .regular))
-                    .foregroundStyle(isActive ? Color.textPrimary : Color.textSecondary)
-                    .lineLimit(1)
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(tab.title.isEmpty ? "New Tab" : tab.title)
+                        .font(.system(size: 13, weight: isActive ? .semibold : .regular))
+                        .foregroundStyle(isActive ? Color.textPrimary : Color.textSecondary)
+                        .lineLimit(1)
+                }
 
                 Spacer(minLength: 0)
+
+                if tab.isHibernated {
+                    Image(systemName: "moon.zzz.fill")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(themeColor.opacity(0.9))
+                        .frame(width: 22, height: 22)
+                        .background(themeColor.opacity(0.12))
+                        .clipShape(Circle())
+                } else {
+                    Color.clear.frame(width: 22, height: 22)
+                }
+
                 Color.clear.frame(width: 28, height: 28)
             }
             .padding(.horizontal, 8)
-            .padding(.vertical, 6)
+            .padding(.vertical, 7)
             .background(
                 RoundedRectangle(cornerRadius: 8)
-                    .fill(isActive ? Color.bgElevated : (tab.groupID != nil ? Color.primary.opacity(0.12) : (isHovered ? tabManager.windowThemeColor.opacity(0.15) : Color.clear)))
+                    .fill(isActive ? Color.bgElevated : (tab.groupID != nil ? Color.primary.opacity(0.12) : (isHovered ? themeColor.opacity(0.15) : Color.clear)))
             )
             .contentShape(RoundedRectangle(cornerRadius: 8))
             .onTapGesture {
@@ -56,7 +72,7 @@ struct SidebarTabRow: View {
                     Spacer()
                     ProgressView(value: tab.estimatedProgress, total: 1.0)
                         .progressViewStyle(.linear)
-                        .tint(tabManager.windowThemeColor)
+                        .tint(themeColor)
                         .scaleEffect(x: 1, y: 0.5, anchor: .bottom)
                         .padding(.horizontal, 12)
                         .padding(.bottom, 2)
@@ -90,6 +106,16 @@ struct SidebarTabRow: View {
         }
     }
 
+    private var faviconPlate: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 8)
+                .fill(isActive ? themeColor.opacity(0.16) : Color.white.opacity(0.05))
+                .frame(width: 24, height: 24)
+
+            favicon(for: tab, isActive: isActive)
+        }
+    }
+
     private func favicon(for tab: Tab, isActive: Bool) -> some View {
         Group {
             if let favicon = tab.favicon {
@@ -100,7 +126,7 @@ struct SidebarTabRow: View {
             } else {
                 Image(systemName: "globe")
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(isActive ? tabManager.windowThemeColor : Color.textSecondary)
+                    .foregroundStyle(isActive ? themeColor : Color.textSecondary)
             }
         }
         .frame(width: 18, height: 18)

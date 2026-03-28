@@ -23,20 +23,12 @@ final class TabManager: ObservableObject {
         static let saveDebounce: UInt64 = 500_000_000
     }
 
-    private enum SuspensionPolicy {
-        static let highTabCount = 25
-        static let medTabCount = 10
-        static let liveLimitHigh = 5
-        static let liveLimitMed = 8
-    }
-
     static let shared = TabManager()
     static let sharedPlaceholder = TabManager(isPersistenceEnabled: false)
 
     @Published private(set) var tabs: [Tab] = []
     @Published private(set) var activeTabID: UUID?
     @Published private(set) var tabGroups: [TabGroup] = []
-    @Published var hoveredSidebarTabID: UUID?
     @Published var isResizing: Bool = false
     @Published var isFullScreen: Bool = false
     @Published var backgroundImagePalette: [Color] = []
@@ -85,11 +77,11 @@ final class TabManager: ObservableObject {
     var canReopenTab: Bool { !recentlyClosed.isEmpty }
 
     private let notificationCenter: NotificationCenter
-    private let hibernationManager: TabHibernationManager
     private let urlSynchronizer: URLSynchronizer
     private let userDefaults: UserDefaults
     private let isPersistenceEnabled: Bool
     private let cachedSessionURL: URL
+    private let faviconCache = FaviconCache.shared
 
     private var recentlyClosed: [ClosedTabSnapshot] = []
     private var isInitializing = true
@@ -110,13 +102,11 @@ final class TabManager: ObservableObject {
     @MainActor
     init(
         notificationCenter: NotificationCenter = .default,
-        hibernationManager: TabHibernationManager? = nil,
         urlSynchronizer: URLSynchronizer? = nil,
         userDefaults: UserDefaults = .standard,
         isPersistenceEnabled: Bool = true
     ) {
         self.notificationCenter = notificationCenter
-        self.hibernationManager = hibernationManager ?? TabHibernationManager()
         self.urlSynchronizer = urlSynchronizer ?? URLSynchronizer.shared
         self.userDefaults = userDefaults
         self.isPersistenceEnabled = isPersistenceEnabled
@@ -140,6 +130,8 @@ final class TabManager: ObservableObject {
         if isPersistenceEnabled {
             restoreSession()
         }
+
+        hydrateRestoredTabs()
 
         setupObservers()
 
@@ -167,6 +159,10 @@ final class TabManager: ObservableObject {
         } else {
             tabs = [Tab()]
         }
+    }
+
+    private func hydrateRestoredTabs() {
+        tabs.forEach { hydrateVisualState(for: $0) }
     }
 
     private func makeTab(from payload: TabTransferPayload) -> Tab {
@@ -205,10 +201,10 @@ final class TabManager: ObservableObject {
         let tab = Tab(url: url)
         tab.onMetadataUpdate = { [weak self] in self?.saveState() }
         tabs.append(tab)
+        hydrateVisualState(for: tab)
         withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
             switchTo(tab.id)
         }
-        applyHibernationPolicy()
 
         if url == nil {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
@@ -260,6 +256,7 @@ final class TabManager: ObservableObject {
         guard let snapshot = recentlyClosed.popLast() else { return nil }
         let tab = makeTab(from: snapshot.payload)
         tabs.append(tab)
+        hydrateVisualState(for: tab)
         withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
             switchTo(tab.id)
         }
@@ -291,10 +288,42 @@ final class TabManager: ObservableObject {
         }
     }
 
+    private func hydrateVisualState(for tab: Tab) {
+        tab.loadAssets()
+
+        guard tab.favicon == nil, let faviconURL = defaultFaviconURL(for: tab.url) else {
+            return
+        }
+
+        Task(priority: .utility) { [weak tab, faviconCache] in
+            guard let image = await faviconCache.fetchImage(for: faviconURL) else { return }
+            await MainActor.run {
+                guard let tab, tab.favicon == nil else { return }
+                tab.favicon = image
+            }
+        }
+    }
+
+    private func defaultFaviconURL(for pageURL: URL?) -> URL? {
+        guard
+            let pageURL,
+            let scheme = pageURL.scheme?.lowercased(),
+            let host = pageURL.host,
+            scheme == "http" || scheme == "https"
+        else {
+            return nil
+        }
+
+        var components = URLComponents()
+        components.scheme = scheme
+        components.host = host
+        components.path = "/favicon.ico"
+        return components.url
+    }
+
     func switchTo(_ id: UUID) {
         guard activeTabID != id else { return }
         setActiveTab(id)
-        applySuspensionPolicy()
     }
 
     func setActiveTab(_ id: UUID?) {
@@ -305,14 +334,14 @@ final class TabManager: ObservableObject {
             tab.thaw()
         }
         syncActiveTabURL()
-        applyHibernationPolicy()
-        applySuspensionPolicy()
         saveState()
     }
 
     func updateTabURL(tabID: UUID, url: URL?) {
         guard let tab = tabs.first(where: { $0.id == tabID }) else { return }
         tab.url = url
+        tab.favicon = nil
+        hydrateVisualState(for: tab)
         if tabID == activeTabID { syncActiveTabURL() }
         saveState()
     }
@@ -341,29 +370,6 @@ final class TabManager: ObservableObject {
 
     private func syncActiveTabURL() {
         urlSynchronizer.updateCurrentURL(activeTab?.url)
-    }
-
-    private func applyHibernationPolicy() {
-        guard tabs.count > 50 else { return }
-        hibernationManager.hibernateInactiveTabs(tabs: tabs, activeTabID: activeTabID)
-    }
-
-    private func applySuspensionPolicy() {
-        let count = tabs.count
-        guard count > SuspensionPolicy.medTabCount else { return }
-
-        let limit = count > SuspensionPolicy.highTabCount
-            ? SuspensionPolicy.liveLimitHigh
-            : SuspensionPolicy.liveLimitMed
-
-        let liveTabs = tabs.filter { $0.webView != nil && $0.id != activeTabID }
-        guard liveTabs.count > limit else { return }
-
-        let toSuspend = liveTabs.count - limit
-        liveTabs
-            .sorted { $0.lastAccessed < $1.lastAccessed }
-            .prefix(toSuspend)
-            .forEach { $0.applyDiscardTier(count > SuspensionPolicy.highTabCount ? .medium : .light) }
     }
 
     private func pushRecentlyClosed(_ payload: TabTransferPayload) {

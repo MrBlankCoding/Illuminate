@@ -76,4 +76,23 @@ struct TabManagerTests {
         #expect(tab.url == updatedURL)
         #expect(activeTabURL == updatedURL)
     }
+
+    @Test func switchingTabsDoesNotDiscardBackgroundWebViews() {
+        let tabManager = TabManager(isPersistenceEnabled: false)
+        let firstTab = tabManager.createTab(url: URL(string: "https://one.example"))
+        let secondTab = tabManager.createTab(url: URL(string: "https://two.example"))
+
+        firstTab.createWebViewIfNeeded(configuration: WebKitManager.shared.makeConfiguration())
+        secondTab.createWebViewIfNeeded(configuration: WebKitManager.shared.makeConfiguration())
+
+        let firstWebView = firstTab.webView
+        let secondWebView = secondTab.webView
+
+        tabManager.switchTo(firstTab.id)
+
+        #expect(firstTab.webView === firstWebView)
+        #expect(secondTab.webView === secondWebView)
+        #expect(secondTab.isHibernated == false)
+        #expect(secondTab.discardTier == .active)
+    }
 }

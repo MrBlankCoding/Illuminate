@@ -14,6 +14,7 @@ struct ContentView: View {
     @EnvironmentObject private var viewModel: ContentViewModel
     @StateObject private var findViewModel = FindViewModel()
     @StateObject private var zoomViewModel = ZoomViewModel()
+    @State private var hoveredSidebarTabID: UUID?
 
     var body: some View {
         ZStack {
@@ -21,7 +22,7 @@ struct ContentView: View {
 
             HStack(alignment: .top, spacing: 0) {
                 if tabManager.showSidebar {
-                    TabDisplayView()
+                    TabDisplayView(hoveredSidebarTabID: $hoveredSidebarTabID)
                         .frame(width: 220)
                         .frame(maxHeight: .infinity)
                         .transition(.move(edge: .leading).combined(with: .opacity))
@@ -34,7 +35,7 @@ struct ContentView: View {
             }
             .overlayPreferenceValue(TabRowFramePreferenceKey.self) { preferences in
                 GeometryReader { geometry in
-                    if let hoveredID = tabManager.hoveredSidebarTabID,
+                    if let hoveredID = hoveredSidebarTabID,
                        let anchor = preferences[hoveredID],
                        let tab = tabManager.tabs.first(where: { $0.id == hoveredID }) {
                         let rect = geometry[anchor]

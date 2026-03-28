@@ -48,7 +48,7 @@ final class Tab: ObservableObject, Identifiable {
     @Published var isFrozen: Bool = false
     @Published var hasPiPCandidate: Bool = false
 
-    private(set) weak var webView: WKWebView?
+    private(set) var webView: WKWebView?
     private var lastSnapshotAt: Date = .distantPast
     private var isFetchingAssets = false
 
@@ -371,7 +371,7 @@ final class Tab: ObservableObject, Identifiable {
     }
 
     func loadAssets() {
-        guard favicon == nil, snapshot == nil, !isFetchingAssets else { return }
+        guard (favicon == nil || snapshot == nil), !isFetchingAssets else { return }
         isFetchingAssets = true
         let folder = assetsURL
 

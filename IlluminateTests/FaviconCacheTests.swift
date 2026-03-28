@@ -28,8 +28,47 @@ struct FaviconCacheTests {
         try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
         return url
     }
+
+    private func waitForPersistedPNG(in directory: URL, timeoutNanoseconds: UInt64 = 1_000_000_000) async throws -> URL {
+        let deadline = ContinuousClock.now.advanced(by: .nanoseconds(Int64(timeoutNanoseconds)))
+
+        while ContinuousClock.now < deadline {
+            if let files = try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil),
+               let pngURL = files.first(where: { $0.pathExtension == "png" }),
+               let attributes = try? FileManager.default.attributesOfItem(atPath: pngURL.path),
+               let fileSize = attributes[.size] as? NSNumber,
+               fileSize.intValue > 0 {
+                return pngURL
+            }
+
+            try await Task.sleep(nanoseconds: 20_000_000)
+        }
+
+        Issue.record("Timed out waiting for persisted favicon file in \(directory.path)")
+        throw CancellationError()
+    }
+
+    private func waitForImagePersistence(
+        at url: URL,
+        in directory: URL,
+        timeoutNanoseconds: UInt64 = 1_000_000_000
+    ) async throws -> NSImage {
+        let deadline = ContinuousClock.now.advanced(by: .nanoseconds(Int64(timeoutNanoseconds)))
+
+        while ContinuousClock.now < deadline {
+            let cache = FaviconCache(capacity: 10, cacheDirectory: directory)
+            if let image = cache.image(for: url) {
+                return image
+            }
+
+            try await Task.sleep(nanoseconds: 20_000_000)
+        }
+
+        Issue.record("Timed out waiting for persisted favicon image for \(url.absoluteString)")
+        throw CancellationError()
+    }
     
-    private actor CounterFetcher: FaviconDataFetching {
+    private actor CounterFetcher {
         var count = 0
         let delay: UInt64
         let data: Data
@@ -48,7 +87,7 @@ struct FaviconCacheTests {
         }
     }
     
-    private actor RecordingFetcher: FaviconDataFetching {
+    private actor RecordingFetcher {
         var urls: [String] = []
         let data: Data
         
@@ -58,6 +97,10 @@ struct FaviconCacheTests {
             urls.append(urlString)
             return data
         }
+
+        func recordedURLs() -> [String] {
+            urls
+        }
     }
 
     @Test func testCacheIsEmptyInitially() async throws {
@@ -66,7 +109,7 @@ struct FaviconCacheTests {
         let cache = FaviconCache(capacity: 10, cacheDirectory: cacheDir)
         let url = URL(string: "https://example.com/favicon.ico")!
         
-        let retrieved = await cache.image(for: url)
+        let retrieved = cache.image(for: url)
         #expect(retrieved == nil)
     }
 
@@ -77,9 +120,9 @@ struct FaviconCacheTests {
         let url = URL(string: "https://example.com/favicon.ico")!
         
         let img = createTestImage()
-        await cache.set(img, for: url)
+        cache.set(img, for: url)
         
-        let retrieved = await cache.image(for: url)
+        let retrieved = cache.image(for: url)
         #expect(retrieved != nil)
     }
 
@@ -92,14 +135,14 @@ struct FaviconCacheTests {
         let img = createTestImage()
         
         for url in urls.prefix(8) {
-            await cache.set(img, for: url)
+            cache.set(img, for: url)
         }
         
-        await cache.set(img, for: urls[8])
+        cache.set(img, for: urls[8])
         
-        let first = await cache.image(for: urls[0])
+        let first = cache.image(for: urls[0])
         #expect(first == nil, "Oldest element should be evicted")
-        let second = await cache.image(for: urls[1])
+        let second = cache.image(for: urls[1])
         #expect(second != nil, "Second element should still be present")
     }
 
@@ -112,18 +155,18 @@ struct FaviconCacheTests {
         let img = createTestImage()
         
         for url in urls.prefix(8) {
-            await cache.set(img, for: url)
+            cache.set(img, for: url)
         }
         
         // Touch first URL to make it newest
-        _ = await cache.image(for: urls[0])
+        _ = cache.image(for: urls[0])
         
         // Add 9th URL, which should evict urls[1] instead of urls[0]
-        await cache.set(img, for: urls[8])
+        cache.set(img, for: urls[8])
         
-        let first = await cache.image(for: urls[0])
+        let first = cache.image(for: urls[0])
         #expect(first != nil, "Oldest touched element should not be evicted")
-        let second = await cache.image(for: urls[1])
+        let second = cache.image(for: urls[1])
         #expect(second == nil, "Second element should be evicted instead")
     }
 
@@ -134,12 +177,8 @@ struct FaviconCacheTests {
         let url = URL(string: "https://persist-test.com")!
         
         let img = createTestImage()
-        await cache.set(img, for: url)
-        
-        let newCache = FaviconCache(capacity: 10, cacheDirectory: cacheDir)
-        let retrieved = await newCache.image(for: url)
-        
-        #expect(retrieved != nil)
+        cache.set(img, for: url)
+        _ = try await waitForImagePersistence(at: url, in: cacheDir)
     }
 
     @Test func testCorruptDiskDataIsCleanedUp() async throws {
@@ -148,14 +187,13 @@ struct FaviconCacheTests {
         let url = URL(string: "https://test.com")!
         let cache = FaviconCache(capacity: 10, cacheDirectory: cacheDir)
         let img = createTestImage()
-        await cache.set(img, for: url)
-        
-        let files = try? FileManager.default.contentsOfDirectory(at: cacheDir, includingPropertiesForKeys: nil)
-        let pngUrl = try #require(files?.first { $0.pathExtension == "png" })
+        cache.set(img, for: url)
+
+        let pngUrl = try await waitForPersistedPNG(in: cacheDir)
         try Data("corrupted data".utf8).write(to: pngUrl)
         
         let newCache = FaviconCache(capacity: 10, cacheDirectory: cacheDir)
-        let retrieved = await newCache.image(for: url)
+        let retrieved = newCache.image(for: url)
         
         #expect(retrieved == nil)
         #expect(try FileManager.default.contentsOfDirectory(at: cacheDir, includingPropertiesForKeys: nil).isEmpty)
@@ -169,7 +207,13 @@ struct FaviconCacheTests {
         let data = try #require(createTestImage().pngData())
         let fetcher = CounterFetcher(data: data, delay: 100_000_000)
         
-        let cache = FaviconCache(capacity: 10, cacheDirectory: cacheDir, fetcher: fetcher)
+        let cache = FaviconCache(
+            capacity: 10,
+            cacheDirectory: cacheDir,
+            fetchData: { urlString in
+                try await fetcher.fetch(from: urlString)
+            }
+        )
         
         async let first = cache.fetchImage(for: url)
         async let second = cache.fetchImage(for: url)
@@ -215,11 +259,17 @@ struct FaviconCacheTests {
         let url = URL(string: expectedURLString)!
         let data = try #require(createTestImage().pngData())
         let fetcher = RecordingFetcher(data: data)
-        let cache = FaviconCache(capacity: 10, cacheDirectory: cacheDir, fetcher: fetcher)
+        let cache = FaviconCache(
+            capacity: 10,
+            cacheDirectory: cacheDir,
+            fetchData: { urlString in
+                try await fetcher.fetch(from: urlString)
+            }
+        )
         
         _ = await cache.fetchImage(for: url)
         
-        let urls = await fetcher.urls
+        let urls = await fetcher.recordedURLs()
         #expect(urls == [expectedURLString])
     }
 
@@ -241,12 +291,12 @@ struct FaviconCacheTests {
         let url = URL(string: "https://example.com/favicon.ico")!
         
         let img1 = createTestImage()
-        await cache.set(img1, for: url)
+        cache.set(img1, for: url)
         
         let img2 = createTestImage()
-        await cache.set(img2, for: url)
+        cache.set(img2, for: url)
         
-        let retrieved = await cache.image(for: url)
+        let retrieved = cache.image(for: url)
         #expect(retrieved != nil)
     }
 }
