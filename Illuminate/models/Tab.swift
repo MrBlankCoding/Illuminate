@@ -174,9 +174,11 @@ final class Tab: ObservableObject, Identifiable {
         webView.takeSnapshot(with: config) { [weak self] image, _ in
             guard let self = self, let image = image else { return }
             let downsampled = image.downsampled(toWidth: 400)
-            DispatchQueue.main.async {
+            let favicon = self.favicon
+            self.saveAssets(snapshot: downsampled, favicon: favicon)
+            Task { @MainActor [weak self] in
+                guard let self else { return }
                 self.snapshot = downsampled
-                self.saveAssets()
             }
         }
     }
@@ -211,7 +213,7 @@ final class Tab: ObservableObject, Identifiable {
         webView.evaluateJavaScript(script, completionHandler: nil)
     }
 
-    private func saveAssets() {
+    private func saveAssets(snapshot: NSImage?, favicon: NSImage?) {
         let folder = assetsURL
         let faviconData = favicon?.pngData()
         let snapshotData = snapshot?.jpegData(compressionQuality: 0.7)
