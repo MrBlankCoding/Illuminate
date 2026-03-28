@@ -36,17 +36,6 @@ struct SidebarTabRow: View {
 
                 Spacer(minLength: 0)
 
-                if tab.isHibernated {
-                    Image(systemName: "moon.zzz.fill")
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(themeColor.opacity(0.9))
-                        .frame(width: 22, height: 22)
-                        .background(themeColor.opacity(0.12))
-                        .clipShape(Circle())
-                } else {
-                    Color.clear.frame(width: 22, height: 22)
-                }
-
                 Color.clear.frame(width: 28, height: 28)
             }
             .padding(.horizontal, 8)

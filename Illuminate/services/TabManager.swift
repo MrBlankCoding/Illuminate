@@ -331,7 +331,6 @@ final class TabManager: ObservableObject {
         if let tab = tabs.first(where: { $0.id == id }) {
             tab.markActivated()
             tab.markAccessed()
-            tab.thaw()
         }
         syncActiveTabURL()
         saveState()

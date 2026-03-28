@@ -21,23 +21,7 @@ struct WebView: View {
                     SettingsView()
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
-                    ZStack {
-                        WebViewRepresentable(tab: tab, tabManager: tabManager, userInterfaceStyle: tabManager.userInterfaceStyle)
-                        
-                        if tab.isHibernated, let snapshot = tab.snapshot {
-                            Image(nsImage: snapshot)
-                                .resizable()
-                                .aspectRatio(contentMode: .fill)
-                                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                                .clipped()
-                                .transition(.opacity)
-                        }
-                    }
-                    .onAppear {
-                        if tab.isHibernated {
-                            tab.loadAssets()
-                        }
-                    }
+                    WebViewRepresentable(tab: tab, tabManager: tabManager, userInterfaceStyle: tabManager.userInterfaceStyle)
                 }
             } else {
                 OpeningPageView(viewModel: viewModel)

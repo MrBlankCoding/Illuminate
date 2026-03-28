@@ -6,33 +6,13 @@
 //
 
 import AppKit
-import Combine
 import Foundation
 import SwiftUI
-import WebKit
-
-struct TabState: Codable, Sendable {
-    var currentURL: URL?
-    var title: String?
-    var scrollX: Double
-    var scrollY: Double
-    var zoomScale: Double
-    var capturedAt: Date
-}
-
-enum TabDiscardTier: Int, Codable, Sendable {
-    case active = 0
-    case light = 1
-    case medium = 2
-    case full = 3
-}
 
 struct TabTransferPayload: Codable, Sendable {
     var id: UUID
     var url: URL?
     var title: String?
-    var isHibernated: Bool
-    var state: TabState?
     var groupID: UUID?
 }
 

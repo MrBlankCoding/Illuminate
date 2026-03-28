@@ -11,7 +11,6 @@ import SwiftData
 
 struct SettingsView: View {
     @EnvironmentObject private var tabManager: TabManager
-    @ObservedObject private var resourceManager = ResourceManager.shared
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Password.url) private var passwords: [Password]
@@ -72,9 +71,6 @@ struct SettingsView: View {
             .animation(.spring(response: 0.35, dampingFraction: 0.85), value: selectedTab)
             
             Spacer()
-        }
-        .onAppear {
-            ResourceManager.shared.performMemoryCheck()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(
@@ -488,55 +484,41 @@ struct SettingsView: View {
 
     private var performanceTab: some View {
         VStack(spacing: 28) {
-            settingsSection(title: "Memory Management") {
-                Toggle("Hibernation", isOn: $resourceManager.autoHibernateEnabled)
-                .toggleStyle(SwitchToggleStyle(tint: tabManager.windowThemeColor))
-                .font(.system(size: 14))
-                .hoverCursor(.pointingHand)
-                
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Memory Threshold: \(resourceManager.memoryThresholdMB) MB")
-                        .font(.system(size: 13, weight: .medium))
-                    
-                    Slider(value: Binding(
-                        get: { Double(resourceManager.memoryThresholdMB) },
-                        set: { resourceManager.memoryThresholdMB = UInt64($0) }
-                    ), in: 100...2048, step: 50)
-                    .accentColor(tabManager.windowThemeColor)
-                }
-                .padding(.top, 8)
-                
-                Text("Background tabs that exceed the threshold will be hibernated")
+            settingsSection(title: "Session") {
+                Text("\(tabManager.tabs.count) tabs are currently open.")
+                    .font(.system(size: 14))
+                    .foregroundStyle(Color.textPrimary)
+
+                Text("Tab previews and favicons are cached locally to speed up restore and hover previews.")
                     .font(.system(size: 11))
                     .foregroundStyle(Color.textSecondary)
             }
             
             settingsSection(title: "Tabs:") {
                 VStack(spacing: 12) {
-                    ForEach(tabManager.tabs.filter { !$0.isHibernated }) { tab in
+                    ForEach(tabManager.tabs) { tab in
                         HStack {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(tab.title)
                                     .font(.system(size: 13))
                                     .foregroundStyle(Color.textPrimary)
                                     .lineLimit(1)
-                                
-                                Text("PID: \(tab.processIdentifier == 0 ? "Pending..." : "\(tab.processIdentifier)")")
-                                    .font(.system(size: 10))
-                                    .foregroundStyle(Color.textSecondary)
+
+                                if let url = tab.url {
+                                    Text(url.absoluteString)
+                                        .font(.system(size: 10))
+                                        .foregroundStyle(Color.textSecondary)
+                                        .lineLimit(1)
+                                }
                             }
                             
                             Spacer()
-                            
-                            Text("\(tab.memoryUsage / 1024 / 1024) MB")
-                                .font(.system(size: 12, weight: .bold, design: .monospaced))
-                                .foregroundStyle(tab.memoryUsage > (resourceManager.memoryThresholdMB * 1024 * 1024) ? Color.red : tabManager.windowThemeColor)
                         }
                         .padding(.vertical, 4)
                     }
                     
-                    if tabManager.tabs.filter({ !$0.isHibernated }).isEmpty {
-                        Text("No active tabs")
+                    if tabManager.tabs.isEmpty {
+                        Text("No open tabs")
                             .font(.system(size: 13))
                             .foregroundStyle(Color.textSecondary)
                     }
@@ -608,6 +590,7 @@ struct SettingsView: View {
         }
         .padding(.horizontal, 48)
     }
+
 }
 
 private struct PresetCircle: View {

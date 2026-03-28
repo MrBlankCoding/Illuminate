@@ -7,11 +7,10 @@
 
 import AppKit
 import Combine
-import CoreTransferable
 import Foundation
+import ObjectiveC
 import SwiftUI
 import WebKit
-import ObjectiveC
 
 private var webViewTabOwnerKey: UInt8 = 0
 
@@ -39,13 +38,8 @@ final class Tab: ObservableObject, Identifiable {
     @Published var canGoForward: Bool = false
     @Published var estimatedProgress: Double = 0
     @Published var groupID: UUID?
-    @Published var memoryUsage: UInt64 = 0
-    @Published var processIdentifier: Int32 = 0
     @Published var zoomLevel: Double = 1.0
     @Published var snapshot: NSImage?
-    @Published private(set) var hibernatedState: TabState?
-    @Published private(set) var discardTier: TabDiscardTier
-    @Published var isFrozen: Bool = false
     @Published var hasPiPCandidate: Bool = false
 
     private(set) var webView: WKWebView?
@@ -76,12 +70,10 @@ final class Tab: ObservableObject, Identifiable {
         favicon: NSImage? = nil,
         themeColor: Color? = nil,
         isLoading: Bool = false,
-        isHibernated: Bool = false,
         hasMixedContentWarning: Bool = false,
         lastNavigationHadNetworkError: Bool = false,
         lastNetworkErrorMessage: String? = nil,
         hoveredLinkURLString: String? = nil,
-        hibernatedState: TabState? = nil,
         groupID: UUID? = nil
     ) {
         self.id = id
@@ -90,14 +82,12 @@ final class Tab: ObservableObject, Identifiable {
         self.favicon = favicon
         self.themeColor = themeColor
         self.isLoading = isLoading
-        self.isHibernated = isHibernated
+        self.isHibernated = false
         self.hasMixedContentWarning = hasMixedContentWarning
         self.lastNavigationHadNetworkError = lastNavigationHadNetworkError
         self.lastNetworkErrorMessage = lastNetworkErrorMessage
         self.hoveredLinkURLString = hoveredLinkURLString
-        self.hibernatedState = hibernatedState
         self.groupID = groupID
-        self.discardTier = isHibernated ? .medium : .active
         self.ownershipToken = id.uuidString
         self.lastActivatedAt = Date()
         self.lastAccessed = Date()
@@ -108,8 +98,6 @@ final class Tab: ObservableObject, Identifiable {
             id: payload.id,
             url: payload.url,
             title: payload.title ?? "New Tab",
-            isHibernated: payload.isHibernated,
-            hibernatedState: payload.state,
             groupID: payload.groupID
         )
     }
@@ -135,12 +123,8 @@ final class Tab: ObservableObject, Identifiable {
             .OBJC_ASSOCIATION_RETAIN_NONATOMIC
         )
         webView = newWebView
+        isHibernated = false
         setupWebViewObservers(newWebView)
-        DispatchQueue.main.async { [weak self] in
-            self?.discardTier = .active
-            self?.isFrozen = false
-            self?.isHibernated = false
-        }
     }
 
     func attachWebView(_ candidate: WKWebView) throws {
@@ -155,19 +139,14 @@ final class Tab: ObservableObject, Identifiable {
             .OBJC_ASSOCIATION_RETAIN_NONATOMIC
         )
         webView = candidate
+        isHibernated = false
         setupWebViewObservers(candidate)
-        DispatchQueue.main.async { [weak self] in
-            self?.discardTier = .active
-            self?.isFrozen = false
-            self?.isHibernated = false
-        }
     }
 
     func detachWebView() {
         observers.removeAll()
         cancellables.removeAll()
         webView = nil
-        processIdentifier = 0
     }
 
     func load(url: URL) {
@@ -182,80 +161,6 @@ final class Tab: ObservableObject, Identifiable {
         } else if let url {
             load(url: url)
         }
-    }
-
-    func captureState() -> TabState {
-        let scrollOrigin = webView?.enclosingScrollView?.contentView.bounds.origin ?? .zero
-        return TabState(
-            currentURL: url ?? webView?.url,
-            title: title,
-            scrollX: scrollOrigin.x,
-            scrollY: scrollOrigin.y,
-            zoomScale: Double(webView?.pageZoom ?? 1.0),
-            capturedAt: Date()
-        )
-    }
-
-    func suspend(allowSnapshot: Bool = true) {
-        guard let webView else {
-            discardTier = .medium
-            isFrozen = false
-            isHibernated = true
-            return
-        }
-        
-        if allowSnapshot {
-            refreshSnapshot()
-        }
-        
-        webView.stopLoading()
-        hibernatedState = captureState()
-        detachWebView()
-        discardTier = .medium
-        isFrozen = false
-        isHibernated = true
-        isLoading = false
-    }
-
-    func hibernate(shouldSnapshot: Bool = false) {
-        if shouldSnapshot {
-            refreshSnapshot()
-        }
-        isFrozen = false
-        hibernatedState = captureState()
-        detachWebView()
-        discardTier = .full
-        isHibernated = true
-        isLoading = false
-    }
-
-    func restoreIfNeeded(using configuration: WKWebViewConfiguration) {
-        guard isHibernated else { return }
-
-        let restoredWebView = WKWebView(frame: .zero, configuration: configuration)
-        WebKitManager.shared.applySafariUserAgent(to: restoredWebView)
-
-        do {
-            try attachWebView(restoredWebView)
-        } catch {
-            AppLog.info("Failed to reattach hibernated web view: \(error.localizedDescription)")
-            return
-        }
-
-        if let state = hibernatedState {
-            if let restoredURL = state.currentURL {
-                restoredWebView.load(URLRequest(url: restoredURL))
-                url = restoredURL
-            }
-            restoredWebView.pageZoom = state.zoomScale
-            restoredWebView.evaluateJavaScript(
-                "window.scrollTo(\(state.scrollX), \(state.scrollY));",
-                completionHandler: nil
-            )
-            title = state.title ?? title
-        }
-        discardTier = .active
-        isFrozen = false
     }
 
     func refreshSnapshot() {
@@ -273,53 +178,6 @@ final class Tab: ObservableObject, Identifiable {
                 self.snapshot = downsampled
                 self.saveAssets()
             }
-        }
-    }
-
-    func freeze() {
-        guard let webView, !isHibernated, !isFrozen else { return }
-        discardTier = .light
-        isFrozen = true
-        webView.stopLoading()
-
-        let script = """
-        (function() {
-            try {
-                const videos = Array.from(document.querySelectorAll('video'));
-                videos.forEach(v => { try { v.pause(); } catch (_) {} });
-                const audios = Array.from(document.querySelectorAll('audio'));
-                audios.forEach(a => { try { a.pause(); } catch (_) {} });
-            } catch (_) {}
-        })();
-        """
-
-        webView.evaluateJavaScript(script, completionHandler: nil)
-    }
-
-    func thaw() {
-        guard isFrozen else { return }
-        discardTier = .active
-        isFrozen = false
-    }
-
-    func markRestoredFromDiscard() {
-        discardTier = .active
-        isFrozen = false
-        isHibernated = false
-    }
-
-    func applyDiscardTier(_ tier: TabDiscardTier) {
-        guard tier.rawValue > discardTier.rawValue else { return }
-
-        switch tier {
-        case .active:
-            return
-        case .light:
-            freeze()
-        case .medium:
-            suspend(allowSnapshot: true)
-        case .full:
-            hibernate(shouldSnapshot: false)
         }
     }
 
@@ -396,8 +254,6 @@ final class Tab: ObservableObject, Identifiable {
             id: id,
             url: url,
             title: title,
-            isHibernated: isHibernated,
-            state: hibernatedState,
             groupID: groupID
         )
     }
@@ -439,22 +295,6 @@ final class Tab: ObservableObject, Identifiable {
     private func setupWebViewObservers(_ webView: WKWebView) {
         observers.removeAll()
         cancellables.removeAll()
-
-        // resouce manager is NOT working
-        // idk what to try atp
-        if processIdentifier == 0 {
-            let sel = NSSelectorFromString("processIdentifier")
-            if webView.responds(to: sel),
-               let pidObj = webView.perform(sel)?.takeUnretainedValue() {
-                DispatchQueue.main.async { [weak self] in
-                    if let num = pidObj as? Int32 {
-                        self?.processIdentifier = num
-                    } else if let num = pidObj as? NSNumber {
-                        self?.processIdentifier = num.int32Value
-                    }
-                }
-            }
-        }
 
         webView.publisher(for: \.canGoBack)
             .removeDuplicates()

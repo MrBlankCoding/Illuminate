@@ -21,7 +21,6 @@ extension WebViewRepresentable {
         private let preconnectManager = NavigationPreconnectManager.shared
 
         private let circuitBreaker = WebProcessCircuitBreaker()
-        private var isRestoringHibernatedState = false
         private var lastAppliedStyle: TabManager.UIStyle?
         private var lastAppliedContentRuleList: WKContentRuleList?
         private weak var contextMenuWebView: WKWebView?
@@ -63,35 +62,6 @@ extension WebViewRepresentable {
             self.dohService = dohService
             self.faviconCache = faviconCache
             self.lastLoadedURL = tab.url
-        }
-
-        func restoreHibernatedStateIfNeeded(into webView: WKWebView) {
-            guard !isRestoringHibernatedState else { return }
-            isRestoringHibernatedState = true
-            defer { isRestoringHibernatedState = false }
-            restoreHibernatedState(into: webView)
-        }
-
-        private func restoreHibernatedState(into webView: WKWebView) {
-            guard let tab, tab.isHibernated, let state = tab.hibernatedState else { return }
-
-            if let restoredURL = state.currentURL {
-                let request = URLRequest(url: restoredURL, cachePolicy: .useProtocolCachePolicy, timeoutInterval: 30)
-                webView.load(request)
-                lastLoadedURL = restoredURL
-                tab.url = restoredURL
-            }
-
-            webView.pageZoom = state.zoomScale
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                webView.evaluateJavaScript(
-                    "window.scrollTo(\(state.scrollX), \(state.scrollY));",
-                    completionHandler: nil
-                )
-            }
-
-            if let title = state.title { tab.title = title }
-            tab.markRestoredFromDiscard()
         }
 
         func userContentController(

@@ -42,9 +42,7 @@ struct WebViewRepresentable: NSViewRepresentable {
         context.coordinator.applyContentRules(to: webView, ruleList: adBlockService.contentRuleList)
         context.coordinator.applyWebAppearance(to: webView, style: userInterfaceStyle)
 
-        if tab.isHibernated {
-            context.coordinator.restoreHibernatedStateIfNeeded(into: webView)
-        } else if let url = tab.url, webView.url == nil {
+        if let url = tab.url, webView.url == nil {
             webView.load(makeRequest(for: url))
         }
 
@@ -55,11 +53,6 @@ struct WebViewRepresentable: NSViewRepresentable {
         nsView.allowsBackForwardNavigationGestures = tab.id == tabManager.activeTabID
         
         context.coordinator.applyContentRules(to: nsView, ruleList: adBlockService.contentRuleList)
-
-        if tab.isHibernated {
-            context.coordinator.restoreHibernatedStateIfNeeded(into: nsView)
-        }
-
         context.coordinator.applyWebAppearance(to: nsView, style: userInterfaceStyle)
     }
 

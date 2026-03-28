@@ -93,6 +93,5 @@ struct TabManagerTests {
         #expect(firstTab.webView === firstWebView)
         #expect(secondTab.webView === secondWebView)
         #expect(secondTab.isHibernated == false)
-        #expect(secondTab.discardTier == .active)
     }
 }

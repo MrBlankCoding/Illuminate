@@ -22,23 +22,12 @@ struct TabPersistenceTests {
                     id: firstID,
                     url: URL(string: "https://apple.com"),
                     title: "Apple",
-                    isHibernated: false,
-                    state: nil,
                     groupID: nil
                 ),
                 TabTransferPayload(
                     id: secondID,
                     url: URL(string: "https://google.com"),
                     title: "Google",
-                    isHibernated: true,
-                    state: TabState(
-                        currentURL: URL(string: "https://google.com"),
-                        title: "Google",
-                        scrollX: 10,
-                        scrollY: 20,
-                        zoomScale: 1.25,
-                        capturedAt: Date()
-                    ),
                     groupID: nil
                 )
             ],
@@ -53,8 +42,7 @@ struct TabPersistenceTests {
 
         #expect(decodedTabs.count == 2)
         #expect(decodedTabs[0].title == "Apple")
-        #expect(decodedTabs[1].isHibernated == true)
-        #expect(decodedTabs[1].state?.zoomScale == 1.25)
+        #expect(decodedTabs[1].title == "Google")
         #expect(decodedActiveTabID == secondID)
     }
 
@@ -65,31 +53,20 @@ struct TabPersistenceTests {
             id: tabId1,
             url: URL(string: "https://github.com"),
             title: "GitHub",
-            isHibernated: false,
-            state: nil,
             groupID: nil
         )
         let payload2 = TabTransferPayload(
             id: tabId2,
             url: URL(string: "https://swift.org"),
             title: "Swift",
-            isHibernated: true,
-            state: TabState(
-                currentURL: URL(string: "https://swift.org"),
-                title: "Swift",
-                scrollX: 0,
-                scrollY: 120,
-                zoomScale: 0.9,
-                capturedAt: Date()
-            ),
             groupID: nil
         )
 
         let restoredTabs = [Tab(payload: payload1), Tab(payload: payload2)]
 
         #expect(restoredTabs.count == 2)
-        #expect(restoredTabs.contains { $0.id == tabId1 && $0.title == "GitHub" && $0.isHibernated == false })
-        #expect(restoredTabs.contains { $0.id == tabId2 && $0.title == "Swift" && $0.isHibernated == true })
+        #expect(restoredTabs.contains { $0.id == tabId1 && $0.title == "GitHub" })
+        #expect(restoredTabs.contains { $0.id == tabId2 && $0.title == "Swift" })
     }
 
     @Test func testTabClosingCleanup() throws {
