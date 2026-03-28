@@ -25,7 +25,7 @@ final class FaviconCache: @unchecked Sendable {
     }
 
     private enum DataURLDecoder {
-        static func decode(_ rawURL: String) -> Data? {
+        nonisolated static func decode(_ rawURL: String) -> Data? {
             guard rawURL.hasPrefix("data:"),
                   let commaIndex = rawURL.firstIndex(of: ",")
             else {
@@ -120,6 +120,23 @@ final class FaviconCache: @unchecked Sendable {
             return cached
         }
 
+        if url.scheme?.lowercased() == "data" {
+            guard let data = DataURLDecoder.decode(url.absoluteString) else { return nil }
+            // Compute pngData() inside MainActor.run — NSImage and tiffRepresentation
+            // are not thread-safe; doing both together avoids an extra async hop.
+            guard let result = await MainActor.run(body: { () -> (NSImage, Data?)? in
+                guard let img = NSImage(data: data) else { return nil }
+                return (img, img.pngData())
+            }) else {
+                return nil
+            }
+            let (fetchedImage, pngData) = result
+
+            if let cached = image(for: url) { return cached }
+            setWithData(fetchedImage, pngData: pngData, for: url)
+            return fetchedImage
+        }
+
         let requestKey = normalizedRequestKey(for: url)
 
         do {
@@ -127,17 +144,19 @@ final class FaviconCache: @unchecked Sendable {
                 return try await fetchData(key)
             }
 
-            guard let fetchedImage = await MainActor.run(body: {
-                NSImage(data: data)
+            // Compute pngData() inside MainActor.run alongside NSImage creation.
+            // This avoids dispatching back to MainActor later (which can starve
+            // when the main actor is occupied by parallel WebKit tests).
+            guard let result = await MainActor.run(body: { () -> (NSImage, Data?)? in
+                guard let img = NSImage(data: data) else { return nil }
+                return (img, img.pngData())
             }) else {
                 return nil
             }
+            let (fetchedImage, pngData) = result
 
-            if let cached = image(for: url) {
-                return cached
-            }
-
-            set(fetchedImage, for: url)
+            if let cached = image(for: url) { return cached }
+            setWithData(fetchedImage, pngData: pngData, for: url)
             return fetchedImage
         } catch {
         }
@@ -149,13 +168,23 @@ final class FaviconCache: @unchecked Sendable {
         return s.isEmpty ? "INVALID_URL" : s
     }
 
-    nonisolated func set(_ image: NSImage, for key: URL) {
+    @MainActor func set(_ image: NSImage, for key: URL) {
+        // Compute PNG data before acquiring the lock. This method is called from
+        // @MainActor contexts (tests, UI callbacks), so tiffRepresentation is safe.
+        // pngData() is intentionally NOT dispatched async — see persistToDisk().
+        let pngData = image.pngData()
+        setWithData(image, pngData: pngData, for: key)
+    }
+
+    nonisolated private func setWithData(_ image: NSImage, pngData: Data?, for key: URL) {
         lock.lock()
         defer { lock.unlock() }
 
         storage[key] = image
         touch(key)
-        saveToDisk(image, key: key)
+        if let data = pngData {
+            persistToDisk(data, at: diskURL(for: key))
+        }
         evictIfNeeded()
     }
 
@@ -186,15 +215,13 @@ final class FaviconCache: @unchecked Sendable {
         return String(format: "%016llx", hash)
     }
     
-    nonisolated private func saveToDisk(_ image: NSImage, key: URL) {
-        let url = diskURL(for: key)
-        Task.detached(priority: .background) {
-            let data = await MainActor.run {
-                image.pngData()
-            }
-            if let data = data {
-                try? data.write(to: url)
-            }
+    nonisolated private func persistToDisk(_ data: Data, at fileURL: URL) {
+        // pngData() has already been computed on the correct thread by the caller.
+        // This function only does pure I/O — safe to run on any thread.
+        // .atomic writes to a temp file first, then renames, so readers never see
+        // a partial PNG (which caused libpng IDAT CRC errors and cascading deletes).
+        Task.detached(priority: .userInitiated) {
+            try? data.write(to: fileURL, options: .atomic)
         }
     }
     
