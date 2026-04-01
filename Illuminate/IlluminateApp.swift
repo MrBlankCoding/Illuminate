@@ -11,8 +11,8 @@ import SwiftData
 
 @main
 struct IlluminateApp: App {
-    @StateObject private var tabManager = TabManager.shared
-    @StateObject private var viewModel = ContentViewModel(tabManager: TabManager.shared)
+    @StateObject private var profileManager = ProfileManager()
+    @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     private let keyboardShortcutHandler: KeyboardShortcutHandler
     private let backgroundResourceManager: BackgroundResourceManager
     private let runtimeSecurityMonitor: RuntimeSecurityMonitor
@@ -25,7 +25,6 @@ struct IlluminateApp: App {
         runtimeSecurityMonitor = RuntimeSecurityMonitor(notificationCenter: center)
         do {
             modelContainer = try ModelContainer(for: Bookmark.self, Password.self)
-            PasswordService.shared.setContainer(modelContainer)
         } catch {
             fatalError("Could not initialize ModelContainer: \(error)")
         }
@@ -36,13 +35,13 @@ struct IlluminateApp: App {
     }
 
     var body: some Scene {
-        WindowGroup {
-            ContentView()
-                .environmentObject(tabManager)
-                .environmentObject(viewModel)
+        WindowGroup(for: BrowserProfile.ID.self) { $profileID in
+            AppRootView(profileID: $profileID, modelContainer: modelContainer)
+                .environmentObject(profileManager)
                 .frame(minWidth: 600, minHeight: 450)
                 .onOpenURL { url in
-                    tabManager.createTab(url: url)
+                    // In a multi-window setup, the `onOpenURL` might need to route to a specific window
+                    // For now, it could be handled by the focused window
                 }
         }
         .windowStyle(.hiddenTitleBar)
@@ -50,7 +49,11 @@ struct IlluminateApp: App {
         .defaultSize(width: 1180, height: 720)
         .commands {
             AppCommands(shortcutHandler: keyboardShortcutHandler)
-            BookmarksCommands(shortcutHandler: keyboardShortcutHandler, tabManager: tabManager, modelContainer: modelContainer)
+            BookmarksCommands(
+                shortcutHandler: keyboardShortcutHandler,
+                modelContainer: modelContainer
+            )
+            ProfileCommands(profileManager: profileManager)
         }
     }
 

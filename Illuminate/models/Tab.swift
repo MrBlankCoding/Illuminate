@@ -110,12 +110,12 @@ final class Tab: ObservableObject, Identifiable {
         lastActivatedAt = Date()
     }
 
-    func createWebViewIfNeeded(configuration: WKWebViewConfiguration) {
+    func createWebViewIfNeeded(configuration: WKWebViewConfiguration, webKitManager: WebKitManager) {
         guard webView == nil else { return }
 
         let newWebView = WKWebView(frame: .zero, configuration: configuration)
         newWebView.isInspectable = true
-        WebKitManager.shared.applySafariUserAgent(to: newWebView)
+        webKitManager.applySafariUserAgent(to: newWebView)
         objc_setAssociatedObject(
             newWebView,
             &webViewTabOwnerKey,

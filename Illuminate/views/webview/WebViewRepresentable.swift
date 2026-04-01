@@ -11,7 +11,9 @@ import WebKit
 
 struct WebViewRepresentable: NSViewRepresentable {
     @ObservedObject var tab: Tab
-    @ObservedObject var adBlockService: AdBlockService = .shared
+    @ObservedObject var adBlockService: AdBlockService
+    let webKitManager: WebKitManager
+    let passwordService: PasswordService
     let tabManager: TabManager
     let userInterfaceStyle: TabManager.UIStyle
 
@@ -22,22 +24,27 @@ struct WebViewRepresentable: NSViewRepresentable {
             webScriptBridge: WebScriptBridge.shared,
             adBlockService: adBlockService,
             dohService: DNSOverHTTPSService.shared,
-            faviconCache: FaviconCache.shared
+            faviconCache: FaviconCache.shared,
+            passwordService: passwordService
         )
     }
 
     func makeNSView(context: Context) -> WKWebView {
-        tab.createWebViewIfNeeded(configuration: WebKitManager.shared.makeConfiguration())
+        tab.createWebViewIfNeeded(configuration: webKitManager.makeConfiguration(), webKitManager: webKitManager)
         
         guard let webView = tab.webView else {
-            let fallback = WebKitManager.shared.makeWebView()
+            let fallback = webKitManager.makeWebView()
             return fallback
         }
         
         webView.navigationDelegate = context.coordinator
         webView.uiDelegate = context.coordinator
         webView.allowsBackForwardNavigationGestures = tab.id == tabManager.activeTabID
-        WebScriptBridge.shared.installScripts(on: webView.configuration.userContentController, handler: context.coordinator)
+        WebScriptBridge.shared.installScripts(
+            on: webView.configuration.userContentController,
+            handler: context.coordinator,
+            colorScheme: Coordinator.resolvedScheme(for: userInterfaceStyle)
+        )
         
         context.coordinator.applyContentRules(to: webView, ruleList: adBlockService.contentRuleList)
         context.coordinator.applyWebAppearance(to: webView, style: userInterfaceStyle)
@@ -51,7 +58,12 @@ struct WebViewRepresentable: NSViewRepresentable {
 
     func updateNSView(_ nsView: WKWebView, context: Context) {
         nsView.allowsBackForwardNavigationGestures = tab.id == tabManager.activeTabID
-        
+
+        WebScriptBridge.shared.installScripts(
+            on: nsView.configuration.userContentController,
+            handler: context.coordinator,
+            colorScheme: Coordinator.resolvedScheme(for: userInterfaceStyle)
+        )
         context.coordinator.applyContentRules(to: nsView, ruleList: adBlockService.contentRuleList)
         context.coordinator.applyWebAppearance(to: nsView, style: userInterfaceStyle)
     }

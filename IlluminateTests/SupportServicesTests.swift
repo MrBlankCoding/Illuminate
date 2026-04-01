@@ -67,7 +67,7 @@ struct SupportServicesTests {
 
     @MainActor
     @Test func urlSynchronizerPublishesUpdatedURL() async throws {
-        let synchronizer = URLSynchronizer.shared
+        let synchronizer = URLSynchronizer()
         let firstURL = URL(string: "https://first.example")!
         let secondURL = URL(string: "https://second.example")!
 

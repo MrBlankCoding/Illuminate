@@ -13,6 +13,9 @@ struct WebView: View {
     @ObservedObject var tab: Tab
     @EnvironmentObject private var viewModel: ContentViewModel
     @EnvironmentObject private var tabManager: TabManager
+    @EnvironmentObject private var adBlockService: AdBlockService
+    @EnvironmentObject private var webKitManager: WebKitManager
+    @EnvironmentObject private var passwordService: PasswordService
     
     var body: some View {
         ZStack {
@@ -21,7 +24,14 @@ struct WebView: View {
                     SettingsView()
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
-                    WebViewRepresentable(tab: tab, tabManager: tabManager, userInterfaceStyle: tabManager.userInterfaceStyle)
+                    WebViewRepresentable(
+                        tab: tab,
+                        adBlockService: adBlockService,
+                        webKitManager: webKitManager,
+                        passwordService: passwordService,
+                        tabManager: tabManager,
+                        userInterfaceStyle: tabManager.userInterfaceStyle
+                    )
                 }
             } else {
                 OpeningPageView(viewModel: viewModel)

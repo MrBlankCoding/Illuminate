@@ -14,15 +14,12 @@ final class ContentViewModel: ObservableObject {
     @Published var addressBarText = ""
     
     private var tabManager: TabManager
+    private var urlSynchronizer: URLSynchronizer
     private var cancellables = Set<AnyCancellable>()
     
-    init(tabManager: TabManager) {
+    init(tabManager: TabManager, urlSynchronizer: URLSynchronizer) {
         self.tabManager = tabManager
-        setupBindings()
-    }
-    
-    func setTabManager(_ manager: TabManager) {
-        self.tabManager = manager
+        self.urlSynchronizer = urlSynchronizer
         setupBindings()
     }
     
@@ -77,7 +74,7 @@ final class ContentViewModel: ObservableObject {
         } else {
             tab.load(url: url)
         }
-        URLSynchronizer.shared.updateCurrentURL(url)
+        urlSynchronizer.updateCurrentURL(url)
     }
     
     func createNewTab(url: URL? = nil) {

@@ -10,10 +10,12 @@ import SwiftData
 import AppKit
 
 struct TabDisplayView: View {
+    @EnvironmentObject private var environment: ProfileEnvironment
     @EnvironmentObject private var tabManager: TabManager
     @EnvironmentObject private var viewModel: ContentViewModel
+    @EnvironmentObject private var urlSynchronizer: URLSynchronizer
     @Environment(\.modelContext) private var modelContext
-    @Query(sort: \Bookmark.title) private var bookmarks: [Bookmark]
+    @Query(sort: \Bookmark.title) private var allBookmarks: [Bookmark]
     @Binding var hoveredSidebarTabID: UUID?
     @State private var hoveredTabID: UUID?
     @State private var hoveredNewTabButton = false
@@ -22,6 +24,10 @@ struct TabDisplayView: View {
     @State private var showingCreateGroup = false
     @State private var newGroupName = ""
     @State private var newGroupColor = "89BBFF"
+
+    private var bookmarks: [Bookmark] {
+        allBookmarks.filter { $0.profileID == environment.profile.id }
+    }
 
     var body: some View {
         ZStack(alignment: .topLeading) {
@@ -284,7 +290,7 @@ struct TabDisplayView: View {
             tabManager.createTab(url: url)
         }
         
-        URLSynchronizer.shared.updateCurrentURL(url)
+        urlSynchronizer.updateCurrentURL(url)
         viewModel.addressBarText = url.absoluteString
     }
 
@@ -297,7 +303,7 @@ struct TabDisplayView: View {
         if let existingBookmark = bookmarks.first(where: { $0.url == url }) {
             modelContext.delete(existingBookmark)
         } else {
-            modelContext.insert(Bookmark(title: title, url: url))
+            modelContext.insert(Bookmark(profileID: environment.profile.id, title: title, url: url))
         }
     }
 

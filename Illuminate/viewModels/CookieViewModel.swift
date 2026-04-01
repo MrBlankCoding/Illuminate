@@ -37,12 +37,12 @@ final class CookieViewModel: ObservableObject {
         }
     }
 
-    func clearAllCookies() {
-        let dataStore = WKWebsiteDataStore.default()
+    func clearAllCookies(with manager: WebKitManager) {
+        let dataStore = manager.activeWebsiteDataStore()
         let dataTypes = WKWebsiteDataStore.allWebsiteDataTypes()
         let dateFrom = Date(timeIntervalSince1970: 0)
         dataStore.removeData(ofTypes: dataTypes, modifiedSince: dateFrom) { [weak self] in
-            self?.fetchCookies()
+            self?.fetchCookies(with: manager)
         }
     }
 
@@ -54,9 +54,9 @@ final class CookieViewModel: ObservableObject {
         groupedCookies.keys.sorted()
     }
 
-    func fetchCookies() {
+    func fetchCookies(with manager: WebKitManager) {
         isLoading = true
-        WKWebsiteDataStore.default().httpCookieStore.getAllCookies { fetchedCookies in
+        manager.activeWebsiteDataStore().httpCookieStore.getAllCookies { fetchedCookies in
             DispatchQueue.main.async {
                 self.cookies = fetchedCookies
                 self.isLoading = false
@@ -64,25 +64,25 @@ final class CookieViewModel: ObservableObject {
         }
     }
 
-    func deleteCookie(_ cookie: HTTPCookie) {
-        WKWebsiteDataStore.default().httpCookieStore.delete(cookie) { [weak self] in
-            self?.fetchCookies()
+    func deleteCookie(_ cookie: HTTPCookie, with manager: WebKitManager) {
+        manager.activeWebsiteDataStore().httpCookieStore.delete(cookie) { [weak self] in
+            self?.fetchCookies(with: manager)
         }
     }
 
-    func deleteCookies(for domain: String) {
+    func deleteCookies(for domain: String, with manager: WebKitManager) {
         let cookiesToDelete = cookies.filter { $0.domain == domain }
         let group = DispatchGroup()
         
         for cookie in cookiesToDelete {
             group.enter()
-            WKWebsiteDataStore.default().httpCookieStore.delete(cookie) {
+            manager.activeWebsiteDataStore().httpCookieStore.delete(cookie) {
                 group.leave()
             }
         }
         
         group.notify(queue: .main) { [weak self] in
-            self?.fetchCookies()
+            self?.fetchCookies(with: manager)
         }
     }
 }

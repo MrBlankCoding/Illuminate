@@ -23,9 +23,6 @@ final class TabManager: ObservableObject {
         static let saveDebounce: UInt64 = 500_000_000
     }
 
-    static let shared = TabManager()
-    static let sharedPlaceholder = TabManager(isPersistenceEnabled: false)
-
     @Published private(set) var tabs: [Tab] = []
     @Published private(set) var activeTabID: UUID?
     @Published private(set) var tabGroups: [TabGroup] = []
@@ -36,14 +33,14 @@ final class TabManager: ObservableObject {
     @Published var windowThemeColor: Color {
         didSet {
             guard isPersistenceEnabled else { return }
-            userDefaults.set(windowThemeColor.toHex(), forKey: "windowThemeColor")
+            userDefaults.set(windowThemeColor.toHex(), forKey: scopedKey("windowThemeColor"))
         }
     }
 
     @Published var backgroundImageURL: String {
         didSet {
             guard isPersistenceEnabled, !isInitializing else { return }
-            userDefaults.set(backgroundImageURL, forKey: "backgroundImageURL")
+            userDefaults.set(backgroundImageURL, forKey: scopedKey("backgroundImageURL"))
             updateThemeFromBackground(setTheme: true)
         }
     }
@@ -51,21 +48,21 @@ final class TabManager: ObservableObject {
     @Published var showSidebar: Bool {
         didSet {
             guard isPersistenceEnabled else { return }
-            userDefaults.set(showSidebar, forKey: "showSidebar")
+            userDefaults.set(showSidebar, forKey: scopedKey("showSidebar"))
         }
     }
 
     @Published var showBackgroundBehindSidebar: Bool {
         didSet {
             guard isPersistenceEnabled else { return }
-            userDefaults.set(showBackgroundBehindSidebar, forKey: "showBackgroundBehindSidebar")
+            userDefaults.set(showBackgroundBehindSidebar, forKey: scopedKey("showBackgroundBehindSidebar"))
         }
     }
 
     @Published var userInterfaceStyle: UIStyle {
         didSet {
             guard isPersistenceEnabled else { return }
-            userDefaults.set(userInterfaceStyle.rawValue, forKey: "userInterfaceStyle")
+            userDefaults.set(userInterfaceStyle.rawValue, forKey: scopedKey("userInterfaceStyle"))
         }
     }
 
@@ -80,8 +77,9 @@ final class TabManager: ObservableObject {
     private let urlSynchronizer: URLSynchronizer
     private let userDefaults: UserDefaults
     private let isPersistenceEnabled: Bool
-    private let cachedSessionURL: URL
+    private var cachedSessionURL: URL
     private let faviconCache = FaviconCache.shared
+    private var activeProfileID: UUID?
 
     private var recentlyClosed: [ClosedTabSnapshot] = []
     private var isInitializing = true
@@ -101,16 +99,18 @@ final class TabManager: ObservableObject {
 
     @MainActor
     init(
+        profile: BrowserProfile,
         notificationCenter: NotificationCenter = .default,
-        urlSynchronizer: URLSynchronizer? = nil,
+        urlSynchronizer: URLSynchronizer,
         userDefaults: UserDefaults = .standard,
         isPersistenceEnabled: Bool = true
     ) {
+        self.activeProfileID = profile.id
         self.notificationCenter = notificationCenter
-        self.urlSynchronizer = urlSynchronizer ?? URLSynchronizer.shared
+        self.urlSynchronizer = urlSynchronizer
         self.userDefaults = userDefaults
         self.isPersistenceEnabled = isPersistenceEnabled
-        self.cachedSessionURL = Self.makeSessionURL()
+        self.cachedSessionURL = Self.makeSessionURL(profileID: profile.id)
 
         // Resolve persisted or default values
         let savedHex = isPersistenceEnabled
@@ -145,8 +145,13 @@ final class TabManager: ObservableObject {
         }
     }
 
-    private static func makeSessionURL() -> URL {
-        let appSupport = FileManager.default.illuminateAppSupportDirectory()
+    private static func makeSessionURL(profileID: UUID?) -> URL {
+        let appSupport: URL
+        if let profileID {
+            appSupport = FileManager.default.illuminateProfileDirectory(profileID: profileID)
+        } else {
+            appSupport = FileManager.default.illuminateAppSupportDirectory()
+        }
         return appSupport.appendingPathComponent("session.json")
     }
 
@@ -379,9 +384,14 @@ final class TabManager: ObservableObject {
     }
 
     private func removeTabAssets(for id: UUID) {
-        let paths = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)
-        let folder = paths[0]
-            .appendingPathComponent("Illuminate/TabAssets", isDirectory: true)
+        let baseDirectory: URL
+        if let activeProfileID {
+            baseDirectory = FileManager.default.illuminateProfileDirectory(profileID: activeProfileID)
+        } else {
+            baseDirectory = FileManager.default.illuminateAppSupportDirectory()
+        }
+        let folder = baseDirectory
+            .appendingPathComponent("TabAssets", isDirectory: true)
             .appendingPathComponent(id.uuidString, isDirectory: true)
         try? FileManager.default.removeItem(at: folder)
     }
@@ -429,6 +439,23 @@ final class TabManager: ObservableObject {
         for (name, handler) in pairs {
             notificationCenter.addObserver(forName: name, object: nil, queue: .main) { _ in handler() }
         }
+    }
+
+    private func restoreScopedSettings() {
+        isInitializing = true
+        let savedHex = userDefaults.string(forKey: scopedKey("windowThemeColor")) ?? Defaults.themeColor
+        windowThemeColor = Color(hex: savedHex)
+        backgroundImageURL = userDefaults.string(forKey: scopedKey("backgroundImageURL")) ?? ""
+        showSidebar = userDefaults.bool(forKey: scopedKey("showSidebar"), default: true)
+        showBackgroundBehindSidebar = userDefaults.bool(forKey: scopedKey("showBackgroundBehindSidebar"), default: true)
+        let savedStyle = userDefaults.string(forKey: scopedKey("userInterfaceStyle")) ?? "dark"
+        userInterfaceStyle = UIStyle(rawValue: savedStyle) ?? .dark
+        isInitializing = false
+    }
+
+    private func scopedKey(_ key: String) -> String {
+        guard let activeProfileID else { return key }
+        return "profile.\(activeProfileID.uuidString).\(key)"
     }
 }
 

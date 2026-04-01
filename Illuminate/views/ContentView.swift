@@ -219,8 +219,3 @@ struct ContentView: View {
     }
 }
 
-#Preview {
-    ContentView()
-        .environmentObject(TabManager())
-        .modelContainer(for: [Bookmark.self], inMemory: true)
-}

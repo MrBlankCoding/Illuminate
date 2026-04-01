@@ -11,12 +11,17 @@ import SwiftData
 
 struct SettingsView: View {
     @EnvironmentObject private var tabManager: TabManager
+    @EnvironmentObject private var environment: ProfileEnvironment
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
-    @Query(sort: \Password.url) private var passwords: [Password]
+    @Query(sort: \Password.url) private var allPasswords: [Password]
     @State private var selectedTab = 0
     @State private var isCloseHovered = false
     @State private var passwordSearchText = ""
+
+    private var passwords: [Password] {
+        return allPasswords.filter { $0.profileID == environment.profile.id }
+    }
 
     var filteredPasswords: [Password] {
         if passwordSearchText.isEmpty {
@@ -35,37 +40,36 @@ struct SettingsView: View {
                 tabButton(title: "Shortcuts", index: 1)
                 tabButton(title: "Passwords", index: 2)
                 tabButton(title: "Cookies", index: 3)
-                tabButton(title: "Performance", index: 4)
-                tabButton(title: "Additional", index: 5)
+                tabButton(title: "Additional", index: 4)
             }
             .padding(.top, 24)
             .padding(.bottom, 32)
 
             ZStack {
-                if selectedTab == 0 {
+                switch selectedTab {
+                case 0:
                     ScrollView {
                         appearanceTab
                             .padding(.bottom, 40)
                     }
                     .transition(.asymmetric(insertion: .move(edge: .leading).combined(with: .opacity), removal: .move(edge: .trailing).combined(with: .opacity)))
-                } else if selectedTab == 1 {
+                case 1:
                     ScrollView {
                         shortcutsTab
                             .padding(.bottom, 40)
                     }
                     .transition(.asymmetric(insertion: .move(edge: .trailing).combined(with: .opacity), removal: .move(edge: .leading).combined(with: .opacity)))
-                } else if selectedTab == 2 {
+                case 2:
                     passwordsTab
                         .transition(.asymmetric(insertion: .move(edge: .trailing).combined(with: .opacity), removal: .move(edge: .leading).combined(with: .opacity)))
-                } else if selectedTab == 3 {
+                case 3:
                     cookiesSettingsTab
                         .transition(.asymmetric(insertion: .move(edge: .trailing).combined(with: .opacity), removal: .move(edge: .leading).combined(with: .opacity)))
-                } else if selectedTab == 4 {
-                    performanceTab
-                        .transition(.asymmetric(insertion: .move(edge: .trailing).combined(with: .opacity), removal: .move(edge: .leading).combined(with: .opacity)))
-                } else {
+                case 4:
                     additionalTab
                         .transition(.asymmetric(insertion: .move(edge: .trailing).combined(with: .opacity), removal: .move(edge: .leading).combined(with: .opacity)))
+                default:
+                    EmptyView()
                 }
             }
             .animation(.spring(response: 0.35, dampingFraction: 0.85), value: selectedTab)
@@ -158,6 +162,7 @@ struct SettingsView: View {
             .cornerRadius(12)
         }
     }
+
 
     private var appearanceTab: some View {
         VStack(spacing: 40) {
@@ -482,60 +487,12 @@ struct SettingsView: View {
         .padding(.vertical, 6)
     }
 
-    private var performanceTab: some View {
-        VStack(spacing: 28) {
-            settingsSection(title: "Session") {
-                Text("\(tabManager.tabs.count) tabs are currently open.")
-                    .font(.system(size: 14))
-                    .foregroundStyle(Color.textPrimary)
-
-                Text("Tab previews and favicons are cached locally to speed up restore and hover previews.")
-                    .font(.system(size: 11))
-                    .foregroundStyle(Color.textSecondary)
-            }
-            
-            settingsSection(title: "Tabs:") {
-                VStack(spacing: 12) {
-                    ForEach(tabManager.tabs) { tab in
-                        HStack {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(tab.title)
-                                    .font(.system(size: 13))
-                                    .foregroundStyle(Color.textPrimary)
-                                    .lineLimit(1)
-
-                                if let url = tab.url {
-                                    Text(url.absoluteString)
-                                        .font(.system(size: 10))
-                                        .foregroundStyle(Color.textSecondary)
-                                        .lineLimit(1)
-                                }
-                            }
-                            
-                            Spacer()
-                        }
-                        .padding(.vertical, 4)
-                    }
-                    
-                    if tabManager.tabs.isEmpty {
-                        Text("No open tabs")
-                            .font(.system(size: 13))
-                            .foregroundStyle(Color.textSecondary)
-                    }
-                }
-            }
-            
-            Spacer()
-        }
-        .padding(.horizontal, 48)
-    }
-
     private var cookiesSettingsTab: some View {
         VStack(spacing: 28) {
             settingsSection(title: "Cookie Management") {
                 Toggle("Enable Cookies", isOn: Binding(
-                    get: { WebKitManager.shared.cookiesEnabled },
-                    set: { WebKitManager.shared.cookiesEnabled = $0 }
+                    get: { environment.webKitManager.cookiesEnabled },
+                    set: { environment.webKitManager.cookiesEnabled = $0 }
                 ))
                 .toggleStyle(SwitchToggleStyle(tint: tabManager.windowThemeColor))
                 .font(.system(size: 14))
@@ -548,7 +505,7 @@ struct SettingsView: View {
             
             settingsSection(title: "Privacy") {
                 Button(role: .destructive) {
-                    CookieViewModel().clearAllCookies()
+                    CookieViewModel().clearAllCookies(with: environment.webKitManager)
                 } label: {
                     HStack {
                         Image(systemName: "trash")
@@ -574,8 +531,8 @@ struct SettingsView: View {
         VStack(spacing: 28) {
             settingsSection(title: "Content Blocking") {
                 Toggle("Enable Ad Blocker", isOn: Binding(
-                    get: { AdBlockService.shared.isEnabled },
-                    set: { AdBlockService.shared.isEnabled = $0 }
+                    get: { environment.adBlockService.isEnabled },
+                    set: { environment.adBlockService.isEnabled = $0 }
                 ))
                 .toggleStyle(SwitchToggleStyle(tint: tabManager.windowThemeColor))
                 .font(.system(size: 14))

@@ -48,4 +48,20 @@ extension FileManager {
         try? createDirectory(at: downloadsDirectory, withIntermediateDirectories: true)
         return downloadsDirectory
     }
+
+    func illuminateProfilesDirectory() -> URL {
+        let profilesDirectory = illuminateAppSupportDirectory().appendingPathComponent("Profiles", isDirectory: true)
+        try? createDirectory(at: profilesDirectory, withIntermediateDirectories: true)
+        return profilesDirectory
+    }
+
+    func illuminateProfilesCatalogURL() -> URL {
+        illuminateProfilesDirectory().appendingPathComponent("profiles.json")
+    }
+
+    func illuminateProfileDirectory(profileID: UUID) -> URL {
+        let directory = illuminateProfilesDirectory().appendingPathComponent(profileID.uuidString, isDirectory: true)
+        try? createDirectory(at: directory, withIntermediateDirectories: true)
+        return directory
+    }
 }

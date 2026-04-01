@@ -23,8 +23,7 @@ struct PasswordServiceTests {
 
     @Test func testSaveAndFetchPassword() async throws {
         let container = try createInMemoryContainer()
-        let service = PasswordService.shared
-        service.setContainer(container)
+        let service = PasswordService(profile: BrowserProfile(name: "Test Profile"), container: container)
         service.savePassword(
             url: "https://example.com",
             username: "testuser",
@@ -40,8 +39,7 @@ struct PasswordServiceTests {
 
     @Test func testPasswordUpdate() async throws {
         let container = try createInMemoryContainer()
-        let service = PasswordService.shared
-        service.setContainer(container)
+        let service = PasswordService(profile: BrowserProfile(name: "Test Profile"), container: container)
         
         service.savePassword(
             url: "https://updatesite.com",
@@ -63,8 +61,7 @@ struct PasswordServiceTests {
 
     @Test func testMultiplePasswordsForSameSite() async throws {
         let container = try createInMemoryContainer()
-        let service = PasswordService.shared
-        service.setContainer(container)
+        let service = PasswordService(profile: BrowserProfile(name: "Test Profile"), container: container)
         
         service.savePassword(
             url: "https://multilogin.com",
@@ -94,8 +91,7 @@ struct PasswordServiceTests {
 
     @Test func testHostExtraction() async throws {
         let container = try createInMemoryContainer()
-        let service = PasswordService.shared
-        service.setContainer(container)
+        let service = PasswordService(profile: BrowserProfile(name: "Test Profile"), container: container)
         
         service.savePassword(
             url: "https://login.example.com/signin",

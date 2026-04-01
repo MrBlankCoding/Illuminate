@@ -12,11 +12,10 @@ import WebKit
 final class AdBlockService: ObservableObject {
 
     private static let sharedRuleListIdentifier = "IlluminateAdBlockRules"
-    static let shared = AdBlockService(ruleListIdentifier: sharedRuleListIdentifier)
-    
     @Published var isEnabled: Bool = true {
         didSet {
-            userDefaults.set(isEnabled, forKey: "adBlockEnabled")
+            guard !isLoadingProfile else { return }
+            userDefaults.set(isEnabled, forKey: scopedKey("adBlockEnabled"))
             if isEnabled {
                 prepareIfNeeded()
             } else {
@@ -31,24 +30,31 @@ final class AdBlockService: ObservableObject {
     private var blockedURLKeywords: Set<String> = []
     private var allowlistedHosts: Set<String> = []
     private let userDefaults: UserDefaults
-    private let ruleListIdentifier: String
+    private let baseRuleListIdentifier: String
     private var hasPreparedRuleList = false
     private var isPreparingRuleList = false
+    private var activeProfileID: UUID?
+    private var isLoadingProfile = false
 
     init(
+        profile: BrowserProfile,
         userDefaults: UserDefaults = .standard,
         ruleListIdentifier: String = "IlluminateAdBlockRules-\(UUID().uuidString)"
     ) {
         self.userDefaults = userDefaults
-        self.ruleListIdentifier = ruleListIdentifier
-        let storedEnabled = userDefaults.object(forKey: "adBlockEnabled") as? Bool ?? true
-        self.isEnabled = storedEnabled
+        self.activeProfileID = profile.id
+        self.baseRuleListIdentifier = ruleListIdentifier
+        self.isEnabled = userDefaults.object(forKey: scopedKey("adBlockEnabled")) as? Bool ?? true
         loadDefaultRules()
+        
+        if self.isEnabled {
+            self.prepareIfNeeded()
+        }
     }
-
     func prepareIfNeeded() {
         guard isEnabled, !hasPreparedRuleList, !isPreparingRuleList else { return }
         isPreparingRuleList = true
+        let ruleListIdentifier = scopedRuleListIdentifier()
 
         WKContentRuleListStore.default().lookUpContentRuleList(forIdentifier: ruleListIdentifier) { [weak self] list, _ in
             guard let self else { return }
@@ -71,6 +77,7 @@ final class AdBlockService: ObservableObject {
         }
 
         let rules = generateRulesJSON()
+        let ruleListIdentifier = scopedRuleListIdentifier()
         
         WKContentRuleListStore.default().compileContentRuleList(forIdentifier: ruleListIdentifier, encodedContentRuleList: rules) { [weak self] (list: WKContentRuleList?, error: Error?) in
             if let error = error {
@@ -185,5 +192,15 @@ final class AdBlockService: ObservableObject {
             self?.hasPreparedRuleList = false
             self?.isPreparingRuleList = false
         }
+    }
+
+    private func scopedKey(_ key: String) -> String {
+        guard let activeProfileID else { return key }
+        return "profile.\(activeProfileID.uuidString).\(key)"
+    }
+
+    private func scopedRuleListIdentifier() -> String {
+        guard let activeProfileID else { return baseRuleListIdentifier }
+        return "\(baseRuleListIdentifier).\(activeProfileID.uuidString)"
     }
 }

@@ -18,13 +18,25 @@ extension WebViewRepresentable {
         private let adBlockService: AdBlockService
         private let dohService: DNSOverHTTPSService
         private let faviconCache: FaviconCache
+        private let passwordService: PasswordService
         private let preconnectManager = NavigationPreconnectManager.shared
 
         private let circuitBreaker = WebProcessCircuitBreaker()
         private var lastAppliedStyle: TabManager.UIStyle?
         private var lastAppliedContentRuleList: WKContentRuleList?
-        private weak var contextMenuWebView: WKWebView?
         var lastLoadedURL: URL?
+
+        static func resolvedScheme(for style: TabManager.UIStyle) -> String {
+            switch style {
+            case .dark:
+                return "dark"
+            case .light:
+                return "light"
+            case .system:
+                let best = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua])
+                return (best == .darkAqua) ? "dark" : "light"
+            }
+        }
 
         private static func colorSchemeScript(for scheme: String) -> String {
             """
@@ -34,6 +46,13 @@ extension WebViewRepresentable {
                 el.id = id;
                 el.textContent = ":root, html { color-scheme: \(scheme) !important; }";
                 if (!el.parentNode) document.documentElement.appendChild(el);
+                const prefersDark = "\(scheme)" === "dark";
+                if (window.__illuminateThemeSync) {
+                    window.__illuminateThemeSync.prefersDark = prefersDark;
+                    window.__illuminateThemeSync.listeners.forEach((entry) => entry.dispatch());
+                }
+                document.documentElement.style.colorScheme = "\(scheme)";
+                window.dispatchEvent(new CustomEvent("illuminatecolorschemechange", { detail: { scheme: "\(scheme)" } }));
             })();
             """
         }
@@ -53,7 +72,8 @@ extension WebViewRepresentable {
             webScriptBridge: WebScriptBridge,
             adBlockService: AdBlockService,
             dohService: DNSOverHTTPSService,
-            faviconCache: FaviconCache
+            faviconCache: FaviconCache,
+            passwordService: PasswordService
         ) {
             self.tab = tab
             self.tabManager = tabManager
@@ -61,6 +81,7 @@ extension WebViewRepresentable {
             self.adBlockService = adBlockService
             self.dohService = dohService
             self.faviconCache = faviconCache
+            self.passwordService = passwordService
             self.lastLoadedURL = tab.url
         }
 
@@ -132,12 +153,12 @@ extension WebViewRepresentable {
                     let username = body["username"] as? String,
                     let password = body["password"] as? String
                 else { return }
-                DispatchQueue.main.async {
-                    PasswordService.shared.savePassword(url: url, username: username, passwordData: password)
+                DispatchQueue.main.async { [weak self] in
+                    self?.passwordService.savePassword(url: url, username: username, passwordData: password)
                 }
 
             case "fieldsDetected":
-                let passwords = PasswordService.shared.fetchPasswords(for: url)
+                let passwords = passwordService.fetchPasswords(for: url)
                 guard let first = passwords.first, let webView = message.webView else { return }
                 // Pass credentials as JSON rather than interpolating them directly into
                 // a JS string literal, which would break on special characters and is
@@ -356,7 +377,6 @@ extension WebViewRepresentable {
             forElement elementInfo: Any,
             completionHandler: @escaping (NSMenu?) -> Void
         ) {
-            contextMenuWebView = webView
             contextMenu.addItem(.separator())
 
             let findItem = NSMenuItem(title: "Find in Page…", action: #selector(triggerFindInPage), keyEquivalent: "f")
@@ -364,38 +384,7 @@ extension WebViewRepresentable {
             findItem.target = self
             contextMenu.addItem(findItem)
 
-            // KVC-based image URL extraction — fragile but unavoidable without private API.
-            if let info = elementInfo as? NSObject,
-               let imageURL = info.value(forKey: "imageURL") as? URL {
-                contextMenu.addItem(.separator())
-
-                let downloadItem = NSMenuItem(title: "Download Image…", action: #selector(downloadImage(_:)), keyEquivalent: "")
-                downloadItem.target = self
-                downloadItem.representedObject = imageURL
-                contextMenu.addItem(downloadItem)
-
-                let copyItem = NSMenuItem(title: "Copy Image Address", action: #selector(copyImageAddress(_:)), keyEquivalent: "")
-                copyItem.target = self
-                copyItem.representedObject = imageURL
-                contextMenu.addItem(copyItem)
-            }
-
             completionHandler(contextMenu)
-        }
-
-        @objc private func downloadImage(_ sender: NSMenuItem) {
-            guard let url = sender.representedObject as? URL else { return }
-            if let webView = contextMenuWebView {
-                Task { await webView.startDownload(using: URLRequest(url: url)) }
-            } else {
-                DownloadManager.shared.startDownload(from: url)
-            }
-        }
-
-        @objc private func copyImageAddress(_ sender: NSMenuItem) {
-            guard let url = sender.representedObject as? URL else { return }
-            NSPasteboard.general.clearContents()
-            NSPasteboard.general.setString(url.absoluteString, forType: .string)
         }
 
         @objc private func triggerFindInPage() {
@@ -406,14 +395,7 @@ extension WebViewRepresentable {
             guard lastAppliedStyle != style else { return }
             lastAppliedStyle = style
 
-            let scheme: String
-            switch style {
-            case .dark:   scheme = "dark"
-            case .light:  scheme = "light"
-            case .system:
-                let best = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua])
-                scheme = (best == .darkAqua) ? "dark" : "light"
-            }
+            let scheme = Self.resolvedScheme(for: style)
 
             webView.evaluateJavaScript(Self.colorSchemeScript(for: scheme), completionHandler: nil)
         }

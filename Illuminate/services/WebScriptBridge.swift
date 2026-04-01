@@ -33,7 +33,8 @@ final class WebScriptBridge {
 
     func installScripts(
         on contentController: WKUserContentController,
-        handler: WKScriptMessageHandler
+        handler: WKScriptMessageHandler,
+        colorScheme: String
     ) {
         removeAll(from: contentController)
 
@@ -41,6 +42,7 @@ final class WebScriptBridge {
         contentController.add(weakHandler, name: metadataBridgeName)
         contentController.add(weakHandler, name: passwordBridgeName)
 
+        contentController.addUserScript(browserThemeSyncScript(colorScheme: colorScheme))
         contentController.addUserScript(metadataExtractionScript())
         contentController.addUserScript(hoverTrackingScript())
         contentController.addUserScript(passwordScript())
@@ -67,6 +69,84 @@ final class WebScriptBridge {
         })();
         """
         return WKUserScript(source: source, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
+    }
+
+    private func browserThemeSyncScript(colorScheme: String) -> WKUserScript {
+        let source = """
+        (() => {
+            const scheme = "\(colorScheme)";
+            const prefersDark = scheme === "dark";
+
+            if (!window.__illuminateThemeSync) {
+                const originalMatchMedia = window.matchMedia.bind(window);
+                const listeners = new Set();
+
+                const makeEntry = (query, darkQuery) => {
+                    const entry = {
+                        media: query,
+                        onchange: null,
+                        listeners: new Set(),
+                        legacyListeners: new Set(),
+                        get matches() { return darkQuery ? window.__illuminateThemeSync.prefersDark : !window.__illuminateThemeSync.prefersDark; },
+                        addEventListener(type, listener) {
+                            if (type === "change" && listener) this.listeners.add(listener);
+                        },
+                        removeEventListener(type, listener) {
+                            if (type === "change" && listener) this.listeners.delete(listener);
+                        },
+                        addListener(listener) {
+                            if (listener) this.legacyListeners.add(listener);
+                        },
+                        removeListener(listener) {
+                            if (listener) this.legacyListeners.delete(listener);
+                        },
+                        dispatch() {
+                            const event = { matches: this.matches, media: this.media };
+                            this.listeners.forEach((listener) => {
+                                try { listener.call(this, event); } catch (_) {}
+                            });
+                            this.legacyListeners.forEach((listener) => {
+                                try { listener.call(this, event); } catch (_) {}
+                            });
+                            if (typeof this.onchange === "function") {
+                                try { this.onchange.call(this, event); } catch (_) {}
+                            }
+                        }
+                    };
+                    listeners.add(entry);
+                    return entry;
+                };
+
+                window.__illuminateThemeSync = {
+                    originalMatchMedia,
+                    listeners,
+                    prefersDark
+                };
+
+                window.matchMedia = (query) => {
+                    if (typeof query === "string") {
+                        const normalized = query.replace(/\\s+/g, "").toLowerCase();
+                        if (normalized === "(prefers-color-scheme:dark)") {
+                            return makeEntry(query, true);
+                        }
+                        if (normalized === "(prefers-color-scheme:light)") {
+                            return makeEntry(query, false);
+                        }
+                    }
+                    return originalMatchMedia(query);
+                };
+            } else {
+                window.__illuminateThemeSync.prefersDark = prefersDark;
+            }
+
+            document.documentElement.style.colorScheme = scheme;
+
+            window.__illuminateThemeSync.listeners.forEach((entry) => entry.dispatch());
+            window.dispatchEvent(new CustomEvent("illuminatecolorschemechange", { detail: { scheme } }));
+        })();
+        """
+
+        return WKUserScript(source: source, injectionTime: .atDocumentStart, forMainFrameOnly: false)
     }
 
     private func hoverTrackingScript() -> WKUserScript {

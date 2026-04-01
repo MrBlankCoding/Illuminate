@@ -11,11 +11,9 @@ import Foundation
 
 @MainActor
 final class URLSynchronizer: ObservableObject {
-    static let shared = URLSynchronizer()
-
     @Published private(set) var currentURL: URL?
 
-    private init() {}
+    init() {}
 
     func updateCurrentURL(_ url: URL?) {
         currentURL = url

@@ -10,6 +10,7 @@ import WebKit
 
 struct CookieManagerView: View {
     @EnvironmentObject private var tabManager: TabManager
+    @EnvironmentObject private var webKitManager: WebKitManager
     @StateObject private var viewModel: CookieViewModel
 
     init(domain: String? = nil) {
@@ -31,7 +32,7 @@ struct CookieManagerView: View {
             }
         }
         .onAppear {
-            viewModel.fetchCookies()
+            viewModel.fetchCookies(with: webKitManager)
         }
     }
 
@@ -91,7 +92,7 @@ struct CookieManagerView: View {
                             Spacer()
                             
                             Button {
-                                viewModel.deleteCookies(for: domain)
+                                viewModel.deleteCookies(for: domain, with: webKitManager)
                             } label: {
                                 Text("Clear")
                                     .font(.system(size: 11, weight: .medium))
@@ -140,7 +141,7 @@ struct CookieManagerView: View {
             Spacer()
             
             Button {
-                viewModel.deleteCookie(cookie)
+                viewModel.deleteCookie(cookie, with: webKitManager)
             } label: {
                 Image(systemName: "xmark.circle.fill")
                     .font(.system(size: 12))

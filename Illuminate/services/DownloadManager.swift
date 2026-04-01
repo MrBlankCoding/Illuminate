@@ -9,6 +9,7 @@ import Foundation
 import WebKit
 import Combine
 import AppKit
+import UniformTypeIdentifiers
 
 // still not working
 // Idk what im missing
@@ -44,6 +45,70 @@ final class DownloadManager: NSObject, ObservableObject, WKDownloadDelegate {
             userInfo: ["hasActiveDownloads": downloads.contains { !$0.isCompleted && !$0.isFailed }]
         )
     }
+
+    private func sanitizedFilename(_ rawFilename: String?, fallbackURL: URL? = nil) -> String {
+        let trimmed = rawFilename?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: "/", with: "_")
+            .replacingOccurrences(of: ":", with: "_")
+
+        if let trimmed, !trimmed.isEmpty, trimmed != ".", trimmed != ".." {
+            return trimmed
+        }
+
+        if let fallbackURL {
+            let candidate = fallbackURL.lastPathComponent.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !candidate.isEmpty {
+                return candidate
+            }
+        }
+
+        return "download"
+    }
+
+    private func uniqueDestinationURL(in directory: URL, preferredFilename: String) -> URL {
+        let fileManager = FileManager.default
+        let safeFilename = sanitizedFilename(preferredFilename)
+        var destinationURL = directory.appendingPathComponent(safeFilename, isDirectory: false)
+
+        let name = (safeFilename as NSString).deletingPathExtension
+        let ext = (safeFilename as NSString).pathExtension
+        var counter = 1
+
+        while fileManager.fileExists(atPath: destinationURL.path) {
+            let duplicateName = ext.isEmpty ? "\(name) (\(counter))" : "\(name) (\(counter)).\(ext)"
+            destinationURL = directory.appendingPathComponent(duplicateName, isDirectory: false)
+            counter += 1
+        }
+
+        return destinationURL
+    }
+
+    private func filename(for sourceURL: URL?, suggestedFilename: String?, mimeType: String?) -> String {
+        var filename = sanitizedFilename(suggestedFilename, fallbackURL: sourceURL)
+
+        let pathExtension = (filename as NSString).pathExtension
+        if pathExtension.isEmpty,
+           let mimeType,
+           let type = UTType(mimeType: mimeType),
+           let preferredExtension = type.preferredFilenameExtension {
+            filename.append(".\(preferredExtension)")
+        }
+
+        return filename
+    }
+
+    private func appendTask(_ task: DownloadTask) {
+        if Thread.isMainThread {
+            downloads.append(task)
+            notifyDownloadsDidChange()
+        } else {
+            DispatchQueue.main.sync {
+                self.downloads.append(task)
+                self.notifyDownloadsDidChange()
+            }
+        }
+    }
     
     func startDownload(from url: URL, to destinationURL: URL) {
         let id = UUID()
@@ -61,15 +126,7 @@ final class DownloadManager: NSObject, ObservableObject, WKDownloadDelegate {
             download: nil
         )
         
-        if Thread.isMainThread {
-            self.downloads.append(task)
-            notifyDownloadsDidChange()
-        } else {
-            DispatchQueue.main.sync {
-                self.downloads.append(task)
-                self.notifyDownloadsDidChange()
-            }
-        }
+        appendTask(task)
         
         let request = URLRequest(url: url)
         let session = URLSession(configuration: .default)
@@ -121,14 +178,7 @@ final class DownloadManager: NSObject, ObservableObject, WKDownloadDelegate {
     
     func startDownload(from url: URL, suggestedFilename: String? = nil) {
         let id = UUID()
-        let filename: String
-        
-        if let suggested = suggestedFilename, !suggested.isEmpty {
-            filename = suggested
-        } else {
-            let last = url.lastPathComponent
-            filename = last.isEmpty ? "download" : last
-        }
+        let filename = sanitizedFilename(suggestedFilename, fallbackURL: url)
         
         let task = DownloadTask(
             id: id,
@@ -142,15 +192,7 @@ final class DownloadManager: NSObject, ObservableObject, WKDownloadDelegate {
             download: nil
         )
         
-        if Thread.isMainThread {
-            self.downloads.append(task)
-            notifyDownloadsDidChange()
-        } else {
-            DispatchQueue.main.sync {
-                self.downloads.append(task)
-                self.notifyDownloadsDidChange()
-            }
-        }
+        appendTask(task)
         
         let request = URLRequest(url: url)
         let session = URLSession(configuration: .default)
@@ -175,16 +217,11 @@ final class DownloadManager: NSObject, ObservableObject, WKDownloadDelegate {
             
             let fileManager = FileManager.default
             let downloadsFolder = fileManager.illuminateDownloadsDirectory()
-            let suggestedName = (response?.suggestedFilename).flatMap { $0.isEmpty ? nil : $0 } ?? filename
-            var destinationURL = downloadsFolder.appendingPathComponent(suggestedName)
-            var counter = 1
-            
-            while fileManager.fileExists(atPath: destinationURL.path) {
-                let name = (suggestedName as NSString).deletingPathExtension
-                let ext = (suggestedName as NSString).pathExtension
-                destinationURL = downloadsFolder.appendingPathComponent("\(name) (\(counter)).\(ext)")
-                counter += 1
-            }
+            let suggestedName = self.sanitizedFilename(response?.suggestedFilename, fallbackURL: url)
+            let destinationURL = self.uniqueDestinationURL(
+                in: downloadsFolder,
+                preferredFilename: suggestedName.isEmpty ? filename : suggestedName
+            )
             
             do {
                 try fileManager.moveItem(at: tempURL, to: destinationURL)
@@ -213,7 +250,7 @@ final class DownloadManager: NSObject, ObservableObject, WKDownloadDelegate {
     func addDownload(_ download: WKDownload) {
         let id = UUID()
         let url = download.originalRequest?.url ?? URL(string: "about:blank")!
-        let filename = url.lastPathComponent.isEmpty ? "download" : url.lastPathComponent
+        let filename = sanitizedFilename(nil, fallbackURL: url)
         
         let task = DownloadTask(
             id: id,
@@ -227,17 +264,74 @@ final class DownloadManager: NSObject, ObservableObject, WKDownloadDelegate {
             download: download
         )
         
-        if Thread.isMainThread {
-            self.downloads.append(task)
-            notifyDownloadsDidChange()
-        } else {
-            DispatchQueue.main.sync {
-                self.downloads.append(task)
-                self.notifyDownloadsDidChange()
-            }
-        }
+        appendTask(task)
         
         download.delegate = self
+    }
+
+    func saveDownloadedData(
+        _ data: Data,
+        from sourceURL: URL?,
+        suggestedFilename: String? = nil,
+        mimeType: String? = nil
+    ) {
+        let destinationURL = uniqueDestinationURL(
+            in: FileManager.default.illuminateDownloadsDirectory(),
+            preferredFilename: filename(for: sourceURL, suggestedFilename: suggestedFilename, mimeType: mimeType)
+        )
+        saveDownloadedData(
+            data,
+            from: sourceURL,
+            to: destinationURL,
+            suggestedFilename: suggestedFilename,
+            mimeType: mimeType
+        )
+    }
+
+    func saveDownloadedData(
+        _ data: Data,
+        from sourceURL: URL?,
+        to destinationURL: URL,
+        suggestedFilename: String? = nil,
+        mimeType: String? = nil
+    ) {
+        let id = UUID()
+        let filename = filename(for: sourceURL, suggestedFilename: suggestedFilename, mimeType: mimeType)
+
+        let task = DownloadTask(
+            id: id,
+            url: sourceURL ?? destinationURL,
+            filename: destinationURL.lastPathComponent.isEmpty ? filename : destinationURL.lastPathComponent,
+            progress: 0,
+            isCompleted: false,
+            isFailed: false,
+            error: nil,
+            destinationURL: destinationURL,
+            download: nil
+        )
+
+        appendTask(task)
+
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                try data.write(to: destinationURL, options: .atomic)
+                DispatchQueue.main.async {
+                    if let index = self.downloads.firstIndex(where: { $0.id == id }) {
+                        self.downloads[index].isCompleted = true
+                        self.downloads[index].progress = 1.0
+                        self.notifyDownloadsDidChange()
+                    }
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    if let index = self.downloads.firstIndex(where: { $0.id == id }) {
+                        self.downloads[index].isFailed = true
+                        self.downloads[index].error = error
+                        self.notifyDownloadsDidChange()
+                    }
+                }
+            }
+        }
     }
 
     func clearDownloads() {
@@ -253,17 +347,10 @@ final class DownloadManager: NSObject, ObservableObject, WKDownloadDelegate {
     }
     
     func download(_ download: WKDownload, decideDestinationUsing response: URLResponse, suggestedFilename: String, completionHandler: @escaping (URL?) -> Void) {
-        let fileManager = FileManager.default
-        let downloadsFolder = fileManager.illuminateDownloadsDirectory()
-        let destinationURL = downloadsFolder.appendingPathComponent(suggestedFilename)
-        var finalURL = destinationURL
-        var counter = 1
-        while fileManager.fileExists(atPath: finalURL.path) {
-            let name = (suggestedFilename as NSString).deletingPathExtension
-            let ext = (suggestedFilename as NSString).pathExtension
-            finalURL = downloadsFolder.appendingPathComponent("\(name) (\(counter)).\(ext)")
-            counter += 1
-        }
+        let downloadsFolder = FileManager.default.illuminateDownloadsDirectory()
+        let originalURL = download.originalRequest?.url
+        let resolvedFilename = sanitizedFilename(suggestedFilename, fallbackURL: originalURL)
+        let finalURL = uniqueDestinationURL(in: downloadsFolder, preferredFilename: resolvedFilename)
         
         DispatchQueue.main.async {
             if let index = self.downloads.firstIndex(where: { $0.download === download }) {

@@ -13,13 +13,26 @@ import Combine
 @MainActor
 final class WebKitManager: ObservableObject {
 
-    static let shared = WebKitManager()
+    @Published var cookiesEnabled: Bool = true {
+        didSet {
+            guard !isLoadingProfile else { return }
+            userDefaults.set(cookiesEnabled, forKey: scopedKey("cookiesEnabled"))
+        }
+    }
 
-    @Published var cookiesEnabled: Bool = true
+    private let userDefaults: UserDefaults
+    private var activeProfileID: UUID?
+    private var isLoadingProfile = false
 
-    private init() {
+    init(profile: BrowserProfile, userDefaults: UserDefaults = .standard) {
+        self.userDefaults = userDefaults
+        self.activeProfileID = profile.id
         URLCache.shared.memoryCapacity = 100 * 1024 * 1024 // Increase to 100MB
         URLCache.shared.diskCapacity = 500 * 1024 * 1024 // 500MB disk cache
+        
+        self.isLoadingProfile = true
+        self.cookiesEnabled = userDefaults.object(forKey: scopedKey("cookiesEnabled")) as? Bool ?? true
+        self.isLoadingProfile = false
     }
 
     func makeConfiguration() -> WKWebViewConfiguration {
@@ -27,9 +40,7 @@ final class WebKitManager: ObservableObject {
         
         configuration.mediaTypesRequiringUserActionForPlayback = []
 
-        configuration.websiteDataStore = cookiesEnabled
-            ? .default()
-            : .nonPersistent()
+        configuration.websiteDataStore = makeWebsiteDataStore()
 
         configuration.defaultWebpagePreferences.allowsContentJavaScript = true
         configuration.defaultWebpagePreferences.preferredContentMode = .desktop
@@ -41,12 +52,6 @@ final class WebKitManager: ObservableObject {
         configuration.preferences = preferences
         configuration.userContentController = WKUserContentController()
         configuration.preferences.setValue(true, forKey: "developerExtrasEnabled")
-
-        let adBlockService = AdBlockService.shared
-        adBlockService.prepareIfNeeded()
-        if let ruleList = adBlockService.contentRuleList {
-            configuration.userContentController.add(ruleList)
-        }
 
         return configuration
     }
@@ -62,5 +67,26 @@ final class WebKitManager: ObservableObject {
         let safariUA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.3.1 Safari/605.1.15 Chrome/122.0.0.0 Illuminate/1.0"
         webView.customUserAgent = safariUA
         AppLog.info("Set custom UA: \(safariUA)")
+    }
+
+    func activeWebsiteDataStore() -> WKWebsiteDataStore {
+        makeWebsiteDataStore()
+    }
+
+    private func makeWebsiteDataStore() -> WKWebsiteDataStore {
+        guard cookiesEnabled else {
+            return .nonPersistent()
+        }
+
+        guard let activeProfileID else {
+            return .default()
+        }
+
+        return WKWebsiteDataStore(forIdentifier: activeProfileID)
+    }
+
+    private func scopedKey(_ key: String) -> String {
+        guard let activeProfileID else { return key }
+        return "profile.\(activeProfileID.uuidString).\(key)"
     }
 }

@@ -25,10 +25,6 @@ struct OpeningPageView: View {
             Spacer()
 
             VStack(spacing: 6) {
-                Image(systemName: "sparkles")
-                    .font(.system(size: 34, weight: .light))
-                    .foregroundStyle(tabManager.windowThemeColor)
-
                 Text("Illuminate")
                     .font(.system(size: 30, weight: .semibold, design: .rounded))
                     .tracking(1)
@@ -226,6 +222,3 @@ struct OpeningPageView: View {
     }
 }
 
-#Preview {
-    OpeningPageView(viewModel: ContentViewModel(tabManager: TabManager()))
-}

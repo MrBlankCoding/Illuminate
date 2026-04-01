@@ -15,7 +15,7 @@ struct URLBar: View {
     let themeColor: Color
     let onNavigate: () -> Void
 
-    @ObservedObject private var urlSynchronizer = URLSynchronizer.shared
+    @EnvironmentObject private var urlSynchronizer: URLSynchronizer
     @FocusState private var isFocused: Bool
     @State private var didCopyURL = false
     @State private var isCopyHovered = false

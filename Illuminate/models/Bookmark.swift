@@ -12,11 +12,13 @@ import SwiftData
 @Model
 final class Bookmark {
     @Attribute(.unique) var id: UUID
+    var profileID: UUID
     var title: String
     var url: String
 
-    init(id: UUID = UUID(), title: String, url: String) {
+    init(id: UUID = UUID(), profileID: UUID, title: String, url: String) {
         self.id = id
+        self.profileID = profileID
         self.title = title
         self.url = url
     }

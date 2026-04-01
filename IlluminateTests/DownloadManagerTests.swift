@@ -61,4 +61,18 @@ struct DownloadManagerTests {
         let task = manager.downloads.first { $0.url == url }
         #expect(task?.filename == "myfile.dmg", "Should extract filename from URL path")
     }
+
+    @Test func testDownloadTaskFallsBackWhenSuggestedFilenameIsEmpty() async throws {
+        let manager = DownloadManager.shared
+        manager.clearDownloads()
+
+        let url = URL(string: "https://example.com/")!
+
+        manager.startDownload(from: url, suggestedFilename: "")
+
+        #expect(manager.downloads.count == 1, "Download task should be added")
+
+        let task = manager.downloads.first { $0.url == url }
+        #expect(task?.filename == "download", "Should fall back to a safe default filename")
+    }
 }

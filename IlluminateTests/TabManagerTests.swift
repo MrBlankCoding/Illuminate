@@ -12,8 +12,16 @@ import Testing
 @MainActor
 struct TabManagerTests {
 
+    private func makeTabManager(isPersistenceEnabled: Bool = false) -> TabManager {
+        TabManager(
+            profile: BrowserProfile(name: "Test Profile"),
+            urlSynchronizer: URLSynchronizer(),
+            isPersistenceEnabled: isPersistenceEnabled
+        )
+    }
+
     @Test func reopenClosedTabRestoresLastClosedTab() {
-        let tabManager = TabManager(isPersistenceEnabled: false)
+        let tabManager = makeTabManager()
         let tab = tabManager.createTab(url: URL(string: "https://apple.com"))
         tab.title = "Apple"
         let closedTabID = tab.id
@@ -29,7 +37,7 @@ struct TabManagerTests {
     }
 
     @Test func clearAllTabsRemovesEverythingAndDisablesFurtherReopenAfterDrain() {
-        let tabManager = TabManager(isPersistenceEnabled: false)
+        let tabManager = makeTabManager()
         _ = tabManager.createTab(url: URL(string: "https://one.example"))
         _ = tabManager.createTab(url: URL(string: "https://two.example"))
 
@@ -48,7 +56,7 @@ struct TabManagerTests {
     }
 
     @Test func tabGroupsCanBeAssignedAndRemoved() {
-        let tabManager = TabManager(isPersistenceEnabled: false)
+        let tabManager = makeTabManager()
         let tab = tabManager.createTab(url: URL(string: "https://grouped.example"))
 
         tabManager.createTabGroup(name: "Work", color: "FF0000")
@@ -63,7 +71,7 @@ struct TabManagerTests {
     }
 
     @Test func updateTabURLSynchronizesActiveTabURL() async throws {
-        let tabManager = TabManager(isPersistenceEnabled: false)
+        let tabManager = makeTabManager()
         let tab = tabManager.createTab(url: URL(string: "https://before.example"))
 
         tabManager.switchTo(tab.id)
@@ -78,12 +86,19 @@ struct TabManagerTests {
     }
 
     @Test func switchingTabsDoesNotDiscardBackgroundWebViews() {
-        let tabManager = TabManager(isPersistenceEnabled: false)
+        let tabManager = makeTabManager()
+        let webKitManager = WebKitManager(profile: BrowserProfile(name: "Test Profile"))
         let firstTab = tabManager.createTab(url: URL(string: "https://one.example"))
         let secondTab = tabManager.createTab(url: URL(string: "https://two.example"))
 
-        firstTab.createWebViewIfNeeded(configuration: WebKitManager.shared.makeConfiguration())
-        secondTab.createWebViewIfNeeded(configuration: WebKitManager.shared.makeConfiguration())
+        firstTab.createWebViewIfNeeded(
+            configuration: webKitManager.makeConfiguration(),
+            webKitManager: webKitManager
+        )
+        secondTab.createWebViewIfNeeded(
+            configuration: webKitManager.makeConfiguration(),
+            webKitManager: webKitManager
+        )
 
         let firstWebView = firstTab.webView
         let secondWebView = secondTab.webView

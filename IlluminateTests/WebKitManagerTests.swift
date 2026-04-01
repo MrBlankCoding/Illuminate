@@ -13,7 +13,7 @@ struct WebKitManagerTests {
 
     @Test func makeConfigurationCreatesDistinctConfigurations() async throws {
         await MainActor.run {
-            let manager = WebKitManager.shared
+            let manager = WebKitManager(profile: BrowserProfile(name: "Test Profile"))
 
             let first = manager.makeConfiguration()
             let second = manager.makeConfiguration()
@@ -25,7 +25,7 @@ struct WebKitManagerTests {
 
     @Test func makeConfigurationRespectsCookieSetting() async throws {
         await MainActor.run {
-            let manager = WebKitManager.shared
+            let manager = WebKitManager(profile: BrowserProfile(name: "Test Profile"))
             let originalValue = manager.cookiesEnabled
             defer { manager.cookiesEnabled = originalValue }
 

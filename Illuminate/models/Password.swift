@@ -13,12 +13,14 @@ import SwiftData
 
 @Model
 final class Password {
+    var profileID: UUID
     var url: String
     var username: String
     var passwordData: String 
     var createdAt: Date
     
-    init(url: String, username: String, passwordData: String) {
+    init(profileID: UUID, url: String, username: String, passwordData: String) {
+        self.profileID = profileID
         self.url = url
         self.username = username
         self.passwordData = passwordData
