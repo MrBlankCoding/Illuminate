@@ -62,6 +62,38 @@ struct ProfileSelectionView: View {
             .environmentObject(profileManager)
             .accessibilityIdentifier("profileSelection.addProfileSheet")
         }
+        .onAppear {
+            registerDockMenuRoutes()
+            checkAutoRedirect()
+        }
+        .onChange(of: profileManager.profiles) { oldValue, newValue in
+            checkAutoRedirect()
+        }
+    }
+
+    @Environment(\.openWindow) private var openWindow
+
+    private func registerDockMenuRoutes() {
+        DockMenuWindowRouter.shared.openProfileSelection = {
+            openWindow(id: "profile-selection-window")
+        }
+        DockMenuWindowRouter.shared.openProfile = { profileID in
+            openWindow(value: BrowserWindowRoute.profile(profileID))
+        }
+    }
+
+    private func checkAutoRedirect() {
+        guard route == nil, !showingManage, !showingAddProfile else { return }
+        
+        if profileManager.profiles.count == 1, let profile = profileManager.profiles.first {
+            let visibleBrowserWindows = NSApp.windows.filter { window in
+                window.isVisible && window.title != "Profile Selection" // Heuristic
+            }
+            
+            if visibleBrowserWindows.isEmpty {
+                route = .profile(profile.id)
+            }
+        }
     }
 
     private var profileGrid: some View {

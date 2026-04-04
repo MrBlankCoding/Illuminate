@@ -58,13 +58,41 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         if let idString = sender.representedObject as? String,
            let profileID = UUID(uuidString: idString) {
-            DockMenuWindowRouter.shared.openProfile?(profileID)
+            if let openProfile = DockMenuWindowRouter.shared.openProfile {
+                openProfile(profileID)
+            } else {
+                AppLog.ui("Warning: openProfile closure not registered.")
+                // Fallback: try triggering selection
+                DockMenuWindowRouter.shared.openProfileSelection?()
+            }
         }
     }
     
     @objc func openNewWindow(_ sender: NSMenuItem) {
         NSApp.activate(ignoringOtherApps: true)
-        DockMenuWindowRouter.shared.openProfileSelection?()
+        if let openSelection = DockMenuWindowRouter.shared.openProfileSelection {
+            openSelection()
+        } else {
+            AppLog.ui("Warning: openProfileSelection closure not registered.")
+        }
+    }
+
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        // If no windows are visible, return true to let SwiftUI open the default window group.
+        // This is safer than manual routing and avoids the URL registration issues.
+        return true
+    }
+
+    private func fetchProfiles() -> [BrowserProfile] {
+        let manager = FileManager.default
+        let appSupport = manager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        let fullPath = appSupport.appendingPathComponent("Illuminate").appendingPathComponent("profiles.json")
+        
+        guard let data = try? Data(contentsOf: fullPath),
+              let profiles = try? JSONDecoder().decode([BrowserProfile].self, from: data) else {
+            return []
+        }
+        return profiles
     }
 
     private func bringAppToFrontForUITests() async {

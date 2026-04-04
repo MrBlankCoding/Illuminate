@@ -230,6 +230,12 @@ final class TabManager: ObservableObject {
         }
     }
 
+    func ensureHasAtLeastOneTab() {
+        if tabs.isEmpty {
+            createTab()
+        }
+    }
+
     @discardableResult
     func createTab(url: URL? = nil) -> Tab {
         let tab = Tab(url: url)

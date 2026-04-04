@@ -27,9 +27,24 @@ struct AppRootView: View {
                     .environmentObject(env.redirectProtectionService)
                     .focusedSceneValue(\.activeEnvironment, env)
                     .id(route)
+                    .onAppear {
+                        env.tabManager.ensureHasAtLeastOneTab()
+                        registerDockMenuRoutes()
+                    }
             } else {
                 ProfileSelectionView(route: $route)
             }
+        }
+    }
+
+    @Environment(\.openWindow) private var openWindow
+
+    private func registerDockMenuRoutes() {
+        DockMenuWindowRouter.shared.openProfileSelection = {
+            openWindow(id: "profile-selection-window")
+        }
+        DockMenuWindowRouter.shared.openProfile = { profileID in
+            openWindow(value: BrowserWindowRoute.profile(profileID))
         }
     }
 }

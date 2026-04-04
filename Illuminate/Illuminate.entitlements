@@ -10,62 +10,7 @@
 	<true/>
 	<key>com.apple.security.network.client</key>
 	<true/>
-	<key>com.apple.security.network.server</key>
-	<true/>
 	<key>com.apple.security.device.audio-input</key>
 	<true/>
-	<key>com.apple.security.device.microphone</key>
-	<true/>
-	<key>com.apple.security.device.camera</key>
-	<true/>
-	<key>com.apple.security.print</key>
-	<true/>
-	<key>com.apple.security.temporary-exception.files.absolute-path.read-only</key>
-	<array>
-		<string>/Library/Preferences/com.apple.networkd.plist</string>
-	</array>
-	<key>com.apple.security.temporary-exception.mach-lookup.global-name</key>
-	<array>
-		<string>com.apple.audio.AudioComponentRegistrar</string>
-		<string>com.apple.audio.audiohald</string>
-		<string>com.apple.audio.coreaudiod</string>
-		<string>com.apple.linkd.registry</string>
-		<string>com.apple.linkd.registry.extension</string>
-		<string>com.apple.linkd.autoShortcut</string>
-		<string>com.apple.linkd.autoShortcut.extension</string>
-		<string>com.apple.coremedia.videodecoder</string>
-		<string>com.apple.coremedia.videoencoder</string>
-		<string>com.apple.coremedia.admin</string>
-		<string>com.apple.coremedia.endpoint.xpc</string>
-		<string>com.apple.coreservices.launchservicesd</string>
-		<string>com.apple.CoreServices.coreservicesd</string>
-		<string>com.apple.runningboard</string>
-		<string>com.apple.pasteboard.1</string>
-		<string>com.apple.pboard</string>
-		<string>com.apple.lsd.mapdb</string>
-		<string>com.apple.lsd.modifydb</string>
-		<string>com.apple.SystemConfiguration.configd</string>
-		<string>com.apple.powerdatasource</string>
-		<string>com.apple.PowerManagement.control</string>
-		<string>com.apple.windowserver.active</string>
-		<string>com.apple.fonts</string>
-		<string>com.apple.TextInput</string>
-		<string>com.apple.TextInput.rd</string>
-		<string>com.apple.TextInput.lexicon</string>
-		<string>com.apple.tccd</string>
-		<string>com.apple.tccd.system</string>
-		<string>com.apple.metadata.mds</string>
-		<string>com.apple.os_eligibility</string>
-		<string>com.apple.gpumspooler</string>
-		<string>com.apple.powerlog.pl_driver</string>
-		<string>com.apple.cfprefsd.daemon</string>
-		<string>com.apple.cfprefsd.agent</string>
-		<string>com.apple.diagnosticd</string>
-		<string>com.apple.logd</string>
-		<string>com.apple.logd.events</string>
-		<string>com.apple.assertiond.processassertionconnection</string>
-		<string>com.apple.assertiond.expiration-assertion-endpoint</string>
-		<string>com.apple.AppSSO.service-xpc</string>
-	</array>
 </dict>
 </plist>
