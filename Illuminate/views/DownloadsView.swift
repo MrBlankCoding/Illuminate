@@ -9,118 +9,226 @@ import SwiftUI
 
 struct DownloadsView: View {
     @StateObject private var downloadManager = DownloadManager.shared
-    @Environment(\.dismiss) var dismiss
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack {
-                Text("Downloads")
-                    .font(.webH2)
-                Spacer()
-                Button {
-                    dismiss()
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 18))
-                        .foregroundStyle(Color.textSecondary)
-                }
-                .buttonStyle(.plain)
-            }
-            .padding(20)
-            
+            header
+
             Divider()
-            
+
             if downloadManager.downloads.isEmpty {
-                VStack(spacing: 12) {
-                    Image(systemName: "arrow.down.circle")
-                        .font(.system(size: 40))
-                        .foregroundStyle(Color.textSecondary.opacity(0.5))
-                    Text("No active downloads")
-                        .font(.webMicro)
-                        .foregroundStyle(Color.textSecondary)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                emptyState
             } else {
                 ScrollView {
-                    VStack(spacing: 1) {
+                    VStack(spacing: 10) {
                         ForEach(downloadManager.downloads) { task in
                             DownloadRow(task: task)
                         }
                     }
+                    .padding(14)
                 }
             }
         }
-        .frame(width: 350, height: 450)
+        .frame(width: 410, height: 480)
         .glassBackground()
+    }
+
+    private var header: some View {
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Downloads")
+                    .font(.webH2)
+                Text(downloadManager.preferences.safeDownloadsOnly ? "Protection is on" : "Protection is relaxed")
+                    .font(.webMicro)
+                    .foregroundStyle(Color.textSecondary)
+            }
+
+            Spacer()
+
+            if !downloadManager.downloads.isEmpty {
+                Button("Clear Finished") {
+                    downloadManager.clearFinishedDownloads()
+                }
+                .font(.system(size: 12, weight: .semibold))
+                .buttonStyle(.plain)
+                .foregroundStyle(Color.textSecondary)
+            }
+
+            Button {
+                dismiss()
+            } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: 18))
+                    .foregroundStyle(Color.textSecondary)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(20)
+    }
+
+    private var emptyState: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "arrow.down.circle")
+                .font(.system(size: 40))
+                .foregroundStyle(Color.textSecondary.opacity(0.5))
+            Text("No downloads yet")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(Color.textPrimary)
+            Text("Files you download will appear here.")
+                .font(.webMicro)
+                .foregroundStyle(Color.textSecondary)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
-struct DownloadRow: View {
+private struct DownloadRow: View {
     let task: DownloadTask
     @EnvironmentObject private var tabManager: TabManager
 
     var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: fileIcon(for: task.filename))
-                .font(.system(size: 24))
-                .foregroundStyle(tabManager.windowThemeColor)
-                .frame(width: 40, height: 40)
-                .background(tabManager.windowThemeColor.opacity(0.1))
-                .cornerRadius(8)
-            
-            VStack(alignment: .leading, spacing: 4) {
-                Text(task.filename)
-                    .font(.system(size: 13, weight: .medium))
-                    .lineLimit(1)
-                
-                if task.isCompleted {
-                    Text("Completed")
-                        .font(.system(size: 11))
-                        .foregroundStyle(Color.green)
-                } else if task.isFailed {
-                    Text("Failed: \(task.error?.localizedDescription ?? "Unknown error")")
-                        .font(.system(size: 11))
-                        .foregroundStyle(Color.red)
-                } else {
-                    ProgressView(value: task.progress)
-                        .progressViewStyle(.linear)
-                        .tint(tabManager.windowThemeColor)
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: fileIcon(for: task.filename))
+                    .font(.system(size: 24))
+                    .foregroundStyle(iconTint)
+                    .frame(width: 42, height: 42)
+                    .background(iconTint.opacity(0.12))
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Text(task.filename)
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(Color.textPrimary)
+                            .lineLimit(1)
+
+                        Spacer(minLength: 0)
+
+                        safetyBadge
+                    }
+
+                    Text(task.statusDescription)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(statusTint)
+                        .lineLimit(2)
+
+                    if task.isActive {
+                        ProgressView(value: task.progress)
+                            .progressViewStyle(.linear)
+                            .tint(tabManager.windowThemeColor)
+                    }
                 }
             }
-            
-            Spacer()
-            
-            if task.isCompleted {
-                Button {
-                    showInFinder()
-                } label: {
-                    Image(systemName: "folder")
-                        .foregroundStyle(Color.textSecondary)
+
+            HStack {
+                Text(stateLabel)
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(statusTint)
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 6)
+                    .background(statusTint.opacity(0.12))
+                    .clipShape(Capsule())
+
+                Spacer()
+
+                if task.state == .completed {
+                    Button("Open") {
+                        DownloadManager.shared.openDownload(task)
+                    }
+                    .buttonStyle(.plain)
+                    .font(.system(size: 11, weight: .semibold))
+
+                    Button("Show") {
+                        DownloadManager.shared.revealDownload(task)
+                    }
+                    .buttonStyle(.plain)
+                    .font(.system(size: 11, weight: .semibold))
+                } else if task.isActive {
+                    Button("Cancel") {
+                        DownloadManager.shared.cancelDownload(id: task.id)
+                    }
+                    .buttonStyle(.plain)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(Color.red)
                 }
-                .buttonStyle(.plain)
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .background(Color.bgSurface.opacity(0.3))
+        .padding(14)
+        .background(Color.bgSurface.opacity(0.42))
+        .clipShape(RoundedRectangle(cornerRadius: 18))
     }
-    
+
+    private var stateLabel: String {
+        switch task.state {
+        case .preparing:
+            return "Preparing"
+        case .downloading:
+            return "Downloading"
+        case .completed:
+            return "Complete"
+        case .failed:
+            return "Failed"
+        case .cancelled:
+            return "Cancelled"
+        case .blocked:
+            return "Blocked"
+        }
+    }
+
+    private var statusTint: Color {
+        switch task.state {
+        case .completed:
+            return .green
+        case .failed, .blocked, .cancelled:
+            return .red
+        case .preparing, .downloading:
+            return tabManager.windowThemeColor
+        }
+    }
+
+    private var iconTint: Color {
+        switch task.safetyLevel {
+        case .safe:
+            return tabManager.windowThemeColor
+        case .caution:
+            return .orange
+        case .blocked:
+            return .red
+        }
+    }
+
+    @ViewBuilder
+    private var safetyBadge: some View {
+        if task.safetyLevel != .safe {
+            Text(task.safetyLevel == .blocked ? "Blocked" : "Caution")
+                .font(.system(size: 9, weight: .bold))
+                .foregroundStyle(task.safetyLevel == .blocked ? Color.red : Color.orange)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 5)
+                .background((task.safetyLevel == .blocked ? Color.red : Color.orange).opacity(0.12))
+                .clipShape(Capsule())
+        }
+    }
+
     private func fileIcon(for filename: String) -> String {
         let ext = (filename as NSString).pathExtension.lowercased()
         switch ext {
-        case "pdf": return "doc.richtext"
-        case "zip", "gz", "rar": return "archivebox"
-        case "dmg", "pkg": return "shippingbox"
-        case "jpg", "png", "gif", "webp": return "photo"
-        case "mp4", "mov", "avi": return "video"
-        case "mp3", "wav", "m4a": return "music.note"
-        default: return "doc"
+        case "pdf":
+            return "doc.richtext"
+        case "zip", "gz", "rar":
+            return "archivebox"
+        case "dmg", "pkg", "app":
+            return "exclamationmark.shield"
+        case "jpg", "png", "gif", "webp":
+            return "photo"
+        case "mp4", "mov", "avi":
+            return "video"
+        case "mp3", "wav", "m4a":
+            return "music.note"
+        default:
+            return "doc"
         }
-    }
-    
-    private func showInFinder() {
-        let downloadsFolder = FileManager.default.illuminateDownloadsDirectory()
-        let fileURL = task.destinationURL ?? downloadsFolder.appendingPathComponent(task.filename)
-        NSWorkspace.shared.selectFile(fileURL.path, inFileViewerRootedAtPath: downloadsFolder.path)
     }
 }
