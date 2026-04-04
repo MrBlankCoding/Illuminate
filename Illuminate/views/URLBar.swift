@@ -16,11 +16,16 @@ struct URLBar: View {
     let onNavigate: () -> Void
 
     @EnvironmentObject private var urlSynchronizer: URLSynchronizer
+    @Environment(\.colorScheme) private var colorScheme
     @FocusState private var isFocused: Bool
     @State private var didCopyURL = false
     @State private var isCopyHovered = false
     @State private var showingCookieManager = false
     @State private var isCookieHovered = false
+
+    private var theme: BrowserTheme {
+        BrowserTheme(accent: themeColor, colorScheme: colorScheme)
+    }
 
     var body: some View {
         HStack(spacing: 8) {
@@ -35,6 +40,7 @@ struct URLBar: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .layoutPriority(1)
                 .focused($isFocused)
+                .accessibilityIdentifier("browser.urlBar.textField")
                 .onSubmit {
                     onNavigate()
                 }
@@ -50,11 +56,11 @@ struct URLBar: View {
                             .frame(width: 20, height: 20)
                             .background(
                                 Circle()
-                                    .fill(isCopyHovered ? themeColor.opacity(0.16) : Color.clear)
+                                    .fill(isCopyHovered ? theme.buttonHoverFill : Color.clear)
                             )
                             .overlay(
                                 Circle()
-                                    .strokeBorder(isCopyHovered ? Color.borderGlass : Color.clear, lineWidth: 1)
+                                    .strokeBorder(isCopyHovered ? theme.chromeStroke : Color.clear, lineWidth: 1)
                             )
                             .scaleEffect(isCopyHovered ? 1.05 : 1.0)
                             .animation(.easeInOut(duration: 0.14), value: isCopyHovered)
@@ -76,11 +82,11 @@ struct URLBar: View {
                             .frame(width: 22, height: 22)
                             .background(
                                 Circle()
-                                    .fill(showingCookieManager ? themeColor : (isCookieHovered ? themeColor.opacity(0.18) : Color.clear))
+                                    .fill(showingCookieManager ? theme.panelActive : (isCookieHovered ? theme.buttonHoverFill : Color.clear))
                             )
                             .overlay(
                                 Circle()
-                                    .strokeBorder(isCookieHovered || showingCookieManager ? themeColor.opacity(0.3) : Color.clear, lineWidth: 1)
+                                    .strokeBorder(isCookieHovered || showingCookieManager ? theme.urlBarStroke : Color.clear, lineWidth: 1)
                             )
                     }
                     .buttonStyle(.plain)
@@ -109,25 +115,25 @@ struct URLBar: View {
                 .fill(
                     LinearGradient(
                         colors: [
-                            Color.bgSurface.opacity(0.35),
-                            Color.bgSurface.opacity(0.05),
-                            Color.bgSurface.opacity(0.2)
+                            theme.urlBarTop,
+                            theme.urlBarBottom,
+                            theme.urlBarTop.blended(with: themeColor, fraction: 0.08)
                         ],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
                 )
-                .background(.ultraThinMaterial.opacity(0.6))
+                .background(theme.chromeMaterial, in: RoundedRectangle(cornerRadius: 12))
                 .clipShape(RoundedRectangle(cornerRadius: 12))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 12)
-                .strokeBorder(Color.borderGlass, lineWidth: 1)
+                .strokeBorder(isFocused ? theme.urlBarStroke : theme.chromeStroke, lineWidth: 1)
         )
         .shadow(
-            color: Color.black.opacity(0.08),
-            radius: 10,
-            y: 4
+            color: themeColor.opacity(isFocused ? 0.18 : 0.08),
+            radius: isFocused ? 16 : 10,
+            y: isFocused ? 7 : 4
         )
         .focusRing(isFocused)
         .font(.system(size: 14, weight: .medium, design: .rounded))

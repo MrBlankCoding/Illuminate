@@ -14,6 +14,7 @@ final class ProfileManager: ObservableObject {
     @Published private(set) var profiles: [BrowserProfile] = []
     
     private var environments: [UUID: ProfileEnvironment] = [:]
+    private var guestEnvironments: [UUID: ProfileEnvironment] = [:]
 
     private let fileManager: FileManager
     private let profilesURL: URL
@@ -34,12 +35,30 @@ final class ProfileManager: ObservableObject {
         return profile
     }
 
-    func environment(for profileID: UUID, container: ModelContainer) -> ProfileEnvironment? {
-        if let env = environments[profileID] { return env }
-        guard let profile = profiles.first(where: { $0.id == profileID }) else { return nil }
-        let env = ProfileEnvironment(profile: profile, modelContainer: container)
-        environments[profileID] = env
-        return env
+    func environment(for route: BrowserWindowRoute, container: ModelContainer) -> ProfileEnvironment? {
+        switch route {
+        case let .profile(profileID):
+            if let env = environments[profileID] { return env }
+            guard let profile = profiles.first(where: { $0.id == profileID }) else { return nil }
+            let env = ProfileEnvironment(profile: profile, modelContainer: container)
+            environments[profileID] = env
+            return env
+        case let .guest(sessionID):
+            if let env = guestEnvironments[sessionID] { return env }
+            let guestProfile = BrowserProfile(
+                id: sessionID,
+                name: "Guest",
+                iconName: "person.fill.questionmark"
+            )
+            let env = ProfileEnvironment(
+                profile: guestProfile,
+                modelContainer: container,
+                isGuestSession: true,
+                sessionIdentifier: sessionID
+            )
+            guestEnvironments[sessionID] = env
+            return env
+        }
     }
 
     func renameProfile(_ profile: BrowserProfile, to rawName: String) {

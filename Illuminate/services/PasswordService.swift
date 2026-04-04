@@ -16,9 +16,13 @@ final class PasswordService: ObservableObject {
     var container: ModelContainer?
     private var activeProfileID: UUID?
 
-    init(profile: BrowserProfile, container: ModelContainer) {
-        self.activeProfileID = profile.id
+    init(profileID: UUID? = nil, container: ModelContainer) {
+        self.activeProfileID = profileID
         self.container = container
+    }
+
+    convenience init(profile: BrowserProfile, container: ModelContainer) {
+        self.init(profileID: profile.id, container: container)
     }
     
     func savePassword(url: String, username: String, passwordData: String) {
@@ -27,10 +31,15 @@ final class PasswordService: ObservableObject {
         let host = URL(string: url)?.host ?? url
         
         let descriptor = FetchDescriptor<Password>(
-            predicate: #Predicate<Password> { $0.profileID == activeProfileID && $0.url == host && $0.username == username }
+            predicate: #Predicate<Password> { $0.url == host && $0.username == username }
         )
         
-        if let existing = try? context.fetch(descriptor).first {
+        let existingPassword = (try? context.fetch(descriptor))?.first(where: {
+            $0.profileID == activeProfileID || $0.profileID == nil
+        })
+
+        if let existing = existingPassword {
+            existing.profileID = activeProfileID
             existing.passwordData = passwordData
         } else {
             let newPassword = Password(profileID: activeProfileID, url: host, username: username, passwordData: passwordData)
@@ -45,18 +54,21 @@ final class PasswordService: ObservableObject {
         let host = URL(string: url)?.host ?? url
         
         let descriptor = FetchDescriptor<Password>(
-            predicate: #Predicate<Password> { $0.profileID == activeProfileID && $0.url == host }
+            predicate: #Predicate<Password> { $0.url == host }
         )
         
-        return (try? context.fetch(descriptor)) ?? []
+        return ((try? context.fetch(descriptor)) ?? []).filter {
+            $0.profileID == activeProfileID || $0.profileID == nil
+        }
     }
     
     func getAllPasswords() -> [Password] {
         guard let context = container?.mainContext, let activeProfileID else { return [] }
         let descriptor = FetchDescriptor<Password>(
-            predicate: #Predicate<Password> { $0.profileID == activeProfileID },
             sortBy: [SortDescriptor(\.url)]
         )
-        return (try? context.fetch(descriptor)) ?? []
+        return ((try? context.fetch(descriptor)) ?? []).filter {
+            $0.profileID == activeProfileID || $0.profileID == nil
+        }
     }
 }

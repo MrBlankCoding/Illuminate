@@ -14,6 +14,7 @@ struct TabDisplayView: View {
     @EnvironmentObject private var tabManager: TabManager
     @EnvironmentObject private var viewModel: ContentViewModel
     @EnvironmentObject private var urlSynchronizer: URLSynchronizer
+    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Bookmark.title) private var allBookmarks: [Bookmark]
     @Binding var hoveredSidebarTabID: UUID?
@@ -26,7 +27,12 @@ struct TabDisplayView: View {
     @State private var newGroupColor = "89BBFF"
 
     private var bookmarks: [Bookmark] {
-        allBookmarks.filter { $0.profileID == environment.profile.id }
+        guard environment.isGuestSession == false else { return [] }
+        return allBookmarks.filter { $0.profileID == environment.profile.id }
+    }
+
+    private var theme: BrowserTheme {
+        BrowserTheme(accent: tabManager.windowThemeColor, colorScheme: colorScheme)
     }
 
     var body: some View {
@@ -105,22 +111,33 @@ struct TabDisplayView: View {
         .background(
             ZStack {
                 Rectangle()
-                    .fill(.thinMaterial)
+                    .fill(
+                        LinearGradient(
+                            colors: [theme.chromeFillTop, theme.chromeFillBottom],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .background(theme.chromeMaterial)
                     .ignoresSafeArea()
 
-                tabManager.windowThemeColor.opacity(0.12)
+                Rectangle()
+                    .fill(theme.sidebarTint)
+                    .ignoresSafeArea()
+
+                LinearGradient(
+                    colors: [theme.sidebarEdgeTint, Color.clear],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         )
         .overlay(
             Rectangle()
-                .strokeBorder(Color.borderGlass, lineWidth: 1)
+                .strokeBorder(theme.chromeStroke, lineWidth: 1)
                 .padding(.top, -1)
         )
-        .onReceive(NotificationCenter.default.publisher(for: .bookmarkTab)) { _ in
-            if let activeTab = tabManager.activeTab {
-                toggleBookmark(from: activeTab)
-            }
-        }
     }
 
     private var tabsListContent: some View {
@@ -185,18 +202,19 @@ struct TabDisplayView: View {
             .padding(.vertical, 6)
             .background(
                 RoundedRectangle(cornerRadius: 8)
-                    .fill(hoveredNewTabButton ? Color.bgSurface.opacity(0.5) : Color.clear)
+                    .fill(hoveredNewTabButton ? theme.panelHover : Color.clear)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 8)
                     .strokeBorder(
                         style: StrokeStyle(lineWidth: 1, dash: [4, 3])
                     )
-                    .foregroundStyle(Color.borderGlass.opacity(hoveredNewTabButton ? 1.0 : 0.5))
+                    .foregroundStyle(theme.chromeStroke.opacity(hoveredNewTabButton ? 1.0 : 0.55))
             )
             .animation(.easeInOut(duration: 0.15), value: hoveredNewTabButton)
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier("browser.sidebar.newTabButton")
         .onHover { hovering in
             hoveredNewTabButton = hovering
         }
@@ -295,6 +313,10 @@ struct TabDisplayView: View {
     }
 
     private func toggleBookmark(from tab: Tab) {
+        guard environment.isGuestSession == false else {
+            return
+        }
+
         guard let url = tab.url?.absoluteString, !url.isEmpty else {
             return
         }

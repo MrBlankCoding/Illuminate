@@ -2,7 +2,7 @@
 //  ModelBehaviorTests.swift
 //  IlluminateTests
 //
-//  Created by Codex.
+//  Created by MrBlankCoding on 4/4/26.
 //
 
 import Foundation
@@ -11,6 +11,7 @@ import Testing
 
 struct ModelBehaviorTests {
 
+    @MainActor
     @Test func browserProfileDecodingProvidesDefaultsForMissingFields() throws {
         let id = UUID()
         let json = """

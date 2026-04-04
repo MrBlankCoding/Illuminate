@@ -8,7 +8,26 @@
 import AppKit
 import SwiftUI
 
+@MainActor
+final class DockMenuWindowRouter {
+    static let shared = DockMenuWindowRouter()
+
+    var openProfileSelection: (() -> Void)?
+    var openProfile: ((UUID) -> Void)?
+
+    private init() {}
+}
+
 class AppDelegate: NSObject, NSApplicationDelegate {
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        guard UITestLaunchConfiguration.isRunningUITests else {
+            return
+        }
+
+        Task { @MainActor in
+            await bringAppToFrontForUITests()
+        }
+    }
     
     func applicationDockMenu(_ sender: NSApplication) -> NSMenu? {
         let menu = NSMenu()
@@ -35,16 +54,33 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     @objc func openProfile(_ sender: NSMenuItem) {
-        if let idString = sender.representedObject as? String {
-            if let url = URL(string: "illuminate://profile/\(idString)") {
-                NSWorkspace.shared.open(url)
-            }
+        NSApp.activate(ignoringOtherApps: true)
+
+        if let idString = sender.representedObject as? String,
+           let profileID = UUID(uuidString: idString) {
+            DockMenuWindowRouter.shared.openProfile?(profileID)
         }
     }
     
     @objc func openNewWindow(_ sender: NSMenuItem) {
-        if let url = URL(string: "illuminate://new") {
-            NSWorkspace.shared.open(url)
+        NSApp.activate(ignoringOtherApps: true)
+        DockMenuWindowRouter.shared.openProfileSelection?()
+    }
+
+    private func bringAppToFrontForUITests() async {
+        for _ in 0..<10 {
+            NSApp.activate(ignoringOtherApps: true)
+
+            for window in NSApp.windows {
+                window.makeKeyAndOrderFront(nil)
+                window.orderFrontRegardless()
+            }
+
+            if NSApp.windows.contains(where: \.isVisible) {
+                return
+            }
+
+            try? await Task.sleep(nanoseconds: 100_000_000)
         }
     }
 }

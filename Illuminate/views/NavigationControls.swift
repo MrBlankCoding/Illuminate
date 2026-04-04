@@ -10,7 +10,12 @@ import WebKit
 
 struct NavigationControls: View {
     @ObservedObject var tab: Tab
+    @Environment(\.colorScheme) private var colorScheme
     let themeColor: Color
+
+    private var theme: BrowserTheme {
+        BrowserTheme(accent: themeColor, colorScheme: colorScheme)
+    }
 
     var body: some View {
         HStack(spacing: 4) {
@@ -36,7 +41,7 @@ struct NavigationControls: View {
     private func navButton(systemName: String, isEnabled: Bool, isGreyedOut: Bool = false, action: @escaping () -> Void) -> some View {
         NavigationControlButton(
             systemName: systemName,
-            themeColor: themeColor,
+            theme: theme,
             isEnabled: isEnabled,
             isGreyedOut: isGreyedOut,
             action: action
@@ -46,7 +51,7 @@ struct NavigationControls: View {
 
 private struct NavigationControlButton: View {
     let systemName: String
-    let themeColor: Color
+    let theme: BrowserTheme
     let isEnabled: Bool
     var isGreyedOut: Bool = false
     let action: () -> Void
@@ -60,11 +65,11 @@ private struct NavigationControlButton: View {
                 .frame(width: 28, height: 28)
                 .background(
                     Circle()
-                        .fill(isEnabled && isHovered && !isGreyedOut ? themeColor.opacity(0.25) : Color.clear)
+                        .fill(isEnabled && isHovered && !isGreyedOut ? theme.buttonHoverFill : Color.clear)
                 )
                 .overlay(
                     Circle()
-                        .strokeBorder(!isGreyedOut && isHovered ? Color.borderGlass : Color.clear, lineWidth: 1)
+                        .strokeBorder(!isGreyedOut && isHovered ? theme.chromeStroke : Color.clear, lineWidth: 1)
                 )
                 .scaleEffect(!isGreyedOut && isHovered ? 1.06 : 1.0)
                 .animation(.easeInOut(duration: 0.14), value: isHovered)

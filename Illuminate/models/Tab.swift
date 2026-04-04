@@ -14,6 +14,34 @@ import WebKit
 
 private var webViewTabOwnerKey: UInt8 = 0
 
+final class IlluminateWebView: WKWebView {
+    var onIlluminateDownload: ((NSEvent) -> Void)?
+
+    override func willOpenMenu(_ menu: NSMenu, with event: NSEvent) {
+        super.willOpenMenu(menu, with: event)
+
+        let itemTitle = "[Illuminate] Download"
+        menu.items.removeAll { $0.title == itemTitle }
+        menu.items.removeAll { item in
+            let normalized = item.title.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            return normalized.contains("download") || normalized.contains("save image") || normalized.contains("save video") || normalized.contains("save audio")
+        }
+
+        guard onIlluminateDownload != nil else { return }
+
+        let menuItem = NSMenuItem(title: itemTitle, action: #selector(triggerIlluminateDownload(_:)), keyEquivalent: "")
+        menuItem.target = self
+        menuItem.representedObject = event
+        menu.addItem(.separator())
+        menu.addItem(menuItem)
+    }
+
+    @objc private func triggerIlluminateDownload(_ sender: NSMenuItem) {
+        guard let event = sender.representedObject as? NSEvent else { return }
+        onIlluminateDownload?(event)
+    }
+}
+
 @MainActor
 final class Tab: ObservableObject, Identifiable {
 
@@ -113,7 +141,7 @@ final class Tab: ObservableObject, Identifiable {
     func createWebViewIfNeeded(configuration: WKWebViewConfiguration, webKitManager: WebKitManager) {
         guard webView == nil else { return }
 
-        let newWebView = WKWebView(frame: .zero, configuration: configuration)
+        let newWebView = IlluminateWebView(frame: .zero, configuration: configuration)
         newWebView.isInspectable = true
         webKitManager.applySafariUserAgent(to: newWebView)
         objc_setAssociatedObject(
@@ -123,7 +151,11 @@ final class Tab: ObservableObject, Identifiable {
             .OBJC_ASSOCIATION_RETAIN_NONATOMIC
         )
         webView = newWebView
-        isHibernated = false
+        if isHibernated {
+            DispatchQueue.main.async { [weak self] in
+                self?.isHibernated = false
+            }
+        }
         setupWebViewObservers(newWebView)
     }
 
@@ -139,7 +171,11 @@ final class Tab: ObservableObject, Identifiable {
             .OBJC_ASSOCIATION_RETAIN_NONATOMIC
         )
         webView = candidate
-        isHibernated = false
+        if isHibernated {
+            DispatchQueue.main.async { [weak self] in
+                self?.isHibernated = false
+            }
+        }
         setupWebViewObservers(candidate)
     }
 
@@ -147,6 +183,36 @@ final class Tab: ObservableObject, Identifiable {
         observers.removeAll()
         cancellables.removeAll()
         webView = nil
+    }
+
+    func close() {
+        guard let webView else { return }
+
+        let mediaShutdownScript = """
+        (() => {
+            try {
+                if (document.pictureInPictureElement && document.exitPictureInPicture) {
+                    document.exitPictureInPicture();
+                }
+            } catch {}
+
+            for (const media of document.querySelectorAll('audio, video')) {
+                try {
+                    media.pause();
+                    media.currentTime = 0;
+                    media.srcObject = null;
+                } catch {}
+            }
+        })();
+        """
+
+        webView.evaluateJavaScript(mediaShutdownScript, completionHandler: nil)
+        webView.stopLoading()
+        webView.navigationDelegate = nil
+        webView.uiDelegate = nil
+        webView.removeFromSuperview()
+        hasPiPCandidate = false
+        detachWebView()
     }
 
     func load(url: URL) {

@@ -2,14 +2,11 @@
 //  UiTheme.swift
 //  Illuminate
 //
-//  Created by MrBlankCoding
+//  Created by MrBlankCoding 
 //
 
 import SwiftUI
 import AppKit
-
-// Grabbed this straight from the web
-// UI IN SWIFT SUCKS!
 
 extension Color {
 
@@ -31,6 +28,143 @@ extension Color {
 
     // Panels
     static let sidebarPanel = Color.primary.opacity(0.035)
+}
+
+struct BrowserTheme {
+    let accent: Color
+    let colorScheme: ColorScheme
+
+    private var isDark: Bool {
+        colorScheme == .dark
+    }
+
+    var shellBase: Color {
+        isDark ? Color(hex: "0E1116") : Color(hex: "F4F6FB")
+    }
+
+    var shellSecondary: Color {
+        isDark ? Color(hex: "131924") : Color(hex: "EEF2F8")
+    }
+
+    var shellGradient: LinearGradient {
+        LinearGradient(
+            colors: [
+                shellBase,
+                shellSecondary.blended(with: accent, fraction: isDark ? 0.12 : 0.08),
+                shellBase.blended(with: accent, fraction: isDark ? 0.06 : 0.03)
+            ],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
+
+    var ambientGlowPrimary: Color {
+        accent.opacity(isDark ? 0.26 : 0.18)
+    }
+
+    var ambientGlowSecondary: Color {
+        accent.blended(with: .white, fraction: 0.35).opacity(isDark ? 0.12 : 0.09)
+    }
+
+    var chromeMaterial: Material {
+        isDark ? .ultraThinMaterial : .thinMaterial
+    }
+
+    var chromeFillTop: Color {
+        isDark
+            ? Color.white.opacity(0.08).blended(with: accent, fraction: 0.08)
+            : Color.white.opacity(0.82).blended(with: accent, fraction: 0.06)
+    }
+
+    var chromeFillBottom: Color {
+        isDark
+            ? shellSecondary.blended(with: accent, fraction: 0.18)
+            : Color.white.opacity(0.58).blended(with: accent, fraction: 0.08)
+    }
+
+    var chromeStroke: Color {
+        isDark ? Color.white.opacity(0.11) : Color.black.opacity(0.08)
+    }
+
+    var chromeInnerGlow: Color {
+        accent.opacity(isDark ? 0.22 : 0.12)
+    }
+
+    var sidebarTint: Color {
+        accent.opacity(isDark ? 0.11 : 0.07)
+    }
+
+    var sidebarEdgeTint: Color {
+        accent.blended(with: .white, fraction: 0.25).opacity(isDark ? 0.32 : 0.18)
+    }
+
+    var panelFill: Color {
+        isDark ? Color.white.opacity(0.055) : Color.white.opacity(0.72)
+    }
+
+    var panelRaised: Color {
+        isDark
+            ? Color.white.opacity(0.08).blended(with: accent, fraction: 0.12)
+            : Color.white.opacity(0.88).blended(with: accent, fraction: 0.06)
+    }
+
+    var panelHover: Color {
+        accent.opacity(isDark ? 0.14 : 0.10)
+    }
+
+    var panelActive: Color {
+        accent.blended(with: isDark ? .black : .white, fraction: isDark ? 0.15 : 0.25).opacity(0.95)
+    }
+
+    var panelGrouped: Color {
+        accent.opacity(isDark ? 0.08 : 0.06)
+    }
+
+    var panelStroke: Color {
+        isDark ? Color.white.opacity(0.12) : Color.black.opacity(0.07)
+    }
+
+    var textOnAccent: Color {
+        isDark ? .white : Color.black.opacity(0.82)
+    }
+
+    var urlBarTop: Color {
+        isDark
+            ? Color.white.opacity(0.09).blended(with: accent, fraction: 0.10)
+            : Color.white.opacity(0.92).blended(with: accent, fraction: 0.07)
+    }
+
+    var urlBarBottom: Color {
+        isDark
+            ? shellSecondary.blended(with: accent, fraction: 0.16)
+            : Color.white.opacity(0.76).blended(with: accent, fraction: 0.05)
+    }
+
+    var urlBarStroke: Color {
+        accent.opacity(isDark ? 0.24 : 0.16)
+    }
+
+    var buttonHoverFill: Color {
+        accent.opacity(isDark ? 0.18 : 0.12)
+    }
+
+    var buttonPressedFill: Color {
+        accent.opacity(isDark ? 0.28 : 0.18)
+    }
+
+    var faviconPlateFill: Color {
+        isDark
+            ? Color.white.opacity(0.08).blended(with: accent, fraction: 0.12)
+            : Color.white.opacity(0.76).blended(with: accent, fraction: 0.10)
+    }
+
+    var selectionIndicator: Color {
+        accent.blended(with: .white, fraction: isDark ? 0.15 : 0.05)
+    }
+
+    var statusFill: Color {
+        isDark ? Color.white.opacity(0.10) : Color.white.opacity(0.78)
+    }
 }
 
 
@@ -104,6 +238,12 @@ extension Color {
             lroundf(g * 255),
             lroundf(b * 255)
         )
+    }
+
+    func blended(with color: Color, fraction: CGFloat) -> Color {
+        let lhs = NSColor(self).usingColorSpace(.deviceRGB) ?? .white
+        let rhs = NSColor(color).usingColorSpace(.deviceRGB) ?? .white
+        return Color(lhs.blended(withFraction: fraction, of: rhs) ?? lhs)
     }
 }
 
@@ -208,6 +348,25 @@ extension View {
     func hoverCursor(_ cursor: NSCursor) -> some View {
         self.modifier(HoverCursorModifier(cursor: cursor))
     }
+
+    func browserPanel(theme: BrowserTheme, cornerRadius: CGFloat = 16) -> some View {
+        background(
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [theme.chromeFillTop, theme.chromeFillBottom],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .background(theme.chromeMaterial, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .strokeBorder(theme.chromeStroke, lineWidth: 1)
+                )
+                .shadow(color: Color.black.opacity(theme.colorScheme == .dark ? 0.18 : 0.10), radius: 18, y: 10)
+        )
+    }
 }
 private struct HoverCursorModifier: ViewModifier {
     let cursor: NSCursor
@@ -222,4 +381,3 @@ private struct HoverCursorModifier: ViewModifier {
         }
     }
 }
-

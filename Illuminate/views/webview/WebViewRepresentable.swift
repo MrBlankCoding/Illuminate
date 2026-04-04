@@ -12,6 +12,7 @@ import WebKit
 struct WebViewRepresentable: NSViewRepresentable {
     @ObservedObject var tab: Tab
     @ObservedObject var adBlockService: AdBlockService
+    @ObservedObject var redirectProtectionService: RedirectProtectionService
     let webKitManager: WebKitManager
     let passwordService: PasswordService
     let tabManager: TabManager
@@ -23,6 +24,7 @@ struct WebViewRepresentable: NSViewRepresentable {
             tabManager: tabManager,
             webScriptBridge: WebScriptBridge.shared,
             adBlockService: adBlockService,
+            redirectProtectionService: redirectProtectionService,
             dohService: DNSOverHTTPSService.shared,
             faviconCache: FaviconCache.shared,
             passwordService: passwordService
@@ -40,6 +42,12 @@ struct WebViewRepresentable: NSViewRepresentable {
         webView.navigationDelegate = context.coordinator
         webView.uiDelegate = context.coordinator
         webView.allowsBackForwardNavigationGestures = tab.id == tabManager.activeTabID
+        if let illuminateWebView = webView as? IlluminateWebView {
+            illuminateWebView.onIlluminateDownload = { [weak tab, weak webView] event in
+                guard let tab, let webView else { return }
+                triggerIlluminateDownload(for: tab, in: webView, event: event)
+            }
+        }
         WebScriptBridge.shared.installScripts(
             on: webView.configuration.userContentController,
             handler: context.coordinator,
@@ -64,8 +72,45 @@ struct WebViewRepresentable: NSViewRepresentable {
             handler: context.coordinator,
             colorScheme: Coordinator.resolvedScheme(for: userInterfaceStyle)
         )
+        if let illuminateWebView = nsView as? IlluminateWebView {
+            illuminateWebView.onIlluminateDownload = { [weak tab, weak nsView] event in
+                guard let tab, let nsView else { return }
+                triggerIlluminateDownload(for: tab, in: nsView, event: event)
+            }
+        }
         context.coordinator.applyContentRules(to: nsView, ruleList: adBlockService.contentRuleList)
         context.coordinator.applyWebAppearance(to: nsView, style: userInterfaceStyle)
+    }
+
+    private func triggerIlluminateDownload(for tab: Tab, in webView: WKWebView, event: NSEvent) {
+        let pointInView = webView.convert(event.locationInWindow, from: nil)
+        let javaScript = """
+        (() => {
+            const x = \(pointInView.x);
+            const y = \(pointInView.y);
+            let element = document.elementFromPoint(x, y);
+            while (element) {
+                if (element.currentSrc) return element.currentSrc;
+                if (element.src) return element.src;
+                if (element.href) return element.href;
+                element = element.parentElement;
+            }
+            return null;
+        })();
+        """
+
+        webView.evaluateJavaScript(javaScript) { result, error in
+            if let error {
+                AppLog.download("Failed to resolve clicked element URL from context menu error=\(error.localizedDescription)")
+            }
+
+            let resolvedURL = (result as? String).flatMap(URL.init(string:)) ?? tab.url
+            guard let resolvedURL, resolvedURL.scheme != "illuminate" else { return }
+
+            let suggestedFilename = resolvedURL.lastPathComponent.isEmpty ? "download" : resolvedURL.lastPathComponent
+            AppLog.download("IlluminateWebView menu download triggered url=\(resolvedURL.absoluteString) suggestedFilename=\(suggestedFilename) clickPoint=\(pointInView.x),\(pointInView.y)")
+            DownloadManager.shared.startDownload(from: resolvedURL, suggestedFilename: suggestedFilename)
+        }
     }
 
     private func shouldLoad(_ targetURL: URL, in webView: WKWebView) -> Bool {

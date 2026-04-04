@@ -36,7 +36,7 @@ struct TabManagerTests {
         #expect(activeTabID == closedTabID)
     }
 
-    @Test func clearAllTabsRemovesEverythingAndDisablesFurtherReopenAfterDrain() {
+    @Test func clearAllTabsRemovesEverythingAndPreservesReopenHistory() {
         let tabManager = makeTabManager()
         _ = tabManager.createTab(url: URL(string: "https://one.example"))
         _ = tabManager.createTab(url: URL(string: "https://two.example"))
@@ -108,5 +108,53 @@ struct TabManagerTests {
         #expect(firstTab.webView === firstWebView)
         #expect(secondTab.webView === secondWebView)
         #expect(secondTab.isHibernated == false)
+    }
+
+    @Test func initCreatesSingleBlankTabWhenPersistenceIsDisabled() {
+        let tabManager = makeTabManager()
+
+        #expect(tabManager.tabs.count == 1)
+        #expect(tabManager.activeTabID == tabManager.tabs.first?.id)
+        #expect(tabManager.tabs.first?.url == nil)
+    }
+
+    @Test func closeActiveTabSelectsNeighboringTab() {
+        let tabManager = makeTabManager()
+        let firstTab = tabManager.createTab(url: URL(string: "https://one.example"))
+        let secondTab = tabManager.createTab(url: URL(string: "https://two.example"))
+        let thirdTab = tabManager.createTab(url: URL(string: "https://three.example"))
+
+        tabManager.switchTo(secondTab.id)
+        tabManager.closeTab(id: secondTab.id)
+
+        #expect(tabManager.tabs.map(\.id).contains(secondTab.id) == false)
+        #expect(tabManager.activeTabID == thirdTab.id)
+        #expect(tabManager.tabs.map(\.id).contains(firstTab.id))
+    }
+
+    @Test func closingLastTabLeavesNoActiveTab() {
+        let tabManager = makeTabManager()
+        let initialTab = try! #require(tabManager.tabs.first)
+
+        tabManager.closeTab(id: initialTab.id)
+
+        #expect(tabManager.tabs.isEmpty)
+        #expect(tabManager.activeTabID == nil)
+    }
+
+    @Test func openSettingsTabReusesExistingSettingsTab() async throws {
+        let tabManager = makeTabManager()
+
+        tabManager.openSettingsTab()
+        let firstSettingsTab = try! #require(tabManager.activeTab)
+
+        tabManager.createTab(url: URL(string: "https://example.com"))
+        tabManager.openSettingsTab()
+
+        try await Task.sleep(nanoseconds: 50_000_000)
+
+        #expect(tabManager.tabs.filter { $0.url?.absoluteString == "illuminate://settings" }.count == 1)
+        #expect(tabManager.activeTabID == firstSettingsTab.id)
+        #expect(firstSettingsTab.title == "Settings")
     }
 }

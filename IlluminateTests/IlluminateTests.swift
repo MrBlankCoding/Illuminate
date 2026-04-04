@@ -48,11 +48,11 @@ struct IlluminateTests {
         await MainActor.run {
             restoredTab.loadAssets()
         }
-        
-        // Wait for detached task in loadAssets() to complete
-        try await Task.sleep(for: .milliseconds(100))
-        
+
+        let didLoadAssets = try await waitForAssets(on: restoredTab)
+
         await MainActor.run {
+            #expect(didLoadAssets)
             #expect(restoredTab.favicon != nil)
             #expect(restoredTab.snapshot != nil)
         }
@@ -61,4 +61,23 @@ struct IlluminateTests {
         try? FileManager.default.removeItem(at: tabFolder)
     }
 
+    private func waitForAssets(on tab: Illuminate.Tab, timeout: Duration = .seconds(2)) async throws -> Bool {
+        let deadline = ContinuousClock.now + timeout
+
+        while ContinuousClock.now < deadline {
+            let hasAssets = await MainActor.run {
+                tab.favicon != nil && tab.snapshot != nil
+            }
+
+            if hasAssets {
+                return true
+            }
+
+            try await Task.sleep(for: .milliseconds(50))
+        }
+
+        return await MainActor.run {
+            tab.favicon != nil && tab.snapshot != nil
+        }
+    }
 }

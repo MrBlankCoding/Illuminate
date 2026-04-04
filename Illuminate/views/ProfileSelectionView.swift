@@ -2,340 +2,352 @@
 //  ProfileSelectionView.swift
 //  Illuminate
 //
-//  Created by MrBlankCoding on 3/22/26.
+//  Created by MrBlankCoding on 3/8/26.
 //
 
 import SwiftUI
 
 struct ProfileSelectionView: View {
-    @Binding var profileID: UUID?
+    @Binding var route: BrowserWindowRoute?
     @EnvironmentObject private var profileManager: ProfileManager
-    @State private var creatingProfile = false
-    @State private var newProfileName = ""
-    @State private var selectedIcon = "person.crop.circle"
-    @State private var editingProfileID: UUID?
-    @State private var editingProfileName = ""
+    @Environment(\.colorScheme) private var colorScheme
 
-    private let availableIcons = [
+    @State private var hoveredProfileID: UUID?
+    @State private var showingAddProfile = false
+    @State private var showingManage = false
+
+    private let profileAccentColors: [Color] = [
+        Color(hex: "5E7BFF"),
+        Color(hex: "2DA7A1"),
+        Color(hex: "F3A43B"),
+        Color(hex: "E86F67"),
+        Color(hex: "8A6CFF"),
+        Color(hex: "4A90E2"),
+        Color(hex: "69B578"),
+        Color(hex: "D96ACF"),
+    ]
+
+    private var theme: BrowserTheme {
+        BrowserTheme(accent: .accentBeam, colorScheme: colorScheme)
+    }
+
+    var body: some View {
+        ZStack {
+            Color.bgBase
+                .ignoresSafeArea()
+
+            VStack(spacing: 0) {
+                Spacer()
+
+                VStack(spacing: 10) {
+                    Text("Choose a profile for Illuminate")
+                        .font(.system(size: 22, weight: .regular, design: .default))
+                        .foregroundStyle(Color.textPrimary)
+                        .accessibilityIdentifier("profileSelection.title")
+                }
+                .padding(.bottom, 36)
+
+                // ui stuff
+                profileGrid
+                Spacer()
+                bottomActions
+                    .padding(.bottom, 32)
+            }
+        }
+        .sheet(isPresented: $showingAddProfile) {
+            AddProfileSheet(isPresented: $showingAddProfile) { name, icon in
+                let profile = profileManager.createProfile(named: name, iconName: icon)
+                route = .profile(profile.id)
+            }
+            .environmentObject(profileManager)
+            .accessibilityIdentifier("profileSelection.addProfileSheet")
+        }
+    }
+
+    private var profileGrid: some View {
+        let columns = Array(
+            repeating: GridItem(.fixed(120), spacing: 8),
+            count: min(profileManager.profiles.count + 1, 4)
+        )
+
+        return LazyVGrid(columns: columns, spacing: 8) {
+            ForEach(Array(profileManager.profiles.enumerated()), id: \.element.id) { index, profile in
+                profileTile(profile: profile, index: index)
+            }
+        }
+        .padding(.horizontal, 40)
+    }
+
+    private func profileTile(profile: BrowserProfile, index: Int) -> some View {
+        let isHovered = hoveredProfileID == profile.id
+        let avatarColor = profileAccentColors[index % profileAccentColors.count]
+        let initials = profile.name.prefix(1).uppercased()
+
+        return Button {
+            route = .profile(profile.id)
+        } label: {
+            VStack(spacing: 12) {
+                ZStack {
+                    Circle()
+                        .fill(avatarColor)
+                        .frame(width: 76, height: 76)
+
+                    if profile.iconName == "person.crop.circle" {
+                        Text(initials)
+                            .font(.system(size: 30, weight: .medium, design: .rounded))
+                            .foregroundStyle(.white)
+                    } else {
+                        Image(systemName: profile.iconName)
+                            .font(.system(size: 28, weight: .semibold))
+                            .foregroundStyle(.white)
+                    }
+                }
+
+                Text(profile.name)
+                    .font(.system(size: 13, weight: .regular))
+                    .foregroundStyle(Color.textPrimary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .frame(maxWidth: 100)
+            }
+            .frame(width: 120, height: 128)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(isHovered
+                          ? theme.buttonHoverFill
+                          : Color.clear)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .strokeBorder(isHovered ? theme.urlBarStroke.opacity(0.55) : Color.clear, lineWidth: 1)
+            )
+            .contentShape(RoundedRectangle(cornerRadius: 12))
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("profileSelection.profileButton")
+        .animation(.easeInOut(duration: 0.12), value: isHovered)
+        .onHover { hovering in
+            hoveredProfileID = hovering ? profile.id : nil
+        }
+        .hoverCursor(.pointingHand)
+        .contextMenu {
+            Button("Rename…") {
+            }
+            Divider()
+            Button("Delete", role: .destructive) {
+                profileManager.deleteProfile(profile)
+            }
+            .disabled(profileManager.profiles.count <= 1)
+        }
+    }
+
+    private var bottomActions: some View {
+        HStack(spacing: 12) {
+            Button {
+                showingAddProfile = true
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "plus")
+                        .font(.system(size: 13, weight: .medium))
+                    Text("Add profile")
+                        .font(.system(size: 13, weight: .medium))
+                }
+                .foregroundStyle(Color.textPrimary)
+                .padding(.horizontal, 20)
+                .padding(.vertical, 9)
+                .background(
+                    Capsule()
+                        .fill(Color.bgSurface)
+                )
+                .overlay(
+                    Capsule()
+                        .stroke(Color.borderGlass, lineWidth: 1)
+                )
+            }
+            .buttonStyle(.plain)
+            .hoverCursor(.pointingHand)
+            .accessibilityIdentifier("profileSelection.addProfileButton")
+
+            Button {
+                route = .guest(UUID())
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "person.fill.questionmark")
+                        .font(.system(size: 13, weight: .medium))
+                    Text("Guest mode")
+                        .font(.system(size: 13, weight: .medium))
+                }
+                .foregroundStyle(Color.textPrimary)
+                .padding(.horizontal, 20)
+                .padding(.vertical, 9)
+                .background(
+                    Capsule()
+                        .fill(Color.bgSurface)
+                )
+                .overlay(
+                    Capsule()
+                        .stroke(Color.borderGlass, lineWidth: 1)
+                )
+            }
+            .buttonStyle(.plain)
+            .hoverCursor(.pointingHand)
+            .accessibilityIdentifier("profileSelection.guestModeButton")
+        }
+    }
+}
+
+struct AddProfileSheet: View {
+    @Binding var isPresented: Bool
+    let onCreate: (String, String) -> Void
+    @Environment(\.colorScheme) private var colorScheme
+
+    @State private var name = ""
+    @State private var selectedIcon = "person.crop.circle"
+
+    private let icons = [
         "person.crop.circle", "star.fill", "gamecontroller.fill",
         "briefcase.fill", "moon.stars.fill", "sparkles",
         "heart.fill", "leaf.fill", "flame.fill"
     ]
 
-    private let accentColors: [Color] = [
-        Color(red: 0.22, green: 0.43, blue: 0.82),
-        Color(red: 0.15, green: 0.62, blue: 0.66),
-        Color(red: 0.91, green: 0.55, blue: 0.24)
+    private let previewColors: [Color] = [
+        Color(hex: "5E7BFF"),
+        Color(hex: "2DA7A1"),
+        Color(hex: "F3A43B"),
+        Color(hex: "8A6CFF"),
     ]
+    @State private var selectedColorIndex = 0
+
+    private var theme: BrowserTheme {
+        BrowserTheme(accent: previewColors[selectedColorIndex], colorScheme: colorScheme)
+    }
 
     var body: some View {
-        ZStack {
-            LinearGradient(
-                colors: [
-                    Color(red: 0.06, green: 0.08, blue: 0.13),
-                    Color(red: 0.08, green: 0.11, blue: 0.18),
-                    Color(red: 0.13, green: 0.10, blue: 0.08)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea()
+        VStack(spacing: 0) {
+            HStack {
+                Text("New Profile")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(Color.textPrimary)
 
-            VStack(spacing: 30) {
-                VStack(spacing: 10) {
-                    Text("Choose a Profile")
-                        .font(.system(size: 34, weight: .bold, design: .rounded))
-                        .foregroundStyle(Color.white)
-
-                    Text("Each profile keeps its own tabs, cookies, site sessions, saved passwords, and browser settings.")
-                        .font(.system(size: 15, weight: .medium))
-                        .foregroundStyle(Color.white.opacity(0.72))
-                        .multilineTextAlignment(.center)
-                        .frame(maxWidth: 540)
-                }
-
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 210), spacing: 18)], spacing: 18) {
-                    ForEach(Array(profileManager.profiles.enumerated()), id: \.element.id) { index, profile in
-                        profileCard(for: profile, index: index)
-                    }
-                    createProfileCard
-                }
-                .frame(maxWidth: 720)
-            }
-            .padding(.horizontal, 36)
-            .padding(.vertical, 48)
-        }
-    }
-
-    private func profileCard(for profile: BrowserProfile, index: Int) -> some View {
-        let accent = accentColors[index % accentColors.count]
-        let isEditing = editingProfileID == profile.id
-
-        return Button {
-            guard !isEditing else { return }
-            profileID = profile.id
-        } label: {
-            VStack(alignment: .leading, spacing: 18) {
-                ZStack(alignment: .topLeading) {
-                    RoundedRectangle(cornerRadius: 22)
-                        .fill(
-                            LinearGradient(
-                                colors: [
-                                    accent.opacity(0.95),
-                                    accent.opacity(0.55),
-                                    Color.white.opacity(0.08)
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .frame(height: 128)
-
-                    iconPickerButton(
-                        iconName: profile.iconName,
-                        foreground: Color.white,
-                        background: Color.white.opacity(0.14)
-                    ) { icon in
-                        profileManager.updateIcon(for: profile, iconName: icon)
-                    }
-                    .padding(18)
-
-                    HStack {
-                        Spacer()
-                        Menu {
-                            Button("Rename") {
-                                editingProfileID = profile.id
-                                editingProfileName = profile.name
-                            }
-
-                            Button("Delete", role: .destructive) {
-                                profileManager.deleteProfile(profile)
-                            }
-                            .disabled(profileManager.profiles.count <= 1)
-                        } label: {
-                            Image(systemName: "ellipsis")
-                                .font(.system(size: 14, weight: .bold))
-                                .foregroundStyle(Color.white.opacity(0.88))
-                                .frame(width: 32, height: 32)
-                                .background(Color.black.opacity(0.18))
-                                .clipShape(Circle())
-                        }
-                        .buttonStyle(.plain)
-                        .padding(14)
-                    }
-                }
-
-                if isEditing {
-                    VStack(alignment: .leading, spacing: 10) {
-                        TextField("Profile name", text: $editingProfileName)
-                            .textFieldStyle(.plain)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 12)
-                            .background(Color.white.opacity(0.1))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 14)
-                                    .stroke(Color.white.opacity(0.14), lineWidth: 1)
-                            )
-                            .clipShape(RoundedRectangle(cornerRadius: 14))
-
-                        HStack(spacing: 10) {
-                            Button("Save") {
-                                profileManager.renameProfile(profile, to: editingProfileName)
-                                editingProfileID = nil
-                            }
-                            .font(.system(size: 13, weight: .bold))
-                            .foregroundStyle(Color.black)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 10)
-                            .background(Color.white)
-                            .clipShape(RoundedRectangle(cornerRadius: 12))
-
-                            Button("Cancel") {
-                                editingProfileID = nil
-                                editingProfileName = ""
-                            }
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(Color.white.opacity(0.78))
-                        }
-                    }
-                } else {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(profile.name)
-                            .font(.system(size: 20, weight: .bold, design: .rounded))
-                            .foregroundStyle(Color.white)
-
-                        Text("Open profile")
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(Color.white.opacity(0.68))
-                    }
-                }
-            }
-            .padding(18)
-            .background(Color.white.opacity(0.08))
-            .overlay(
-                RoundedRectangle(cornerRadius: 26)
-                    .stroke(Color.white.opacity(0.1), lineWidth: 1)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 26))
-        }
-        .buttonStyle(.plain)
-        .hoverCursor(.pointingHand)
-    }
-
-    private var createProfileCard: some View {
-        Group {
-            if creatingProfile {
-                VStack(alignment: .leading, spacing: 18) {
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 22)
-                            .stroke(style: StrokeStyle(lineWidth: 1.5, dash: [8, 8]))
-                            .foregroundStyle(Color.white.opacity(0.28))
-                            .frame(height: 128)
-
-                        iconPickerButton(
-                            iconName: selectedIcon,
-                            foreground: Color.white,
-                            background: Color.white.opacity(0.1)
-                        ) { icon in
-                            selectedIcon = icon
-                        }
-                    }
-
-                    VStack(alignment: .leading, spacing: 12) {
-                        TextField("Profile name", text: $newProfileName)
-                            .textFieldStyle(.plain)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 12)
-                            .background(Color.white.opacity(0.08))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 14)
-                                    .stroke(Color.white.opacity(0.12), lineWidth: 1)
-                            )
-                            .clipShape(RoundedRectangle(cornerRadius: 14))
-
-                        HStack(spacing: 10) {
-                            Button("Create") {
-                                let profile = profileManager.createProfile(named: newProfileName, iconName: selectedIcon)
-                                newProfileName = ""
-                                selectedIcon = "person.crop.circle"
-                                creatingProfile = false
-                                profileID = profile.id
-                            }
-                            .font(.system(size: 13, weight: .bold))
-                            .foregroundStyle(Color.black)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 10)
-                            .background(Color.white)
-                            .clipShape(RoundedRectangle(cornerRadius: 12))
-
-                            Button("Cancel") {
-                                newProfileName = ""
-                                selectedIcon = "person.crop.circle"
-                                creatingProfile = false
-                            }
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(Color.white.opacity(0.78))
-                        }
-                    }
-                }
-                .padding(18)
-                .background(Color.white.opacity(0.05))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 26)
-                        .stroke(Color.white.opacity(0.1), lineWidth: 1)
-                )
-                .clipShape(RoundedRectangle(cornerRadius: 26))
-            } else {
+                Spacer()
                 Button {
-                    creatingProfile = true
-                    editingProfileID = nil
+                    isPresented = false
                 } label: {
-                    VStack(spacing: 18) {
-                        RoundedRectangle(cornerRadius: 22)
-                            .stroke(style: StrokeStyle(lineWidth: 1.5, dash: [8, 8]))
-                            .foregroundStyle(Color.white.opacity(0.28))
-                            .frame(height: 128)
-                            .overlay(
-                                Image(systemName: "plus")
-                                    .font(.system(size: 28, weight: .bold))
-                                    .foregroundStyle(Color.white.opacity(0.88))
-                            )
-
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text("Create profile")
-                                .font(.system(size: 20, weight: .bold, design: .rounded))
-                                .foregroundStyle(Color.white)
-
-                            Text("Add another profile")
-                                .font(.system(size: 13, weight: .semibold))
-                                .foregroundStyle(Color.white.opacity(0.68))
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                    .padding(18)
-                    .background(Color.white.opacity(0.04))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 26)
-                            .stroke(Color.white.opacity(0.1), lineWidth: 1)
-                    )
-                    .clipShape(RoundedRectangle(cornerRadius: 26))
+                    Image(systemName: "xmark")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(Color.textSecondary)
+                        .padding(8)
+                        .background(Color.bgSurface)
+                        .clipShape(Circle())
                 }
                 .buttonStyle(.plain)
                 .hoverCursor(.pointingHand)
             }
-        }
-    }
+            .padding(.horizontal, 20)
+            .padding(.top, 16)
 
-    private func iconPickerButton(
-        iconName: String,
-        foreground: Color,
-        background: Color,
-        onSelect: @escaping (String) -> Void
-    ) -> some View {
-        Menu {
-            ForEach(availableIcons, id: \.self) { icon in
-                Button {
-                    onSelect(icon)
-                } label: {
-                    Label(iconLabel(for: icon), systemImage: icon)
+            ZStack {
+                Circle()
+                    .fill(previewColors[selectedColorIndex])
+                    .frame(width: 80, height: 80)
+                Image(systemName: selectedIcon)
+                    .font(.system(size: 32, weight: .semibold))
+                    .foregroundStyle(.white)
+            }
+            .padding(.top, 8)
+            .padding(.bottom, 20)
+
+            HStack(spacing: 10) {
+                ForEach(previewColors.indices, id: \.self) { i in
+                    Circle()
+                        .fill(previewColors[i])
+                        .frame(width: 24, height: 24)
+                        .overlay(
+                            Circle()
+                                .stroke(Color.bgBase, lineWidth: selectedColorIndex == i ? 2 : 0)
+                                .padding(1)
+                        )
+                        .overlay(
+                            Circle()
+                                .stroke(previewColors[i], lineWidth: selectedColorIndex == i ? 3 : 0)
+                        )
+                        .onTapGesture { selectedColorIndex = i }
+                        .hoverCursor(.pointingHand)
                 }
             }
-        } label: {
-            Circle()
-                .fill(background)
-                .frame(width: 56, height: 56)
-                .overlay(
-                    Image(systemName: iconName)
-                        .font(.system(size: 24, weight: .medium))
-                        .foregroundStyle(foreground)
-                )
-        }
-        .buttonStyle(.plain)
-        .hoverCursor(.pointingHand)
-    }
+            .padding(.bottom, 20)
 
-    private func iconLabel(for icon: String) -> String {
-        switch icon {
-        case "person.crop.circle":
-            return "Person"
-        case "star.fill":
-            return "Star"
-        case "gamecontroller.fill":
-            return "Gaming"
-        case "briefcase.fill":
-            return "Work"
-        case "moon.stars.fill":
-            return "Night"
-        case "sparkles":
-            return "Sparkles"
-        case "heart.fill":
-            return "Heart"
-        case "leaf.fill":
-            return "Leaf"
-        case "flame.fill":
-            return "Flame"
-        default:
-            return "Icon"
+            LazyVGrid(columns: Array(repeating: GridItem(.fixed(40)), count: 5), spacing: 8) {
+                ForEach(icons, id: \.self) { icon in
+                    Image(systemName: icon)
+                        .font(.system(size: 16))
+                        .foregroundStyle(selectedIcon == icon
+                                        ? previewColors[selectedColorIndex]
+                                        : Color.textSecondary)
+                        .frame(width: 36, height: 36)
+                        .background(selectedIcon == icon
+                                    ? theme.buttonHoverFill
+                                    : Color.clear)
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                        .onTapGesture { selectedIcon = icon }
+                        .hoverCursor(.pointingHand)
+                }
+            }
+            .padding(.horizontal, 24)
+            .padding(.bottom, 20)
+
+            VStack(alignment: .leading, spacing: 4) {
+                TextField("Profile name", text: $name)
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 14))
+                    .padding(.bottom, 6)
+                    .accessibilityIdentifier("profileSelection.addProfileNameField")
+
+                Rectangle()
+                    .fill(name.isEmpty
+                          ? Color.borderGlass
+                          : previewColors[selectedColorIndex])
+                    .frame(height: 2)
+                    .animation(.easeInOut(duration: 0.15), value: name.isEmpty)
+            }
+            .padding(.horizontal, 24)
+            .padding(.bottom, 24)
+
+            HStack(spacing: 12) {
+                Button("Cancel") {
+                    isPresented = false
+                }
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(previewColors[selectedColorIndex])
+                .padding(.horizontal, 20)
+                .padding(.vertical, 9)
+                .buttonStyle(.plain)
+                .hoverCursor(.pointingHand)
+                .accessibilityIdentifier("profileSelection.cancelAddProfileButton")
+
+                Button("Add") {
+                    guard !name.trimmingCharacters(in: .whitespaces).isEmpty else { return }
+                    onCreate(name, selectedIcon)
+                    isPresented = false
+                }
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(.white)
+                .padding(.horizontal, 20)
+                .padding(.vertical, 9)
+                .background(
+                    Capsule()
+                        .fill(name.trimmingCharacters(in: .whitespaces).isEmpty
+                              ? Color.secondary.opacity(0.3)
+                              : previewColors[selectedColorIndex])
+                )
+                .buttonStyle(.plain)
+                .hoverCursor(.pointingHand)
+                .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
+                .accessibilityIdentifier("profileSelection.confirmAddProfileButton")
+            }
+            .padding(.bottom, 24)
         }
+        .frame(width: 320)
+        .background(Color.bgBase)
     }
 }

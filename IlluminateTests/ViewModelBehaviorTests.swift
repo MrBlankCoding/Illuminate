@@ -2,7 +2,7 @@
 //  ViewModelBehaviorTests.swift
 //  IlluminateTests
 //
-//  Created by Codex.
+//  Created by MrBlankCoding on 3/8/26.
 //
 
 import Foundation
@@ -26,6 +26,22 @@ struct ViewModelBehaviorTests {
         #expect(tab.url?.absoluteString == "illuminate://settings")
         #expect(tab.title == "Settings")
         #expect(synchronizer.currentURL?.absoluteString == "illuminate://settings")
+    }
+
+    @Test func searchQueriesRouteToGoogleWithoutChromeSourceMarker() {
+        let tabManager = TabManager(isPersistenceEnabled: false)
+        let synchronizer = URLSynchronizer()
+        let viewModel = ContentViewModel(tabManager: tabManager, urlSynchronizer: synchronizer)
+        let tab = try! #require(tabManager.activeTab)
+
+        viewModel.addressBarText = "swift ui testing"
+        viewModel.navigateToAddressBarURL()
+
+        #expect(tab.url?.host == "www.google.com")
+        #expect(tab.url?.path == "/search")
+        #expect(tab.url?.absoluteString.contains("sourceid=chrome") == false)
+        #expect(URLComponents(url: try! #require(tab.url), resolvingAgainstBaseURL: false)?.queryItems?.contains(where: { $0.name == "q" && $0.value == "swift ui testing" }) == true)
+        #expect(synchronizer.currentURL == tab.url)
     }
 
     @Test func createNewTabWithURLMakesItActiveAndUpdatesAddressBar() {

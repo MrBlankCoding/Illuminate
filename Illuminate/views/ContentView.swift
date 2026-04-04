@@ -12,9 +12,14 @@ import AppKit
 struct ContentView: View {
     @EnvironmentObject private var tabManager: TabManager
     @EnvironmentObject private var viewModel: ContentViewModel
+    @Environment(\.colorScheme) private var colorScheme
     @StateObject private var findViewModel = FindViewModel()
     @StateObject private var zoomViewModel = ZoomViewModel()
     @State private var hoveredSidebarTabID: UUID?
+
+    private var theme: BrowserTheme {
+        BrowserTheme(accent: tabManager.windowThemeColor, colorScheme: colorScheme)
+    }
 
     var body: some View {
         ZStack {
@@ -61,11 +66,7 @@ struct ContentView: View {
         .preferredColorScheme(tabManager.userInterfaceStyle.colorScheme)
         .onAppear {
             DispatchQueue.main.async {
-                if tabManager.tabs.isEmpty {
-                    viewModel.createNewTab()
-                } else {
-                    viewModel.updateAddressBarFromActiveTab()
-                }
+                viewModel.updateAddressBarFromActiveTab()
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: .findInPage)) { _ in
@@ -85,7 +86,7 @@ struct ContentView: View {
 
     private var backgroundLayer: some View {
         ZStack {
-            Color.bgBase
+            theme.shellGradient
                 .ignoresSafeArea()
 
             if !tabManager.isResizing {
@@ -118,8 +119,8 @@ struct ContentView: View {
 
                 EllipticalGradient(
                     gradient: Gradient(colors: [
-                        tabManager.windowThemeColor.opacity(0.18),
-                        tabManager.windowThemeColor.opacity(0.05),
+                        theme.ambientGlowPrimary,
+                        theme.ambientGlowSecondary,
                         Color.clear
                     ]),
                     center: .topLeading,
@@ -131,7 +132,7 @@ struct ContentView: View {
 
                 EllipticalGradient(
                     gradient: Gradient(colors: [
-                        tabManager.windowThemeColor.opacity(0.12),
+                        theme.ambientGlowSecondary,
                         Color.clear
                     ]),
                     center: .bottomTrailing,
@@ -141,7 +142,7 @@ struct ContentView: View {
                 .ignoresSafeArea()
                 .animation(.easeInOut(duration: 0.8), value: tabManager.windowThemeColor)
             } else {
-                tabManager.windowThemeColor.opacity(0.05)
+                theme.panelHover.opacity(0.6)
                     .ignoresSafeArea()
             }
         }
@@ -153,10 +154,16 @@ struct ContentView: View {
         ZStack(alignment: .top) {
             // Extended background/overlay
             ZStack {
-                tabManager.activeTab?.url == nil ? AnyView(Color.clear) : AnyView(VisualEffectView(material: .contentBackground, blendingMode: .withinWindow).ignoresSafeArea())
+                tabManager.activeTab?.url == nil
+                    ? AnyView(Color.clear)
+                    : AnyView(
+                        VisualEffectView(material: .contentBackground, blendingMode: .withinWindow)
+                            .ignoresSafeArea()
+                            .overlay(theme.sidebarTint.opacity(0.16))
+                    )
                 
                 Rectangle()
-                    .strokeBorder(Color.borderGlass, lineWidth: 1)
+                    .strokeBorder(theme.chromeStroke, lineWidth: 1)
                     .padding(.top, -1)
                     .opacity(tabManager.activeTab?.url == nil ? 0.3 : 1.0)
                     .ignoresSafeArea()
@@ -179,10 +186,6 @@ struct ContentView: View {
                             NoInternetView(message: activeTab.lastNetworkErrorMessage ?? "Please check your connection and try again.")
                                 .padding(30)
                         }
-                    }
-                    
-                    if tabManager.activeTab == nil {
-                        PlaceholderView()
                     }
                 }
 
@@ -218,4 +221,3 @@ struct ContentView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 }
-

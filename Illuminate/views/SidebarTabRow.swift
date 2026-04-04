@@ -10,6 +10,7 @@ import SwiftUI
 
 struct SidebarTabRow: View {
     @ObservedObject var tab: Tab
+    @Environment(\.colorScheme) private var colorScheme
     let themeColor: Color
     let isActive: Bool
     let isHovered: Bool
@@ -17,6 +18,10 @@ struct SidebarTabRow: View {
     let onClose: () -> Void
     let onCopyLink: () -> Void
     let onBookmark: () -> Void
+
+    private var theme: BrowserTheme {
+        BrowserTheme(accent: themeColor, colorScheme: colorScheme)
+    }
 
     var body: some View {
         ZStack(alignment: .trailing) {
@@ -32,6 +37,7 @@ struct SidebarTabRow: View {
                         .font(.system(size: 13, weight: isActive ? .semibold : .regular))
                         .foregroundStyle(isActive ? Color.textPrimary : Color.textSecondary)
                         .lineLimit(1)
+                        .accessibilityIdentifier("browser.sidebar.tabTitle")
                 }
 
                 Spacer(minLength: 0)
@@ -42,7 +48,11 @@ struct SidebarTabRow: View {
             .padding(.vertical, 7)
             .background(
                 RoundedRectangle(cornerRadius: 8)
-                    .fill(isActive ? Color.bgElevated : (tab.groupID != nil ? Color.primary.opacity(0.12) : (isHovered ? themeColor.opacity(0.15) : Color.clear)))
+                    .fill(
+                        isActive
+                            ? theme.panelActive
+                            : (tab.groupID != nil ? theme.panelGrouped : (isHovered ? theme.panelHover : Color.clear))
+                    )
             )
             .contentShape(RoundedRectangle(cornerRadius: 8))
             .onTapGesture {
@@ -71,9 +81,10 @@ struct SidebarTabRow: View {
         }
         .overlay(
             RoundedRectangle(cornerRadius: 8)
-                .strokeBorder(isActive ? Color.borderGlass : (isHovered ? Color.borderGlass.opacity(0.6) : Color.clear), lineWidth: 1)
+                .strokeBorder(isActive ? theme.urlBarStroke : (isHovered ? theme.chromeStroke.opacity(0.75) : Color.clear), lineWidth: 1)
                 .allowsHitTesting(false)
         )
+        .accessibilityIdentifier("browser.sidebar.tabRow")
         .animation(.easeInOut(duration: 0.15), value: isHovered)
         .animation(.easeInOut(duration: 0.15), value: isActive)
         .contextMenu {
@@ -98,7 +109,7 @@ struct SidebarTabRow: View {
     private var faviconPlate: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 8)
-                .fill(isActive ? themeColor.opacity(0.16) : Color.white.opacity(0.05))
+                .fill(isActive ? theme.faviconPlateFill.blended(with: themeColor, fraction: 0.24) : theme.faviconPlateFill)
                 .frame(width: 24, height: 24)
 
             favicon(for: tab, isActive: isActive)
@@ -115,7 +126,7 @@ struct SidebarTabRow: View {
             } else {
                 Image(systemName: "globe")
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(isActive ? themeColor : Color.textSecondary)
+                    .foregroundStyle(isActive ? theme.textOnAccent : Color.textSecondary)
             }
         }
         .frame(width: 18, height: 18)
@@ -127,7 +138,7 @@ struct SidebarTabRow: View {
         } label: {
             ZStack {
                 Circle()
-                    .fill(Color.white.opacity(0.12))
+                    .fill(isActive ? theme.buttonPressedFill : theme.panelRaised)
                     .frame(width: 20, height: 20)
                 
                 Image(systemName: "xmark")

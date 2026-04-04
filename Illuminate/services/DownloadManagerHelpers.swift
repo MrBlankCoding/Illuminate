@@ -2,6 +2,8 @@
 //  DownloadManager+Helpers.swift
 //  Illuminate
 //
+// Created by MrBlankCoding on 4/4/26.
+//
 
 import Foundation
 import UniformTypeIdentifiers
@@ -21,7 +23,7 @@ extension DownloadManager {
         }
     }
 
-    fileprivate func makeTask(
+    func makeTask(
         url: URL,
         filename: String,
         destinationURL: URL?,
@@ -43,7 +45,7 @@ extension DownloadManager {
         )
     }
 
-    fileprivate func insertTask(_ task: DownloadTask) {
+    func insertTask(_ task: DownloadTask) {
         updateOnMain {
             self.downloads.insert(task, at: 0)
             AppLog.download("Inserted download item id=\(task.id.uuidString) source=\(task.url.absoluteString) filename=\(task.filename) state=\(task.state.rawValue)")
@@ -51,7 +53,7 @@ extension DownloadManager {
         }
     }
 
-    fileprivate func updateTask(_ id: UUID, mutate: @escaping (inout DownloadTask) -> Void) {
+    func updateTask(_ id: UUID, mutate: @escaping (inout DownloadTask) -> Void) {
         updateOnMain {
             guard let index = self.downloads.firstIndex(where: { $0.id == id }) else { return }
             mutate(&self.downloads[index])
@@ -59,7 +61,7 @@ extension DownloadManager {
         }
     }
 
-    fileprivate func finishDownload(id: UUID, destinationURL: URL) {
+    func finishDownload(id: UUID, destinationURL: URL) {
         AppLog.download("Finishing download id=\(id.uuidString) destination=\(destinationURL.path)")
         updateTask(id) { task in
             task.destinationURL = destinationURL
@@ -80,7 +82,7 @@ extension DownloadManager {
         }
     }
 
-    fileprivate func failDownload(id: UUID, error: Error) {
+    func failDownload(id: UUID, error: Error) {
         AppLog.download("Download failed id=\(id.uuidString) error=\(error.localizedDescription)")
         updateTask(id) { task in
             task.state = .failed
@@ -89,7 +91,7 @@ extension DownloadManager {
         }
     }
 
-    fileprivate func markBlocked(id: UUID, message: String) {
+    func markBlocked(id: UUID, message: String) {
         AppLog.download("Download blocked id=\(id.uuidString) reason=\(message)")
         updateTask(id) { task in
             task.state = .blocked
@@ -99,7 +101,7 @@ extension DownloadManager {
         }
     }
 
-    fileprivate func resolvedExplicitDestination(for destinationURL: URL) -> URL {
+    func resolvedExplicitDestination(for destinationURL: URL) -> URL {
         let filename = sanitizedFilename(destinationURL.lastPathComponent, fallbackURL: destinationURL)
         let directory = destinationURL.deletingLastPathComponent()
         let resolvedURL = uniqueDestinationURL(in: directory, preferredFilename: filename)
@@ -107,7 +109,7 @@ extension DownloadManager {
         return resolvedURL
     }
 
-    fileprivate func resolvedFilename(_ rawFilename: String?, fallbackURL: URL?, mimeType: String?) -> String {
+    func resolvedFilename(_ rawFilename: String?, fallbackURL: URL?, mimeType: String?) -> String {
         var filename = sanitizedFilename(rawFilename, fallbackURL: fallbackURL)
         let pathExtension = (filename as NSString).pathExtension
 
@@ -123,7 +125,7 @@ extension DownloadManager {
         return filename
     }
 
-    fileprivate func sanitizedFilename(_ rawFilename: String?, fallbackURL: URL? = nil) -> String {
+    func sanitizedFilename(_ rawFilename: String?, fallbackURL: URL? = nil) -> String {
         let candidate = rawFilename?.trimmingCharacters(in: .whitespacesAndNewlines)
         let fallbackCandidate = fallbackURL?.lastPathComponent.trimmingCharacters(in: .whitespacesAndNewlines)
         let baseValue = [candidate, fallbackCandidate, "download"]
@@ -137,7 +139,7 @@ extension DownloadManager {
         return sanitized.isEmpty ? "download" : sanitized
     }
 
-    fileprivate func uniqueDestinationURL(in directory: URL, preferredFilename: String) -> URL {
+    func uniqueDestinationURL(in directory: URL, preferredFilename: String) -> URL {
         let safeFilename = sanitizedFilename(preferredFilename)
         var destinationURL = directory.appendingPathComponent(safeFilename, isDirectory: false)
 
@@ -155,12 +157,12 @@ extension DownloadManager {
         return destinationURL
     }
 
-    fileprivate func shouldAllowDownload(filename: String, mimeType: String?, destinationURL: URL?) -> Bool {
+    func shouldAllowDownload(filename: String, mimeType: String?, destinationURL: URL?) -> Bool {
         guard preferences.safeDownloadsOnly else { return true }
         return safetyLevel(for: filename, mimeType: mimeType, destinationURL: destinationURL) != .blocked
     }
 
-    fileprivate func safetyLevel(for filename: String, mimeType: String? = nil, destinationURL: URL? = nil) -> DownloadSafetyLevel {
+    func safetyLevel(for filename: String, mimeType: String? = nil, destinationURL: URL? = nil) -> DownloadSafetyLevel {
         let dangerousExtensions: Set<String> = [
             "app", "command", "csh", "dmg", "iso", "kext", "mpkg", "osx", "pkg",
             "scpt", "sh", "tool", "workflow", "zsh"
@@ -190,18 +192,18 @@ extension DownloadManager {
         return .safe
     }
 
-    fileprivate func ensureParentDirectoryExists(for destinationURL: URL) throws {
+    func ensureParentDirectoryExists(for destinationURL: URL) throws {
         try ensureDirectoryExists(at: destinationURL.deletingLastPathComponent())
     }
 
-    fileprivate func ensureDirectoryExists(at directoryURL: URL) throws {
+    func ensureDirectoryExists(at directoryURL: URL) throws {
         try fileManager.createDirectory(
             at: directoryURL,
             withIntermediateDirectories: true
         )
     }
 
-    fileprivate func moveDownload(at temporaryURL: URL, to destinationURL: URL) throws {
+    func moveDownload(at temporaryURL: URL, to destinationURL: URL) throws {
         try ensureParentDirectoryExists(for: destinationURL)
 
         if fileManager.fileExists(atPath: destinationURL.path) {
@@ -211,7 +213,7 @@ extension DownloadManager {
         try fileManager.moveItem(at: temporaryURL, to: destinationURL)
     }
 
-    fileprivate func notifyDownloadsDidChange() {
+    func notifyDownloadsDidChange() {
         NotificationCenter.default.post(
             name: Self.downloadsDidChangeNotification,
             object: self,
@@ -222,7 +224,7 @@ extension DownloadManager {
         )
     }
 
-    fileprivate func updateOnMain(_ work: @escaping () -> Void) {
+    func updateOnMain(_ work: @escaping () -> Void) {
         if Thread.isMainThread {
             work()
         } else {

@@ -13,6 +13,10 @@ enum AppLog {
         print("[Illuminate][INFO] \(message)")
     }
 
+    static func download(_ message: String) {
+        print("[Illuminate][DOWNLOAD] \(message)")
+    }
+
     static func ui(_ message: String) {
         print("[Illuminate][UI] \(message)")
     }

@@ -99,18 +99,18 @@ final class TabManager: ObservableObject {
 
     @MainActor
     init(
-        profile: BrowserProfile,
+        profileID: UUID? = nil,
         notificationCenter: NotificationCenter = .default,
         urlSynchronizer: URLSynchronizer,
         userDefaults: UserDefaults = .standard,
         isPersistenceEnabled: Bool = true
     ) {
-        self.activeProfileID = profile.id
+        self.activeProfileID = profileID
         self.notificationCenter = notificationCenter
         self.urlSynchronizer = urlSynchronizer
         self.userDefaults = userDefaults
         self.isPersistenceEnabled = isPersistenceEnabled
-        self.cachedSessionURL = Self.makeSessionURL(profileID: profile.id)
+        self.cachedSessionURL = Self.makeSessionURL(profileID: profileID)
 
         // Resolve persisted or default values
         let savedHex = isPersistenceEnabled
@@ -132,6 +132,7 @@ final class TabManager: ObservableObject {
         }
 
         hydrateRestoredTabs()
+        ensureValidActiveTabSelection()
 
         setupObservers()
 
@@ -143,6 +144,34 @@ final class TabManager: ObservableObject {
             self?.isInitializing = false
             self?.updateThemeFromBackground(setTheme: false)
         }
+    }
+
+    @MainActor
+    convenience init(
+        profile: BrowserProfile,
+        notificationCenter: NotificationCenter = .default,
+        urlSynchronizer: URLSynchronizer,
+        userDefaults: UserDefaults = .standard,
+        isPersistenceEnabled: Bool = true
+    ) {
+        self.init(
+            profileID: profile.id,
+            notificationCenter: notificationCenter,
+            urlSynchronizer: urlSynchronizer,
+            userDefaults: userDefaults,
+            isPersistenceEnabled: isPersistenceEnabled
+        )
+    }
+
+    @MainActor
+    convenience init(isPersistenceEnabled: Bool = true) {
+        self.init(
+            profileID: nil,
+            notificationCenter: .default,
+            urlSynchronizer: URLSynchronizer(),
+            userDefaults: .standard,
+            isPersistenceEnabled: isPersistenceEnabled
+        )
     }
 
     private static func makeSessionURL(profileID: UUID?) -> URL {
@@ -224,6 +253,7 @@ final class TabManager: ObservableObject {
         guard let index = tabs.firstIndex(where: { $0.id == id }) else { return }
 
         let tab = tabs[index]
+        tab.close()
         pushRecentlyClosed(tab.toTransferPayload())
         tabs.remove(at: index)
         removeTabAssets(for: id)
@@ -240,6 +270,10 @@ final class TabManager: ObservableObject {
             }
         }
 
+        if tabs.isEmpty {
+            NSApp.keyWindow?.performClose(nil)
+        }
+
         saveState()
     }
 
@@ -249,10 +283,14 @@ final class TabManager: ObservableObject {
     }
 
     func clearAllTabs() {
-        tabs.forEach { pushRecentlyClosed($0.toTransferPayload()) }
+        tabs.forEach {
+            $0.close()
+            pushRecentlyClosed($0.toTransferPayload())
+        }
         tabs.removeAll()
         activeTabID = nil
         syncActiveTabURL()
+        NSApp.keyWindow?.performClose(nil)
         saveState()
     }
 
@@ -296,6 +334,11 @@ final class TabManager: ObservableObject {
     private func hydrateVisualState(for tab: Tab) {
         tab.loadAssets()
 
+        if let specialImage = specialFavicon(for: tab.url) {
+            tab.favicon = specialImage
+            return
+        }
+
         guard tab.favicon == nil, let faviconURL = defaultFaviconURL(for: tab.url) else {
             return
         }
@@ -326,9 +369,42 @@ final class TabManager: ObservableObject {
         return components.url
     }
 
+    private func specialFavicon(for pageURL: URL?) -> NSImage? {
+        guard
+            let pageURL,
+            pageURL.scheme?.lowercased() == "illuminate",
+            pageURL.host?.lowercased() == "settings"
+        else {
+            return nil
+        }
+
+        return NSImage(
+            systemSymbolName: "gearshape.fill",
+            accessibilityDescription: "Settings"
+        )
+    }
+
     func switchTo(_ id: UUID) {
         guard activeTabID != id else { return }
         setActiveTab(id)
+    }
+
+    func openSettingsTab() {
+        let settingsURLString = "illuminate://settings"
+
+        if let existingTab = tabs.first(where: { $0.url?.absoluteString == settingsURLString }) {
+            switchTo(existingTab.id)
+            return
+        }
+
+        guard let settingsURL = URL(string: settingsURLString) else {
+            return
+        }
+
+        let tab = createTab(url: settingsURL)
+        DispatchQueue.main.async {
+            tab.title = "Settings"
+        }
     }
 
     func setActiveTab(_ id: UUID?) {
@@ -374,6 +450,14 @@ final class TabManager: ObservableObject {
 
     private func syncActiveTabURL() {
         urlSynchronizer.updateCurrentURL(activeTab?.url)
+    }
+
+    private func ensureValidActiveTabSelection() {
+        guard tabs.isEmpty == false else { return }
+        guard let activeTabID, tabs.contains(where: { $0.id == activeTabID }) else {
+            setActiveTab(tabs[0].id)
+            return
+        }
     }
 
     private func pushRecentlyClosed(_ payload: TabTransferPayload) {

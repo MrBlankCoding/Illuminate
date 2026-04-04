@@ -15,7 +15,7 @@ final class WebKitManager: ObservableObject {
 
     @Published var cookiesEnabled: Bool = true {
         didSet {
-            guard !isLoadingProfile else { return }
+            guard !isLoadingProfile, isPersistenceEnabled else { return }
             userDefaults.set(cookiesEnabled, forKey: scopedKey("cookiesEnabled"))
         }
     }
@@ -23,16 +23,24 @@ final class WebKitManager: ObservableObject {
     private let userDefaults: UserDefaults
     private var activeProfileID: UUID?
     private var isLoadingProfile = false
+    private let isPersistenceEnabled: Bool
 
-    init(profile: BrowserProfile, userDefaults: UserDefaults = .standard) {
+    init(profileID: UUID? = nil, userDefaults: UserDefaults = .standard, isPersistenceEnabled: Bool = true) {
         self.userDefaults = userDefaults
-        self.activeProfileID = profile.id
+        self.activeProfileID = profileID
+        self.isPersistenceEnabled = isPersistenceEnabled
         URLCache.shared.memoryCapacity = 100 * 1024 * 1024 // Increase to 100MB
         URLCache.shared.diskCapacity = 500 * 1024 * 1024 // 500MB disk cache
         
         self.isLoadingProfile = true
-        self.cookiesEnabled = userDefaults.object(forKey: scopedKey("cookiesEnabled")) as? Bool ?? true
+        self.cookiesEnabled = isPersistenceEnabled
+            ? (userDefaults.object(forKey: scopedKey("cookiesEnabled")) as? Bool ?? true)
+            : true
         self.isLoadingProfile = false
+    }
+
+    convenience init(profile: BrowserProfile, userDefaults: UserDefaults = .standard, isPersistenceEnabled: Bool = true) {
+        self.init(profileID: profile.id, userDefaults: userDefaults, isPersistenceEnabled: isPersistenceEnabled)
     }
 
     func makeConfiguration() -> WKWebViewConfiguration {
@@ -61,10 +69,8 @@ final class WebKitManager: ObservableObject {
         applySafariUserAgent(to: webView)
         return webView
     }
-    // i supposed UA needs to be updated in the future but for now this will work
-    // also appending Illuminate/1.0 to the end of the UA so that websites can detect that we're using Illuminate and potentially serve a custom experience in the future :p
     func applySafariUserAgent(to webView: WKWebView) {
-        let safariUA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.3.1 Safari/605.1.15 Chrome/122.0.0.0 Illuminate/1.0"
+        let safariUA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.3.1 Safari/605.1.15 Chrome/122.0.0.0"
         webView.customUserAgent = safariUA
         AppLog.info("Set custom UA: \(safariUA)")
     }
@@ -74,6 +80,10 @@ final class WebKitManager: ObservableObject {
     }
 
     private func makeWebsiteDataStore() -> WKWebsiteDataStore {
+        guard isPersistenceEnabled else {
+            return .nonPersistent()
+        }
+
         guard cookiesEnabled else {
             return .nonPersistent()
         }

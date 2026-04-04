@@ -2,6 +2,8 @@
 //  DownloadModels.swift
 //  Illuminate
 //
+// Created by MrBlankCoding on 4/4/26.
+//
 
 import Foundation
 
@@ -24,15 +26,21 @@ struct DownloadPreferences: Codable, Equatable, Sendable {
     var safeDownloadsOnly: Bool
     var revealInFinderWhenFinished: Bool
     var saveLocationBookmarkData: Data?
+    var askWhereToSave: Bool
+    var lastPickedDirectoryBookmarkData: Data?
 
     init(
         safeDownloadsOnly: Bool = true,
         revealInFinderWhenFinished: Bool = false,
-        saveLocationBookmarkData: Data? = nil
+        saveLocationBookmarkData: Data? = nil,
+        askWhereToSave: Bool = false,
+        lastPickedDirectoryBookmarkData: Data? = nil
     ) {
         self.safeDownloadsOnly = safeDownloadsOnly
         self.revealInFinderWhenFinished = revealInFinderWhenFinished
         self.saveLocationBookmarkData = saveLocationBookmarkData
+        self.askWhereToSave = askWhereToSave
+        self.lastPickedDirectoryBookmarkData = lastPickedDirectoryBookmarkData
     }
 }
 

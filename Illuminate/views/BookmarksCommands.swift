@@ -9,12 +9,11 @@ import SwiftUI
 import SwiftData
 
 struct BookmarksCommands: Commands {
-    let shortcutHandler: KeyboardShortcutHandler
     let modelContainer: ModelContainer
 
     var body: some Commands {
         CommandMenu("Bookmarks") {
-            BookmarksMenuContent(shortcutHandler: shortcutHandler)
+            BookmarksMenuContent()
                 .modelContext(modelContainer.mainContext)
         }
     }
@@ -24,9 +23,9 @@ struct BookmarksMenuContent: View {
     @Query(sort: \Bookmark.title) private var allBookmarks: [Bookmark]
     @FocusedValue(\.activeEnvironment) private var environment
     @Environment(\.modelContext) private var modelContext
-    let shortcutHandler: KeyboardShortcutHandler
 
     private var bookmarks: [Bookmark] {
+        guard environment?.isGuestSession == false else { return [] }
         guard let profileID = environment?.profile.id else { return [] }
         return allBookmarks.filter { $0.profileID == profileID }
     }
@@ -39,12 +38,9 @@ struct BookmarksMenuContent: View {
     var body: some View {
         VStack {
             Button(isCurrentTabBookmarked ? "Remove Bookmark" : "Bookmark Current Tab") {
-                if isCurrentTabBookmarked {
-                    removeBookmark()
-                } else {
-                    shortcutHandler.bookmarkTab()
-                }
+                toggleBookmark()
             }
+            .disabled(environment?.isGuestSession == true)
             .keyboardShortcut("b", modifiers: .command)
 
             Divider()
@@ -55,7 +51,10 @@ struct BookmarksMenuContent: View {
             } else {
                 ForEach(bookmarks) { bookmark in
                     Button(bookmark.title.isEmpty ? bookmark.url : bookmark.title) {
-                        if let url = URL(string: bookmark.url) {
+                        guard let url = URL(string: bookmark.url) else { return }
+                        if let existingTab = environment?.tabManager.tabs.first(where: { $0.url?.absoluteString == bookmark.url }) {
+                            environment?.tabManager.switchTo(existingTab.id)
+                        } else {
                             environment?.tabManager.createTab(url: url)
                         }
                     }
@@ -64,10 +63,19 @@ struct BookmarksMenuContent: View {
         }
     }
     
-    private func removeBookmark() {
-        guard let currentURL = environment?.tabManager.activeTab?.url?.absoluteString else { return }
+    private func toggleBookmark() {
+        guard let environment,
+              let activeTab = environment.tabManager.activeTab,
+              let currentURL = activeTab.url?.absoluteString,
+              environment.isGuestSession == false,
+              !currentURL.isEmpty else { return }
+
         if let bookmarkToRemove = bookmarks.first(where: { $0.url == currentURL }) {
             modelContext.delete(bookmarkToRemove)
+            return
         }
+
+        let title = activeTab.title.isEmpty ? currentURL : activeTab.title
+        modelContext.insert(Bookmark(profileID: environment.profile.id, title: title, url: currentURL))
     }
 }

@@ -12,13 +12,15 @@ struct ProfileCommands: Commands {
 
     var body: some Commands {
         CommandGroup(replacing: .newItem) {
-            // Replaces the standard "New Window" action
             NewWindowButton()
-            
-            Menu("New Window with Profile") {
-                ForEach(profileManager.profiles) { profile in
-                    OpenProfileWindowButton(profile: profile)
-                }
+        }
+
+        CommandMenu("Profiles") {
+            NewWindowButton()
+            Divider()
+
+            ForEach(profileManager.profiles) { profile in
+                OpenProfileWindowButton(profile: profile)
             }
         }
     }
@@ -28,11 +30,22 @@ struct NewWindowButton: View {
     @Environment(\.openWindow) private var openWindow
     
     var body: some View {
+        let _ = registerDockMenuRoutes()
+
         Button("New Window") {
-            // Open the profile selector
-            openWindow(value: UUID?.none)
+            openWindow(id: "profile-selection-window")
         }
         .keyboardShortcut("n", modifiers: .command)
+    }
+
+    @MainActor
+    private func registerDockMenuRoutes() {
+        DockMenuWindowRouter.shared.openProfileSelection = {
+            openWindow(id: "profile-selection-window")
+        }
+        DockMenuWindowRouter.shared.openProfile = { profileID in
+            openWindow(value: BrowserWindowRoute.profile(profileID))
+        }
     }
 }
 
@@ -42,7 +55,7 @@ struct OpenProfileWindowButton: View {
     
     var body: some View {
         Button {
-            openWindow(value: profile.id)
+            openWindow(value: BrowserWindowRoute.profile(profile.id))
         } label: {
             HStack {
                 Text(profile.name)

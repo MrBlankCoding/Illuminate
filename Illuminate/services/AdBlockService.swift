@@ -15,7 +15,9 @@ final class AdBlockService: ObservableObject {
     @Published var isEnabled: Bool = true {
         didSet {
             guard !isLoadingProfile else { return }
-            userDefaults.set(isEnabled, forKey: scopedKey("adBlockEnabled"))
+            if isPersistenceEnabled {
+                userDefaults.set(isEnabled, forKey: scopedKey("adBlockEnabled"))
+            }
             if isEnabled {
                 prepareIfNeeded()
             } else {
@@ -31,25 +33,44 @@ final class AdBlockService: ObservableObject {
     private var allowlistedHosts: Set<String> = []
     private let userDefaults: UserDefaults
     private let baseRuleListIdentifier: String
+    private let isPersistenceEnabled: Bool
     private var hasPreparedRuleList = false
     private var isPreparingRuleList = false
     private var activeProfileID: UUID?
     private var isLoadingProfile = false
 
     init(
-        profile: BrowserProfile,
+        profileID: UUID? = nil,
         userDefaults: UserDefaults = .standard,
+        isPersistenceEnabled: Bool = true,
         ruleListIdentifier: String = "IlluminateAdBlockRules-\(UUID().uuidString)"
     ) {
         self.userDefaults = userDefaults
-        self.activeProfileID = profile.id
+        self.activeProfileID = profileID
         self.baseRuleListIdentifier = ruleListIdentifier
-        self.isEnabled = userDefaults.object(forKey: scopedKey("adBlockEnabled")) as? Bool ?? true
+        self.isPersistenceEnabled = isPersistenceEnabled
+        self.isEnabled = isPersistenceEnabled
+            ? (userDefaults.object(forKey: scopedKey("adBlockEnabled")) as? Bool ?? true)
+            : true
         loadDefaultRules()
         
         if self.isEnabled {
             self.prepareIfNeeded()
         }
+    }
+
+    convenience init(
+        profile: BrowserProfile,
+        userDefaults: UserDefaults = .standard,
+        isPersistenceEnabled: Bool = true,
+        ruleListIdentifier: String = "IlluminateAdBlockRules-\(UUID().uuidString)"
+    ) {
+        self.init(
+            profileID: profile.id,
+            userDefaults: userDefaults,
+            isPersistenceEnabled: isPersistenceEnabled,
+            ruleListIdentifier: ruleListIdentifier
+        )
     }
     func prepareIfNeeded() {
         guard isEnabled, !hasPreparedRuleList, !isPreparingRuleList else { return }

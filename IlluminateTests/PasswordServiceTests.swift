@@ -104,4 +104,21 @@ struct PasswordServiceTests {
         #expect(passwords.count == 1, "Should find password by host")
         #expect(passwords.first?.url == "login.example.com", "URL should be stored as host only")
     }
+
+    @Test func guestModeDoesNotPersistPasswords() async throws {
+        let container = try createInMemoryContainer()
+        let service = PasswordService(profileID: nil, container: container)
+
+        service.savePassword(
+            url: "https://guest.example",
+            username: "guest",
+            passwordData: "temporary"
+        )
+
+        #expect(service.fetchPasswords(for: "https://guest.example").isEmpty)
+
+        let descriptor = FetchDescriptor<Password>()
+        let storedPasswords = try container.mainContext.fetch(descriptor)
+        #expect(storedPasswords.isEmpty)
+    }
 }

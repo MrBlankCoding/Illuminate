@@ -11,7 +11,9 @@ import SwiftData
 
 @main
 struct IlluminateApp: App {
-    @StateObject private var profileManager = ProfileManager()
+    private static let profileSelectionWindowID = "profile-selection-window"
+
+    @StateObject private var profileManager: ProfileManager
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     private let keyboardShortcutHandler: KeyboardShortcutHandler
     private let backgroundResourceManager: BackgroundResourceManager
@@ -19,12 +21,24 @@ struct IlluminateApp: App {
     let modelContainer: ModelContainer
     
     init() {
+        UITestLaunchConfiguration.prepareAppStateIfNeeded()
+        _profileManager = StateObject(wrappedValue: ProfileManager())
+
         let center = NotificationCenter.default
         keyboardShortcutHandler = KeyboardShortcutHandler(notificationCenter: center)
         backgroundResourceManager = BackgroundResourceManager()
         runtimeSecurityMonitor = RuntimeSecurityMonitor(notificationCenter: center)
         do {
-            modelContainer = try ModelContainer(for: Bookmark.self, Password.self)
+            if UITestLaunchConfiguration.isRunningUITests {
+                let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
+                modelContainer = try ModelContainer(
+                    for: Bookmark.self,
+                    Password.self,
+                    configurations: configuration
+                )
+            } else {
+                modelContainer = try ModelContainer(for: Bookmark.self, Password.self)
+            }
         } catch {
             fatalError("Could not initialize ModelContainer: \(error)")
         }
@@ -35,13 +49,30 @@ struct IlluminateApp: App {
     }
 
     var body: some Scene {
-        WindowGroup(for: BrowserProfile.ID.self) { $profileID in
-            AppRootView(profileID: $profileID, modelContainer: modelContainer)
+        WindowGroup(id: Self.profileSelectionWindowID) {
+            ProfileSelectionWindowHost(modelContainer: modelContainer)
+                .environmentObject(profileManager)
+                .frame(minWidth: 600, minHeight: 450)
+        }
+        .windowStyle(.hiddenTitleBar)
+        .modelContainer(modelContainer)
+        .defaultSize(width: 1180, height: 720)
+
+        WindowGroup(for: BrowserWindowRoute.self) { $route in
+            AppRootView(route: $route, modelContainer: modelContainer)
                 .environmentObject(profileManager)
                 .frame(minWidth: 600, minHeight: 450)
                 .onOpenURL { url in
-                    // In a multi-window setup, the `onOpenURL` might need to route to a specific window
-                    // For now, it could be handled by the focused window
+                    guard let request = BrowserWindowOpenRequest(url: url) else {
+                        return
+                    }
+
+                    switch request {
+                    case .profileSelection:
+                        route = nil
+                    case let .route(windowRoute):
+                        route = windowRoute
+                    }
                 }
         }
         .windowStyle(.hiddenTitleBar)
@@ -50,7 +81,6 @@ struct IlluminateApp: App {
         .commands {
             AppCommands(shortcutHandler: keyboardShortcutHandler)
             BookmarksCommands(
-                shortcutHandler: keyboardShortcutHandler,
                 modelContainer: modelContainer
             )
             ProfileCommands(profileManager: profileManager)
@@ -64,5 +94,14 @@ struct IlluminateApp: App {
                     AppLog.ui("Received event: \(name.rawValue)")
                 }
             }
+    }
+}
+
+private struct ProfileSelectionWindowHost: View {
+    let modelContainer: ModelContainer
+    @State private var route: BrowserWindowRoute?
+
+    var body: some View {
+        AppRootView(route: $route, modelContainer: modelContainer)
     }
 }

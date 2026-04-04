@@ -2,6 +2,8 @@
 //  DownloadManager+Persistence.swift
 //  Illuminate
 //
+// Created by MrBlankCoding on 4/4/26.
+//
 
 import Foundation
 
@@ -16,6 +18,61 @@ extension DownloadManager {
         var updated = preferences
         updated.revealInFinderWhenFinished = enabled
         persistPreferences(updated)
+    }
+
+    func setAskWhereToSave(_ enabled: Bool) {
+        var updated = preferences
+        updated.askWhereToSave = enabled
+        persistPreferences(updated)
+    }
+
+    func setLastPickedDirectory(_ directoryURL: URL) {
+        guard directoryURL.hasDirectoryPath || directoryURL.pathExtension.isEmpty else { return }
+
+        let resolvedDirectory = directoryURL.hasDirectoryPath ? directoryURL : directoryURL.deletingLastPathComponent()
+
+        do {
+            let bookmarkData = try resolvedDirectory.bookmarkData(
+                options: [.withSecurityScope],
+                includingResourceValuesForKeys: nil,
+                relativeTo: nil
+            )
+
+            var updated = preferences
+            updated.lastPickedDirectoryBookmarkData = bookmarkData
+            AppLog.download("Stored last-picked download directory path=\(resolvedDirectory.path)")
+            persistPreferences(updated)
+        } catch {
+            AppLog.download("Failed to store last-picked directory path=\(resolvedDirectory.path) error=\(error.localizedDescription)")
+        }
+    }
+
+    func resolvedLastPickedDirectory() -> URL? {
+        guard let bookmarkData = preferences.lastPickedDirectoryBookmarkData else {
+            return nil
+        }
+
+        var isStale = false
+
+        do {
+            let resolvedURL = try URL(
+                resolvingBookmarkData: bookmarkData,
+                options: [.withSecurityScope],
+                relativeTo: nil,
+                bookmarkDataIsStale: &isStale
+            )
+
+            _ = resolvedURL.startAccessingSecurityScopedResource()
+
+            if isStale {
+                setLastPickedDirectory(resolvedURL)
+            }
+
+            return resolvedURL
+        } catch {
+            AppLog.download("Failed to resolve last-picked directory error=\(error.localizedDescription)")
+            return nil
+        }
     }
 
     func setDownloadDirectory(_ directoryURL: URL) {
@@ -46,7 +103,7 @@ extension DownloadManager {
         persistPreferences(updated)
     }
 
-    fileprivate func persistPreferences(_ updated: DownloadPreferences) {
+    func persistPreferences(_ updated: DownloadPreferences) {
         preferences = updated
         downloadDirectoryURL = resolvedDownloadDirectory(from: updated)
         AppLog.download("Persisted download preferences safeOnly=\(updated.safeDownloadsOnly) revealWhenFinished=\(updated.revealInFinderWhenFinished) activeDirectory=\(downloadDirectoryURL.path)")
@@ -55,7 +112,7 @@ extension DownloadManager {
         }
     }
 
-    fileprivate func resolvedDownloadDirectory(from preferences: DownloadPreferences) -> URL {
+    func resolvedDownloadDirectory(from preferences: DownloadPreferences) -> URL {
         guard let bookmarkData = preferences.saveLocationBookmarkData else {
             return fileManager.illuminateDownloadsDirectory()
         }
@@ -85,7 +142,7 @@ extension DownloadManager {
         }
     }
 
-    fileprivate func downloadStagingDirectoryURL() -> URL {
+    func downloadStagingDirectoryURL() -> URL {
         let directory = fileManager
             .illuminateAppSupportDirectory()
             .appendingPathComponent("DownloadStaging", isDirectory: true)

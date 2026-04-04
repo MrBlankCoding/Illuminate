@@ -9,13 +9,13 @@ import SwiftUI
 import SwiftData
 
 struct AppRootView: View {
-    @Binding var profileID: UUID?
+    @Binding var route: BrowserWindowRoute?
     let modelContainer: ModelContainer
     @EnvironmentObject private var profileManager: ProfileManager
 
     var body: some View {
         Group {
-            if let id = profileID, let env = profileManager.environment(for: id, container: modelContainer) {
+            if let route, let env = profileManager.environment(for: route, container: modelContainer) {
                 ContentView()
                     .environmentObject(env)
                     .environmentObject(env.tabManager)
@@ -24,10 +24,11 @@ struct AppRootView: View {
                     .environmentObject(env.webKitManager)
                     .environmentObject(env.urlSynchronizer)
                     .environmentObject(env.adBlockService)
+                    .environmentObject(env.redirectProtectionService)
                     .focusedSceneValue(\.activeEnvironment, env)
-                    .id(id)
+                    .id(route)
             } else {
-                ProfileSelectionView(profileID: $profileID)
+                ProfileSelectionView(route: $route)
             }
         }
     }

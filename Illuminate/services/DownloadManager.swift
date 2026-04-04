@@ -14,12 +14,12 @@ final class DownloadManager: NSObject, ObservableObject {
     static let shared = DownloadManager()
     static let downloadsDidChangeNotification = Notification.Name("DownloadManager.downloadsDidChange")
 
-    @Published private(set) var downloads: [DownloadTask] = []
-    @Published private(set) var preferences: DownloadPreferences
-    @Published private(set) var downloadDirectoryURL: URL
+    @Published var downloads: [DownloadTask] = []
+    @Published var preferences: DownloadPreferences
+    @Published var downloadDirectoryURL: URL
 
-    fileprivate let fileManager: FileManager
-    fileprivate lazy var session: URLSession = {
+    let fileManager: FileManager
+    lazy var session: URLSession = {
         let configuration = URLSessionConfiguration.default
         configuration.waitsForConnectivity = true
         configuration.timeoutIntervalForRequest = 60
@@ -28,13 +28,13 @@ final class DownloadManager: NSObject, ObservableObject {
         return URLSession(configuration: configuration, delegate: self, delegateQueue: nil)
     }()
 
-    fileprivate var sessionTaskIDs: [Int: UUID] = [:]
-    fileprivate var sessionTasksByID: [UUID: URLSessionDownloadTask] = [:]
-    fileprivate var webKitDownloadIDs: [ObjectIdentifier: UUID] = [:]
-    fileprivate var webKitDownloadsByID: [UUID: WKDownload] = [:]
-    fileprivate var webKitStagingURLsByID: [UUID: URL] = [:]
+    var sessionTaskIDs: [Int: UUID] = [:]
+    var sessionTasksByID: [UUID: URLSessionDownloadTask] = [:]
+    var webKitDownloadIDs: [ObjectIdentifier: UUID] = [:]
+    var webKitDownloadsByID: [UUID: WKDownload] = [:]
+    var webKitStagingURLsByID: [UUID: URL] = [:]
 
-    fileprivate let preferencesKey = "download.preferences"
+    let preferencesKey = "download.preferences"
 
     init(fileManager: FileManager = .default) {
         self.fileManager = fileManager

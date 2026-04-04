@@ -2,9 +2,12 @@
 //  DownloadManager+Transfers.swift
 //  Illuminate
 //
+// Created by MrBlankCoding on 4/4/26.
+//
 
 import AppKit
 import Foundation
+import UniformTypeIdentifiers
 import WebKit
 
 extension DownloadManager {
@@ -32,6 +35,21 @@ extension DownloadManager {
             fallbackURL: url,
             mimeType: nil
         )
+
+        if preferences.askWhereToSave {
+            presentSavePanel(
+                suggestedFilename: resolvedFilename,
+                defaultDirectory: resolvedLastPickedDirectory() ?? downloadDirectoryURL
+            ) { [weak self] chosenURL in
+                guard let self else { return }
+                if let chosenURL {
+                    self.setLastPickedDirectory(chosenURL.deletingLastPathComponent())
+                    self.startDownload(from: url, to: chosenURL)
+                }
+            }
+            return
+        }
+
         AppLog.download("Starting URLSession download source=\(url.absoluteString) suggestedFilename=\(suggestedFilename ?? "<nil>") resolvedFilename=\(resolvedFilename) defaultDirectory=\(downloadDirectoryURL.path)")
         let item = makeTask(
             url: url,
@@ -184,6 +202,30 @@ extension DownloadManager {
     func openDownload(_ task: DownloadTask) {
         guard task.state == .completed, let destinationURL = task.destinationURL else { return }
         NSWorkspace.shared.open(destinationURL)
+    }
+
+    func presentSavePanel(
+        suggestedFilename: String,
+        defaultDirectory: URL,
+        completion: @escaping (URL?) -> Void
+    ) {
+        DispatchQueue.main.async {
+            let panel = NSSavePanel()
+            panel.canCreateDirectories = true
+            panel.nameFieldStringValue = suggestedFilename
+            panel.directoryURL = defaultDirectory
+
+            let ext = (suggestedFilename as NSString).pathExtension
+            if !ext.isEmpty, let contentType = UTType(filenameExtension: ext) {
+                panel.allowedContentTypes = [contentType]
+            }
+
+            if panel.runModal() == .OK {
+                completion(panel.url)
+            } else {
+                completion(nil)
+            }
+        }
     }
 }
 

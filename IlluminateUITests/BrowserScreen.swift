@@ -2,6 +2,8 @@
 //  BrowserScreen.swift
 //  IlluminateUITests
 //
+// Created by MrBlankCoding on 4/4/26.
+//
 
 import XCTest
 

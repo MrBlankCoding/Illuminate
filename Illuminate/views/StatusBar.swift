@@ -9,6 +9,12 @@ import SwiftUI
 
 struct StatusBar: View {
     let tab: Tab?
+    @EnvironmentObject private var tabManager: TabManager
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var theme: BrowserTheme {
+        BrowserTheme(accent: tabManager.windowThemeColor, colorScheme: colorScheme)
+    }
 
     var body: some View {
         Group {
@@ -22,10 +28,10 @@ struct StatusBar: View {
                     .padding(.vertical, 7)
                     .background(
                         Capsule()
-                            .fill(Color.white.opacity(0.08))
+                            .fill(theme.statusFill)
                             .overlay(
                                 Capsule()
-                                    .strokeBorder(Color.borderGlass, lineWidth: 1)
+                                    .strokeBorder(theme.chromeStroke, lineWidth: 1)
                             )
                     )
                     .shadow(color: Color.black.opacity(0.25), radius: 8, y: 4)

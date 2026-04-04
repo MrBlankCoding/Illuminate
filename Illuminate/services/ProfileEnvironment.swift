@@ -13,26 +13,52 @@ import SwiftUI
 @MainActor
 final class ProfileEnvironment: ObservableObject {
     let profile: BrowserProfile
+    let isGuestSession: Bool
     
     let tabManager: TabManager
     let webKitManager: WebKitManager
     let passwordService: PasswordService
     let adBlockService: AdBlockService
+    let redirectProtectionService: RedirectProtectionService
     let urlSynchronizer: URLSynchronizer
     let viewModel: ContentViewModel
     
     let modelContainer: ModelContainer
     
-    init(profile: BrowserProfile, modelContainer: ModelContainer) {
+    init(
+        profile: BrowserProfile,
+        modelContainer: ModelContainer,
+        isGuestSession: Bool = false,
+        sessionIdentifier: UUID? = nil
+    ) {
         self.profile = profile
+        self.isGuestSession = isGuestSession
         self.modelContainer = modelContainer
         
-        // Initialize single-profile-scoped services 
+        // Guest sessions stay in memory and avoid profile-backed persistence.
         self.urlSynchronizer = URLSynchronizer()
-        self.tabManager = TabManager(profile: profile, urlSynchronizer: self.urlSynchronizer)
-        self.webKitManager = WebKitManager(profile: profile)
-        self.passwordService = PasswordService(profile: profile, container: modelContainer)
-        self.adBlockService = AdBlockService(profile: profile)
+        self.tabManager = TabManager(
+            profileID: isGuestSession ? nil : profile.id,
+            urlSynchronizer: self.urlSynchronizer,
+            isPersistenceEnabled: !isGuestSession
+        )
+        self.webKitManager = WebKitManager(
+            profileID: isGuestSession ? nil : profile.id,
+            isPersistenceEnabled: !isGuestSession
+        )
+        self.passwordService = PasswordService(
+            profileID: isGuestSession ? nil : profile.id,
+            container: modelContainer
+        )
+        self.adBlockService = AdBlockService(
+            profileID: isGuestSession ? nil : profile.id,
+            isPersistenceEnabled: !isGuestSession,
+            ruleListIdentifier: "IlluminateAdBlockRules-\((sessionIdentifier ?? profile.id).uuidString)"
+        )
+        self.redirectProtectionService = RedirectProtectionService(
+            profileID: isGuestSession ? nil : profile.id,
+            isPersistenceEnabled: !isGuestSession
+        )
         self.viewModel = ContentViewModel(tabManager: self.tabManager, urlSynchronizer: self.urlSynchronizer)
     }
 }

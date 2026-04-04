@@ -14,7 +14,7 @@ struct SidebarFooter: View {
     @State private var isSettingsHovered = false
     @State private var isDownloadsHovered = false
     @State private var isPiPHovered = false
-    @State private var hasActiveDownloads = false
+    @State private var hasVisibleDownloads = DownloadManager.shared.hasVisibleDownloads
 
     var body: some View {
         VStack(spacing: 12) {
@@ -49,15 +49,7 @@ struct SidebarFooter: View {
                     }
 
                     Button {
-                        let settingsURL = "illuminate://settings"
-                        if let existingTab = tabManager.tabs.first(where: { $0.url?.absoluteString == settingsURL }) {
-                            tabManager.switchTo(existingTab.id)
-                        } else if let url = URL(string: settingsURL) {
-                            let tab = tabManager.createTab(url: url)
-                            DispatchQueue.main.async {
-                                tab.title = "Settings"
-                            }
-                        }
+                        tabManager.openSettingsTab()
                     } label: {
                         Image(systemName: "gearshape.fill")
                             .font(.system(size: 14, weight: .semibold))
@@ -79,7 +71,7 @@ struct SidebarFooter: View {
                     }
                     .hoverCursor(.pointingHand)
 
-                    if hasActiveDownloads {
+                    if hasVisibleDownloads {
                         Button {
                             showingDownloads = true
                         } label: {
@@ -118,8 +110,8 @@ struct SidebarFooter: View {
             .padding(.horizontal, 2)
         }
         .onReceive(NotificationCenter.default.publisher(for: DownloadManager.downloadsDidChangeNotification)) { notification in
-            if let hasActiveDownloads = notification.userInfo?["hasActiveDownloads"] as? Bool {
-                self.hasActiveDownloads = hasActiveDownloads
+            if let hasVisibleDownloads = notification.userInfo?["hasVisibleDownloads"] as? Bool {
+                self.hasVisibleDownloads = hasVisibleDownloads
             }
         }
     }

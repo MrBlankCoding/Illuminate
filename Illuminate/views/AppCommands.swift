@@ -15,7 +15,6 @@ struct AppCommands: Commands {
         CommandMenu("Browser") {
             Group {
                 BrowserCommand("New Tab",            shortcut: "t")                     { .newTab }
-                BrowserCommand("Close Tab",          shortcut: "w")                     { .closeActiveTab }
                 BrowserCommand("Reopen Closed Tab",  shortcut: "t", modifiers: [.command, .shift]) { .reopenTab }
                 BrowserCommand("Focus URL Bar",      shortcut: "l")                     { .focusURLBar }
                 BrowserCommand("Refresh Page",       shortcut: "r")                     { .reloadActiveTab }
@@ -47,6 +46,12 @@ struct AppCommands: Commands {
         }
 
         CommandGroup(replacing: .newItem) {}
+        CommandGroup(replacing: .saveItem) {
+            CloseTabCommand()
+        }
+        CommandGroup(replacing: .appSettings) {
+            OpenSettingsCommand()
+        }
         CommandGroup(replacing: .toolbar) {
             BrowserCommand("Zoom In",     shortcut: "+") { .zoomIn }
             BrowserCommand("Zoom Out",    shortcut: "-") { .zoomOut }
@@ -94,6 +99,30 @@ private struct BrowserCommand: View {
 
     private func post() {
         NotificationCenter.default.post(name: notification(), object: nil)
+    }
+}
+
+private struct CloseTabCommand: View {
+    @FocusedValue(\.activeEnvironment) private var environment
+
+    var body: some View {
+        Button("Close Tab") {
+            environment?.tabManager.closeActiveTab()
+        }
+        .keyboardShortcut("w", modifiers: .command)
+        .disabled(environment?.tabManager.activeTabID == nil)
+    }
+}
+
+private struct OpenSettingsCommand: View {
+    @FocusedValue(\.activeEnvironment) private var environment
+
+    var body: some View {
+        Button("Open Settings") {
+            environment?.tabManager.openSettingsTab()
+        }
+        .keyboardShortcut(",", modifiers: .command)
+        .disabled(environment == nil)
     }
 }
 

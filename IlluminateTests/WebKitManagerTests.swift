@@ -39,4 +39,24 @@ struct WebKitManagerTests {
             #expect(ephemeralConfiguration.websiteDataStore.isPersistent == false)
         }
     }
+
+    @Test func guestConfigurationAlwaysUsesNonPersistentStore() async throws {
+        await MainActor.run {
+            let manager = WebKitManager(profileID: nil, isPersistenceEnabled: false)
+            let configuration = manager.makeConfiguration()
+
+            #expect(configuration.websiteDataStore.isPersistent == false)
+        }
+    }
+
+    @Test func makeConfigurationEnablesExpectedPlaybackAndContentDefaults() async throws {
+        await MainActor.run {
+            let manager = WebKitManager(profile: BrowserProfile(name: "Test Profile"))
+            let configuration = manager.makeConfiguration()
+
+            #expect(configuration.mediaTypesRequiringUserActionForPlayback.isEmpty)
+            #expect(configuration.defaultWebpagePreferences.allowsContentJavaScript)
+            #expect(configuration.defaultWebpagePreferences.preferredContentMode == .desktop)
+        }
+    }
 }
