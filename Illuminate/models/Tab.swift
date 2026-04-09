@@ -12,6 +12,8 @@ import ObjectiveC
 import SwiftUI
 import WebKit
 
+// ownership
+// rust mention?
 private var webViewTabOwnerKey: UInt8 = 0
 
 final class IlluminateWebView: WKWebView {
@@ -19,17 +21,25 @@ final class IlluminateWebView: WKWebView {
 
     override func willOpenMenu(_ menu: NSMenu, with event: NSEvent) {
         super.willOpenMenu(menu, with: event)
-
         let itemTitle = "[Illuminate] Download"
         menu.items.removeAll { $0.title == itemTitle }
         menu.items.removeAll { item in
-            let normalized = item.title.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-            return normalized.contains("download") || normalized.contains("save image") || normalized.contains("save video") || normalized.contains("save audio")
+            let normalized = item.title
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .lowercased()
+            return normalized.contains("download")
+                || normalized.contains("save image")
+                || normalized.contains("save video")
+                || normalized.contains("save audio")
         }
 
         guard onIlluminateDownload != nil else { return }
 
-        let menuItem = NSMenuItem(title: itemTitle, action: #selector(triggerIlluminateDownload(_:)), keyEquivalent: "")
+        let menuItem = NSMenuItem(
+            title: itemTitle,
+            action: #selector(triggerIlluminateDownload(_:)),
+            keyEquivalent: ""
+        )
         menuItem.target = self
         menuItem.representedObject = event
         menu.addItem(.separator())
@@ -44,7 +54,20 @@ final class IlluminateWebView: WKWebView {
 
 @MainActor
 final class Tab: ObservableObject, Identifiable {
+    static let zoomChangedNotification = NSNotification.Name("app.zoomChanged")
+    static let zoomLevelKey = "level"
 
+    private enum ZoomBounds {
+        static let min: CGFloat = 0.25
+        static let max: CGFloat = 5.0
+        static let step: CGFloat = 0.1
+        static let `default`: CGFloat = 1.0
+    }
+
+    private static let snapshotMinInterval: TimeInterval = 10
+
+    // important...
+    // or is it
     let id: UUID
 
     @Published var url: URL?
@@ -79,15 +102,25 @@ final class Tab: ObservableObject, Identifiable {
     private(set) var lastAccessed: Date
 
     private let ownershipToken: String
-    private var observers: [NSKeyValueObservation] = []
     private var cancellables = Set<AnyCancellable>()
-
     private var assetsURL: URL {
+        makeAssetsURL(createIfNeeded: true)
+    }
+
+    // Returns the on-disk assets URL without creating the directory.
+    // Use only for path
+    private var assetsURLWithoutCreating: URL {
+        makeAssetsURL(createIfNeeded: false)
+    }
+
+    private func makeAssetsURL(createIfNeeded: Bool) -> URL {
         let base = FileManager.default
             .illuminateAppSupportDirectory()
             .appendingPathComponent("TabAssets", isDirectory: true)
             .appendingPathComponent(id.uuidString, isDirectory: true)
-        try? FileManager.default.createDirectory(at: base, withIntermediateDirectories: true)
+        if createIfNeeded {
+            try? FileManager.default.createDirectory(at: base, withIntermediateDirectories: true)
+        }
         return base
     }
 
@@ -151,10 +184,8 @@ final class Tab: ObservableObject, Identifiable {
             .OBJC_ASSOCIATION_RETAIN_NONATOMIC
         )
         webView = newWebView
-        if isHibernated {
-            DispatchQueue.main.async { [weak self] in
-                self?.isHibernated = false
-            }
+        Task { @MainActor [weak self] in
+            self?.isHibernated = false
         }
         setupWebViewObservers(newWebView)
     }
@@ -171,16 +202,11 @@ final class Tab: ObservableObject, Identifiable {
             .OBJC_ASSOCIATION_RETAIN_NONATOMIC
         )
         webView = candidate
-        if isHibernated {
-            DispatchQueue.main.async { [weak self] in
-                self?.isHibernated = false
-            }
-        }
+        isHibernated = false
         setupWebViewObservers(candidate)
     }
 
     func detachWebView() {
-        observers.removeAll()
         cancellables.removeAll()
         webView = nil
     }
@@ -231,24 +257,24 @@ final class Tab: ObservableObject, Identifiable {
 
     func refreshSnapshot() {
         guard let webView else { return }
-        
+
         let now = Date()
-        guard now.timeIntervalSince(lastSnapshotAt) > 10 else { return } // Max once every 10s
+        guard now.timeIntervalSince(lastSnapshotAt) > Self.snapshotMinInterval else { return }
         lastSnapshotAt = now
-        
+
         let config = WKSnapshotConfiguration()
         webView.takeSnapshot(with: config) { [weak self] image, _ in
-            guard let self = self, let image = image else { return }
+            guard let self, let image else { return }
             let downsampled = image.downsampled(toWidth: 400)
             let favicon = self.favicon
             self.saveAssets(snapshot: downsampled, favicon: favicon)
             Task { @MainActor [weak self] in
-                guard let self else { return }
-                self.snapshot = downsampled
+                self?.snapshot = downsampled
             }
         }
     }
 
+    // this needs to be fixed
     func togglePictureInPicture() {
         guard let webView else { return }
 
@@ -260,23 +286,58 @@ final class Tab: ObservableObject, Identifiable {
                     return;
                 }
 
-                const videos = Array.from(document.querySelectorAll('video')).filter(v => v.readyState >= 2);
-                if (videos.length === 0) {
-                    return;
-                }
+                const videos = Array.from(document.querySelectorAll('video'))
+                    .filter(v => v.readyState >= 2);
+                if (videos.length === 0) return;
 
-                const candidate = videos.find(v => v === document.activeElement) || videos[0];
+                const candidate =
+                    videos.find(v => v === document.activeElement) || videos[0];
 
                 if (candidate.requestPictureInPicture) {
                     candidate.requestPictureInPicture();
                 }
-            } catch (e) {
-                // swallow
-            }
+            } catch (_) {}
         })();
         """
 
         webView.evaluateJavaScript(script, completionHandler: nil)
+    }
+
+    func zoomIn() {
+        applyZoom((webView?.pageZoom ?? ZoomBounds.default) + ZoomBounds.step)
+    }
+
+    func zoomOut() {
+        applyZoom((webView?.pageZoom ?? ZoomBounds.default) - ZoomBounds.step)
+    }
+
+    func resetZoom() {
+        applyZoom(ZoomBounds.default)
+    }
+
+    private func applyZoom(_ newLevel: CGFloat) {
+        guard let webView else { return }
+        let clamped = min(max(newLevel, ZoomBounds.min), ZoomBounds.max)
+        webView.pageZoom = clamped
+        zoomLevel = clamped
+        NotificationCenter.default.post(
+            name: Self.zoomChangedNotification,
+            object: nil,
+            userInfo: [Self.zoomLevelKey: zoomLevel]
+        )
+    }
+
+    // still glitchy
+    func openDevTools() {
+        AppLog.info("Attempting to open Web Inspector for tab: \(url?.absoluteString ?? "nil")")
+        guard let webView else { return }
+        webView.isInspectable = true
+
+        if let inspector = webView
+            .perform(NSSelectorFromString("_inspector"))?
+            .takeUnretainedValue() as AnyObject? {
+            _ = inspector.perform(NSSelectorFromString("show"))
+        }
     }
 
     private func saveAssets(snapshot: NSImage?, favicon: NSImage?) {
@@ -286,7 +347,6 @@ final class Tab: ObservableObject, Identifiable {
 
         Task.detached(priority: .background) {
             try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-
             if let data = faviconData {
                 try? data.write(to: folder.appendingPathComponent("favicon.png"))
             }
@@ -304,9 +364,10 @@ final class Tab: ObservableObject, Identifiable {
         Task.detached(priority: .utility) { [weak self] in
             let snapshotJPG = folder.appendingPathComponent("snapshot.jpg")
             let snapshotPNG = folder.appendingPathComponent("snapshot.png")
-            
-            let faviconData = try? Data(contentsOf: folder.appendingPathComponent("favicon.png"))
-            let snapshotData = (try? Data(contentsOf: snapshotJPG)) ?? (try? Data(contentsOf: snapshotPNG))
+
+            let faviconData  = try? Data(contentsOf: folder.appendingPathComponent("favicon.png"))
+            let snapshotData = (try? Data(contentsOf: snapshotJPG))
+                            ?? (try? Data(contentsOf: snapshotPNG))
 
             await MainActor.run { [weak self] in
                 guard let self else { return }
@@ -318,50 +379,10 @@ final class Tab: ObservableObject, Identifiable {
     }
 
     func toTransferPayload() -> TabTransferPayload {
-        return TabTransferPayload(
-            id: id,
-            url: url,
-            title: title,
-            groupID: groupID
-        )
-    }
-
-    func zoomIn() {
-        guard let webView else { return }
-        webView.pageZoom += 0.1
-        zoomLevel = Double(webView.pageZoom)
-        NotificationCenter.default.post(name: NSNotification.Name("app.zoomChanged"), object: nil, userInfo: ["level": zoomLevel])
-    }
-
-    func zoomOut() {
-        guard let webView else { return }
-        webView.pageZoom = max(0.1, webView.pageZoom - 0.1)
-        zoomLevel = Double(webView.pageZoom)
-        NotificationCenter.default.post(name: NSNotification.Name("app.zoomChanged"), object: nil, userInfo: ["level": zoomLevel])
-    }
-
-    func resetZoom() {
-        guard let webView else { return }
-        webView.pageZoom = 1.0
-        zoomLevel = 1.0
-        NotificationCenter.default.post(name: NSNotification.Name("app.zoomChanged"), object: nil, userInfo: ["level": zoomLevel])
-    }
-
-    // why was this so annoying
-    // apple why are you like this sometimes
-    func openDevTools() {
-        AppLog.info("Attempting to open Web Inspector for tab with URL: \(url?.absoluteString ?? "nil")")
-        guard let webView else { return }
-
-        webView.isInspectable = true
-
-        if let inspector = webView.perform(NSSelectorFromString("_inspector"))?.takeUnretainedValue() as AnyObject? {
-            _ = inspector.perform(NSSelectorFromString("show"))
-        }
+        TabTransferPayload(id: id, url: url, title: title, groupID: groupID)
     }
 
     private func setupWebViewObservers(_ webView: WKWebView) {
-        observers.removeAll()
         cancellables.removeAll()
 
         webView.publisher(for: \.canGoBack)
@@ -381,6 +402,12 @@ final class Tab: ObservableObject, Identifiable {
             .throttle(for: .milliseconds(100), scheduler: RunLoop.main, latest: true)
             .receive(on: RunLoop.main)
             .sink { [weak self] v in self?.estimatedProgress = v }
+            .store(in: &cancellables)
+
+        webView.publisher(for: \.isLoading)
+            .removeDuplicates()
+            .receive(on: RunLoop.main)
+            .sink { [weak self] v in self?.isLoading = v }
             .store(in: &cancellables)
 
         webView.publisher(for: \.url)
@@ -403,12 +430,13 @@ final class Tab: ObservableObject, Identifiable {
             }
             .store(in: &cancellables)
 
-        // Seed initial values safely outside the current view update cycle
+        // Seed initial values outside the current view-update cycle.
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
-            if self.canGoBack        != webView.canGoBack        { self.canGoBack        = webView.canGoBack }
-            if self.canGoForward     != webView.canGoForward     { self.canGoForward     = webView.canGoForward }
+            if self.canGoBack         != webView.canGoBack         { self.canGoBack         = webView.canGoBack }
+            if self.canGoForward      != webView.canGoForward      { self.canGoForward      = webView.canGoForward }
             if self.estimatedProgress != webView.estimatedProgress { self.estimatedProgress = webView.estimatedProgress }
+            if self.isLoading         != webView.isLoading         { self.isLoading         = webView.isLoading }
             if let currentURL = webView.url, self.url != currentURL { self.url = currentURL }
         }
     }

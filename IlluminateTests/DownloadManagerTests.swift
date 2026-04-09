@@ -16,7 +16,6 @@ struct DownloadManagerTests {
     @Test func testStartDownloadCreatesTrackedItem() async throws {
         let manager = DownloadManager()
         manager.clearDownloads()
-        manager.setSafeDownloadsOnly(true)
 
         let url = URL(string: "https://example.com/files/report.pdf")!
         manager.startDownload(from: url)
@@ -34,7 +33,6 @@ struct DownloadManagerTests {
     @Test func testSaveDownloadedDataWritesFileAndCompletesTask() async throws {
         let manager = DownloadManager()
         manager.clearDownloads()
-        manager.setSafeDownloadsOnly(true)
 
         let data = Data("hello".utf8)
         let destinationURL = FileManager.default.temporaryDirectory
@@ -59,59 +57,10 @@ struct DownloadManagerTests {
         try? FileManager.default.removeItem(at: destinationURL)
     }
 
-    @Test func testDangerousDownloadsAreBlockedWhenProtectionIsEnabled() async throws {
-        let manager = DownloadManager()
-        manager.clearDownloads()
-        manager.setSafeDownloadsOnly(true)
-
-        let destinationURL = FileManager.default.temporaryDirectory
-            .appendingPathComponent(UUID().uuidString)
-            .appendingPathExtension("dmg")
-
-        manager.saveDownloadedData(
-            Data("disk image".utf8),
-            from: URL(string: "https://example.com/installer.dmg"),
-            to: destinationURL
-        )
-
-        try await Task.sleep(nanoseconds: 150_000_000)
-
-        let task = try #require(manager.downloads.first { $0.url.absoluteString == "https://example.com/installer.dmg" })
-        #expect(task.state == .blocked)
-        #expect(FileManager.default.fileExists(atPath: destinationURL.path) == false)
-    }
-
-    @Test func testDangerousDownloadsCanProceedWhenProtectionIsDisabled() async throws {
-        let manager = DownloadManager()
-        manager.clearDownloads()
-        manager.setSafeDownloadsOnly(false)
-
-        let destinationURL = FileManager.default.temporaryDirectory
-            .appendingPathComponent(UUID().uuidString)
-            .appendingPathExtension("dmg")
-        let data = Data("disk image".utf8)
-
-        manager.saveDownloadedData(
-            data,
-            from: URL(string: "https://example.com/installer.dmg"),
-            to: destinationURL
-        )
-
-        try await Task.sleep(nanoseconds: 250_000_000)
-
-        let task = try #require(manager.downloads.first { $0.destinationURL == destinationURL })
-        let savedData = try Data(contentsOf: destinationURL)
-
-        #expect(task.state == .completed)
-        #expect(savedData == data)
-
-        try? FileManager.default.removeItem(at: destinationURL)
-    }
 
     @Test func testSanitizesExplicitDestinationAndAvoidsOverwrites() async throws {
         let manager = DownloadManager()
         manager.clearDownloads()
-        manager.setSafeDownloadsOnly(true)
 
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -196,51 +145,10 @@ struct DownloadManagerTests {
         try? FileManager.default.removeItem(at: directory)
     }
 
-    @Test func testSafetyLevelForDangerousExtensions() {
-        let manager = DownloadManager()
-        let dangerousExts = ["dmg", "app", "pkg", "sh", "command", "kext"]
-        for ext in dangerousExts {
-            #expect(manager.safetyLevel(for: "file.\(ext)") == .blocked)
-        }
-    }
-
-    @Test func testSafetyLevelForCautionExtensions() {
-        let manager = DownloadManager()
-        let cautionExts = ["exe", "bat", "jar", "zip", "js"]
-        for ext in cautionExts {
-            #expect(manager.safetyLevel(for: "file.\(ext)") == .caution)
-        }
-    }
-
-    @Test func testSafetyLevelForSafeExtensions() {
-        let manager = DownloadManager()
-        let safeExts = ["txt", "pdf", "png", "jpg", "html", "css"]
-        for ext in safeExts {
-            #expect(manager.safetyLevel(for: "file.\(ext)") == .safe)
-        }
-    }
-
-    @Test func testSafetyLevelConsidersMimeType() {
-        let manager = DownloadManager()
-        #expect(manager.safetyLevel(for: "installer", mimeType: "application/x-apple-diskimage") == .blocked)
-        #expect(manager.safetyLevel(for: "setup", mimeType: "application/x-msdownload") == .blocked)
-    }
-
-    @Test func testShouldAllowDownloadRespectsSafeToggle() {
-        let manager = DownloadManager()
-
-        manager.setSafeDownloadsOnly(true)
-        #expect(manager.shouldAllowDownload(filename: "virus.dmg", mimeType: nil, destinationURL: nil) == false)
-        #expect(manager.shouldAllowDownload(filename: "notes.txt", mimeType: nil, destinationURL: nil) == true)
-
-        manager.setSafeDownloadsOnly(false)
-        #expect(manager.shouldAllowDownload(filename: "virus.dmg", mimeType: nil, destinationURL: nil) == true)
-    }
 
     @Test func testCancelDownloadSetsStateToCancelled() async throws {
         let manager = DownloadManager()
         manager.clearDownloads()
-        manager.setSafeDownloadsOnly(true)
 
         let url = URL(string: "https://example.com/large-file.zip")!
         manager.startDownload(from: url)
@@ -281,7 +189,6 @@ struct DownloadManagerTests {
     @Test func testClearFinishedDownloadsKeepsActiveDownloads() async throws {
         let manager = DownloadManager()
         manager.clearDownloads()
-        manager.setSafeDownloadsOnly(true)
 
         let dest = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString).appendingPathExtension("txt")
@@ -315,15 +222,12 @@ struct DownloadManagerTests {
     @Test func testPreferencesPersistAndReload() {
         let manager = DownloadManager()
 
-        manager.setSafeDownloadsOnly(false)
         manager.setRevealInFinderWhenFinished(true)
         manager.setAskWhereToSave(true)
 
-        #expect(manager.preferences.safeDownloadsOnly == false)
         #expect(manager.preferences.revealInFinderWhenFinished == true)
         #expect(manager.preferences.askWhereToSave == true)
 
-        manager.setSafeDownloadsOnly(true)
         manager.setRevealInFinderWhenFinished(false)
         manager.setAskWhereToSave(false)
     }
@@ -399,8 +303,7 @@ struct DownloadManagerTests {
             bytesWritten: 0,
             totalBytesExpected: nil,
             createdAt: Date(),
-            finishedAt: nil,
-            safetyLevel: .safe
+            finishedAt: nil
         )
 
         #expect(base.statusDescription == "Preparing")
@@ -432,10 +335,6 @@ struct DownloadManagerTests {
         #expect(failed.statusDescription == "Network error")
         #expect(failed.isFailed == true)
 
-        var blocked = base
-        blocked.state = .blocked
-        #expect(blocked.statusDescription == "Blocked by download protection")
-        #expect(blocked.isFailed == true)
 
         var cancelled = base
         cancelled.state = .cancelled

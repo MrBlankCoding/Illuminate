@@ -8,10 +8,15 @@
 import Foundation
 import WebKit
 
-final class WeakScriptMessageHandler: NSObject, WKScriptMessageHandler {
-    private weak var delegate: WKScriptMessageHandler?
+enum BridgeName: String, CaseIterable {
+    case metadata = "metadataBridge"
+    case password = "passwordBridge"
+}
 
-    init(_ delegate: WKScriptMessageHandler) {
+final class WeakScriptMessageHandler: NSObject, WKScriptMessageHandler {
+    private weak var delegate: (any WKScriptMessageHandler)?
+
+    init(_ delegate: some WKScriptMessageHandler) {
         self.delegate = delegate
     }
 
@@ -28,138 +33,172 @@ final class WebScriptBridge {
 
     static let shared = WebScriptBridge()
     private init() {}
-    let metadataBridgeName = "metadataBridge"
-    let passwordBridgeName = "passwordBridge"
 
+    var metadataBridgeName: String { BridgeName.metadata.rawValue }
+    var passwordBridgeName: String { BridgeName.password.rawValue }
     func installScripts(
         on contentController: WKUserContentController,
-        handler: WKScriptMessageHandler,
+        handler: some WKScriptMessageHandler,
         colorScheme: String
     ) {
         removeAll(from: contentController)
 
         let weakHandler = WeakScriptMessageHandler(handler)
-        contentController.add(weakHandler, name: metadataBridgeName)
-        contentController.add(weakHandler, name: passwordBridgeName)
+        for bridge in BridgeName.allCases {
+            contentController.add(weakHandler, name: bridge.rawValue)
+        }
 
         contentController.addUserScript(browserThemeSyncScript(colorScheme: colorScheme))
-        contentController.addUserScript(metadataExtractionScript())
         contentController.addUserScript(hoverTrackingScript())
         contentController.addUserScript(passwordScript())
+        contentController.addUserScript(metadataExtractionScript())
     }
 
     func removeAll(from contentController: WKUserContentController) {
         contentController.removeAllUserScripts()
-        contentController.removeScriptMessageHandler(forName: metadataBridgeName)
-        contentController.removeScriptMessageHandler(forName: passwordBridgeName)
+        for bridge in BridgeName.allCases {
+            contentController.removeScriptMessageHandler(forName: bridge.rawValue)
+        }
     }
 
     private func metadataExtractionScript() -> WKUserScript {
         let source = """
         (() => {
-            const faviconEl = document.querySelector('link[rel~="icon"]');
-            const themeEl   = document.querySelector('meta[name="theme-color"]');
+            'use strict';
+            const faviconEl   = document.querySelector('link[rel~="icon"]');
+            const themeEl     = document.querySelector('meta[name="theme-color"]');
+            const canonicalEl = document.querySelector('link[rel="canonical"]');
             try {
-                window.webkit.messageHandlers.\(metadataBridgeName).postMessage({
-                    favicon:    faviconEl ? faviconEl.href    : null,
-                    themeColor: themeEl   ? themeEl.content  : null,
-                    title:      document.title
+                window.webkit.messageHandlers.\(BridgeName.metadata.rawValue).postMessage({
+                    favicon:      faviconEl   ? faviconEl.href    : null,
+                    themeColor:   themeEl     ? themeEl.content   : null,
+                    canonicalURL: canonicalEl ? canonicalEl.href  : null,
+                    title:        document.title
                 });
             } catch (_) {}
         })();
         """
-        return WKUserScript(source: source, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
+        return WKUserScript(
+            source: source,
+            injectionTime: .atDocumentEnd,
+            forMainFrameOnly: true
+        )
     }
 
     private func browserThemeSyncScript(colorScheme: String) -> WKUserScript {
+        let safeScheme = (try? String(
+            data: JSONEncoder().encode(colorScheme),
+            encoding: .utf8
+        )) ?? "\"light\""
+
         let source = """
         (() => {
-            const scheme = "\(colorScheme)";
+            'use strict';
+            const scheme     = \(safeScheme);
             const prefersDark = scheme === "dark";
 
-            if (!window.__illuminateThemeSync) {
-                const originalMatchMedia = window.matchMedia.bind(window);
-                const listeners = new Set();
+            const sync = window.__illuminateThemeSync;
 
-                const makeEntry = (query, darkQuery) => {
+            if (!sync) {
+                const originalMatchMedia = window.matchMedia.bind(window);
+                const entries = new Set();
+                function makeEntry(query, isDarkQuery) {
                     const entry = {
-                        media: query,
-                        onchange: null,
-                        listeners: new Set(),
-                        legacyListeners: new Set(),
-                        get matches() { return darkQuery ? window.__illuminateThemeSync.prefersDark : !window.__illuminateThemeSync.prefersDark; },
-                        addEventListener(type, listener) {
-                            if (type === "change" && listener) this.listeners.add(listener);
+                        media:           query,
+                        onchange:        null,
+                        _listeners:      new Set(),
+                        _legacyListeners: new Set(),
+
+                        get matches() {
+                            return isDarkQuery
+                                ? window.__illuminateThemeSync.prefersDark
+                                : !window.__illuminateThemeSync.prefersDark;
+                        },
+
+                        addEventListener(type, listener, _opts) {
+                            if (type === "change" && typeof listener === "function")
+                                this._listeners.add(listener);
                         },
                         removeEventListener(type, listener) {
-                            if (type === "change" && listener) this.listeners.delete(listener);
+                            if (type === "change") this._listeners.delete(listener);
                         },
+                        /** @deprecated */
                         addListener(listener) {
-                            if (listener) this.legacyListeners.add(listener);
+                            if (typeof listener === "function")
+                                this._legacyListeners.add(listener);
                         },
+                        /** @deprecated */
                         removeListener(listener) {
-                            if (listener) this.legacyListeners.delete(listener);
+                            this._legacyListeners.delete(listener);
                         },
+
                         dispatch() {
                             const event = { matches: this.matches, media: this.media };
-                            this.listeners.forEach((listener) => {
-                                try { listener.call(this, event); } catch (_) {}
-                            });
-                            this.legacyListeners.forEach((listener) => {
-                                try { listener.call(this, event); } catch (_) {}
-                            });
+                            for (const fn of this._listeners) {
+                                try { fn.call(this, event); } catch (_) {}
+                            }
+                            for (const fn of this._legacyListeners) {
+                                try { fn.call(this, event); } catch (_) {}
+                            }
                             if (typeof this.onchange === "function") {
                                 try { this.onchange.call(this, event); } catch (_) {}
                             }
                         }
                     };
-                    listeners.add(entry);
+
+                    entries.add(entry);
                     return entry;
-                };
+                }
 
                 window.__illuminateThemeSync = {
                     originalMatchMedia,
-                    listeners,
+                    entries,
                     prefersDark
                 };
 
                 window.matchMedia = (query) => {
-                    if (typeof query === "string") {
-                        const normalized = query.replace(/\\s+/g, "").toLowerCase();
-                        if (normalized === "(prefers-color-scheme:dark)") {
-                            return makeEntry(query, true);
-                        }
-                        if (normalized === "(prefers-color-scheme:light)") {
-                            return makeEntry(query, false);
-                        }
-                    }
+                    if (typeof query !== "string") return originalMatchMedia(query);
+                    const n = query.replace(/\\s+/g, "").toLowerCase();
+                    if (n === "(prefers-color-scheme:dark)")  return makeEntry(query, true);
+                    if (n === "(prefers-color-scheme:light)") return makeEntry(query, false);
                     return originalMatchMedia(query);
                 };
+
             } else {
-                window.__illuminateThemeSync.prefersDark = prefersDark;
+                sync.prefersDark = prefersDark;
+                for (const entry of sync.entries) entry.dispatch();
             }
 
             document.documentElement.style.colorScheme = scheme;
-
-            window.__illuminateThemeSync.listeners.forEach((entry) => entry.dispatch());
-            window.dispatchEvent(new CustomEvent("illuminatecolorschemechange", { detail: { scheme } }));
+            window.dispatchEvent(
+                new CustomEvent("illuminatecolorschemechange", { detail: { scheme } })
+            );
         })();
         """
 
-        return WKUserScript(source: source, injectionTime: .atDocumentStart, forMainFrameOnly: false)
+        return WKUserScript(
+            source: source,
+            injectionTime: .atDocumentStart,
+            forMainFrameOnly: false
+        )
     }
 
     private func hoverTrackingScript() -> WKUserScript {
         let source = """
         (() => {
+            'use strict';
             if (window.__illuminateHoverInstalled) return;
             window.__illuminateHoverInstalled = true;
 
+            let lastHover = null;
+
             function postHover(value) {
-                if (value === window.__illuminateLastHover) return;
-                window.__illuminateLastHover = value;
+                if (value === lastHover) return;
+                lastHover = value;
                 try {
-                    window.webkit.messageHandlers.\(metadataBridgeName).postMessage({ hoverURL: value });
+                    window.webkit.messageHandlers.\(BridgeName.metadata.rawValue).postMessage(
+                        { hoverURL: value }
+                    );
                 } catch (_) {}
             }
 
@@ -173,18 +212,30 @@ final class WebScriptBridge {
             }, { passive: true });
         })();
         """
-        return WKUserScript(source: source, injectionTime: .atDocumentStart, forMainFrameOnly: false)
+        return WKUserScript(
+            source: source,
+            injectionTime: .atDocumentStart,
+            forMainFrameOnly: false
+        )
     }
 
     private func passwordScript() -> WKUserScript {
         let source = """
         (() => {
+            'use strict';
             if (window.__illuminatePasswordInstalled) return;
             window.__illuminatePasswordInstalled = true;
 
+            const bridge = () => window.webkit.messageHandlers.\(BridgeName.password.rawValue);
+
             function notifyFieldsDetected() {
+                try { bridge().postMessage({ type: 'fieldsDetected' }); } catch (_) {}
+            }
+
+            function trySavePassword(username, password) {
+                if (!username || !password) return;
                 try {
-                    window.webkit.messageHandlers.\(passwordBridgeName).postMessage({ type: 'fieldsDetected' });
+                    bridge().postMessage({ type: 'savePassword', username, password });
                 } catch (_) {}
             }
 
@@ -195,27 +246,33 @@ final class WebScriptBridge {
             }
 
             checkForPasswordFields();
-            const observer = new MutationObserver(() => checkForPasswordFields());
-            observer.observe(document.body, { childList: true, subtree: true });
+            const observer = new MutationObserver(checkForPasswordFields);
+            observer.observe(document.body ?? document.documentElement, {
+                childList: true,
+                subtree: true
+            });
 
+            // Use capture phase so we receive the event before any page handler
+            // that might call preventDefault().
             document.addEventListener('submit', (e) => {
                 const form = e.target;
-                const passwordField = form.querySelector('input[type="password"]');
-                const userField     = form.querySelector(
-                    'input[type="text"], input[type="email"], input:not([type])'
-                );
-                if (!passwordField || !userField) return;
+                if (!(form instanceof HTMLFormElement)) return;
 
-                try {
-                    window.webkit.messageHandlers.\(passwordBridgeName).postMessage({
-                        type:     'savePassword',
-                        username: userField.value,
-                        password: passwordField.value
-                    });
-                } catch (_) {}
-            }, true);
+                const passwordField = form.querySelector('input[type="password"]');
+                if (!passwordField) return;
+                const userField = form.querySelector(
+                    'input[type="email"], input[type="text"], input:not([type])'
+                );
+                if (!userField) return;
+
+                trySavePassword(userField.value.trim(), passwordField.value);
+            }, { capture: true });
         })();
         """
-        return WKUserScript(source: source, injectionTime: .atDocumentEnd, forMainFrameOnly: false)
+        return WKUserScript(
+            source: source,
+            injectionTime: .atDocumentEnd,
+            forMainFrameOnly: false
+        )
     }
 }

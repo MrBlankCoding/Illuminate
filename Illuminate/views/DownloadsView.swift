@@ -40,9 +40,6 @@ struct DownloadsView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Downloads")
                     .font(.webH2)
-                Text(downloadManager.preferences.safeDownloadsOnly ? "Protection is on" : "Protection is relaxed")
-                    .font(.webMicro)
-                    .foregroundStyle(Color.textSecondary)
             }
 
             Spacer()
@@ -100,9 +97,6 @@ private struct DownloadRow: View {
                             .foregroundStyle(Color.textPrimary)
                             .lineLimit(1)
 
-                        Spacer(minLength: 0)
-
-                        safetyBadge
                     }
 
                     if task.state != .completed {
@@ -182,8 +176,6 @@ private struct DownloadRow: View {
             return "Failed"
         case .cancelled:
             return "Cancelled"
-        case .blocked:
-            return "Blocked"
         }
     }
 
@@ -191,7 +183,7 @@ private struct DownloadRow: View {
         switch task.state {
         case .completed:
             return .green
-        case .failed, .blocked, .cancelled:
+        case .failed, .cancelled:
             return .red
         case .preparing, .downloading:
             return tabManager.windowThemeColor
@@ -199,28 +191,9 @@ private struct DownloadRow: View {
     }
 
     private var iconTint: Color {
-        switch task.safetyLevel {
-        case .safe:
-            return tabManager.windowThemeColor
-        case .caution:
-            return .orange
-        case .blocked:
-            return .red
-        }
+        tabManager.windowThemeColor
     }
 
-    @ViewBuilder
-    private var safetyBadge: some View {
-        if task.safetyLevel != .safe {
-            Text(task.safetyLevel == .blocked ? "Blocked" : "Caution")
-                .font(.system(size: 9, weight: .bold))
-                .foregroundStyle(task.safetyLevel == .blocked ? Color.red : Color.orange)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 5)
-                .background((task.safetyLevel == .blocked ? Color.red : Color.orange).opacity(0.12))
-                .clipShape(Capsule())
-        }
-    }
 
     private func fileIcon(for filename: String) -> String {
         let ext = (filename as NSString).pathExtension.lowercased()
@@ -230,7 +203,7 @@ private struct DownloadRow: View {
         case "zip", "gz", "rar":
             return "archivebox"
         case "dmg", "pkg", "app":
-            return "exclamationmark.shield"
+            return "doc.zipper"
         case "jpg", "png", "gif", "webp":
             return "photo"
         case "mp4", "mov", "avi":

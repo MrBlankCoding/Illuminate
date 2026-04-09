@@ -8,12 +8,6 @@
 import Foundation
 
 extension DownloadManager {
-    func setSafeDownloadsOnly(_ enabled: Bool) {
-        var updated = preferences
-        updated.safeDownloadsOnly = enabled
-        persistPreferences(updated)
-    }
-
     func setRevealInFinderWhenFinished(_ enabled: Bool) {
         var updated = preferences
         updated.revealInFinderWhenFinished = enabled
@@ -106,7 +100,7 @@ extension DownloadManager {
     func persistPreferences(_ updated: DownloadPreferences) {
         preferences = updated
         downloadDirectoryURL = resolvedDownloadDirectory(from: updated)
-        AppLog.download("Persisted download preferences safeOnly=\(updated.safeDownloadsOnly) revealWhenFinished=\(updated.revealInFinderWhenFinished) activeDirectory=\(downloadDirectoryURL.path)")
+        AppLog.download("Persisted download preferences revealWhenFinished=\(updated.revealInFinderWhenFinished) activeDirectory=\(downloadDirectoryURL.path)")
         if let data = try? JSONEncoder().encode(updated) {
             UserDefaults.standard.set(data, forKey: preferencesKey)
         }

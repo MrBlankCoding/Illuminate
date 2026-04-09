@@ -17,8 +17,7 @@ extension DownloadManager {
         let item = makeTask(
             url: url,
             filename: resolvedDestination.lastPathComponent,
-            destinationURL: resolvedDestination,
-            safetyLevel: safetyLevel(for: resolvedDestination.lastPathComponent)
+            destinationURL: resolvedDestination
         )
 
         insertTask(item)
@@ -54,8 +53,7 @@ extension DownloadManager {
         let item = makeTask(
             url: url,
             filename: resolvedFilename,
-            destinationURL: nil,
-            safetyLevel: safetyLevel(for: resolvedFilename)
+            destinationURL: nil
         )
 
         insertTask(item)
@@ -78,8 +76,7 @@ extension DownloadManager {
         let item = makeTask(
             url: url,
             filename: resolvedFilename,
-            destinationURL: nil,
-            safetyLevel: safetyLevel(for: resolvedFilename)
+            destinationURL: nil
         )
 
         insertTask(item)
@@ -97,8 +94,7 @@ extension DownloadManager {
         let item = makeTask(
             url: url,
             filename: filename,
-            destinationURL: nil,
-            safetyLevel: safetyLevel(for: filename)
+            destinationURL: nil
         )
 
         insertTask(item)
@@ -144,24 +140,13 @@ extension DownloadManager {
             fallbackURL: sourceURL,
             mimeType: mimeType
         )
-        let level = safetyLevel(for: filename)
         let item = makeTask(
             url: sourceURL ?? resolvedDestination,
-            filename: resolvedDestination.lastPathComponent,
-            destinationURL: resolvedDestination,
-            safetyLevel: level
+            filename: filename,
+            destinationURL: resolvedDestination
         )
 
         insertTask(item)
-
-        guard shouldAllowDownload(filename: filename, mimeType: mimeType, destinationURL: resolvedDestination) else {
-            AppLog.download("Blocked in-memory download source=\(sourceURL?.absoluteString ?? "<local>") filename=\(filename) destination=\(resolvedDestination.path)")
-            markBlocked(
-                id: item.id,
-                message: "Blocked because the file type may be unsafe."
-            )
-            return
-        }
 
         DispatchQueue.global(qos: .userInitiated).async {
             do {
@@ -247,18 +232,6 @@ extension DownloadManager: WKDownloadDelegate {
             mimeType: response.mimeType
         )
 
-        guard shouldAllowDownload(
-            filename: filename,
-            mimeType: response.mimeType,
-            destinationURL: nil
-        ) else {
-            markBlocked(id: id, message: "Blocked because the file type may be unsafe.")
-            webKitDownloadIDs.removeValue(forKey: ObjectIdentifier(download))
-            webKitDownloadsByID.removeValue(forKey: id)
-            completionHandler(nil)
-            return
-        }
-
         let finalDestinationURL = uniqueDestinationURL(
             in: downloadDirectoryURL,
             preferredFilename: filename
@@ -276,7 +249,6 @@ extension DownloadManager: WKDownloadDelegate {
             task.destinationURL = finalDestinationURL
             task.totalBytesExpected = response.expectedContentLength > 0 ? response.expectedContentLength : nil
             task.state = .downloading
-            task.safetyLevel = self.safetyLevel(for: finalDestinationURL.lastPathComponent, mimeType: response.mimeType, destinationURL: finalDestinationURL)
         }
 
         completionHandler(stagingDestinationURL)
@@ -412,18 +384,6 @@ extension DownloadManager: URLSessionDownloadDelegate, URLSessionTaskDelegate {
 
         AppLog.download("URLSession finished temporary download id=\(id.uuidString) tempLocation=\(location.path) source=\(sourceURL?.absoluteString ?? "<nil>") destination=\(destinationURL.path) mimeType=\(response?.mimeType ?? "<nil>")")
 
-        guard shouldAllowDownload(
-            filename: destinationURL.lastPathComponent,
-            mimeType: response?.mimeType,
-            destinationURL: destinationURL
-        ) else {
-            try? fileManager.removeItem(at: location)
-            AppLog.download("Removed temporary file for blocked URLSession download id=\(id.uuidString) tempLocation=\(location.path)")
-            markBlocked(id: id, message: "Blocked because the file type may be unsafe.")
-            sessionTaskIDs.removeValue(forKey: downloadTask.taskIdentifier)
-            sessionTasksByID.removeValue(forKey: id)
-            return
-        }
 
         do {
             try moveDownload(at: location, to: destinationURL)
@@ -447,7 +407,7 @@ extension DownloadManager: URLSessionDownloadDelegate, URLSessionTaskDelegate {
         if nsError.domain == NSURLErrorDomain, nsError.code == NSURLErrorCancelled {
             AppLog.download("URLSession download cancelled by system id=\(id.uuidString) taskIdentifier=\(task.taskIdentifier)")
             updateTask(id) { task in
-                if task.state == .completed || task.state == .blocked {
+                if task.state == .completed {
                     return
                 }
                 task.state = .cancelled

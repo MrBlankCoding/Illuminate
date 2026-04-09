@@ -10,6 +10,7 @@ import SwiftData
 
 struct AppRootView: View {
     @Binding var route: BrowserWindowRoute?
+    var isStandalone: Bool = false
     let modelContainer: ModelContainer
     @EnvironmentObject private var profileManager: ProfileManager
 
@@ -32,7 +33,7 @@ struct AppRootView: View {
                         registerDockMenuRoutes()
                     }
             } else {
-                ProfileSelectionView(route: $route)
+                ProfileSelectionView(route: $route, isStandalone: isStandalone)
             }
         }
     }

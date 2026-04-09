@@ -13,30 +13,20 @@ enum DownloadState: String, Codable, Sendable {
     case completed
     case failed
     case cancelled
-    case blocked
-}
-
-enum DownloadSafetyLevel: String, Codable, Sendable {
-    case safe
-    case caution
-    case blocked
 }
 
 struct DownloadPreferences: Codable, Equatable, Sendable {
-    var safeDownloadsOnly: Bool
     var revealInFinderWhenFinished: Bool
     var saveLocationBookmarkData: Data?
     var askWhereToSave: Bool
     var lastPickedDirectoryBookmarkData: Data?
 
     init(
-        safeDownloadsOnly: Bool = true,
         revealInFinderWhenFinished: Bool = false,
         saveLocationBookmarkData: Data? = nil,
         askWhereToSave: Bool = false,
         lastPickedDirectoryBookmarkData: Data? = nil
     ) {
-        self.safeDownloadsOnly = safeDownloadsOnly
         self.revealInFinderWhenFinished = revealInFinderWhenFinished
         self.saveLocationBookmarkData = saveLocationBookmarkData
         self.askWhereToSave = askWhereToSave
@@ -56,10 +46,9 @@ struct DownloadTask: Identifiable, Sendable {
     var totalBytesExpected: Int64?
     let createdAt: Date
     var finishedAt: Date?
-    var safetyLevel: DownloadSafetyLevel
 
     var isCompleted: Bool { state == .completed }
-    var isFailed: Bool { state == .failed || state == .blocked }
+    var isFailed: Bool { state == .failed }
     var isActive: Bool { state == .preparing || state == .downloading }
 
     var statusDescription: String {
@@ -85,8 +74,6 @@ struct DownloadTask: Identifiable, Sendable {
             return errorDescription ?? "Download failed"
         case .cancelled:
             return "Cancelled"
-        case .blocked:
-            return errorDescription ?? "Blocked by download protection"
         }
     }
 }

@@ -751,33 +751,6 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 20) {
             panelSection {
                 VStack(alignment: .leading, spacing: 18) {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Safer downloads")
-                                .font(.system(size: 17, weight: .semibold))
-                                .foregroundStyle(Color.textPrimary)
-                            Text("Block installers, app bundles, and scripts before they are saved locally.")
-                                .font(.system(size: 12.5, weight: .medium))
-                                .foregroundStyle(Color.textSecondary)
-                        }
-
-                        Spacer()
-
-                        Toggle(
-                            "",
-                            isOn: Binding(
-                                get: { downloadManager.preferences.safeDownloadsOnly },
-                                set: { downloadManager.setSafeDownloadsOnly($0) }
-                            )
-                        )
-                        .labelsHidden()
-                        .toggleStyle(SwitchToggleStyle(tint: tabManager.windowThemeColor))
-                        .hoverCursor(.pointingHand)
-                        .accessibilityIdentifier("settings.downloads.safeToggle")
-                    }
-
-                    Divider().opacity(0.22)
-
                     infoRow(title: "Reveal finished downloads in Finder") {
                         Toggle(
                             "",

@@ -9,8 +9,11 @@ import SwiftUI
 
 struct ProfileSelectionView: View {
     @Binding var route: BrowserWindowRoute?
+    var isStandalone: Bool = false
     @EnvironmentObject private var profileManager: ProfileManager
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.openWindow) private var openWindow
 
     @State private var hoveredProfileID: UUID?
     @State private var showingAddProfile = false
@@ -57,7 +60,7 @@ struct ProfileSelectionView: View {
         .sheet(isPresented: $showingAddProfile) {
             AddProfileSheet(isPresented: $showingAddProfile) { name, icon in
                 let profile = profileManager.createProfile(named: name, iconName: icon)
-                route = .profile(profile.id)
+                handleSelection(.profile(profile.id))
             }
             .environmentObject(profileManager)
             .accessibilityIdentifier("profileSelection.addProfileSheet")
@@ -70,8 +73,15 @@ struct ProfileSelectionView: View {
             checkAutoRedirect()
         }
     }
-
-    @Environment(\.openWindow) private var openWindow
+    
+    private func handleSelection(_ selection: BrowserWindowRoute) {
+        if isStandalone {
+            openWindow(value: selection)
+            dismiss()
+        } else {
+            route = selection
+        }
+    }
 
     private func registerDockMenuRoutes() {
         DockMenuWindowRouter.shared.openProfileSelection = {
@@ -91,7 +101,7 @@ struct ProfileSelectionView: View {
             }
             
             if visibleBrowserWindows.isEmpty {
-                route = .profile(profile.id)
+                handleSelection(.profile(profile.id))
             }
         }
     }
@@ -116,7 +126,7 @@ struct ProfileSelectionView: View {
         let initials = profile.name.prefix(1).uppercased()
 
         return Button {
-            route = .profile(profile.id)
+            handleSelection(.profile(profile.id))
         } label: {
             VStack(spacing: 12) {
                 ZStack {
@@ -201,7 +211,7 @@ struct ProfileSelectionView: View {
             .accessibilityIdentifier("profileSelection.addProfileButton")
 
             Button {
-                route = .guest(UUID())
+                handleSelection(.guest(UUID()))
             } label: {
                 HStack(spacing: 6) {
                     Image(systemName: "person.fill.questionmark")

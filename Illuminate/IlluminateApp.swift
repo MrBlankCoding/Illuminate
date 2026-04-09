@@ -5,103 +5,92 @@
 //  Created by MrBlankCoding on 3/8/26.
 //
 
-
 import SwiftUI
 import SwiftData
 
 @main
 struct IlluminateApp: App {
     private static let profileSelectionWindowID = "profile-selection-window"
-
+    private static let profileWindowSize = CGSize(width: 320, height: 220)   // single source of truth
+    private static let browserWindowSize  = CGSize(width: 1180, height: 720)
     @StateObject private var profileManager: ProfileManager
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+
     private let keyboardShortcutHandler: KeyboardShortcutHandler
     private let backgroundResourceManager: BackgroundResourceManager
     private let runtimeSecurityMonitor: RuntimeSecurityMonitor
+    private var notificationObservers: [Any] = []   // retain tokens to avoid leaks
+
     let modelContainer: ModelContainer
-    
+
     init() {
         UITestLaunchConfiguration.prepareAppStateIfNeeded()
         _profileManager = StateObject(wrappedValue: ProfileManager())
 
         let center = NotificationCenter.default
-        keyboardShortcutHandler = KeyboardShortcutHandler(notificationCenter: center)
-        backgroundResourceManager = BackgroundResourceManager()
-        runtimeSecurityMonitor = RuntimeSecurityMonitor(notificationCenter: center)
+        keyboardShortcutHandler    = KeyboardShortcutHandler(notificationCenter: center)
+        backgroundResourceManager  = BackgroundResourceManager()
+        runtimeSecurityMonitor     = RuntimeSecurityMonitor(notificationCenter: center)
+
         do {
+            let container: ModelContainer
             if UITestLaunchConfiguration.isRunningUITests {
                 let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
-                modelContainer = try ModelContainer(
-                    for: Bookmark.self,
-                    Password.self,
-                    configurations: configuration
-                )
+                container = try ModelContainer(for: Bookmark.self, Password.self,
+                                               configurations: configuration)
             } else {
-                modelContainer = try ModelContainer(for: Bookmark.self, Password.self)
+                container = try ModelContainer(for: Bookmark.self, Password.self)
             }
+            modelContainer = container
         } catch {
             fatalError("Could not initialize ModelContainer: \(error)")
         }
-        
+
         runtimeSecurityMonitor.startMonitoring()
         backgroundResourceManager.start()
-        configureNotificationLogging(notificationCenter: center)
+        notificationObservers = Self.makeNotificationObservers(notificationCenter: center)
     }
 
     var body: some Scene {
         WindowGroup(id: Self.profileSelectionWindowID) {
-            ProfileSelectionWindowHost(modelContainer: modelContainer)
+            AppRootView(route: .constant(nil), isStandalone: true, modelContainer: modelContainer)
                 .environmentObject(profileManager)
-                .frame(minWidth: 600, minHeight: 450)
+                .frame(
+                    maxWidth:  Self.profileWindowSize.width,
+                    maxHeight: Self.profileWindowSize.height
+                )
         }
         .windowStyle(.hiddenTitleBar)
         .modelContainer(modelContainer)
-        .defaultSize(width: 1180, height: 720)
+        .defaultSize(Self.profileWindowSize)
 
         WindowGroup(for: BrowserWindowRoute.self) { $route in
             AppRootView(route: $route, modelContainer: modelContainer)
                 .environmentObject(profileManager)
                 .frame(minWidth: 600, minHeight: 450)
                 .onOpenURL { url in
-                    guard let request = BrowserWindowOpenRequest(url: url) else {
-                        return
-                    }
-
+                    guard let request = BrowserWindowOpenRequest(url: url) else { return }
                     switch request {
-                    case .profileSelection:
-                        route = nil
-                    case let .route(windowRoute):
-                        route = windowRoute
+                    case .profileSelection:     route = nil
+                    case let .route(windowRoute): route = windowRoute
                     }
                 }
         }
         .windowStyle(.hiddenTitleBar)
         .modelContainer(modelContainer)
-        .defaultSize(width: 1180, height: 720)
+        .defaultSize(Self.browserWindowSize)
         .commands {
             AppCommands(shortcutHandler: keyboardShortcutHandler)
-            BookmarksCommands(
-                modelContainer: modelContainer
-            )
+            BookmarksCommands(modelContainer: modelContainer)
             ProfileCommands(profileManager: profileManager)
         }
     }
 
-    private func configureNotificationLogging(notificationCenter: NotificationCenter) {
-        [Notification.Name.newTab, .focusURLBar, .openBookmarks]
-            .forEach { name in
-                notificationCenter.addObserver(forName: name, object: nil, queue: .main) { _ in
-                    AppLog.ui("Received event: \(name.rawValue)")
-                }
+    private static func makeNotificationObservers(notificationCenter: NotificationCenter) -> [Any] {
+        [Notification.Name.newTab, .focusURLBar, .openBookmarks].map { name in
+            notificationCenter.addObserver(forName: name, object: nil, queue: .main) { _ in
+                AppLog.ui("Received event: \(name.rawValue)")
             }
-    }
-}
-
-private struct ProfileSelectionWindowHost: View {
-    let modelContainer: ModelContainer
-    @State private var route: BrowserWindowRoute?
-
-    var body: some View {
-        AppRootView(route: $route, modelContainer: modelContainer)
+        }
     }
 }

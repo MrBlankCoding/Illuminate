@@ -26,8 +26,7 @@ extension DownloadManager {
     func makeTask(
         url: URL,
         filename: String,
-        destinationURL: URL?,
-        safetyLevel: DownloadSafetyLevel
+        destinationURL: URL?
     ) -> DownloadTask {
         DownloadTask(
             id: UUID(),
@@ -40,8 +39,7 @@ extension DownloadManager {
             bytesWritten: 0,
             totalBytesExpected: nil,
             createdAt: Date(),
-            finishedAt: nil,
-            safetyLevel: safetyLevel
+            finishedAt: nil
         )
     }
 
@@ -91,15 +89,6 @@ extension DownloadManager {
         }
     }
 
-    func markBlocked(id: UUID, message: String) {
-        AppLog.download("Download blocked id=\(id.uuidString) reason=\(message)")
-        updateTask(id) { task in
-            task.state = .blocked
-            task.finishedAt = Date()
-            task.errorDescription = message
-            task.safetyLevel = .blocked
-        }
-    }
 
     func resolvedExplicitDestination(for destinationURL: URL) -> URL {
         let filename = sanitizedFilename(destinationURL.lastPathComponent, fallbackURL: destinationURL)
@@ -157,40 +146,6 @@ extension DownloadManager {
         return destinationURL
     }
 
-    func shouldAllowDownload(filename: String, mimeType: String?, destinationURL: URL?) -> Bool {
-        guard preferences.safeDownloadsOnly else { return true }
-        return safetyLevel(for: filename, mimeType: mimeType, destinationURL: destinationURL) != .blocked
-    }
-
-    func safetyLevel(for filename: String, mimeType: String? = nil, destinationURL: URL? = nil) -> DownloadSafetyLevel {
-        let dangerousExtensions: Set<String> = [
-            "app", "command", "csh", "dmg", "iso", "kext", "mpkg", "osx", "pkg",
-            "scpt", "sh", "tool", "workflow", "zsh"
-        ]
-        let cautionExtensions: Set<String> = [
-            "bat", "bin", "dylib", "exe", "jar", "js", "msi", "py", "rb", "swift", "zip"
-        ]
-        let blockedMimePrefixes = ["application/x-apple-diskimage", "application/x-msdownload"]
-
-        let pathExtension = (destinationURL?.pathExtension ?? (filename as NSString).pathExtension).lowercased()
-
-        if dangerousExtensions.contains(pathExtension) {
-            AppLog.download("Safety evaluation blocked by extension filename=\(filename) pathExtension=\(pathExtension) mimeType=\(mimeType ?? "<nil>")")
-            return .blocked
-        }
-
-        if let mimeType, blockedMimePrefixes.contains(where: { mimeType.hasPrefix($0) }) {
-            AppLog.download("Safety evaluation blocked by mimeType filename=\(filename) mimeType=\(mimeType)")
-            return .blocked
-        }
-
-        if cautionExtensions.contains(pathExtension) {
-            AppLog.download("Safety evaluation caution filename=\(filename) pathExtension=\(pathExtension)")
-            return .caution
-        }
-
-        return .safe
-    }
 
     func ensureParentDirectoryExists(for destinationURL: URL) throws {
         try ensureDirectoryExists(at: destinationURL.deletingLastPathComponent())
