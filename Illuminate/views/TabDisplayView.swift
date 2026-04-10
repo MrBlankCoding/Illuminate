@@ -38,43 +38,18 @@ struct TabDisplayView: View {
     var body: some View {
         ZStack(alignment: .topLeading) {
             VStack(spacing: 0) {
-                VStack(alignment: .leading, spacing: 0) {
-                    HStack(spacing: 0) {
-                        TrafficLightsView()
-                            .padding(.leading, 4)
-                        
-                        Spacer()
-                        
-                        if let activeTab = tabManager.activeTab {
-                            NavigationControls(tab: activeTab, themeColor: tabManager.windowThemeColor)
-                        } else {
-                            HStack(spacing: 4) {
-                                Image(systemName: "chevron.left").opacity(0.2)
-                                Image(systemName: "chevron.right").opacity(0.2)
-                                Image(systemName: "arrow.clockwise").opacity(0.2)
-                            }
-                            .font(.system(size: 13, weight: .bold))
-                            .foregroundStyle(Color.textSecondary)
-                        }
-                    }
-                    .padding(.top, 16)
-                    .padding(.trailing, 16)
-                    .padding(.bottom, 12)
-                    
-                    URLBar(
-                        activeTab: tabManager.activeTab,
-                        addressText: $viewModel.addressBarText,
-                        themeColor: tabManager.windowThemeColor,
-                        onNavigate: viewModel.navigateToAddressBarURL
-                    )
-                    .padding(.bottom, 12)
+                HStack {
+                    Spacer()
                 }
+                .frame(height: 38) // native window buttons fall here
                 .background(DraggableArea())
-
+                
                 CavedDivider()
+                    .padding(.bottom, 2)
+                    
             ScrollView(.vertical, showsIndicators: false) {
                 tabsListContent
-                    .padding(.vertical, 10)
+                    .padding(.vertical, 6)
             }
             .layoutPriority(1)
             VStack(spacing: 0) {

@@ -34,9 +34,17 @@ struct ContentView: View {
                         .zIndex(2)
                 }
 
-                browserContent
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .zIndex(1)
+                VStack(spacing: 0) {
+                    TopBarView(
+                        addressBarText: $viewModel.addressBarText,
+                        onNavigate: viewModel.navigateToAddressBarURL
+                    )
+                    .zIndex(3)
+
+                    browserContent
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .zIndex(1)
+                }
             }
             .overlayPreferenceValue(TabRowFramePreferenceKey.self) { preferences in
                 GeometryReader { geometry in
@@ -220,4 +228,5 @@ struct ContentView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
+
 }

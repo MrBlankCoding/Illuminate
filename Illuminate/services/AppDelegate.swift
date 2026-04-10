@@ -14,6 +14,7 @@ final class DockMenuWindowRouter {
 
     var openProfileSelection: (() -> Void)?
     var openProfile: ((UUID) -> Void)?
+    var openGuest: (() -> Void)?
 
     private init() {}
 }

@@ -37,10 +37,6 @@ struct WindowConfigurator: NSViewRepresentable {
         window.isMovableByWindowBackground = false
         window.toolbar = nil
         
-        // Hide standard traffic lights
-        window.standardWindowButton(.closeButton)?.isHidden = true
-        window.standardWindowButton(.miniaturizeButton)?.isHidden = true
-        window.standardWindowButton(.zoomButton)?.isHidden = true
 
         if #available(macOS 11.0, *) {
             window.titlebarSeparatorStyle = .none

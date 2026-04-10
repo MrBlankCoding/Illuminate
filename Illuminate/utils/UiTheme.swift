@@ -2,32 +2,31 @@
 //  UiTheme.swift
 //  Illuminate
 //
-//  Created by MrBlankCoding 
+//  Created by MrBlankCoding on 4/10/26.
 //
 
 import SwiftUI
 import AppKit
 
 extension Color {
-
     // Base surfaces
     static let bgBase = Color(nsColor: .windowBackgroundColor)
-    static let bgSurface = Color.primary.opacity(0.05)
-    static let bgElevated = Color.primary.opacity(0.08)
+    static let bgSurface = Color.primary.opacity(0.04)
+    static let bgElevated = Color.primary.opacity(0.06)
 
     // Text hierarchy
     static let textPrimary = Color.primary
-    static let textSecondary = Color.secondary
+    static let textSecondary = Color.secondary.opacity(0.8)
 
     // Accent
     static let accentBeam = Color.accentColor
-    static let accentSoft = Color.accentColor.opacity(0.25)
+    static let accentSoft = Color.accentColor.opacity(0.15)
 
     // Borders
-    static let borderGlass = Color.primary.opacity(0.14)
+    static let borderGlass = Color.primary.opacity(0.08)
 
     // Panels
-    static let sidebarPanel = Color.primary.opacity(0.035)
+    static let sidebarPanel = Color.primary.opacity(0.02)
 }
 
 struct BrowserTheme {
@@ -39,131 +38,118 @@ struct BrowserTheme {
     }
 
     var shellBase: Color {
-        isDark ? Color(hex: "0E1116") : Color(hex: "F4F6FB")
+        isDark ? Color(hex: "101216") : Color(hex: "F8F9FB")
     }
 
     var shellSecondary: Color {
-        isDark ? Color(hex: "131924") : Color(hex: "EEF2F8")
+        isDark ? Color(hex: "15181E") : Color(hex: "F3F5F9")
     }
 
     var shellGradient: LinearGradient {
         LinearGradient(
             colors: [
                 shellBase,
-                shellSecondary.blended(with: accent, fraction: isDark ? 0.12 : 0.08),
-                shellBase.blended(with: accent, fraction: isDark ? 0.06 : 0.03)
+                shellSecondary
             ],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
+            startPoint: .top,
+            endPoint: .bottom
         )
     }
 
     var ambientGlowPrimary: Color {
-        accent.opacity(isDark ? 0.26 : 0.18)
+        accent.opacity(isDark ? 0.05 : 0.03)
     }
 
     var ambientGlowSecondary: Color {
-        accent.blended(with: .white, fraction: 0.35).opacity(isDark ? 0.12 : 0.09)
+        accent.opacity(isDark ? 0.03 : 0.02)
     }
 
     var chromeMaterial: Material {
-        isDark ? .ultraThinMaterial : .thinMaterial
+        isDark ? .ultraThinMaterial : .regularMaterial
     }
 
     var chromeFillTop: Color {
-        isDark
-            ? Color.white.opacity(0.08).blended(with: accent, fraction: 0.08)
-            : Color.white.opacity(0.82).blended(with: accent, fraction: 0.06)
+        isDark ? Color.clear : Color.white.opacity(0.3)
     }
 
     var chromeFillBottom: Color {
-        isDark
-            ? shellSecondary.blended(with: accent, fraction: 0.18)
-            : Color.white.opacity(0.58).blended(with: accent, fraction: 0.08)
+        isDark ? Color.black.opacity(0.1) : Color.white.opacity(0.1)
     }
 
     var chromeStroke: Color {
-        isDark ? Color.white.opacity(0.11) : Color.black.opacity(0.08)
+        isDark ? Color.white.opacity(0.06) : Color.black.opacity(0.05)
     }
 
     var chromeInnerGlow: Color {
-        accent.opacity(isDark ? 0.22 : 0.12)
+        Color.clear
     }
 
     var sidebarTint: Color {
-        accent.opacity(isDark ? 0.11 : 0.07)
+        isDark ? Color.black.opacity(0.1) : Color.white.opacity(0.3)
     }
 
     var sidebarEdgeTint: Color {
-        accent.blended(with: .white, fraction: 0.25).opacity(isDark ? 0.32 : 0.18)
+        Color.clear
     }
 
     var panelFill: Color {
-        isDark ? Color.white.opacity(0.055) : Color.white.opacity(0.72)
+        isDark ? Color.white.opacity(0.04) : Color.white.opacity(0.5)
     }
 
     var panelRaised: Color {
-        isDark
-            ? Color.white.opacity(0.08).blended(with: accent, fraction: 0.12)
-            : Color.white.opacity(0.88).blended(with: accent, fraction: 0.06)
+        isDark ? Color.white.opacity(0.06) : Color.white.opacity(0.8)
     }
 
     var panelHover: Color {
-        accent.opacity(isDark ? 0.14 : 0.10)
+        accent.opacity(isDark ? 0.1 : 0.08)
     }
 
     var panelActive: Color {
-        accent.blended(with: isDark ? .black : .white, fraction: isDark ? 0.15 : 0.25).opacity(0.95)
+        accent.opacity(isDark ? 0.15 : 0.12)
     }
 
     var panelGrouped: Color {
-        accent.opacity(isDark ? 0.08 : 0.06)
+        Color.primary.opacity(0.03)
     }
 
     var panelStroke: Color {
-        isDark ? Color.white.opacity(0.12) : Color.black.opacity(0.07)
+        isDark ? Color.white.opacity(0.06) : Color.black.opacity(0.04)
     }
 
     var textOnAccent: Color {
-        isDark ? .white : Color.black.opacity(0.82)
+        isDark ? .white : .black
     }
 
     var urlBarTop: Color {
-        isDark
-            ? Color.white.opacity(0.09).blended(with: accent, fraction: 0.10)
-            : Color.white.opacity(0.92).blended(with: accent, fraction: 0.07)
+        isDark ? Color.black.opacity(0.2) : Color.white.opacity(0.5)
     }
 
     var urlBarBottom: Color {
-        isDark
-            ? shellSecondary.blended(with: accent, fraction: 0.16)
-            : Color.white.opacity(0.76).blended(with: accent, fraction: 0.05)
+        isDark ? Color.black.opacity(0.25) : Color.white.opacity(0.4)
     }
 
     var urlBarStroke: Color {
-        accent.opacity(isDark ? 0.24 : 0.16)
+        isDark ? Color.white.opacity(0.08) : Color.black.opacity(0.06)
     }
 
     var buttonHoverFill: Color {
-        accent.opacity(isDark ? 0.18 : 0.12)
+        Color.primary.opacity(0.06)
     }
 
     var buttonPressedFill: Color {
-        accent.opacity(isDark ? 0.28 : 0.18)
+        Color.primary.opacity(0.1)
     }
 
     var faviconPlateFill: Color {
-        isDark
-            ? Color.white.opacity(0.08).blended(with: accent, fraction: 0.12)
-            : Color.white.opacity(0.76).blended(with: accent, fraction: 0.10)
+        isDark ? Color.white.opacity(0.04) : Color.black.opacity(0.03)
     }
 
     var selectionIndicator: Color {
-        accent.blended(with: .white, fraction: isDark ? 0.15 : 0.05)
+        accent
     }
 
     var statusFill: Color {
-        isDark ? Color.white.opacity(0.10) : Color.white.opacity(0.78)
+        isDark ? Color.white.opacity(0.05) : Color.black.opacity(0.02)
     }
 }
 
@@ -249,7 +235,7 @@ extension Color {
 
 struct GlassModifier: ViewModifier {
 
-    var cornerRadius: CGFloat = 12
+    var cornerRadius: CGFloat = 8
     var material: Material = .regularMaterial
 
     func body(content: Content) -> some View {
@@ -260,21 +246,21 @@ struct GlassModifier: ViewModifier {
             )
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius)
-                    .strokeBorder(Color.borderGlass, lineWidth: 1)
+                    .strokeBorder(Color.borderGlass, lineWidth: 0.5)
             )
             .shadow(
-                color: Color.black.opacity(0.08),
-                radius: 10,
-                y: 4
+                color: Color.black.opacity(0.04),
+                radius: 4,
+                y: 2
             )
     }
 }
 
 extension Font {
 
-    static let webH1 = Font.system(size: 28, weight: .semibold)
-    static let webH2 = Font.system(size: 22, weight: .medium)
-    static let webBody = Font.system(size: 15)
+    static let webH1 = Font.system(size: 24, weight: .semibold, design: .rounded)
+    static let webH2 = Font.system(size: 20, weight: .medium, design: .rounded)
+    static let webBody = Font.system(size: 14)
     static let webMicro = Font.system(size: 12)
 }
 
@@ -284,20 +270,20 @@ struct GlassButtonStyle: ButtonStyle {
 
         configuration.label
             .font(.webBody)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 6)
 
             .background(
-                RoundedRectangle(cornerRadius: 10)
-                    .fill(.thinMaterial)
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(.regularMaterial)
             )
 
             .overlay(
-                RoundedRectangle(cornerRadius: 10)
-                    .strokeBorder(Color.borderGlass)
+                RoundedRectangle(cornerRadius: 6)
+                    .strokeBorder(Color.borderGlass, lineWidth: 0.5)
             )
 
-            .scaleEffect(configuration.isPressed ? 0.96 : 1)
+            .scaleEffect(configuration.isPressed ? 0.98 : 1)
 
             .animation(
                 .easeOut(duration: 0.1),
@@ -313,10 +299,10 @@ struct FocusRingModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
             .overlay(
-                RoundedRectangle(cornerRadius: 8)
+                RoundedRectangle(cornerRadius: 6)
                     .stroke(
-                        isActive ? Color.accentBeam : Color.clear,
-                        lineWidth: 2
+                        isActive ? Color.accentBeam.opacity(0.6) : Color.clear,
+                        lineWidth: 3
                     )
             )
             .animation(.easeOut(duration: 0.15), value: isActive)
@@ -330,8 +316,8 @@ struct CavedDivider: View {
         Rectangle()
             .fill(Color.borderGlass)
             .frame(height: 1)
-            .opacity(0.6)
-            .padding(.vertical, 4)
+            .opacity(0.4)
+            .padding(.vertical, 2)
     }
 }
 
@@ -349,22 +335,22 @@ extension View {
         self.modifier(HoverCursorModifier(cursor: cursor))
     }
 
-    func browserPanel(theme: BrowserTheme, cornerRadius: CGFloat = 16) -> some View {
+    func browserPanel(theme: BrowserTheme, cornerRadius: CGFloat = 10) -> some View {
         background(
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                 .fill(
                     LinearGradient(
                         colors: [theme.chromeFillTop, theme.chromeFillBottom],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
+                        startPoint: .top,
+                        endPoint: .bottom
                     )
                 )
                 .background(theme.chromeMaterial, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                        .strokeBorder(theme.chromeStroke, lineWidth: 1)
+                        .strokeBorder(theme.chromeStroke, lineWidth: 0.5)
                 )
-                .shadow(color: Color.black.opacity(theme.colorScheme == .dark ? 0.18 : 0.10), radius: 18, y: 10)
+                .shadow(color: Color.black.opacity(theme.colorScheme == .dark ? 0.1 : 0.05), radius: 8, y: 4)
         )
     }
 }

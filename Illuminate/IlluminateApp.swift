@@ -63,6 +63,7 @@ struct IlluminateApp: App {
         .windowStyle(.hiddenTitleBar)
         .modelContainer(modelContainer)
         .defaultSize(Self.profileWindowSize)
+        .windowResizability(.contentSize)
 
         WindowGroup(for: BrowserWindowRoute.self) { $route in
             AppRootView(route: $route, modelContainer: modelContainer)

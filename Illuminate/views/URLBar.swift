@@ -108,7 +108,7 @@ struct URLBar: View {
             .fixedSize(horizontal: true, vertical: false)
         }
         .padding(.horizontal, 12)
-        .padding(.vertical, 10)
+        .padding(.vertical, 6)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: 12)
