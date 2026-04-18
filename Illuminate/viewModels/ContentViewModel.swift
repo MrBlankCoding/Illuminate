@@ -13,10 +13,11 @@ import Combine
 final class ContentViewModel: ObservableObject {
     @Published var addressBarText = ""
     
-    private var tabManager: TabManager
-    private var urlSynchronizer: URLSynchronizer
+    private let tabManager: TabManager
+    private let urlSynchronizer: URLSynchronizer
     private var cancellables = Set<AnyCancellable>()
     private var activeTabURLCancellable: AnyCancellable?
+    private var isEditingAddressBar = false
     
     init(tabManager: TabManager, urlSynchronizer: URLSynchronizer) {
         self.tabManager = tabManager
@@ -30,7 +31,7 @@ final class ContentViewModel: ObservableObject {
         tabManager.$activeTabID
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
-                self?.updateAddressBarFromActiveTab()
+                self?.syncAddressBarFromActiveTab()
                 self?.subscribeToActiveTabURL()
             }
             .store(in: &cancellables)
@@ -46,25 +47,24 @@ final class ContentViewModel: ObservableObject {
         if let activeTab = tabManager.activeTab {
             activeTabURLCancellable = activeTab.$url
                 .receive(on: RunLoop.main)
-                .sink { [weak self] url in
-                    self?.addressBarText = url?.absoluteString ?? ""
+                .sink { [weak self] _ in
+                    self?.syncAddressBarFromActiveTab()
                 }
         }
     }
     
     func updateAddressBarFromActiveTab() {
-        if let url = tabManager.activeTab?.url {
-            addressBarText = url.absoluteString
-        } else {
-            addressBarText = ""
+        syncAddressBarFromActiveTab(force: true)
+    }
+
+    func setAddressBarEditing(_ isEditing: Bool) {
+        isEditingAddressBar = isEditing
+        if !isEditing {
+            syncAddressBarFromActiveTab(force: true)
         }
     }
     
     func navigateToAddressBarURL() {
-        guard let tab = tabManager.activeTab else {
-            return
-        }
-
         let trimmed = addressBarText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
             return
@@ -83,15 +83,17 @@ final class ContentViewModel: ObservableObject {
             return
         }
 
-        if url.absoluteString == "illuminate://settings" {
-            DispatchQueue.main.async {
-                tab.url = url
-                tab.title = "Settings"
-            }
+        isEditingAddressBar = false
+
+        if isSettingsURL(url) {
+            tabManager.openSettingsTab()
         } else {
+            guard let tab = tabManager.activeTab else {
+                return
+            }
             tab.load(url: url)
+            urlSynchronizer.updateCurrentURL(url)
         }
-        urlSynchronizer.updateCurrentURL(url)
     }
     
     func createNewTab(url: URL? = nil) {
@@ -108,5 +110,15 @@ final class ContentViewModel: ObservableObject {
             URLQueryItem(name: "q", value: query)
         ]
         return components.url
+    }
+
+    private func syncAddressBarFromActiveTab(force: Bool = false) {
+        guard force || !isEditingAddressBar else { return }
+        addressBarText = tabManager.activeTab?.url?.absoluteString ?? ""
+    }
+
+    private func isSettingsURL(_ url: URL) -> Bool {
+        url.scheme?.localizedCaseInsensitiveCompare("illuminate") == .orderedSame
+            && url.host?.localizedCaseInsensitiveCompare("settings") == .orderedSame
     }
 }

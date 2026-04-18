@@ -85,6 +85,7 @@ final class TabManager: ObservableObject {
     private var recentlyClosed: [ClosedTabSnapshot] = []
     private var isInitializing = true
     private var pendingSaveTask: Task<Void, Never>?
+    private var backgroundThemeTask: Task<Void, Never>?
     private var observerTokens: [NSObjectProtocol] = []
 
     enum UIStyle: String, CaseIterable {
@@ -185,6 +186,7 @@ final class TabManager: ObservableObject {
     deinit {
         observerTokens.forEach { notificationCenter.removeObserver($0) }
         pendingSaveTask?.cancel()
+        backgroundThemeTask?.cancel()
     }
 
     private static func makeSessionURL(profileID: UUID?) -> URL {
@@ -192,6 +194,12 @@ final class TabManager: ObservableObject {
             FileManager.default.illuminateProfileDirectory(profileID: $0)
         } ?? FileManager.default.illuminateAppSupportDirectory()
         return base.appendingPathComponent("session.json")
+    }
+
+    private var tabAssetsBaseURL: URL {
+        activeProfileID.map {
+            FileManager.default.illuminateProfileDirectory(profileID: $0)
+        } ?? FileManager.default.illuminateAppSupportDirectory()
     }
 
     private func restoreSession() {
@@ -203,7 +211,7 @@ final class TabManager: ObservableObject {
             rebuildTabIndex()
         case .failure(let error):
             logger.error("Session restore failed: \(error.localizedDescription, privacy: .public)")
-            let fallback = Tab()
+            let fallback = Tab(assetsBaseURL: tabAssetsBaseURL)
             fallback.onMetadataUpdate = { [weak self] in self?.scheduleSave() }
             tabs = [fallback]
             rebuildTabIndex()
@@ -240,19 +248,20 @@ final class TabManager: ObservableObject {
             )
             let url     = self.sessionURL
             let encoded = try? JSONEncoder().encode(state)
+            let log     = self.logger
 
             Task.detached(priority: .background) {
                 guard let data = encoded else { return }
                 do {
                     try data.write(to: url, options: .atomic)
                 } catch {
-                    print("[TabManager] Session write failed: \(error.localizedDescription)")
+                    log.error("[TabManager] Session write failed: \(error.localizedDescription, privacy: .public)")
                 }
             }
         }
     }
 
-    private func saveState() { scheduleSave() }
+
     private func rebuildTabIndex() {
         tabIndex = Dictionary(uniqueKeysWithValues: tabs.map { ($0.id, $0) })
     }
@@ -266,7 +275,7 @@ final class TabManager: ObservableObject {
     }
 
     private func makeTab(from payload: TabTransferPayload) -> Tab {
-        let tab = Tab(payload: payload)
+        let tab = Tab(payload: payload, assetsBaseURL: tabAssetsBaseURL)
         tab.onMetadataUpdate = { [weak self] in self?.scheduleSave() }
         return tab
     }
@@ -278,7 +287,7 @@ final class TabManager: ObservableObject {
 
     @discardableResult
     func createTab(url: URL? = nil) -> Tab {
-        let tab = Tab(url: url)
+        let tab = Tab(url: url, assetsBaseURL: tabAssetsBaseURL)
         tab.onMetadataUpdate = { [weak self] in self?.scheduleSave() }
 
         tabs.append(tab)
@@ -321,7 +330,7 @@ final class TabManager: ObservableObject {
             NSApp.keyWindow?.performClose(nil)
         }
 
-        saveState()
+        scheduleSave()
     }
 
     func closeActiveTab() {
@@ -333,12 +342,13 @@ final class TabManager: ObservableObject {
         tabs.forEach {
             $0.close()
             pushRecentlyClosed($0.toTransferPayload())
+            removeTabAssets(for: $0.id)
         }
         tabs.removeAll()
         tabIndex.removeAll()
         activeTabID = nil
         syncActiveTabURL()
-        saveState()
+        scheduleSave()
     }
 
     @discardableResult
@@ -353,13 +363,13 @@ final class TabManager: ObservableObject {
         withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
             switchTo(tab.id)
         }
-        saveState()
+        scheduleSave()
         return tab
     }
 
     func moveTab(fromOffsets: IndexSet, toOffset: Int) {
         tabs.move(fromOffsets: fromOffsets, toOffset: toOffset)
-        saveState()
+        scheduleSave()
     }
 
     func nextTab()     { cycleTab(by: +1) }
@@ -377,7 +387,7 @@ final class TabManager: ObservableObject {
             tab.markAccessed()
         }
         syncActiveTabURL()
-        saveState()
+        scheduleSave()
     }
 
     func updateTabURL(tabID: UUID, url: URL?) {
@@ -386,7 +396,7 @@ final class TabManager: ObservableObject {
         tab.favicon = nil
         hydrateVisualState(for: tab)
         if tabID == activeTabID { syncActiveTabURL() }
-        saveState()
+        scheduleSave()
     }
 
     func openSettingsTab() {
@@ -403,29 +413,29 @@ final class TabManager: ObservableObject {
         }
 
         let tab = createTab(url: settingsURL)
-        DispatchQueue.main.async { tab.title = "Settings" }
+        tab.title = "Settings"
     }
 
     func createTabGroup(name: String, color: String) {
         tabGroups.append(TabGroup(name: name, color: color))
-        saveState()
+        scheduleSave()
     }
 
     func removeTabGroup(id: UUID) {
         tabGroups.removeAll { $0.id == id }
         tabs.filter { $0.groupID == id }.forEach { $0.groupID = nil }
-        saveState()
+        scheduleSave()
     }
 
     func toggleGroupExpansion(id: UUID) {
         guard let index = tabGroups.firstIndex(where: { $0.id == id }) else { return }
         tabGroups[index].isExpanded.toggle()
-        saveState()
+        scheduleSave()
     }
 
     func setTabGroup(tabID: UUID, groupID: UUID?) {
         tabIndex[tabID]?.groupID = groupID
-        saveState()
+        scheduleSave()
     }
 
     private func syncActiveTabURL() {
@@ -453,7 +463,7 @@ final class TabManager: ObservableObject {
             first.markActivated()
             first.markAccessed()
             syncActiveTabURL()
-            if persist { saveState() }
+            if persist { scheduleSave() }
             return
         }
     }
@@ -509,17 +519,14 @@ final class TabManager: ObservableObject {
     }
 
     private func removeTabAssets(for id: UUID) {
-        let base: URL = activeProfileID.map {
-            FileManager.default.illuminateProfileDirectory(profileID: $0)
-        } ?? FileManager.default.illuminateAppSupportDirectory()
-
-        let folder = base
+        let folder = tabAssetsBaseURL
             .appendingPathComponent("TabAssets", isDirectory: true)
             .appendingPathComponent(id.uuidString, isDirectory: true)
 
         do {
             try FileManager.default.removeItem(at: folder)
         } catch {
+            guard (error as NSError).code != NSFileNoSuchFileError else { return }
             logger.debug(
                 "Could not remove tab assets for \(id.uuidString): \(error.localizedDescription, privacy: .public)"
             )
@@ -527,17 +534,25 @@ final class TabManager: ObservableObject {
     }
 
     private func updateThemeFromBackground(applyTheme: Bool) {
+        backgroundThemeTask?.cancel()
+
         guard !backgroundImageURL.isEmpty, let url = URL(string: backgroundImageURL) else {
             backgroundImagePalette = []
             return
         }
-        Task {
+
+        let expectedURLString = backgroundImageURL
+        backgroundThemeTask = Task { [weak self] in
             let palette = await ImageColorExtractor.shared.extractPalette(from: url)
             await MainActor.run {
+                guard let self else { return }
+                guard !Task.isCancelled else { return }
+                guard self.backgroundImageURL == expectedURLString else { return }
+
                 withAnimation(.easeInOut(duration: 0.8)) {
-                    backgroundImagePalette = palette
+                    self.backgroundImagePalette = palette
                     if applyTheme, let first = palette.first {
-                        windowThemeColor = first
+                        self.windowThemeColor = first
                     }
                 }
             }
@@ -579,7 +594,8 @@ final class TabManager: ObservableObject {
             (.zoomOut,         { [weak self] in self?.activeTab?.zoomOut() }),
             (.resetZoom,       { [weak self] in self?.activeTab?.resetZoom() }),
             (.toggleFullScreen, { NSApp.keyWindow?.toggleFullScreen(nil) }),
-            (NSNotification.Name("closeActiveTab"), { [weak self] in self?.closeActiveTab() }),
+            (Notification.Name.closeActiveTab, { [weak self] in self?.closeActiveTab() }),
+            (Notification.Name.closeAllTabs, { [weak self] in self?.clearAllTabs() }),
         ]
 
         observerTokens = pairs.map { name, handler in

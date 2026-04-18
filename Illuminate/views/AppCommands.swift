@@ -36,6 +36,10 @@ struct AppCommands: Commands {
 
             Divider()
 
+            BrowserCommand("Close All Tabs", shortcut: "w", modifiers: [.command, .shift]) { .closeAllTabs }
+
+            Divider()
+
             BrowserCommand("Toggle Sidebar", shortcut: "s") { .toggleSidebar }
 
             Divider()
@@ -124,8 +128,4 @@ private struct OpenSettingsCommand: View {
         .keyboardShortcut(",", modifiers: .command)
         .disabled(environment == nil)
     }
-}
-
-private extension Notification.Name {
-    static let closeActiveTab = Notification.Name("closeActiveTab")
 }

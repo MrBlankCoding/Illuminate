@@ -19,16 +19,21 @@ struct NavigationControls: View {
 
     var body: some View {
         HStack(spacing: 4) {
-            navButton(systemName: "chevron.left", isEnabled: tab.canGoBack) {
+            navButton(systemName: "chevron.left", isEnabled: tab.canGoBack, help: "Go Back") {
                 tab.webView?.goBack()
             }
 
-            navButton(systemName: "chevron.right", isEnabled: tab.canGoForward) {
+            navButton(systemName: "chevron.right", isEnabled: tab.canGoForward, help: "Go Forward") {
                 tab.webView?.goForward()
             }
 
             let isActualPage = tab.url != nil
-            navButton(systemName: tab.isLoading ? "xmark" : "arrow.clockwise", isEnabled: true, isGreyedOut: !isActualPage) {
+            navButton(
+                systemName: tab.isLoading ? "xmark" : "arrow.clockwise",
+                isEnabled: true,
+                isGreyedOut: !isActualPage,
+                help: tab.isLoading ? "Stop Loading" : "Reload Page"
+            ) {
                 if tab.isLoading {
                     tab.webView?.stopLoading()
                 } else if isActualPage {
@@ -38,12 +43,13 @@ struct NavigationControls: View {
         }
     }
 
-    private func navButton(systemName: String, isEnabled: Bool, isGreyedOut: Bool = false, action: @escaping () -> Void) -> some View {
+    private func navButton(systemName: String, isEnabled: Bool, isGreyedOut: Bool = false, help: String = "", action: @escaping () -> Void) -> some View {
         NavigationControlButton(
             systemName: systemName,
             theme: theme,
             isEnabled: isEnabled,
             isGreyedOut: isGreyedOut,
+            helpText: help,
             action: action
         )
     }
@@ -54,6 +60,7 @@ private struct NavigationControlButton: View {
     let theme: BrowserTheme
     let isEnabled: Bool
     var isGreyedOut: Bool = false
+    var helpText: String = ""
     let action: () -> Void
     @State private var isHovered = false
 
@@ -80,5 +87,6 @@ private struct NavigationControlButton: View {
             isHovered = hovering
         }
         .hoverCursor(isGreyedOut ? .arrow : .pointingHand)
+        .help(helpText)
     }
 }

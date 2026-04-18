@@ -52,6 +52,7 @@ struct TabDisplayView: View {
                     .padding(.vertical, 6)
             }
             .layoutPriority(1)
+
             VStack(spacing: 0) {
                 if !bookmarks.isEmpty {
                     CavedDivider()
@@ -63,7 +64,7 @@ struct TabDisplayView: View {
                 SidebarFooter(activeTab: tabManager.activeTab)
             }
             .padding(.bottom, 12)
-            }
+        }
             .padding(.horizontal, 8)
             .frame(maxHeight: .infinity)
             .contentShape(Rectangle())
@@ -244,8 +245,6 @@ struct TabDisplayView: View {
             }
         }
         .padding(.horizontal, 4)
-        .opacity(bookmarks.isEmpty ? 0 : 1)
-        .animation(.easeInOut(duration: 0.15), value: bookmarks.count)
     }
 
     private func bookmarkIcon(_ bookmark: Bookmark) -> some View {
@@ -357,7 +356,9 @@ struct TabDropDelegate: DropDelegate {
     }
     
     func dropExited(info: DropInfo) {
-        // Only clear if we are moving out of the entire area?
+        withAnimation(.spring(response: 0.25)) {
+            dropTargetID = nil
+        }
     }
     
     func dropUpdated(info: DropInfo) -> DropProposal? {
@@ -366,7 +367,7 @@ struct TabDropDelegate: DropDelegate {
 }
 
 struct TabGroupSection: View {
-    @EnvironmentObject var tabManager: TabManager
+    @EnvironmentObject private var tabManager: TabManager
     let group: TabGroup
     @Binding var hoveredSidebarTabID: UUID?
     @State private var isHovered = false
@@ -513,9 +514,11 @@ struct CreateTabGroupView: View {
                     .buttonStyle(.plain)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 8)
-                    .background(Color(hex: color))
-                    .cornerRadius(8)
+                    .foregroundStyle(name.isEmpty ? Color.textSecondary : .white)
+                    .background(Color(hex: color).opacity(name.isEmpty ? 0.3 : 1.0))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
                     .disabled(name.isEmpty)
+                    .animation(.easeInOut(duration: 0.15), value: name.isEmpty)
             }
         }
         .padding(24)

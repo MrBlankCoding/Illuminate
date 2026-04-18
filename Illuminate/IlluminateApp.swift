@@ -19,7 +19,7 @@ struct IlluminateApp: App {
     private let keyboardShortcutHandler: KeyboardShortcutHandler
     private let backgroundResourceManager: BackgroundResourceManager
     private let runtimeSecurityMonitor: RuntimeSecurityMonitor
-    private var notificationObservers: [Any] = []   // retain tokens to avoid leaks
+
 
     let modelContainer: ModelContainer
 
@@ -48,7 +48,6 @@ struct IlluminateApp: App {
 
         runtimeSecurityMonitor.startMonitoring()
         backgroundResourceManager.start()
-        notificationObservers = Self.makeNotificationObservers(notificationCenter: center)
     }
 
     var body: some Scene {
@@ -84,14 +83,6 @@ struct IlluminateApp: App {
             AppCommands(shortcutHandler: keyboardShortcutHandler)
             BookmarksCommands(modelContainer: modelContainer)
             ProfileCommands(profileManager: profileManager)
-        }
-    }
-
-    private static func makeNotificationObservers(notificationCenter: NotificationCenter) -> [Any] {
-        [Notification.Name.newTab, .focusURLBar, .openBookmarks].map { name in
-            notificationCenter.addObserver(forName: name, object: nil, queue: .main) { _ in
-                AppLog.ui("Received event: \(name.rawValue)")
-            }
         }
     }
 }

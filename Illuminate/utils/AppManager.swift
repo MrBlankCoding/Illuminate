@@ -27,6 +27,8 @@ extension Notification.Name {
     static let resetZoom = Notification.Name("app.resetZoom")
     static let zoomChanged = Notification.Name("app.zoomChanged")
     static let toggleFullScreen = Notification.Name("app.toggleFullScreen")
+    static let closeActiveTab = Notification.Name("app.closeActiveTab")
+    static let closeAllTabs = Notification.Name("app.closeAllTabs")
 }
 
 extension FileManager {

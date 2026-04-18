@@ -12,8 +12,6 @@ import ObjectiveC
 import SwiftUI
 import WebKit
 
-// ownership
-// rust mention?
 private var webViewTabOwnerKey: UInt8 = 0
 
 final class IlluminateWebView: WKWebView {
@@ -66,8 +64,6 @@ final class Tab: ObservableObject, Identifiable {
 
     private static let snapshotMinInterval: TimeInterval = 10
 
-    // important...
-    // or is it
     let id: UUID
 
     @Published var url: URL?
@@ -101,6 +97,7 @@ final class Tab: ObservableObject, Identifiable {
     private(set) var lastActivatedAt: Date
     private(set) var lastAccessed: Date
 
+    private let assetsBaseURL: URL
     private let ownershipToken: String
     private var cancellables = Set<AnyCancellable>()
     private var assetsURL: URL {
@@ -114,8 +111,7 @@ final class Tab: ObservableObject, Identifiable {
     }
 
     private func makeAssetsURL(createIfNeeded: Bool) -> URL {
-        let base = FileManager.default
-            .illuminateAppSupportDirectory()
+        let base = assetsBaseURL
             .appendingPathComponent("TabAssets", isDirectory: true)
             .appendingPathComponent(id.uuidString, isDirectory: true)
         if createIfNeeded {
@@ -135,7 +131,8 @@ final class Tab: ObservableObject, Identifiable {
         lastNavigationHadNetworkError: Bool = false,
         lastNetworkErrorMessage: String? = nil,
         hoveredLinkURLString: String? = nil,
-        groupID: UUID? = nil
+        groupID: UUID? = nil,
+        assetsBaseURL: URL? = nil
     ) {
         self.id = id
         self.url = url
@@ -149,17 +146,19 @@ final class Tab: ObservableObject, Identifiable {
         self.lastNetworkErrorMessage = lastNetworkErrorMessage
         self.hoveredLinkURLString = hoveredLinkURLString
         self.groupID = groupID
+        self.assetsBaseURL = assetsBaseURL ?? FileManager.default.illuminateAppSupportDirectory()
         self.ownershipToken = id.uuidString
         self.lastActivatedAt = Date()
         self.lastAccessed = Date()
     }
 
-    convenience init(payload: TabTransferPayload) {
+    convenience init(payload: TabTransferPayload, assetsBaseURL: URL? = nil) {
         self.init(
             id: payload.id,
             url: payload.url,
             title: payload.title ?? "New Tab",
-            groupID: payload.groupID
+            groupID: payload.groupID,
+            assetsBaseURL: assetsBaseURL
         )
     }
 
@@ -184,9 +183,7 @@ final class Tab: ObservableObject, Identifiable {
             .OBJC_ASSOCIATION_RETAIN_NONATOMIC
         )
         webView = newWebView
-        Task { @MainActor [weak self] in
-            self?.isHibernated = false
-        }
+        isHibernated = false
         setupWebViewObservers(newWebView)
     }
 
@@ -274,7 +271,6 @@ final class Tab: ObservableObject, Identifiable {
         }
     }
 
-    // this needs to be fixed
     func togglePictureInPicture() {
         guard let webView else { return }
 
@@ -327,7 +323,6 @@ final class Tab: ObservableObject, Identifiable {
         )
     }
 
-    // still glitchy
     func openDevTools() {
         AppLog.info("Attempting to open Web Inspector for tab: \(url?.absoluteString ?? "nil")")
         guard let webView else { return }
@@ -359,7 +354,7 @@ final class Tab: ObservableObject, Identifiable {
     func loadAssets() {
         guard (favicon == nil || snapshot == nil), !isFetchingAssets else { return }
         isFetchingAssets = true
-        let folder = assetsURL
+        let folder = assetsURLWithoutCreating
 
         Task.detached(priority: .utility) { [weak self] in
             let snapshotJPG = folder.appendingPathComponent("snapshot.jpg")

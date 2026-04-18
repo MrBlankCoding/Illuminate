@@ -133,27 +133,36 @@ struct SidebarTabRow: View {
     }
 
     private func closeButton(for tab: Tab) -> some View {
-        Button {
-            onClose()
-        } label: {
+        CloseTabButton(isActive: isActive, theme: theme, action: onClose)
+    }
+}
+
+private struct CloseTabButton: View {
+    let isActive: Bool
+    let theme: BrowserTheme
+    let action: () -> Void
+    @State private var isHovered = false
+
+    var body: some View {
+        Button(action: action) {
             ZStack {
                 Circle()
-                    .fill(isActive ? theme.buttonPressedFill : theme.panelRaised)
+                    .fill(isHovered ? Color.red.opacity(0.18) : (isActive ? theme.buttonPressedFill : theme.panelRaised))
                     .frame(width: 20, height: 20)
-                
+
                 Image(systemName: "xmark")
                     .font(.system(size: 8, weight: .heavy))
-                    .foregroundStyle(Color.textSecondary)
+                    .foregroundStyle(isHovered ? Color.red : Color.textSecondary)
             }
             .contentShape(Circle())
+            .scaleEffect(isHovered ? 1.08 : 1.0)
+            .animation(.easeInOut(duration: 0.12), value: isHovered)
         }
         .buttonStyle(.plain)
         .onHover { hovering in
-            if hovering {
-                NSCursor.pointingHand.push()
-            } else {
-                NSCursor.pop()
-            }
+            isHovered = hovering
         }
+        .hoverCursor(.pointingHand)
+        .help("Close Tab")
     }
 }

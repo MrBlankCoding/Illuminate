@@ -19,7 +19,7 @@ struct SettingsView: View {
     @Namespace private var tabSelectionAnimation
     @State private var selectedTab: SettingsTab = .appearance
     @State private var passwordSearchText = ""
-    @StateObject private var downloadManager = DownloadManager.shared
+    @ObservedObject private var downloadManager = DownloadManager.shared
 
     private var filteredPasswords: [Password] {
         guard environment.isGuestSession == false else { return [] }
@@ -502,6 +502,7 @@ struct SettingsView: View {
         let shortcuts: [(String, String)] = [
             ("New Tab", "⌘ T"),
             ("Close Tab", "⌘ W"),
+            ("Close All Tabs", "⌘ ⇧ W"),
             ("Reopen Closed Tab", "⌘ ⇧ T"),
             ("Bookmark Tab", "⌘ B"),
             ("Focus URL Bar", "⌘ L"),

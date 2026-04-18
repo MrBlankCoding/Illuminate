@@ -7,9 +7,6 @@
 
 import SwiftUI
 
-// Okay so here is the new tab view
-// its really simple and I like it :p
-// I feel like I could add support for images???
 
 struct OpeningPageView: View {
     @EnvironmentObject private var tabManager: TabManager

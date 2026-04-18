@@ -162,13 +162,15 @@ struct ContentView: View {
         ZStack(alignment: .top) {
             // Extended background/overlay
             ZStack {
-                tabManager.activeTab?.url == nil
-                    ? AnyView(Color.clear)
-                    : AnyView(
+                Group {
+                    if tabManager.activeTab?.url == nil {
+                        Color.clear
+                    } else {
                         VisualEffectView(material: .contentBackground, blendingMode: .withinWindow)
                             .ignoresSafeArea()
                             .overlay(theme.sidebarTint.opacity(0.16))
-                    )
+                    }
+                }
                 
                 Rectangle()
                     .strokeBorder(theme.chromeStroke, lineWidth: 1)
@@ -198,7 +200,6 @@ struct ContentView: View {
                 }
 
                 StatusBar(tab: tabManager.activeTab)
-                    .padding(.bottom, 0)
             }
             .ignoresSafeArea(edges: .top)
 

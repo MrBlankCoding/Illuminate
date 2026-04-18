@@ -10,6 +10,7 @@ import Combine
 import Foundation
 import WebKit
 
+@MainActor
 final class DownloadManager: NSObject, ObservableObject {
     static let shared = DownloadManager()
     static let downloadsDidChangeNotification = Notification.Name("DownloadManager.downloadsDidChange")
@@ -51,7 +52,7 @@ final class DownloadManager: NSObject, ObservableObject {
         self.downloadDirectoryURL = fileManager.illuminateDownloadsDirectory()
 
         super.init()
-        self.downloadDirectoryURL = resolvedDownloadDirectory(from: self.preferences)
+        downloadDirectoryURL = resolvedDownloadDirectory(from: preferences)
     }
 
     var hasVisibleDownloads: Bool {

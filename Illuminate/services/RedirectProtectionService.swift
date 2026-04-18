@@ -304,18 +304,13 @@ final class RedirectProtectionService: ObservableObject {
         return eTLDPlusOne(host) ?? host
     }
 
-    // can be extended asw [TODO]
     private func eTLDPlusOne(_ host: String) -> String? {
         let labels = host.split(separator: ".").map(String.init)
         guard labels.count >= 2 else { return host }
         if labels.count >= 3 {
             let possibleTwoPartTLD = "\(labels[labels.count - 2]).\(labels[labels.count - 1])"
             if Self.twoPartTLDs.contains(possibleTwoPartTLD) {
-                // eTLD+1 = label before the two-part TLD + the two-part TLD
-                if labels.count >= 3 {
-                    return "\(labels[labels.count - 3]).\(possibleTwoPartTLD)"
-                }
-                return possibleTwoPartTLD
+                return "\(labels[labels.count - 3]).\(possibleTwoPartTLD)"
             }
         }
 

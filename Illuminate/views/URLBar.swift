@@ -15,6 +15,7 @@ struct URLBar: View {
     let themeColor: Color
     let onNavigate: () -> Void
 
+    @EnvironmentObject private var viewModel: ContentViewModel
     @EnvironmentObject private var urlSynchronizer: URLSynchronizer
     @Environment(\.colorScheme) private var colorScheme
     @FocusState private var isFocused: Bool
@@ -42,6 +43,7 @@ struct URLBar: View {
                 .focused($isFocused)
                 .accessibilityIdentifier("browser.urlBar.textField")
                 .onSubmit {
+                    viewModel.setAddressBarEditing(false)
                     onNavigate()
                 }
 
@@ -64,7 +66,6 @@ struct URLBar: View {
                             )
                             .scaleEffect(isCopyHovered ? 1.05 : 1.0)
                             .animation(.easeInOut(duration: 0.14), value: isCopyHovered)
-                            .animation(.easeInOut(duration: 0.14), value: didCopyURL)
                     }
                     .buttonStyle(.plain)
                     .onHover { hovering in
@@ -151,11 +152,20 @@ struct URLBar: View {
         .onReceive(NotificationCenter.default.publisher(for: .focusURLBar)) { _ in
             isFocused = true
         }
+        .onChange(of: isFocused) { _, focused in
+            viewModel.setAddressBarEditing(focused)
+        }
     }
 
     private var statusIcon: String {
+        if activeTab?.url?.scheme?.localizedCaseInsensitiveCompare("illuminate") == .orderedSame {
+            return "gearshape.fill"
+        }
         if activeTab?.url?.scheme == "https" {
             return "lock.fill"
+        }
+        if activeTab?.url != nil {
+            return "globe"
         }
         return "magnifyingglass"
     }

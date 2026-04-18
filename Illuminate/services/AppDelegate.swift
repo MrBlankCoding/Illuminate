@@ -32,25 +32,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     
     func applicationDockMenu(_ sender: NSApplication) -> NSMenu? {
         let menu = NSMenu()
-        
-        // Quickly read profiles from disk
-        let manager = FileManager.default
-        let appSupport = manager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-        let fullPath = appSupport.appendingPathComponent("Illuminate").appendingPathComponent("profiles.json")
-        
-        if let data = try? Data(contentsOf: fullPath),
-           let profiles = try? JSONDecoder().decode([BrowserProfile].self, from: data) {
-            
-            for profile in profiles {
-                let item = NSMenuItem(title: "Open \(profile.name)", action: #selector(openProfile(_:)), keyEquivalent: "")
-                item.representedObject = profile.id.uuidString
-                menu.addItem(item)
-            }
+
+        let profiles = fetchProfiles()
+        for profile in profiles {
+            let item = NSMenuItem(title: "Open \(profile.name)", action: #selector(openProfile(_:)), keyEquivalent: "")
+            item.representedObject = profile.id.uuidString
+            menu.addItem(item)
         }
-        
+
         let newWindowItem = NSMenuItem(title: "New Profile Window", action: #selector(openNewWindow(_:)), keyEquivalent: "")
         menu.addItem(newWindowItem)
-        
+
         return menu
     }
     
@@ -85,11 +77,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func fetchProfiles() -> [BrowserProfile] {
-        let manager = FileManager.default
-        let appSupport = manager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-        let fullPath = appSupport.appendingPathComponent("Illuminate").appendingPathComponent("profiles.json")
-        
-        guard let data = try? Data(contentsOf: fullPath),
+        let catalogURL = FileManager.default.illuminateProfilesCatalogURL()
+
+        guard let data = try? Data(contentsOf: catalogURL),
               let profiles = try? JSONDecoder().decode([BrowserProfile].self, from: data) else {
             return []
         }

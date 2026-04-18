@@ -92,24 +92,20 @@ struct TopBarView: View {
             
             Spacer()
             
-            if !tabManager.showSidebar {
-                Spacer().frame(width: 20)
-            } else {
-                Spacer().frame(width: 20)
-            }
+            Spacer().frame(width: 20)
         }
         .padding(.vertical, 6)
         .background(
             ZStack {
                 Rectangle()
-                    .fill(
+                    .fill(theme.chromeMaterial)
+                    .overlay(
                         LinearGradient(
                             colors: [theme.chromeFillTop, theme.chromeFillBottom],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )
                     )
-                    .background(theme.chromeMaterial)
                     .ignoresSafeArea(edges: .top)
 
                 Rectangle()

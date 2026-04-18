@@ -9,7 +9,7 @@ import QuickLookThumbnailing
 import SwiftUI
 
 struct DownloadsView: View {
-    @StateObject private var downloadManager = DownloadManager.shared
+    @ObservedObject private var downloadManager = DownloadManager.shared
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -135,12 +135,12 @@ private struct DownloadRow: View {
                     Spacer()
 
                     if task.isActive {
-                    Button("Cancel") {
-                        DownloadManager.shared.cancelDownload(id: task.id)
-                    }
-                    .buttonStyle(.plain)
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(Color.red)
+                        Button("Cancel") {
+                            DownloadManager.shared.cancelDownload(id: task.id)
+                        }
+                        .buttonStyle(.plain)
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(Color.red)
                     }
                 }
             }

@@ -30,22 +30,18 @@ struct WindowConfigurator: NSViewRepresentable {
     private func configure(window: NSWindow) {
         NSApp.presentationOptions = []
         NSWindow.allowsAutomaticWindowTabbing = false
-        
+
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
         window.styleMask.insert(.fullSizeContentView)
         window.isMovableByWindowBackground = false
         window.toolbar = nil
-        
-
-        if #available(macOS 11.0, *) {
-            window.titlebarSeparatorStyle = .none
-        }
+        window.titlebarSeparatorStyle = .none
     }
 
     class Coordinator: NSObject, NSWindowDelegate {
         var didConfigure = false
-        var tabManager: TabManager
+        weak var tabManager: TabManager?
         weak var window: NSWindow? {
             didSet {
                 window?.delegate = self
@@ -57,19 +53,19 @@ struct WindowConfigurator: NSViewRepresentable {
         }
 
         func windowWillStartLiveResize(_ notification: Notification) {
-            tabManager.isResizing = true
+            tabManager?.isResizing = true
         }
 
         func windowDidEndLiveResize(_ notification: Notification) {
-            tabManager.isResizing = false
+            tabManager?.isResizing = false
         }
         
         func windowDidEnterFullScreen(_ notification: Notification) {
-            tabManager.isFullScreen = true
+            tabManager?.isFullScreen = true
         }
-        
+
         func windowDidExitFullScreen(_ notification: Notification) {
-            tabManager.isFullScreen = false
+            tabManager?.isFullScreen = false
         }
     }
 }

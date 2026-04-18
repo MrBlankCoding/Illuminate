@@ -27,37 +27,40 @@ final class KeyboardShortcutHandler {
         static let upArrow:    UInt16 = 126
     }
 
-    private let shortcuts: [Shortcut] = [
-        // ⌘ + character
-        .init(modifiers: .command, trigger: .character("t"),      action: .newTab),
-        .init(modifiers: .command, trigger: .character("w"),      action: .closeActiveTab),
-        .init(modifiers: .command, trigger: .character("l"),      action: .focusURLBar),
-        .init(modifiers: .command, trigger: .character("r"),      action: .reloadActiveTab),
-        .init(modifiers: .command, trigger: .character("s"),      action: .toggleSidebar),
-        .init(modifiers: .command, trigger: .character("b"),      action: .bookmarkTab),
-        .init(modifiers: .command, trigger: .character("f"),      action: .findInPage),
-        .init(modifiers: .command, trigger: .character("+"),      action: .zoomIn),
-        .init(modifiers: .command, trigger: .character("="),      action: .zoomIn),
-        .init(modifiers: .command, trigger: .character("-"),      action: .zoomOut),
-        .init(modifiers: .command, trigger: .character("0"),      action: .resetZoom),
-        // ⌘ + arrow keys
-        .init(modifiers: .command, trigger: .keyCode(KeyCode.leftArrow),  action: .goBack),
-        .init(modifiers: .command, trigger: .keyCode(KeyCode.rightArrow), action: .goForward),
-        .init(modifiers: .command, trigger: .keyCode(KeyCode.downArrow),  action: .nextTab),
-        .init(modifiers: .command, trigger: .keyCode(KeyCode.upArrow),    action: .previousTab),
-        // ⌘⇧ + character
-        .init(modifiers: [.command, .shift], trigger: .character("i"), action: .openDevTools),
-        .init(modifiers: [.command, .shift], trigger: .character("t"), action: .reopenTab),
-        .init(modifiers: [.command, .shift], trigger: .character("f"), action: .toggleFullScreen),
-    ]
+    private let shortcuts: [Shortcut]
 
     private let notificationCenter: NotificationCenter
     private var eventMonitor: Any?
 
     init(notificationCenter: NotificationCenter = .default) {
+        self.shortcuts = Self.makeShortcuts()
         self.notificationCenter = notificationCenter
         // Manual monitoring disabled to prevent double-triggering with SwiftUI Commands
         // startMonitoring()
+    }
+
+    private static func makeShortcuts() -> [Shortcut] {
+        [
+            Shortcut(modifiers: .command, trigger: .character("t"), action: .newTab),
+            Shortcut(modifiers: .command, trigger: .character("w"), action: .closeActiveTab),
+            Shortcut(modifiers: .command, trigger: .character("l"), action: .focusURLBar),
+            Shortcut(modifiers: .command, trigger: .character("r"), action: .reloadActiveTab),
+            Shortcut(modifiers: .command, trigger: .character("s"), action: .toggleSidebar),
+            Shortcut(modifiers: .command, trigger: .character("b"), action: .bookmarkTab),
+            Shortcut(modifiers: .command, trigger: .character("f"), action: .findInPage),
+            Shortcut(modifiers: .command, trigger: .character("+"), action: .zoomIn),
+            Shortcut(modifiers: .command, trigger: .character("="), action: .zoomIn),
+            Shortcut(modifiers: .command, trigger: .character("-"), action: .zoomOut),
+            Shortcut(modifiers: .command, trigger: .character("0"), action: .resetZoom),
+            Shortcut(modifiers: .command, trigger: .keyCode(KeyCode.leftArrow), action: .goBack),
+            Shortcut(modifiers: .command, trigger: .keyCode(KeyCode.rightArrow), action: .goForward),
+            Shortcut(modifiers: .command, trigger: .keyCode(KeyCode.downArrow), action: .nextTab),
+            Shortcut(modifiers: .command, trigger: .keyCode(KeyCode.upArrow), action: .previousTab),
+            Shortcut(modifiers: [.command, .shift], trigger: .character("i"), action: .openDevTools),
+            Shortcut(modifiers: [.command, .shift], trigger: .character("t"), action: .reopenTab),
+            Shortcut(modifiers: [.command, .shift], trigger: .character("w"), action: .closeAllTabs),
+            Shortcut(modifiers: [.command, .shift], trigger: .character("f"), action: .toggleFullScreen),
+        ]
     }
 
     func bookmarkTab() {
@@ -66,6 +69,7 @@ final class KeyboardShortcutHandler {
 
     func openNewTab() { post(.newTab) }
     func closeActiveTab() { post(.closeActiveTab) }
+    func closeAllTabs() { post(.closeAllTabs) }
     func reopenTab() { post(.reopenTab) }
     func focusURLBar() { post(.focusURLBar) }
     func reloadActiveTab() { post(.reloadActiveTab) }
@@ -117,10 +121,6 @@ final class KeyboardShortcutHandler {
         AppLog.ui("Shortcut fired: \(name.rawValue)")
         notificationCenter.post(name: name, object: nil)
     }
-}
-
-private extension Notification.Name {
-    static let closeActiveTab = Notification.Name("closeActiveTab")
 }
 
 

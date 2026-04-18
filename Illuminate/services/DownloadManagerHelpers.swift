@@ -179,11 +179,7 @@ extension DownloadManager {
         )
     }
 
-    func updateOnMain(_ work: @escaping () -> Void) {
-        if Thread.isMainThread {
-            work()
-        } else {
-            DispatchQueue.main.async(execute: work)
-        }
+    func updateOnMain(_ work: () -> Void) {
+        work()
     }
 }
