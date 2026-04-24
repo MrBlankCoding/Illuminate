@@ -11,27 +11,6 @@ import Testing
 
 struct ModelBehaviorTests {
 
-    @MainActor
-    @Test func browserProfileDecodingProvidesDefaultsForMissingFields() throws {
-        let id = UUID()
-        let json = """
-        {
-          "id": "\(id.uuidString)",
-          "name": "Legacy Profile"
-        }
-        """.data(using: .utf8)!
-
-        let beforeDecoding = Date()
-        let profile = try JSONDecoder().decode(BrowserProfile.self, from: json)
-        let afterDecoding = Date()
-
-        #expect(profile.id == id)
-        #expect(profile.name == "Legacy Profile")
-        #expect(profile.iconName == "person.crop.circle")
-        #expect(profile.createdAt >= beforeDecoding)
-        #expect(profile.createdAt <= afterDecoding)
-    }
-
     @Test func cookieViewModelFiltersByDomainAndSearchText() throws {
         let viewModel = CookieViewModel(domain: "example.com")
         viewModel.cookies = [

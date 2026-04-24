@@ -94,21 +94,15 @@ struct ContentView: View {
 
     private var backgroundLayer: some View {
         ZStack {
-            theme.shellGradient
+            Rectangle()
+                .visualEffect { [theme] content, proxy in
+                    content.colorEffect(theme.shellGradientShader(size: proxy.size))
+                }
                 .ignoresSafeArea()
 
             if !tabManager.isResizing {
                 if let imageURL = URL(string: tabManager.backgroundImageURL), !tabManager.backgroundImageURL.isEmpty {
-                    GeometryReader { geo in
-                        AsyncImage(url: imageURL) { phase in
-                            if let image = phase.image {
-                                image
-                                    .resizable()
-                                    .aspectRatio(contentMode: .fill)
-                                    .frame(width: geo.size.width, height: geo.size.height)
-                                    .clipped()
-                            }
-                        }
+                    CachedBackgroundImageView(url: imageURL)
                         .mask(
                             HStack(spacing: 0) {
                                 let showInSidebar = tabManager.showBackgroundBehindSidebar
@@ -119,36 +113,18 @@ struct ContentView: View {
                                 Rectangle()
                             }
                         )
-                    }
-                    .ignoresSafeArea()
-                    .animation(.spring(response: 0.35, dampingFraction: 0.8), value: tabManager.showSidebar)
-                    .animation(.spring(response: 0.35, dampingFraction: 0.8), value: tabManager.showBackgroundBehindSidebar)
+                        .ignoresSafeArea()
+                        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: tabManager.showSidebar)
+                        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: tabManager.showBackgroundBehindSidebar)
                 }
 
-                EllipticalGradient(
-                    gradient: Gradient(colors: [
-                        theme.ambientGlowPrimary,
-                        theme.ambientGlowSecondary,
-                        Color.clear
-                    ]),
-                    center: .topLeading,
-                    startRadiusFraction: 0,
-                    endRadiusFraction: 0.85
-                )
-                .ignoresSafeArea()
-                .animation(.easeInOut(duration: 0.8), value: tabManager.windowThemeColor)
-
-                EllipticalGradient(
-                    gradient: Gradient(colors: [
-                        theme.ambientGlowSecondary,
-                        Color.clear
-                    ]),
-                    center: .bottomTrailing,
-                    startRadiusFraction: 0,
-                    endRadiusFraction: 0.6
-                )
-                .ignoresSafeArea()
-                .animation(.easeInOut(duration: 0.8), value: tabManager.windowThemeColor)
+                Rectangle()
+                    .fill(Color.clear)
+                    .visualEffect { [theme] content, proxy in
+                        content.colorEffect(theme.ambientGlowShader(size: proxy.size))
+                    }
+                    .ignoresSafeArea()
+                    .animation(.easeInOut(duration: 0.8), value: tabManager.windowThemeColor)
             } else {
                 theme.panelHover.opacity(0.6)
                     .ignoresSafeArea()
@@ -198,8 +174,6 @@ struct ContentView: View {
                         }
                     }
                 }
-
-                StatusBar(tab: tabManager.activeTab)
             }
             .ignoresSafeArea(edges: .top)
 

@@ -207,12 +207,13 @@ final class TabManager: ObservableObject {
         case .success(let state):
             tabGroups   = state.tabGroups
             activeTabID = state.activeTabID
-            tabs = state.tabs.map { makeTab(from: $0) }
+            if let ids = state.tabIDs {
+                tabs = ids.map { Tab(id: $0, assetsBaseURL: tabAssetsBaseURL) }
+            }
             rebuildTabIndex()
         case .failure(let error):
             logger.error("Session restore failed: \(error.localizedDescription, privacy: .public)")
             let fallback = Tab(assetsBaseURL: tabAssetsBaseURL)
-            fallback.onMetadataUpdate = { [weak self] in self?.scheduleSave() }
             tabs = [fallback]
             rebuildTabIndex()
         }
@@ -242,7 +243,7 @@ final class TabManager: ObservableObject {
             guard !Task.isCancelled else { return }
 
             let state = SessionState(
-                tabs: self.tabs.map { $0.toTransferPayload() },
+                tabIDs: self.tabs.map { $0.id },
                 tabGroups: self.tabGroups,
                 activeTabID: self.activeTabID
             )
@@ -276,7 +277,6 @@ final class TabManager: ObservableObject {
 
     private func makeTab(from payload: TabTransferPayload) -> Tab {
         let tab = Tab(payload: payload, assetsBaseURL: tabAssetsBaseURL)
-        tab.onMetadataUpdate = { [weak self] in self?.scheduleSave() }
         return tab
     }
 
@@ -288,7 +288,6 @@ final class TabManager: ObservableObject {
     @discardableResult
     func createTab(url: URL? = nil) -> Tab {
         let tab = Tab(url: url, assetsBaseURL: tabAssetsBaseURL)
-        tab.onMetadataUpdate = { [weak self] in self?.scheduleSave() }
 
         tabs.append(tab)
         indexTab(tab)
@@ -303,6 +302,8 @@ final class TabManager: ObservableObject {
                 notificationCenter.post(name: .focusNewTabSearchBar, object: nil)
             }
         }
+        
+        scheduleSave()
 
         return tab
     }

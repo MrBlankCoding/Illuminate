@@ -43,6 +43,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let newWindowItem = NSMenuItem(title: "New Profile Window", action: #selector(openNewWindow(_:)), keyEquivalent: "")
         menu.addItem(newWindowItem)
 
+        let newGuestWindowItem = NSMenuItem(title: "New Guest Window", action: #selector(openNewGuestWindow(_:)), keyEquivalent: "")
+        menu.addItem(newGuestWindowItem)
+
         return menu
     }
     
@@ -67,6 +70,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             openSelection()
         } else {
             AppLog.ui("Warning: openProfileSelection closure not registered.")
+        }
+    }
+
+    @objc func openNewGuestWindow(_ sender: NSMenuItem) {
+        NSApp.activate(ignoringOtherApps: true)
+        if let openGuest = DockMenuWindowRouter.shared.openGuest {
+            openGuest()
+        } else {
+            AppLog.ui("Warning: openGuest closure not registered.")
         }
     }
 

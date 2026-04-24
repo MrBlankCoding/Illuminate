@@ -11,14 +11,11 @@ final class SettingsManagementUITests: IlluminateUITestCase {
     func testOpenSettingsShortcutUpdatesAddressBar() async {
         await launchApp(resetState: true)
 
-        let browser = await MainActor.run { uiTestApp.profileSelection.openDefaultProfile() }
+        let browser = await uiTestApp.profileSelection.openDefaultProfile()
         XCTAssertNotNil(browser)
 
-        let didUpdateURLBar = await MainActor.run { () -> Bool in
-            guard let browser else { return false }
-            browser.openSettingsWithShortcut()
-            return browser.waitForURLBarValue("illuminate://settings")
-        }
-        XCTAssertTrue(didUpdateURLBar)
+        await browser?.openSettingsWithShortcut()
+        let didUpdateURLBar = await browser?.waitForURLBarValue("illuminate://settings")
+        XCTAssertTrue(didUpdateURLBar ?? false)
     }
 }

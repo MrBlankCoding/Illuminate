@@ -17,6 +17,7 @@ struct ProfileCommands: Commands {
 
         CommandMenu("Profiles") {
             NewWindowButton()
+            NewGuestWindowButton()
             Divider()
 
             ForEach(profileManager.profiles) { profile in
@@ -45,6 +46,19 @@ struct NewWindowButton: View {
         }
         DockMenuWindowRouter.shared.openProfile = { profileID in
             openWindow(value: BrowserWindowRoute.profile(profileID))
+        }
+        DockMenuWindowRouter.shared.openGuest = {
+            openWindow(value: BrowserWindowRoute.guest(UUID()))
+        }
+    }
+}
+
+struct NewGuestWindowButton: View {
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some View {
+        Button("New Guest Window") {
+            openWindow(value: BrowserWindowRoute.guest(UUID()))
         }
     }
 }

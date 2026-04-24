@@ -1,6 +1,7 @@
 //
 //  EasyListParser.swift
 //  Illuminate
+//
 //  Created by MrBlankCoding on 3/18/26.
 //
 
@@ -259,7 +260,7 @@ final class EasyListParser {
             case "*":
                 translated += ".*"
             case "^":
-                translated += "(?:[^A-Za-z0-9._%-]|$)"
+                translated += "[^A-Za-z0-9._%-]"
             default:
                 translated += escapedRegexLiteral(for: character)
             }

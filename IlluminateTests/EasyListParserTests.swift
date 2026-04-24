@@ -14,7 +14,7 @@ struct EasyListParserTests {
         let rules = try decodedRules(from: EasyListParser.parse(content: content))
 
         #expect(rules.count == 1)
-        #expect(rules[0]["trigger"]?["url-filter"] as? String == ".*doubleclick\\.net.*")
+        #expect(rules[0]["trigger"]?["url-filter"] as? String == "^[^:]+:(//)?([^/]+\\.)?doubleclick\\.net[^A-Za-z0-9._%-]")
         #expect(rules[0]["action"]?["type"] as? String == "block")
     }
 
@@ -42,7 +42,7 @@ struct EasyListParserTests {
         let rules = try decodedRules(from: EasyListParser.parse(content: content))
 
         #expect(rules.count == 1)
-        #expect(rules[0]["trigger"]?["url-filter"] as? String == "\\/ads\\/banner\\.jpg")
+        #expect(rules[0]["trigger"]?["url-filter"] as? String == "/ads/banner\\.jpg")
     }
 
     @Test func testParseThirdPartyOption() throws {
@@ -50,7 +50,7 @@ struct EasyListParserTests {
         let rules = try decodedRules(from: EasyListParser.parse(content: content))
 
         #expect(rules.count == 1)
-        #expect(rules[0]["trigger"]?["url-filter"] as? String == ".*adserver\\.com.*")
+        #expect(rules[0]["trigger"]?["url-filter"] as? String == "^[^:]+:(//)?([^/]+\\.)?adserver\\.com[^A-Za-z0-9._%-]")
         #expect((rules[0]["trigger"]?["load-type"] as? [String]) == ["third-party"])
     }
 
@@ -66,7 +66,7 @@ struct EasyListParserTests {
         let rules = try decodedRules(from: EasyListParser.parse(content: content))
 
         #expect(rules.count == 1)
-        #expect(rules[0]["trigger"]?["url-filter"] as? String == ".*bad\\.com.*")
+        #expect(rules[0]["trigger"]?["url-filter"] as? String == "^[^:]+:(//)?([^/]+\\.)?bad\\.com[^A-Za-z0-9._%-]")
         #expect(rules[0]["trigger"]?["if-domain"] == nil)
         #expect(rules[0]["trigger"]?["unless-domain"] == nil)
     }
@@ -76,7 +76,7 @@ struct EasyListParserTests {
         let rules = try decodedRules(from: EasyListParser.parse(content: content))
 
         #expect(rules.count == 1)
-        #expect(rules[0]["trigger"]?["url-filter"] as? String == ".*blocked\\.com.*")
+        #expect(rules[0]["trigger"]?["url-filter"] as? String == "^[^:]+:(//)?([^/]+\\.)?blocked\\.com[^A-Za-z0-9._%-]")
     }
 
     private func decodedRules(from json: String) throws -> [[String: [String: Any]]] {

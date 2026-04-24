@@ -9,19 +9,19 @@
 import Foundation
 
 enum AppLog {
-    static func info(_ message: String) {
+    nonisolated static func info(_ message: String) {
         print("[Illuminate][INFO] \(message)")
     }
 
-    static func download(_ message: String) {
+    nonisolated static func download(_ message: String) {
         print("[Illuminate][DOWNLOAD] \(message)")
     }
 
-    static func ui(_ message: String) {
+    nonisolated static func ui(_ message: String) {
         print("[Illuminate][UI] \(message)")
     }
 
-    static func security(_ message: String) {
+    nonisolated static func security(_ message: String) {
         print("[Illuminate][SECURITY] \(message)")
     }
 }

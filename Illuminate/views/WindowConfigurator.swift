@@ -21,11 +21,24 @@ struct WindowConfigurator: NSViewRepresentable {
             context.coordinator.didConfigure = true
             context.coordinator.window = window
             configure(window: window)
+            update(window: window)
         }
         return view
     }
 
-    func updateNSView(_ nsView: NSView, context: Context) {}
+    func updateNSView(_ nsView: NSView, context: Context) {
+        DispatchQueue.main.async { [weak nsView] in
+            guard let window = nsView?.window else { return }
+            if context.coordinator.window !== window {
+                context.coordinator.window = window
+                if !context.coordinator.didConfigure {
+                    context.coordinator.didConfigure = true
+                    configure(window: window)
+                }
+            }
+            update(window: window)
+        }
+    }
 
     private func configure(window: NSWindow) {
         NSApp.presentationOptions = []
@@ -37,6 +50,15 @@ struct WindowConfigurator: NSViewRepresentable {
         window.isMovableByWindowBackground = false
         window.toolbar = nil
         window.titlebarSeparatorStyle = .none
+    }
+
+    private func update(window: NSWindow) {
+        let trimmedTitle = tabManager.activeTab?.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let title = (trimmedTitle?.isEmpty == false ? trimmedTitle : nil) ?? "Illuminate"
+        if window.title != title {
+            window.title = title
+        }
+        window.representedURL = tabManager.activeTab?.url
     }
 
     class Coordinator: NSObject, NSWindowDelegate {

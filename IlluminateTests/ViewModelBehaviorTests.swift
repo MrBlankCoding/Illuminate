@@ -13,24 +13,24 @@ import Testing
 struct ViewModelBehaviorTests {
 
     @Test func navigateToSettingsURLUsesInternalSettingsRoute() async throws {
-        let tabManager = TabManager(isPersistenceEnabled: false)
         let synchronizer = URLSynchronizer()
+        let tabManager = TabManager(urlSynchronizer: synchronizer, isPersistenceEnabled: false)
         let viewModel = ContentViewModel(tabManager: tabManager, urlSynchronizer: synchronizer)
-        let tab = try #require(tabManager.activeTab)
+        _ = try #require(tabManager.activeTab)
 
         viewModel.addressBarText = "illuminate://settings"
         viewModel.navigateToAddressBarURL()
 
         try await Task.sleep(nanoseconds: 50_000_000)
 
-        #expect(tab.url?.absoluteString == "illuminate://settings")
-        #expect(tab.title == "Settings")
+        #expect(tabManager.activeTab?.url?.absoluteString == "illuminate://settings")
+        #expect(tabManager.activeTab?.title == "Settings")
         #expect(synchronizer.currentURL?.absoluteString == "illuminate://settings")
     }
 
     @Test func searchQueriesRouteToGoogleWithoutChromeSourceMarker() {
-        let tabManager = TabManager(isPersistenceEnabled: false)
         let synchronizer = URLSynchronizer()
+        let tabManager = TabManager(urlSynchronizer: synchronizer, isPersistenceEnabled: false)
         let viewModel = ContentViewModel(tabManager: tabManager, urlSynchronizer: synchronizer)
         let tab = try! #require(tabManager.activeTab)
 
@@ -45,8 +45,8 @@ struct ViewModelBehaviorTests {
     }
 
     @Test func createNewTabWithURLMakesItActiveAndUpdatesAddressBar() {
-        let tabManager = TabManager(isPersistenceEnabled: false)
         let synchronizer = URLSynchronizer()
+        let tabManager = TabManager(urlSynchronizer: synchronizer, isPersistenceEnabled: false)
         let viewModel = ContentViewModel(tabManager: tabManager, urlSynchronizer: synchronizer)
         let url = URL(string: "https://example.com/path")!
 

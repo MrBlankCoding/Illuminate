@@ -22,7 +22,7 @@ struct DownloadsView: View {
                 emptyState
             } else {
                 ScrollView {
-                    VStack(spacing: 10) {
+                    LazyVStack(spacing: 10) {
                         ForEach(downloadManager.downloads) { task in
                             DownloadRow(task: task)
                         }
@@ -216,6 +216,12 @@ private struct DownloadRow: View {
     }
 }
 
+private let thumbnailCache: NSCache<NSURL, NSImage> = {
+    let cache = NSCache<NSURL, NSImage>()
+    cache.countLimit = 50
+    return cache
+}()
+
 private struct DownloadPreview: View {
     let url: URL
     let fallbackSymbolName: String
@@ -245,7 +251,15 @@ private struct DownloadPreview: View {
     }
 
     private func loadThumbnail() async {
+        if let cached = thumbnailCache.object(forKey: url as NSURL) {
+            await MainActor.run {
+                image = cached
+            }
+            return
+        }
+
         if let directImage = NSImage(contentsOf: url) {
+            thumbnailCache.setObject(directImage, forKey: url as NSURL)
             await MainActor.run {
                 image = directImage
             }
@@ -261,6 +275,7 @@ private struct DownloadPreview: View {
 
         do {
             let thumbnail = try await QLThumbnailGenerator.shared.generateBestRepresentation(for: request)
+            thumbnailCache.setObject(thumbnail.nsImage, forKey: url as NSURL)
             await MainActor.run {
                 image = thumbnail.nsImage
             }

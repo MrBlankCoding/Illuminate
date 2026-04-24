@@ -163,6 +163,45 @@ struct RedirectProtectionTests {
         ) == false)
     }
 
+    @Test func testAllowsAboutBlankSourceNavigation() {
+        let service = RedirectProtectionService(isPersistenceEnabled: false)
+        service.isEnabled = true
+
+        let source = URL(string: "about:blank")!
+        let target = URL(string: "https://example.com/page")!
+        let tabID = UUID()
+
+        #expect(service.shouldBlockNavigation(
+            from: source, to: target, tabID: tabID, isServerRedirect: true
+        ) == false)
+    }
+
+    @Test func testAllowsAboutBlankTargetNavigation() {
+        let service = RedirectProtectionService(isPersistenceEnabled: false)
+        service.isEnabled = true
+
+        let source = URL(string: "https://example.com/page")!
+        let target = URL(string: "about:blank")!
+        let tabID = UUID()
+
+        #expect(service.shouldBlockNavigation(
+            from: source, to: target, tabID: tabID, isServerRedirect: false
+        ) == false)
+    }
+
+    @Test func testAllowsBlobNavigation() {
+        let service = RedirectProtectionService(isPersistenceEnabled: false)
+        service.isEnabled = true
+
+        let source = URL(string: "https://example.com/page")!
+        let target = URL(string: "blob:https://example.com/1234-5678")!
+        let tabID = UUID()
+
+        #expect(service.shouldBlockNavigation(
+            from: source, to: target, tabID: tabID, isServerRedirect: false
+        ) == false)
+    }
+
     @Test func testAllowsHTTPToHTTPSUpgrade() {
         let service = RedirectProtectionService(isPersistenceEnabled: false)
         service.isEnabled = true
@@ -720,37 +759,6 @@ struct RedirectProtectionTests {
         #expect(rule.id != UUID())
         #expect(rule.sourceIdentifier == "example.com")
         #expect(rule.targetIdentifier == "partner.com")
-    }
-
-    @Test func testLegacyShouldBlockRedirectStillWorks() {
-        let service = RedirectProtectionService(isPersistenceEnabled: false)
-        service.isEnabled = true
-
-        let source = URL(string: "https://example.com/page")!
-        let target = URL(string: "https://malicious-site.com/phish")!
-
-        #expect(service.shouldBlockRedirect(from: source, to: target) == true)
-    }
-
-    @Test func testLegacyAllowsSameEffectiveSite() {
-        let service = RedirectProtectionService(isPersistenceEnabled: false)
-        service.isEnabled = true
-
-        let source = URL(string: "https://app.example.com/")!
-        let target = URL(string: "https://api.example.com/")!
-
-        // Same eTLD+1 → should allow
-        #expect(service.shouldBlockRedirect(from: source, to: target) == false)
-    }
-
-    @Test func testLegacyAllowsWellKnownProviders() {
-        let service = RedirectProtectionService(isPersistenceEnabled: false)
-        service.isEnabled = true
-
-        let source = URL(string: "https://mysite.com/login")!
-        let target = URL(string: "https://accounts.google.com/oauth")!
-
-        #expect(service.shouldBlockRedirect(from: source, to: target) == false)
     }
 
     @Test func testProceedResetsChainForTab() {

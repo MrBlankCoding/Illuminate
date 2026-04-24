@@ -44,16 +44,25 @@ struct BrowserScreen {
         urlBar.typeText(value + XCUIKeyboardKey.return.rawValue)
     }
 
-    func waitForURLBarValue(_ expectedValue: String, timeout: TimeInterval? = nil) -> Bool {
-        waitForURLBar(predicate: NSPredicate(format: "value == %@", expectedValue), timeout: timeout)
+    func waitForURLBarValue(_ expectedValue: String, timeout: TimeInterval? = nil) async -> Bool {
+        await waitForURLBar(predicate: NSPredicate(format: "value == %@", expectedValue), timeout: timeout)
     }
 
-    func waitForURLBarValue(containing expectedFragment: String, timeout: TimeInterval? = nil) -> Bool {
-        waitForURLBar(predicate: NSPredicate(format: "value CONTAINS %@", expectedFragment), timeout: timeout)
+    func waitForURLBarValue(containing expectedFragment: String, timeout: TimeInterval? = nil) async -> Bool {
+        await waitForURLBar(predicate: NSPredicate(format: "value CONTAINS %@", expectedFragment), timeout: timeout)
     }
 
-    private func waitForURLBar(predicate: NSPredicate, timeout: TimeInterval? = nil) -> Bool {
-        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: urlBar)
-        return XCTWaiter.wait(for: [expectation], timeout: timeout ?? defaultTimeout) == .completed
+    private func waitForURLBar(predicate: NSPredicate, timeout: TimeInterval? = nil) async -> Bool {
+        let start = Date()
+        let timeout = timeout ?? defaultTimeout
+        
+        while Date().timeIntervalSince(start) < timeout {
+            if predicate.evaluate(with: urlBar) {
+                return true
+            }
+            try? await Task.sleep(nanoseconds: 100_000_000)
+        }
+        
+        return predicate.evaluate(with: urlBar)
     }
 }

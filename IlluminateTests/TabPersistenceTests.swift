@@ -40,9 +40,9 @@ struct TabPersistenceTests {
         let decodedTabs = decoded.tabs
         let decodedActiveTabID = decoded.activeTabID
 
-        #expect(decodedTabs.count == 2)
-        #expect(decodedTabs[0].title == "Apple")
-        #expect(decodedTabs[1].title == "Google")
+        #expect(decodedTabs?.count == 2)
+        #expect(decodedTabs?[0].title == "Apple")
+        #expect(decodedTabs?[1].title == "Google")
         #expect(decodedActiveTabID == secondID)
     }
 

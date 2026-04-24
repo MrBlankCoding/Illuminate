@@ -98,17 +98,26 @@ final class FaviconCache: @unchecked Sendable {
 
     nonisolated func image(for key: URL) -> NSImage? {
         lock.lock()
-        defer { lock.unlock() }
-
         if let cached = storage[key] {
             touch(key)
+            lock.unlock()
             return cached
         }
+        lock.unlock()
         
-        // Try disk cache
+        // Try disk cache without holding the lock
         if let diskImage = loadFromDisk(key) {
+            lock.lock()
+            defer { lock.unlock() }
+            
+            if let cached = storage[key] {
+                touch(key)
+                return cached
+            }
+            
             storage[key] = diskImage
             touch(key)
+            evictIfNeeded()
             return diskImage
         }
 
@@ -197,7 +206,6 @@ final class FaviconCache: @unchecked Sendable {
         while order.count > capacity, let oldest = order.first {
             order.removeFirst()
             storage.removeValue(forKey: oldest)
-            removeFromDisk(oldest)
         }
     }
     
@@ -234,9 +242,5 @@ final class FaviconCache: @unchecked Sendable {
         }
         return image
     }
-    
-    nonisolated private func removeFromDisk(_ key: URL) {
-        let url = diskURL(for: key)
-        try? FileManager.default.removeItem(at: url)
-    }
+
 }

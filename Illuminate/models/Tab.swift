@@ -66,13 +66,13 @@ final class Tab: ObservableObject, Identifiable {
 
     let id: UUID
 
-    @Published var url: URL?
+    @Published var url: URL? {
+        didSet { if oldValue != url { saveMetadata() } }
+    }
     @Published var title: String {
-        didSet { onMetadataUpdate?() }
+        didSet { if oldValue != title { saveMetadata() } }
     }
-    @Published var favicon: NSImage? {
-        didSet { onMetadataUpdate?() }
-    }
+    @Published var favicon: NSImage?
     @Published var themeColor: Color?
     @Published var isLoading: Bool
     @Published var isHibernated: Bool
@@ -84,7 +84,9 @@ final class Tab: ObservableObject, Identifiable {
     @Published var canGoBack: Bool = false
     @Published var canGoForward: Bool = false
     @Published var estimatedProgress: Double = 0
-    @Published var groupID: UUID?
+    @Published var groupID: UUID? {
+        didSet { if oldValue != groupID { saveMetadata() } }
+    }
     @Published var zoomLevel: Double = 1.0
     @Published var snapshot: NSImage?
     @Published var hasPiPCandidate: Bool = false
@@ -93,7 +95,6 @@ final class Tab: ObservableObject, Identifiable {
     private var lastSnapshotAt: Date = .distantPast
     private var isFetchingAssets = false
 
-    var onMetadataUpdate: (() -> Void)?
     private(set) var lastActivatedAt: Date
     private(set) var lastAccessed: Date
 
@@ -152,6 +153,32 @@ final class Tab: ObservableObject, Identifiable {
         self.lastAccessed = Date()
     }
 
+    convenience init(id: UUID, assetsBaseURL: URL? = nil) {
+        let folder = (assetsBaseURL ?? FileManager.default.illuminateAppSupportDirectory())
+            .appendingPathComponent("TabAssets", isDirectory: true)
+            .appendingPathComponent(id.uuidString, isDirectory: true)
+        
+        let metaURL = folder.appendingPathComponent("metadata.json")
+        var title = "New Tab"
+        var url: URL? = nil
+        var groupID: UUID? = nil
+        
+        if let data = try? Data(contentsOf: metaURL),
+           let payload = try? JSONDecoder().decode(TabMetadataPayload.self, from: data) {
+            title = payload.title ?? "New Tab"
+            url = payload.url
+            groupID = payload.groupID
+        }
+        
+        self.init(
+            id: id,
+            url: url,
+            title: title,
+            groupID: groupID,
+            assetsBaseURL: assetsBaseURL
+        )
+    }
+
     convenience init(payload: TabTransferPayload, assetsBaseURL: URL? = nil) {
         self.init(
             id: payload.id,
@@ -183,7 +210,10 @@ final class Tab: ObservableObject, Identifiable {
             .OBJC_ASSOCIATION_RETAIN_NONATOMIC
         )
         webView = newWebView
-        isHibernated = false
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            self.isHibernated = false
+        }
         setupWebViewObservers(newWebView)
     }
 
@@ -199,7 +229,10 @@ final class Tab: ObservableObject, Identifiable {
             .OBJC_ASSOCIATION_RETAIN_NONATOMIC
         )
         webView = candidate
-        isHibernated = false
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            self.isHibernated = false
+        }
         setupWebViewObservers(candidate)
     }
 
@@ -347,6 +380,18 @@ final class Tab: ObservableObject, Identifiable {
             }
             if let data = snapshotData {
                 try? data.write(to: folder.appendingPathComponent("snapshot.jpg"))
+            }
+        }
+    }
+
+    private func saveMetadata() {
+        let payload = TabMetadataPayload(url: url, title: title, groupID: groupID)
+        let folder = assetsURLWithoutCreating
+        let encodedData = try? JSONEncoder().encode(payload)
+        Task.detached(priority: .background) {
+            try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+            if let data = encodedData {
+                try? data.write(to: folder.appendingPathComponent("metadata.json"), options: .atomic)
             }
         }
     }

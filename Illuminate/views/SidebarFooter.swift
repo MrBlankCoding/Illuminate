@@ -10,8 +10,8 @@ import SwiftUI
 struct SidebarFooter: View {
     var activeTab: Tab?
     @EnvironmentObject private var tabManager: TabManager
+    @ObservedObject private var downloadManager = DownloadManager.shared
     @State private var showingDownloads = false
-    @State private var hasActiveDownloads = false
 
     var body: some View {
         VStack(spacing: 12) {
@@ -39,10 +39,12 @@ struct SidebarFooter: View {
                     }
 
                     SidebarActionButton(
-                        iconName: hasActiveDownloads ? "arrow.down.circle.fill" : "arrow.down.circle",
+                        iconName: downloadButtonIconName,
                         themeColor: tabManager.windowThemeColor,
+                        symbolColor: downloadButtonColor,
                         help: "Downloads"
                     ) {
+                        downloadManager.acknowledgeRecentCompletedDownload()
                         showingDownloads = true
                     }
                     .popover(isPresented: $showingDownloads, arrowEdge: .top) {
@@ -59,11 +61,16 @@ struct SidebarFooter: View {
             }
             .padding(.horizontal, 2)
         }
-        .onReceive(NotificationCenter.default.publisher(for: DownloadManager.downloadsDidChangeNotification)) { notification in
-            if let hasActive = notification.userInfo?["hasActiveDownloads"] as? Bool {
-                hasActiveDownloads = hasActive
-            }
-        }
+    }
+
+    private var downloadButtonIconName: String {
+        (downloadManager.downloads.contains(where: \.isActive) || downloadManager.hasRecentCompletedDownload)
+            ? "arrow.down.circle.fill"
+            : "arrow.down.circle"
+    }
+
+    private var downloadButtonColor: Color? {
+        downloadManager.hasRecentCompletedDownload ? .green : nil
     }
 }
 
@@ -71,6 +78,7 @@ struct SidebarFooter: View {
 private struct SidebarActionButton: View {
     let iconName: String
     let themeColor: Color
+    var symbolColor: Color? = nil
     var help: String = ""
     let action: () -> Void
     @State private var isHovered = false
@@ -79,7 +87,7 @@ private struct SidebarActionButton: View {
         Button(action: action) {
             Image(systemName: iconName)
                 .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(isHovered ? Color.textPrimary : Color.textSecondary)
+                .foregroundStyle(resolvedSymbolColor)
                 .frame(width: 28, height: 28)
                 .background(
                     Circle()
@@ -97,6 +105,13 @@ private struct SidebarActionButton: View {
         }
         .hoverCursor(.pointingHand)
         .help(help)
+    }
+
+    private var resolvedSymbolColor: Color {
+        if let symbolColor {
+            return symbolColor
+        }
+        return isHovered ? Color.textPrimary : Color.textSecondary
     }
 }
 

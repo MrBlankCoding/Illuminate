@@ -17,9 +17,16 @@ struct TabTransferPayload: Codable, Sendable {
 }
 
 struct SessionState: Codable, Sendable {
-    let tabs: [TabTransferPayload]
-    let tabGroups: [TabGroup]
-    let activeTabID: UUID?
+    var tabIDs: [UUID]?
+    var tabs: [TabTransferPayload]?
+    var tabGroups: [TabGroup]
+    var activeTabID: UUID?
+}
+
+struct TabMetadataPayload: Codable, Sendable {
+    var url: URL?
+    var title: String?
+    var groupID: UUID?
 }
 
 enum TabError: LocalizedError {

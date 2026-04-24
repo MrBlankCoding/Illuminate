@@ -116,6 +116,7 @@ final class RedirectProtectionService: ObservableObject {
     ) -> Bool {
         guard isEnabled else { return false }
         guard let sourceURL else { return false }
+        guard shouldEvaluateNavigation(from: sourceURL, to: targetURL) else { return false }
 
         let sourceSite = effectiveSite(for: sourceURL)
         let targetSite = effectiveSite(for: targetURL)
@@ -153,11 +154,10 @@ final class RedirectProtectionService: ObservableObject {
         return chainLength >= chainDepthThreshold
     }
 
-    /// Legacy convenience that matches the old API surface.
-    /// Kept for backward compatibility; prefers `shouldBlockNavigation` for new call sites.
     func shouldBlockRedirect(from sourceURL: URL?, to targetURL: URL) -> Bool {
         guard isEnabled else { return false }
         guard let sourceURL else { return false }
+        guard shouldEvaluateNavigation(from: sourceURL, to: targetURL) else { return false }
 
         let sourceSite = effectiveSite(for: sourceURL)
         let targetSite = effectiveSite(for: targetURL)
@@ -302,6 +302,17 @@ final class RedirectProtectionService: ObservableObject {
         }
 
         return eTLDPlusOne(host) ?? host
+    }
+
+    private func shouldEvaluateNavigation(from sourceURL: URL, to targetURL: URL) -> Bool {
+        isTrackableWebURL(sourceURL) && isTrackableWebURL(targetURL)
+    }
+
+    private func isTrackableWebURL(_ url: URL) -> Bool {
+        guard let scheme = url.scheme?.lowercased() else { return false }
+        guard scheme == "http" || scheme == "https" else { return false }
+        guard let host = url.host(percentEncoded: false)?.lowercased(), !host.isEmpty else { return false }
+        return host != "about:blank"
     }
 
     private func eTLDPlusOne(_ host: String) -> String? {

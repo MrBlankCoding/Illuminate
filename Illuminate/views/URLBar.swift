@@ -21,8 +21,7 @@ struct URLBar: View {
     @FocusState private var isFocused: Bool
     @State private var didCopyURL = false
     @State private var isCopyHovered = false
-    @State private var showingCookieManager = false
-    @State private var isCookieHovered = false
+    @State private var showingPageInfo = false
 
     private var theme: BrowserTheme {
         BrowserTheme(accent: themeColor, colorScheme: colorScheme)
@@ -30,9 +29,24 @@ struct URLBar: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            Image(systemName: statusIcon)
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(isFocused ? themeColor : Color.textSecondary)
+            Button {
+                showingPageInfo = true
+            } label: {
+                Image(systemName: statusIcon)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(isFocused ? themeColor : Color.textSecondary)
+                    .frame(width: 24, height: 24)
+                    .background(
+                        RoundedRectangle(cornerRadius: 6)
+                            .fill(showingPageInfo ? theme.panelActive : Color.clear)
+                    )
+            }
+            .buttonStyle(.plain)
+            .hoverCursor(.pointingHand)
+            .popover(isPresented: $showingPageInfo, arrowEdge: .bottom) {
+                PageInfoPopoverView(tab: activeTab)
+                    .glassBackground()
+            }
 
             TextField("Search or enter URL", text: $addressText)
                 .font(.system(size: 12, weight: .medium, design: .rounded))
@@ -43,6 +57,7 @@ struct URLBar: View {
                 .focused($isFocused)
                 .accessibilityIdentifier("browser.urlBar.textField")
                 .onSubmit {
+                    isFocused = false
                     viewModel.setAddressBarEditing(false)
                     onNavigate()
                 }
@@ -73,34 +88,6 @@ struct URLBar: View {
                     }
                     .hoverCursor(.pointingHand)
                     .help(didCopyURL ? "Copied" : "Copy URL")
-
-                    Button {
-                        showingCookieManager.toggle()
-                    } label: {
-                        Image(systemName: "shield.fill")
-                            .font(.system(size: 11, weight: .bold))
-                            .foregroundStyle(showingCookieManager ? Color.white : themeColor)
-                            .frame(width: 22, height: 22)
-                            .background(
-                                Circle()
-                                    .fill(showingCookieManager ? theme.panelActive : (isCookieHovered ? theme.buttonHoverFill : Color.clear))
-                            )
-                            .overlay(
-                                Circle()
-                                    .strokeBorder(isCookieHovered || showingCookieManager ? theme.urlBarStroke : Color.clear, lineWidth: 1)
-                            )
-                    }
-                    .buttonStyle(.plain)
-                    .onHover { hovering in
-                        isCookieHovered = hovering
-                    }
-                    .hoverCursor(.pointingHand)
-                    .help("Manage Cookies")
-                    .popover(isPresented: $showingCookieManager, arrowEdge: .bottom) {
-                        CookieManagerView(domain: activeTab?.url?.host)
-                            .frame(width: 350, height: 450)
-                            .glassBackground()
-                    }
                 } else {
                     Color.clear
                         .frame(width: 46, height: 20)
@@ -111,22 +98,8 @@ struct URLBar: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            theme.urlBarTop,
-                            theme.urlBarBottom,
-                            theme.urlBarTop.blended(with: themeColor, fraction: 0.08)
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-                .background(theme.chromeMaterial, in: RoundedRectangle(cornerRadius: 12))
-                .clipShape(RoundedRectangle(cornerRadius: 12))
-        )
+        .panelBackground(theme: theme, cornerRadius: 12)
+        .background(theme.chromeMaterial, in: RoundedRectangle(cornerRadius: 12))
         .overlay(
             RoundedRectangle(cornerRadius: 12)
                 .strokeBorder(isFocused ? theme.urlBarStroke : theme.chromeStroke, lineWidth: 1)

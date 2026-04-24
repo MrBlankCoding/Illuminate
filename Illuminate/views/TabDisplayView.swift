@@ -87,13 +87,9 @@ struct TabDisplayView: View {
         .background(
             ZStack {
                 Rectangle()
-                    .fill(
-                        LinearGradient(
-                            colors: [theme.chromeFillTop, theme.chromeFillBottom],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
+                    .visualEffect { [theme] content, proxy in
+                        content.colorEffect(theme.chromeShader(size: proxy.size))
+                    }
                     .background(theme.chromeMaterial)
                     .ignoresSafeArea()
 
@@ -117,18 +113,29 @@ struct TabDisplayView: View {
     }
 
     private var tabsListContent: some View {
-        LazyVStack(alignment: .leading, spacing: 5) {
+        let ungroupedTabs = tabManager.tabs.filter { $0.groupID == nil }
+        
+        return LazyVStack(alignment: .leading, spacing: 5) {
             newTabButton
             ForEach(tabManager.tabGroups) { group in
                 TabGroupSection(group: group, hoveredSidebarTabID: $hoveredSidebarTabID)
             }
 
-            ForEach(tabManager.tabs.filter { $0.groupID == nil }) { tab in
+            ForEach(ungroupedTabs) { tab in
                 VStack(spacing: 0) {
                     if dropTargetID == tab.id {
                         insertionIndicator
                     }
                     tabRow(tab: tab)
+                        .background(alignment: .bottom) {
+                            if tab.id != ungroupedTabs.last?.id {
+                                Rectangle()
+                                    .fill(tabManager.windowThemeColor.opacity(0.5))
+                                    .frame(height: 1)
+                                    .padding(.horizontal, 16)
+                                    .offset(y: 3)
+                            }
+                        }
                 }
             }
             
@@ -422,7 +429,8 @@ struct TabGroupSection: View {
 
             if group.isExpanded {
                 VStack(alignment: .leading, spacing: 4) {
-                    ForEach(tabManager.tabs.filter { $0.groupID == group.id }) { tab in
+                    let groupedTabs = tabManager.tabs.filter { $0.groupID == group.id }
+                    ForEach(groupedTabs) { tab in
                         SidebarTabRow(
                             tab: tab,
                             themeColor: tabManager.windowThemeColor,
@@ -460,6 +468,15 @@ struct TabGroupSection: View {
                         .contextMenu {
                             Button("Ungroup Tab") {
                                 tabManager.setTabGroup(tabID: tab.id, groupID: nil)
+                            }
+                        }
+                        .background(alignment: .bottom) {
+                            if tab.id != groupedTabs.last?.id {
+                                Rectangle()
+                                    .fill(tabManager.windowThemeColor.opacity(0.5))
+                                    .frame(height: 1)
+                                    .padding(.horizontal, 16)
+                                    .offset(y: 2.5)
                             }
                         }
                     }

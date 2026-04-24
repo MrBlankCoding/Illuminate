@@ -20,92 +20,84 @@ struct TopBarView: View {
     }
     
     var body: some View {
-        HStack(spacing: 0) {
-            if !tabManager.showSidebar {
-                Spacer().frame(width: 80)
-            } else {
-                Spacer().frame(width: 16)
-            }
-            
-            if let activeTab = tabManager.activeTab {
-                NavigationControls(tab: activeTab, themeColor: tabManager.windowThemeColor)
-            } else {
-                HStack(spacing: 4) {
-                    Image(systemName: "chevron.left").opacity(0.2)
-                    Image(systemName: "chevron.right").opacity(0.2)
-                    Image(systemName: "arrow.clockwise").opacity(0.2)
+        HStack(spacing: 16) {
+            Group {
+                if let activeTab = tabManager.activeTab {
+                    NavigationControls(tab: activeTab, themeColor: tabManager.windowThemeColor)
+                } else {
+                    HStack(spacing: 4) {
+                        Image(systemName: "chevron.left").opacity(0.2)
+                        Image(systemName: "chevron.right").opacity(0.2)
+                        Image(systemName: "arrow.clockwise").opacity(0.2)
+                    }
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(Color.textSecondary)
                 }
-                .font(.system(size: 13, weight: .bold))
-                .foregroundStyle(Color.textSecondary)
             }
+            .fixedSize()
             
-            Spacer()
+            Spacer(minLength: 0)
             
-            HStack(spacing: 12) {
-                URLBar(
-                    activeTab: tabManager.activeTab,
-                    addressText: $addressBarText,
-                    themeColor: tabManager.windowThemeColor,
-                    onNavigate: onNavigate
-                )
-                .frame(maxWidth: 600)
-                
-                Menu {
-                    Section("Switch Profile") {
-                        ForEach(profileManager.profiles) { profile in
-                            Button {
-                                DockMenuWindowRouter.shared.openProfile?(profile.id)
-                            } label: {
-                                Label(profile.name, systemImage: profile.iconName)
-                            }
-                            .disabled(profile.id == profileEnvironment.profile.id)
+            URLBar(
+                activeTab: tabManager.activeTab,
+                addressText: $addressBarText,
+                themeColor: tabManager.windowThemeColor,
+                onNavigate: onNavigate
+            )
+            .frame(maxWidth: 700)
+            .layoutPriority(1)
+            
+            Spacer(minLength: 0)
+            
+            Menu {
+                Section("Switch Profile") {
+                    ForEach(profileManager.profiles) { profile in
+                        Button {
+                            DockMenuWindowRouter.shared.openProfile?(profile.id)
+                        } label: {
+                            Label(profile.name, systemImage: profile.iconName)
                         }
+                        .disabled(profile.id == profileEnvironment.profile.id)
+                    }
+                }
+                
+                Section {
+                    Button {
+                        DockMenuWindowRouter.shared.openGuest?()
+                    } label: {
+                        Label("Guest Profile", systemImage: "person.crop.circle.badge.questionmark")
                     }
                     
-                    Section {
-                        Button {
-                            DockMenuWindowRouter.shared.openGuest?()
-                        } label: {
-                            Label("Guest Profile", systemImage: "person.crop.circle.badge.questionmark")
-                        }
-                        
-                        Button {
-                            DockMenuWindowRouter.shared.openProfileSelection?()
-                        } label: {
-                            Label("Add Profile...", systemImage: "plus.circle")
-                        }
+                    Button {
+                        DockMenuWindowRouter.shared.openProfileSelection?()
+                    } label: {
+                        Label("Add Profile...", systemImage: "plus.circle")
                     }
-                } label: {
-                    Image(systemName: profileEnvironment.profile.iconName)
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(Color.textSecondary)
-                        .frame(width: 28, height: 28)
-                        .background(
-                            Circle()
-                                .fill(theme.chromeMaterial)
-                                .shadow(color: Color.black.opacity(0.05), radius: 1, y: 1)
-                        )
                 }
-                .menuStyle(.borderlessButton)
-                .fixedSize()
+            } label: {
+                Image(systemName: profileEnvironment.profile.iconName)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(Color.textSecondary)
+                    .frame(width: 28, height: 28)
+                    .background(
+                        Circle()
+                            .fill(theme.chromeMaterial)
+                            .shadow(color: Color.black.opacity(0.05), radius: 1, y: 1)
+                    )
             }
-            
-            Spacer()
-            
-            Spacer().frame(width: 20)
+            .menuStyle(.borderlessButton)
+            .fixedSize()
         }
+        .padding(.leading, tabManager.showSidebar ? 16 : 80)
+        .padding(.trailing, 20)
         .padding(.vertical, 6)
         .background(
             ZStack {
                 Rectangle()
-                    .fill(theme.chromeMaterial)
-                    .overlay(
-                        LinearGradient(
-                            colors: [theme.chromeFillTop, theme.chromeFillBottom],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
+                    .visualEffect { content, proxy in
+                        content.colorEffect(theme.chromeShader(size: proxy.size))
+                    }
+                    .background(theme.chromeMaterial)
                     .ignoresSafeArea(edges: .top)
 
                 Rectangle()

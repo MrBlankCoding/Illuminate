@@ -148,13 +148,13 @@ extension DownloadManager {
 
         insertTask(item)
 
-        DispatchQueue.global(qos: .userInitiated).async {
+        Task.detached(priority: .userInitiated) {
             do {
                 try self.ensureParentDirectoryExists(for: resolvedDestination)
                 try data.write(to: resolvedDestination, options: .atomic)
-                self.finishDownload(id: item.id, destinationURL: resolvedDestination)
+                await self.finishDownload(id: item.id, destinationURL: resolvedDestination)
             } catch {
-                self.failDownload(id: item.id, error: error)
+                await self.failDownload(id: item.id, error: error)
             }
         }
     }
@@ -305,6 +305,7 @@ extension DownloadManager: WKDownloadDelegate {
             try moveDownload(at: stagingURL, to: finalDestinationURL)
             finishDownload(id: id, destinationURL: finalDestinationURL)
         } catch {
+            try? FileManager.default.removeItem(at: stagingURL)
             failDownload(id: id, error: error)
         }
     }
@@ -313,7 +314,7 @@ extension DownloadManager: WKDownloadDelegate {
         guard let id = webKitDownloadIDs.removeValue(forKey: ObjectIdentifier(download)) else { return }
         webKitDownloadsByID.removeValue(forKey: id)
         if let stagingURL = webKitStagingURLsByID.removeValue(forKey: id) {
-            try? fileManager.removeItem(at: stagingURL)
+            try? FileManager.default.removeItem(at: stagingURL)
         }
         failDownload(id: id, error: error)
     }
@@ -337,85 +338,101 @@ extension DownloadManager: WKDownloadDelegate {
 }
 
 extension DownloadManager: URLSessionDownloadDelegate, URLSessionTaskDelegate {
-    func urlSession(
+    nonisolated func urlSession(
         _ session: URLSession,
         downloadTask: URLSessionDownloadTask,
         didWriteData bytesWritten: Int64,
         totalBytesWritten: Int64,
         totalBytesExpectedToWrite: Int64
     ) {
-        guard let id = sessionTaskIDs[downloadTask.taskIdentifier] else { return }
+        Task { @MainActor in
+            guard let id = self.sessionTaskIDs[downloadTask.taskIdentifier] else { return }
 
-        updateTask(id) { task in
-            task.state = .downloading
-            task.bytesWritten = totalBytesWritten
-            task.totalBytesExpected = totalBytesExpectedToWrite > 0 ? totalBytesExpectedToWrite : nil
-            if totalBytesExpectedToWrite > 0 {
-                task.progress = Double(totalBytesWritten) / Double(totalBytesExpectedToWrite)
+            self.updateTask(id) { task in
+                task.state = .downloading
+                task.bytesWritten = totalBytesWritten
+                task.totalBytesExpected = totalBytesExpectedToWrite > 0 ? totalBytesExpectedToWrite : nil
+                if totalBytesExpectedToWrite > 0 {
+                    task.progress = Double(totalBytesWritten) / Double(totalBytesExpectedToWrite)
+                }
             }
         }
     }
 
-    func urlSession(
+    nonisolated func urlSession(
         _ session: URLSession,
         downloadTask: URLSessionDownloadTask,
         didFinishDownloadingTo location: URL
     ) {
-        guard let id = sessionTaskIDs[downloadTask.taskIdentifier] else { return }
+        let stagingURL = self.stageDownloadedFile(at: location)
 
-        let response = downloadTask.response
-        let sourceURL = downloadTask.originalRequest?.url
-        let currentTask = downloads.first(where: { $0.id == id })
-        let filename = resolvedFilename(
-            response?.suggestedFilename ?? currentTask?.filename,
-            fallbackURL: sourceURL,
-            mimeType: response?.mimeType
-        )
+        Task { @MainActor in
+            guard let id = self.sessionTaskIDs[downloadTask.taskIdentifier] else {
+                if let stagingURL {
+                    try? FileManager.default.removeItem(at: stagingURL)
+                }
+                return
+            }
 
-        let destinationURL: URL
-        if let explicitDestination = currentTask?.destinationURL {
-            destinationURL = explicitDestination
-        } else {
-            destinationURL = uniqueDestinationURL(
-                in: downloadDirectoryURL,
-                preferredFilename: filename
+            let response = downloadTask.response
+            let sourceURL = downloadTask.originalRequest?.url
+            let currentTask = self.downloads.first(where: { $0.id == id })
+            let filename = self.resolvedFilename(
+                response?.suggestedFilename ?? currentTask?.filename,
+                fallbackURL: sourceURL,
+                mimeType: response?.mimeType
             )
-        }
 
-        AppLog.download("URLSession finished temporary download id=\(id.uuidString) tempLocation=\(location.path) source=\(sourceURL?.absoluteString ?? "<nil>") destination=\(destinationURL.path) mimeType=\(response?.mimeType ?? "<nil>")")
+            let destinationURL: URL
+            if let explicitDestination = currentTask?.destinationURL {
+                destinationURL = explicitDestination
+            } else {
+                destinationURL = self.uniqueDestinationURL(
+                    in: self.downloadDirectoryURL,
+                    preferredFilename: filename
+                )
+            }
 
+            let finalLocation = stagingURL ?? location
+            AppLog.download("URLSession finished temporary download id=\(id.uuidString) stagingLocation=\(stagingURL?.path ?? "<nil>") source=\(sourceURL?.absoluteString ?? "<nil>") destination=\(destinationURL.path) mimeType=\(response?.mimeType ?? "<nil>")")
 
-        do {
-            try moveDownload(at: location, to: destinationURL)
-            finishDownload(id: id, destinationURL: destinationURL)
-        } catch {
-            failDownload(id: id, error: error)
+            do {
+                try self.moveDownload(at: finalLocation, to: destinationURL)
+                self.finishDownload(id: id, destinationURL: destinationURL)
+            } catch {
+                if let stagingURL {
+                    try? FileManager.default.removeItem(at: stagingURL)
+                }
+                self.failDownload(id: id, error: error)
+            }
         }
     }
 
-    func urlSession(
+    nonisolated func urlSession(
         _ session: URLSession,
         task: URLSessionTask,
         didCompleteWithError error: Error?
     ) {
-        guard let id = sessionTaskIDs.removeValue(forKey: task.taskIdentifier) else { return }
-        sessionTasksByID.removeValue(forKey: id)
+        Task { @MainActor in
+            guard let id = self.sessionTaskIDs.removeValue(forKey: task.taskIdentifier) else { return }
+            self.sessionTasksByID.removeValue(forKey: id)
 
-        guard let error else { return }
+            guard let error else { return }
 
-        let nsError = error as NSError
-        if nsError.domain == NSURLErrorDomain, nsError.code == NSURLErrorCancelled {
-            AppLog.download("URLSession download cancelled by system id=\(id.uuidString) taskIdentifier=\(task.taskIdentifier)")
-            updateTask(id) { task in
-                if task.state == .completed {
-                    return
+            let nsError = error as NSError
+            if nsError.domain == NSURLErrorDomain, nsError.code == NSURLErrorCancelled {
+                AppLog.download("URLSession download cancelled by system id=\(id.uuidString) taskIdentifier=\(task.taskIdentifier)")
+                self.updateTask(id) { task in
+                    if task.state == .completed {
+                        return
+                    }
+                    task.state = .cancelled
+                    task.finishedAt = Date()
                 }
-                task.state = .cancelled
-                task.finishedAt = Date()
+                return
             }
-            return
-        }
 
-        failDownload(id: id, error: error)
+            self.failDownload(id: id, error: error)
+        }
     }
 }

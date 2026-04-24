@@ -90,6 +90,9 @@ struct ProfileSelectionView: View {
         DockMenuWindowRouter.shared.openProfile = { profileID in
             openWindow(value: BrowserWindowRoute.profile(profileID))
         }
+        DockMenuWindowRouter.shared.openGuest = {
+            openWindow(value: BrowserWindowRoute.guest(UUID()))
+        }
     }
 
     private func checkAutoRedirect() {

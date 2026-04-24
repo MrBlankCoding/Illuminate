@@ -47,7 +47,6 @@ extension DownloadManager {
         }
 
         var isStale = false
-
         do {
             let resolvedURL = try URL(
                 resolvingBookmarkData: bookmarkData,
@@ -55,8 +54,6 @@ extension DownloadManager {
                 relativeTo: nil,
                 bookmarkDataIsStale: &isStale
             )
-
-            _ = resolvedURL.startAccessingSecurityScopedResource()
 
             if isStale {
                 setLastPickedDirectory(resolvedURL)
@@ -93,7 +90,7 @@ extension DownloadManager {
     func resetDownloadDirectory() {
         var updated = preferences
         updated.saveLocationBookmarkData = nil
-        AppLog.download("Reset custom download directory to default path=\(fileManager.illuminateDownloadsDirectory().path)")
+        AppLog.download("Reset custom download directory to default path=\(FileManager.default.illuminateDownloadsDirectory().path)")
         persistPreferences(updated)
     }
 
@@ -108,7 +105,7 @@ extension DownloadManager {
 
     func resolvedDownloadDirectory(from preferences: DownloadPreferences) -> URL {
         guard let bookmarkData = preferences.saveLocationBookmarkData else {
-            return fileManager.illuminateDownloadsDirectory()
+            return FileManager.default.illuminateDownloadsDirectory()
         }
 
         var isStale = false
@@ -121,26 +118,27 @@ extension DownloadManager {
                 bookmarkDataIsStale: &isStale
             )
 
-            _ = resolvedURL.startAccessingSecurityScopedResource()
-            try ensureDirectoryExists(at: resolvedURL)
-            AppLog.download("Resolved custom download directory path=\(resolvedURL.path) stale=\(isStale)")
+            try resolvedURL.withSecurityScopedAccess {
+                try ensureDirectoryExists(at: resolvedURL)
+                AppLog.download("Resolved custom download directory path=\(resolvedURL.path) stale=\(isStale)")
 
-            if isStale {
-                setDownloadDirectory(resolvedURL)
+                if isStale {
+                    setDownloadDirectory(resolvedURL)
+                }
             }
 
             return resolvedURL
         } catch {
-            AppLog.download("Failed to resolve custom download directory error=\(error.localizedDescription); falling back to default path=\(fileManager.illuminateDownloadsDirectory().path)")
-            return fileManager.illuminateDownloadsDirectory()
+            AppLog.download("Failed to resolve custom download directory error=\(error.localizedDescription); falling back to default path=\(FileManager.default.illuminateDownloadsDirectory().path)")
+            return FileManager.default.illuminateDownloadsDirectory()
         }
     }
 
     func downloadStagingDirectoryURL() -> URL {
-        let directory = fileManager
+        let directory = FileManager.default
             .illuminateAppSupportDirectory()
             .appendingPathComponent("DownloadStaging", isDirectory: true)
-
+        
         do {
             try ensureDirectoryExists(at: directory)
         } catch {
@@ -148,5 +146,17 @@ extension DownloadManager {
         }
 
         return directory
+    }
+}
+
+extension URL {
+    func withSecurityScopedAccess<T>(_ block: () throws -> T) rethrows -> T {
+        let isSecured = startAccessingSecurityScopedResource()
+        defer {
+            if isSecured {
+                stopAccessingSecurityScopedResource()
+            }
+        }
+        return try block()
     }
 }

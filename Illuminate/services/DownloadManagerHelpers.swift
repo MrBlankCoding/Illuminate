@@ -5,6 +5,7 @@
 // Created by MrBlankCoding on 4/4/26.
 //
 
+import Combine
 import Foundation
 import UniformTypeIdentifiers
 
@@ -12,15 +13,26 @@ extension DownloadManager {
     func clearFinishedDownloads() {
         updateOnMain {
             self.downloads.removeAll { !$0.isActive }
-            self.notifyDownloadsDidChange()
+            self.rebuildIndexMap()
+            self.notifyDownloadsDidChange(immediate: true)
         }
     }
 
     func clearDownloads() {
         updateOnMain {
             self.downloads.removeAll()
-            self.notifyDownloadsDidChange()
+            self.downloadIndexMap.removeAll()
+            self.notifyDownloadsDidChange(immediate: true)
         }
+    }
+
+    internal func rebuildIndexMap() {
+        var map = [UUID: Int]()
+        map.reserveCapacity(downloads.count)
+        for (index, task) in downloads.enumerated() {
+            map[task.id] = index
+        }
+        self.downloadIndexMap = map
     }
 
     func makeTask(
@@ -46,16 +58,17 @@ extension DownloadManager {
     func insertTask(_ task: DownloadTask) {
         updateOnMain {
             self.downloads.insert(task, at: 0)
+            self.rebuildIndexMap()
             AppLog.download("Inserted download item id=\(task.id.uuidString) source=\(task.url.absoluteString) filename=\(task.filename) state=\(task.state.rawValue)")
-            self.notifyDownloadsDidChange()
+            self.notifyDownloadsDidChange(immediate: true)
         }
     }
 
     func updateTask(_ id: UUID, mutate: @escaping (inout DownloadTask) -> Void) {
         updateOnMain {
-            guard let index = self.downloads.firstIndex(where: { $0.id == id }) else { return }
+            guard let index = self.downloadIndexMap[id] else { return }
             mutate(&self.downloads[index])
-            self.notifyDownloadsDidChange()
+            self.notifyDownloadsDidChange(immediate: false)
         }
     }
 
@@ -70,6 +83,7 @@ extension DownloadManager {
             task.errorDescription = nil
             task.bytesWritten = task.totalBytesExpected ?? task.bytesWritten
         }
+        noteCompletedDownload()
 
         if preferences.revealInFinderWhenFinished {
             updateOnMain {
@@ -136,7 +150,7 @@ extension DownloadManager {
         let ext = (safeFilename as NSString).pathExtension
         var counter = 1
 
-        while fileManager.fileExists(atPath: destinationURL.path) {
+        while FileManager.default.fileExists(atPath: destinationURL.path) {
             let duplicateName = ext.isEmpty ? "\(name) (\(counter))" : "\(name) (\(counter)).\(ext)"
             destinationURL = directory.appendingPathComponent(duplicateName, isDirectory: false)
             counter += 1
@@ -147,34 +161,65 @@ extension DownloadManager {
     }
 
 
-    func ensureParentDirectoryExists(for destinationURL: URL) throws {
+    nonisolated func ensureParentDirectoryExists(for destinationURL: URL) throws {
         try ensureDirectoryExists(at: destinationURL.deletingLastPathComponent())
     }
 
-    func ensureDirectoryExists(at directoryURL: URL) throws {
-        try fileManager.createDirectory(
+    nonisolated func ensureDirectoryExists(at directoryURL: URL) throws {
+        try FileManager.default.createDirectory(
             at: directoryURL,
             withIntermediateDirectories: true
         )
     }
 
+    nonisolated func stageDownloadedFile(at location: URL) -> URL? {
+        let stagingDirectory = FileManager.default.illuminateAppSupportDirectory().appendingPathComponent("DownloadStaging", isDirectory: true)
+        do {
+            try FileManager.default.createDirectory(at: stagingDirectory, withIntermediateDirectories: true)
+            let stagingURL = stagingDirectory.appendingPathComponent(UUID().uuidString)
+            try FileManager.default.moveItem(at: location, to: stagingURL)
+            return stagingURL
+        } catch {
+            AppLog.download("Failed to stage downloaded file path=\(location.path) error=\(error.localizedDescription)")
+            return nil
+        }
+    }
+
     func moveDownload(at temporaryURL: URL, to destinationURL: URL) throws {
         try ensureParentDirectoryExists(for: destinationURL)
 
-        if fileManager.fileExists(atPath: destinationURL.path) {
-            try fileManager.removeItem(at: destinationURL)
+        if FileManager.default.fileExists(atPath: destinationURL.path) {
+            try FileManager.default.removeItem(at: destinationURL)
         }
 
-        try fileManager.moveItem(at: temporaryURL, to: destinationURL)
+        try FileManager.default.moveItem(at: temporaryURL, to: destinationURL)
     }
 
-    func notifyDownloadsDidChange() {
+    func notifyDownloadsDidChange(immediate: Bool = false) {
+        if immediate {
+            notificationThrottleTask?.cancel()
+            notificationThrottleTask = nil
+            dispatchNotification()
+        } else {
+            if notificationThrottleTask != nil { return }
+            notificationThrottleTask = Task { @MainActor [weak self] in
+                try? await Task.sleep(for: .milliseconds(250))
+                guard let self, !Task.isCancelled else { return }
+                self.notificationThrottleTask = nil
+                self.dispatchNotification()
+            }
+        }
+    }
+
+    private func dispatchNotification() {
+        self.objectWillChange.send()
         NotificationCenter.default.post(
             name: Self.downloadsDidChangeNotification,
             object: self,
             userInfo: [
                 "hasActiveDownloads": downloads.contains(where: \.isActive),
-                "hasVisibleDownloads": !downloads.isEmpty
+                "hasVisibleDownloads": !downloads.isEmpty,
+                "hasRecentCompletedDownload": hasRecentCompletedDownload
             ]
         )
     }
