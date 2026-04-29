@@ -12,6 +12,11 @@ import WebKit
 
 extension DownloadManager {
     func startDownload(from url: URL, to destinationURL: URL) {
+        if url.isFileURL {
+            startLocalFileDownload(from: url, explicitDestinationURL: destinationURL)
+            return
+        }
+
         let resolvedDestination = resolvedExplicitDestination(for: destinationURL)
         AppLog.download("Starting URLSession download source=\(url.absoluteString) explicitDestination=\(resolvedDestination.path)")
         let item = makeTask(
@@ -29,6 +34,11 @@ extension DownloadManager {
     }
 
     func startDownload(from url: URL, suggestedFilename: String? = nil) {
+        if url.isFileURL {
+            startLocalFileDownload(from: url, suggestedFilename: suggestedFilename)
+            return
+        }
+
         let resolvedFilename = resolvedFilename(
             suggestedFilename,
             fallbackURL: url,
@@ -67,6 +77,11 @@ extension DownloadManager {
     func startDownload(using request: URLRequest, suggestedFilename: String? = nil) {
         guard let url = request.url else { return }
 
+        if url.isFileURL {
+            startLocalFileDownload(from: url, suggestedFilename: suggestedFilename)
+            return
+        }
+
         let resolvedFilename = resolvedFilename(
             suggestedFilename,
             fallbackURL: url,
@@ -85,6 +100,70 @@ extension DownloadManager {
         sessionTaskIDs[task.taskIdentifier] = item.id
         sessionTasksByID[item.id] = task
         task.resume()
+    }
+
+    private func startLocalFileDownload(
+        from sourceURL: URL,
+        suggestedFilename: String? = nil,
+        explicitDestinationURL: URL? = nil
+    ) {
+        let resolvedDestination: URL
+        if let explicitDestinationURL {
+            resolvedDestination = resolvedExplicitDestination(for: explicitDestinationURL)
+        } else {
+            let filename = resolvedFilename(
+                suggestedFilename,
+                fallbackURL: sourceURL,
+                mimeType: nil
+            )
+            resolvedDestination = uniqueDestinationURL(
+                in: downloadDirectoryURL,
+                preferredFilename: filename
+            )
+        }
+
+        AppLog.download(
+            "Starting local file download source=\(sourceURL.path) destination=\(resolvedDestination.path)"
+        )
+
+        let item = makeTask(
+            url: sourceURL,
+            filename: resolvedDestination.lastPathComponent,
+            destinationURL: resolvedDestination
+        )
+        insertTask(item)
+
+        Task.detached(priority: .userInitiated) {
+            do {
+                guard FileManager.default.fileExists(atPath: sourceURL.path) else {
+                    throw CocoaError(.fileNoSuchFile)
+                }
+
+                let temporaryURL = try self.prepareLocalFileTransferSource(at: sourceURL)
+                defer { try? FileManager.default.removeItem(at: temporaryURL) }
+
+                try self.moveDownload(at: temporaryURL, to: resolvedDestination)
+                await self.finishDownload(id: item.id, destinationURL: resolvedDestination)
+            } catch {
+                await self.failDownload(id: item.id, error: error)
+            }
+        }
+    }
+
+    private nonisolated func prepareLocalFileTransferSource(at sourceURL: URL) throws -> URL {
+        let fileManager = FileManager.default
+        let baseDirectory = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+            ?? fileManager.homeDirectoryForCurrentUser
+                .appendingPathComponent("Library", isDirectory: true)
+                .appendingPathComponent("Application Support", isDirectory: true)
+        let stagingDirectory = baseDirectory
+            .appendingPathComponent("Illuminate", isDirectory: true)
+            .appendingPathComponent("DownloadStaging", isDirectory: true)
+        try ensureDirectoryExists(at: stagingDirectory)
+
+        let stagedURL = stagingDirectory.appendingPathComponent(UUID().uuidString, isDirectory: false)
+        try fileManager.copyItem(at: sourceURL, to: stagedURL)
+        return stagedURL
     }
 
     func addDownload(_ download: WKDownload) {

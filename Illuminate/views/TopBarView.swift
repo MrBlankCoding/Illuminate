@@ -20,6 +20,7 @@ struct TopBarView: View {
     }
     
     var body: some View {
+        LiquidGlassGroup(spacing: 12) {
         HStack(spacing: 16) {
             Group {
                 if let activeTab = tabManager.activeTab {
@@ -32,6 +33,9 @@ struct TopBarView: View {
                     }
                     .font(.system(size: 13, weight: .bold))
                     .foregroundStyle(Color.textSecondary)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .liquidGlassCapsule(tint: tabManager.windowThemeColor, padding: 0)
                 }
             }
             .fixedSize()
@@ -79,11 +83,7 @@ struct TopBarView: View {
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(Color.textSecondary)
                     .frame(width: 28, height: 28)
-                    .background(
-                        Circle()
-                            .fill(theme.chromeMaterial)
-                            .shadow(color: Color.black.opacity(0.05), radius: 1, y: 1)
-                    )
+                    .modifier(ProfileIconGlassModifier(theme: theme, tint: tabManager.windowThemeColor))
             }
             .menuStyle(.borderlessButton)
             .fixedSize()
@@ -91,26 +91,59 @@ struct TopBarView: View {
         .padding(.leading, tabManager.showSidebar ? 16 : 80)
         .padding(.trailing, 20)
         .padding(.vertical, 6)
+        }
         .background(
             ZStack {
-                Rectangle()
-                    .visualEffect { content, proxy in
-                        content.colorEffect(theme.chromeShader(size: proxy.size))
-                    }
-                    .background(theme.chromeMaterial)
-                    .ignoresSafeArea(edges: .top)
-
-                Rectangle()
-                    .fill(theme.sidebarTint)
+                TopBarBackground(theme: theme)
                     .ignoresSafeArea(edges: .top)
             }
         )
         .overlay(
             Rectangle()
                 .frame(height: 1)
-                .foregroundStyle(theme.chromeStroke),
+                .foregroundStyle(Color.borderSubtle),
             alignment: .bottom
         )
         .background(DraggableArea())
+    }
+}
+
+private struct ProfileIconGlassModifier: ViewModifier {
+    let theme: BrowserTheme
+    let tint: Color
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if #available(macOS 26.0, *) {
+            content
+                .glassEffect(
+                    .regular
+                        .tint(tint.opacity(0.10))
+                        .interactive(),
+                    in: Circle()
+                )
+        } else {
+            content
+                .background(
+                    Circle()
+                        .fill(.regularMaterial)
+                        .shadow(color: Color.black.opacity(0.05), radius: 1, y: 1)
+                )
+        }
+    }
+}
+
+private struct TopBarBackground: View {
+    let theme: BrowserTheme
+
+    var body: some View {
+        if #available(macOS 26.0, *) {
+            Rectangle()
+                .fill(.clear)
+                .glassEffect(in: Rectangle())
+        } else {
+            Rectangle()
+                .fill(.regularMaterial)
+        }
     }
 }

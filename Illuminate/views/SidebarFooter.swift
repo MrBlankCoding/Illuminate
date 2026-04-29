@@ -19,6 +19,7 @@ struct SidebarFooter: View {
                 .padding(.bottom, 2)
 
             HStack {
+                LiquidGlassGroup(spacing: 8) {
                 HStack(spacing: 8) {
                     if let activeTab, activeTab.hasPiPCandidate {
                         SidebarActionButton(
@@ -51,6 +52,7 @@ struct SidebarFooter: View {
                         DownloadsView()
                             .environmentObject(tabManager)
                     }
+                }
                 }
 
                 Spacer()
@@ -89,14 +91,7 @@ private struct SidebarActionButton: View {
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(resolvedSymbolColor)
                 .frame(width: 28, height: 28)
-                .background(
-                    Circle()
-                        .fill(isHovered ? themeColor.opacity(0.18) : Color.clear)
-                )
-                .overlay(
-                    Circle()
-                        .strokeBorder(isHovered ? Color.borderGlass : Color.clear, lineWidth: 1)
-                )
+                .modifier(SidebarActionButtonBackground(isHovered: isHovered, themeColor: themeColor))
                 .animation(.easeInOut(duration: 0.14), value: isHovered)
         }
         .buttonStyle(.plain)
@@ -112,6 +107,32 @@ private struct SidebarActionButton: View {
             return symbolColor
         }
         return isHovered ? Color.textPrimary : Color.textSecondary
+    }
+}
+
+private struct SidebarActionButtonBackground: ViewModifier {
+    let isHovered: Bool
+    let themeColor: Color
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if #available(macOS 26.0, *) {
+            content
+                .glassEffect(
+                    .regular.tint(themeColor.opacity(0.10)).interactive(),
+                    in: Circle()
+                )
+        } else {
+            content
+                .background(
+                    Circle()
+                        .fill(isHovered ? themeColor.opacity(0.18) : Color.clear)
+                )
+                .overlay(
+                    Circle()
+                        .strokeBorder(isHovered ? Color.borderSubtle : Color.clear, lineWidth: 1)
+                )
+        }
     }
 }
 

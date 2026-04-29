@@ -9,7 +9,12 @@ import SwiftUI
 
 struct NoInternetView: View {
     @EnvironmentObject private var tabManager: TabManager
+    @Environment(\.colorScheme) private var colorScheme
     let message: String
+
+    private var theme: BrowserTheme {
+        BrowserTheme(accent: tabManager.windowThemeColor, colorScheme: colorScheme)
+    }
 
     var body: some View {
         VStack(spacing: 12) {
@@ -28,7 +33,7 @@ struct NoInternetView: View {
                 .padding(.horizontal, 24)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.bgBase)
+        .background(theme.windowBase)
         .glassBackground()
     }
 }

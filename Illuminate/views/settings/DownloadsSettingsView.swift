@@ -24,7 +24,7 @@ struct DownloadsSettingsView: View {
                             )
                         )
                         .labelsHidden()
-                        .toggleStyle(SwitchToggleStyle(tint: tabManager.windowThemeColor))
+                        .toggleStyle(GlassToggleStyle(tint: tabManager.windowThemeColor))
                         .hoverCursor(.pointingHand)
                         .accessibilityIdentifier("settings.downloads.revealToggle")
                     }
@@ -38,7 +38,7 @@ struct DownloadsSettingsView: View {
                             )
                         )
                         .labelsHidden()
-                        .toggleStyle(SwitchToggleStyle(tint: tabManager.windowThemeColor))
+                        .toggleStyle(GlassToggleStyle(tint: tabManager.windowThemeColor))
                         .hoverCursor(.pointingHand)
                         .accessibilityIdentifier("settings.downloads.askWhereToSave")
                     }

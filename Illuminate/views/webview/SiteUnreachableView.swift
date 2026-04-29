@@ -9,7 +9,12 @@ import SwiftUI
 
 struct SiteUnreachableView: View {
     @EnvironmentObject private var tabManager: TabManager
+    @Environment(\.colorScheme) private var colorScheme
     let host: String
+
+    private var theme: BrowserTheme {
+        BrowserTheme(accent: tabManager.windowThemeColor, colorScheme: colorScheme)
+    }
 
     var body: some View {
         VStack(spacing: 16) {
@@ -44,7 +49,7 @@ struct SiteUnreachableView: View {
             .padding(.top, 8)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.bgBase)
+        .background(theme.windowBase)
         .glassBackground()
     }
 }

@@ -146,8 +146,7 @@ private struct DownloadRow: View {
             }
         }
         .padding(14)
-        .background(Color.bgSurface.opacity(0.42))
-        .clipShape(RoundedRectangle(cornerRadius: 18))
+        .insetPanel(cornerRadius: 18)
     }
 
     @ViewBuilder

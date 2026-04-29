@@ -48,17 +48,13 @@ struct AppearanceSettingsView: View {
                                     colorRow(title: "From background", colors: tabManager.backgroundImagePalette)
                                 }
                             }
-                            
+
                             VStack(alignment: .leading, spacing: 10) {
                                 Text("Custom Color")
                                     .font(.system(size: 12, weight: .semibold))
                                     .foregroundStyle(Color.textSecondary)
-                                
-                                WheelColorPicker(
-                                    radius: 60,
-                                    color: $tabManager.windowThemeColor
-                                )
-                                .padding(.top, 4)
+
+                                customColorPicker
                             }
                         }
                     }
@@ -69,8 +65,7 @@ struct AppearanceSettingsView: View {
                 VStack(alignment: .leading, spacing: 16) {
                     HStack(spacing: 12) {
                         ZStack(alignment: .leading) {
-                            RoundedRectangle(cornerRadius: 16)
-                                .fill(Color.primary.opacity(0.05))
+                            SettingsShared.glassBox(cornerRadius: 16)
 
                             HStack(spacing: 10) {
                                 Image(systemName: "photo.on.rectangle.angled")
@@ -101,8 +96,7 @@ struct AppearanceSettingsView: View {
                             .foregroundStyle(.white)
                             .padding(.horizontal, 16)
                             .frame(height: 48)
-                            .background(tabManager.windowThemeColor)
-                            .clipShape(RoundedRectangle(cornerRadius: 16))
+                            .background(SettingsShared.glassBox(cornerRadius: 16, tint: tabManager.windowThemeColor))
                         }
                         .buttonStyle(.plain)
                         .hoverCursor(.pointingHand)
@@ -111,35 +105,8 @@ struct AppearanceSettingsView: View {
                     SettingsShared.infoRow(title: "Show image behind sidebar") {
                         Toggle("", isOn: $tabManager.showBackgroundBehindSidebar)
                             .labelsHidden()
-                            .toggleStyle(SwitchToggleStyle(tint: tabManager.windowThemeColor))
+                            .toggleStyle(GlassToggleStyle(tint: tabManager.windowThemeColor))
                             .hoverCursor(.pointingHand)
-                    }
-                }
-            }
-
-            SettingsShared.panelSection {
-                VStack(alignment: .leading, spacing: 14) {
-                    Text("Shader Diagnostics")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(Color.textPrimary)
-                    
-                    HStack(spacing: 20) {
-                        VStack(alignment: .leading, spacing: 8) {
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(Color.gray.opacity(0.5))
-                                .noiseEffect(theme: BrowserTheme(accent: tabManager.windowThemeColor, colorScheme: .dark), opacity: 1.0)
-                                .frame(width: 80, height: 80)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 12)
-                                        .strokeBorder(Color.white.opacity(0.1), lineWidth: 1)
-                                )
-                            
-                            Text("Noise Shader")
-                                .font(.system(size: 11, weight: .medium))
-                                .foregroundStyle(Color.textSecondary)
-                        }
-                        
-                        Spacer()
                     }
                 }
             }
@@ -195,8 +162,7 @@ struct AppearanceSettingsView: View {
             .padding(14)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
-                RoundedRectangle(cornerRadius: 22)
-                    .fill(active ? tabManager.windowThemeColor.opacity(0.14) : Color.primary.opacity(0.035))
+                SettingsShared.glassBox(cornerRadius: 22, tint: active ? tabManager.windowThemeColor : nil)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 22)
@@ -276,10 +242,34 @@ struct AppearanceSettingsView: View {
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 10)
-            .background(Color.primary.opacity(active ? 0.06 : 0.03))
-            .clipShape(RoundedRectangle(cornerRadius: 18))
+            .background(SettingsShared.glassBox(cornerRadius: 18, tint: active ? color : nil))
         }
         .buttonStyle(.plain)
         .hoverCursor(.pointingHand)
+    }
+
+    private var customColorPicker: some View {
+        HStack(spacing: 12) {
+            Circle()
+                .fill(tabManager.windowThemeColor)
+                .frame(width: 18, height: 18)
+                .overlay(
+                    Circle()
+                        .strokeBorder(Color.white.opacity(0.8), lineWidth: 1)
+                )
+
+            ColorPicker("Choose Color", selection: $tabManager.windowThemeColor, supportsOpacity: false)
+                .labelsHidden()
+
+            Text("Choose Color")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Color.textPrimary)
+
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .frame(width: 220, alignment: .leading)
+        .background(SettingsShared.glassBox(cornerRadius: 16, tint: tabManager.windowThemeColor.opacity(0.14)))
     }
 }

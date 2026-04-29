@@ -24,7 +24,7 @@ struct DownloadsTabView: View {
                             )
                         )
                         .labelsHidden()
-                        .toggleStyle(SwitchToggleStyle(tint: tabManager.windowThemeColor))
+                        .toggleStyle(GlassToggleStyle(tint: tabManager.windowThemeColor))
                         .hoverCursor(.pointingHand)
                         .accessibilityIdentifier("settings.downloads.revealToggle")
                     }
@@ -38,7 +38,7 @@ struct DownloadsTabView: View {
                             )
                         )
                         .labelsHidden()
-                        .toggleStyle(SwitchToggleStyle(tint: tabManager.windowThemeColor))
+                        .toggleStyle(GlassToggleStyle(tint: tabManager.windowThemeColor))
                         .hoverCursor(.pointingHand)
                         .accessibilityIdentifier("settings.downloads.askWhereToSave")
                     }
@@ -92,13 +92,21 @@ struct DownloadsTabView: View {
     }
 
     private func panelBackground(cornerRadius: CGFloat) -> some View {
-        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-            .fill(.ultraThinMaterial)
-            .overlay {
+        Group {
+            if #available(macOS 26.0, *) {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .strokeBorder(Color.white.opacity(0.08), lineWidth: 1)
+                    .fill(.clear)
+                    .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            } else {
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .fill(.ultraThinMaterial)
+                    .overlay {
+                        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                            .strokeBorder(Color.white.opacity(0.08), lineWidth: 1)
+                    }
             }
-            .shadow(color: Color.black.opacity(0.08), radius: 18, y: 10)
+        }
+        .shadow(color: Color.black.opacity(0.08), radius: 18, y: 10)
     }
 
     private func infoRow(title: String, tint: Color? = nil, trailing: @escaping () -> some View) -> some View {

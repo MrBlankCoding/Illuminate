@@ -51,7 +51,7 @@ struct PageInfoPopoverView: View {
                         showingCookieManager = true
                     } label: {
                         HStack {
-                            InfoRow(icon: "cookie", title: "Cookies", subtitle: "Manage site data", color: Color.textPrimary)
+                            InfoRow(icon: "chart.pie", title: "Cookies", subtitle: "Manage site data", color: Color.textPrimary)
                             Spacer()
                             Image(systemName: "chevron.right").opacity(0.5)
                         }
@@ -65,7 +65,7 @@ struct PageInfoPopoverView: View {
                     }
                     
                     InfoRow(icon: "hand.raised.fill", title: "Permissions", subtitle: "No permissions requested", color: Color.textPrimary)
-                    InfoRow(icon: "arrow.turn.up.forward.badge.magnifyingglass", title: "Redirects", subtitle: "Enhanced protection active", color: Color.textPrimary)
+                    InfoRow(icon: "arrow.uturn.forward", title: "Redirects", subtitle: "Enhanced protection active", color: Color.textPrimary)
                 } else {
                     InfoRow(icon: "info.circle", title: "System Page", subtitle: "This is an internal browser page.", color: Color.textPrimary)
                 }

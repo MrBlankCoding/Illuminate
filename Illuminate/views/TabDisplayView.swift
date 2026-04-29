@@ -86,28 +86,13 @@ struct TabDisplayView: View {
         }
         .background(
             ZStack {
-                Rectangle()
-                    .visualEffect { [theme] content, proxy in
-                        content.colorEffect(theme.chromeShader(size: proxy.size))
-                    }
-                    .background(theme.chromeMaterial)
+                SidebarBackground(theme: theme)
                     .ignoresSafeArea()
-
-                Rectangle()
-                    .fill(theme.sidebarTint)
-                    .ignoresSafeArea()
-
-                LinearGradient(
-                    colors: [theme.sidebarEdgeTint, Color.clear],
-                    startPoint: .leading,
-                    endPoint: .trailing
-                )
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         )
         .overlay(
             Rectangle()
-                .strokeBorder(theme.chromeStroke, lineWidth: 1)
+                .strokeBorder(Color.borderSubtle, lineWidth: 1)
                 .padding(.top, -1)
         )
     }
@@ -185,14 +170,14 @@ struct TabDisplayView: View {
             .padding(.vertical, 6)
             .background(
                 RoundedRectangle(cornerRadius: 8)
-                    .fill(hoveredNewTabButton ? theme.panelHover : Color.clear)
+                    .fill(hoveredNewTabButton ? theme.itemHover : Color.clear)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 8)
                     .strokeBorder(
                         style: StrokeStyle(lineWidth: 1, dash: [4, 3])
                     )
-                    .foregroundStyle(theme.chromeStroke.opacity(hoveredNewTabButton ? 1.0 : 0.55))
+                    .foregroundStyle(Color.borderSubtle.opacity(hoveredNewTabButton ? 1.0 : 0.55))
             )
             .animation(.easeInOut(duration: 0.15), value: hoveredNewTabButton)
         }
@@ -330,6 +315,21 @@ struct TabDisplayView: View {
                     }
                 }
             }
+        }
+    }
+}
+
+private struct SidebarBackground: View {
+    let theme: BrowserTheme
+
+    var body: some View {
+        if #available(macOS 26.0, *) {
+            Rectangle()
+                .fill(.clear)
+                .glassEffect(in: Rectangle())
+        } else {
+            Rectangle()
+                .fill(.regularMaterial)
         }
     }
 }
@@ -557,7 +557,7 @@ private struct BookmarkIconButton: View {
         Button(action: action) {
             ZStack {
                 Circle()
-                    .fill(Color.bgSurface.opacity(0.75))
+                    .fill(Color.primary.opacity(0.06))
                     .frame(width: 36, height: 36)
 
                 if let faviconImage {
@@ -577,7 +577,7 @@ private struct BookmarkIconButton: View {
             )
             .overlay(
                 Circle()
-                    .strokeBorder(isHovered ? Color.borderGlass : Color.clear, lineWidth: 1)
+                    .strokeBorder(isHovered ? Color.borderSubtle : Color.clear, lineWidth: 1)
             )
             .scaleEffect(isHovered ? 1.1 : 1.0)
             .animation(.easeInOut(duration: 0.14), value: isHovered)

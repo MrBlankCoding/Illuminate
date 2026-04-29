@@ -21,7 +21,7 @@ struct ProtectionSettingsView: View {
                             set: { environment.adBlockService.isEnabled = $0 }
                         ))
                         .labelsHidden()
-                        .toggleStyle(SwitchToggleStyle(tint: tabManager.windowThemeColor))
+                        .toggleStyle(GlassToggleStyle(tint: tabManager.windowThemeColor))
                         .hoverCursor(.pointingHand)
                     }
 
@@ -31,7 +31,7 @@ struct ProtectionSettingsView: View {
                             set: { environment.redirectProtectionService.isEnabled = $0 }
                         ))
                         .labelsHidden()
-                        .toggleStyle(SwitchToggleStyle(tint: tabManager.windowThemeColor))
+                        .toggleStyle(GlassToggleStyle(tint: tabManager.windowThemeColor))
                         .hoverCursor(.pointingHand)
                     }
                 }

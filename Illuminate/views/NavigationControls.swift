@@ -41,6 +41,9 @@ struct NavigationControls: View {
                 }
             }
         }
+        .padding(.horizontal, 6)
+        .padding(.vertical, 4)
+        .liquidGlassCapsule(tint: themeColor, padding: 0)
     }
 
     private func navButton(systemName: String, isEnabled: Bool, isGreyedOut: Bool = false, help: String = "", action: @escaping () -> Void) -> some View {
@@ -72,11 +75,11 @@ private struct NavigationControlButton: View {
                 .frame(width: 28, height: 28)
                 .background(
                     Circle()
-                        .fill(isEnabled && isHovered && !isGreyedOut ? theme.buttonHoverFill : Color.clear)
+                        .fill(isEnabled && isHovered && !isGreyedOut ? theme.itemHover : Color.clear)
                 )
                 .overlay(
                     Circle()
-                        .strokeBorder(!isGreyedOut && isHovered ? theme.chromeStroke : Color.clear, lineWidth: 1)
+                        .strokeBorder(!isGreyedOut && isHovered ? Color.borderSubtle : Color.clear, lineWidth: 1)
                 )
                 .scaleEffect(!isGreyedOut && isHovered ? 1.06 : 1.0)
                 .animation(.easeInOut(duration: 0.14), value: isHovered)

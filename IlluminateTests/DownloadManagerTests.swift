@@ -57,6 +57,34 @@ struct DownloadManagerTests {
         try? FileManager.default.removeItem(at: destinationURL)
     }
 
+    @Test func testStartDownloadCopiesLocalFileAndCompletesTask() async throws {
+        let manager = DownloadManager()
+        manager.clearDownloads()
+
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+
+        let sourceURL = directory.appendingPathComponent("image.png")
+        let sourceData = Data("local-file".utf8)
+        try sourceData.write(to: sourceURL)
+
+        manager.startDownload(from: sourceURL, suggestedFilename: "copied-image.png")
+
+        try await Task.sleep(nanoseconds: 300_000_000)
+
+        let task = try #require(manager.downloads.first)
+        let destinationURL = try #require(task.destinationURL)
+        let copiedData = try Data(contentsOf: destinationURL)
+
+        #expect(task.state == .completed)
+        #expect(destinationURL.lastPathComponent == "copied-image.png")
+        #expect(copiedData == sourceData)
+        #expect(destinationURL != sourceURL)
+
+        try? FileManager.default.removeItem(at: destinationURL)
+        try? FileManager.default.removeItem(at: directory)
+    }
+
 
     @Test func testSanitizesExplicitDestinationAndAvoidsOverwrites() async throws {
         let manager = DownloadManager()

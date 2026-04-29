@@ -46,8 +46,7 @@ struct PasswordsSettingsView: View {
                         }
                         .padding(.horizontal, 14)
                         .frame(height: 46)
-                        .background(Color.primary.opacity(0.05))
-                        .clipShape(RoundedRectangle(cornerRadius: 16))
+                        .background(SettingsShared.glassBox(cornerRadius: 16))
 
                         SettingsShared.metricsPill(value: "\(filteredPasswords.count)", label: "Visible")
                     }
@@ -67,8 +66,7 @@ struct PasswordsSettingsView: View {
                         }
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 34)
-                        .background(Color.primary.opacity(0.035))
-                        .clipShape(RoundedRectangle(cornerRadius: 22))
+                        .background(SettingsShared.glassBox(cornerRadius: 22))
                     } else {
                         VStack(spacing: 10) {
                             ForEach(filteredPasswords) { password in
@@ -128,11 +126,6 @@ struct PasswordsSettingsView: View {
             .help("Delete")
         }
         .padding(14)
-        .background(Color.primary.opacity(0.04))
-        .clipShape(RoundedRectangle(cornerRadius: 20))
-        .overlay(
-            RoundedRectangle(cornerRadius: 20)
-                .strokeBorder(Color.primary.opacity(0.06), lineWidth: 1)
-        )
+        .background(SettingsShared.glassBox(cornerRadius: 20))
     }
 }

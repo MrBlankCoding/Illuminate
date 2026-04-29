@@ -11,10 +11,16 @@ import SwiftUI
 struct OpeningPageView: View {
     @EnvironmentObject private var tabManager: TabManager
     @ObservedObject var viewModel: ContentViewModel
+    @Environment(\.colorScheme) private var colorScheme
 
     @State private var googleSuggestions: [String] = []
     @State private var suggestionTask: Task<Void, Never>?
     @FocusState private var isSearchFieldFocused: Bool
+    @Namespace private var searchGlassNamespace
+
+    private var theme: BrowserTheme {
+        BrowserTheme(accent: tabManager.windowThemeColor, colorScheme: colorScheme)
+    }
 
     var body: some View {
         VStack(spacing: 48) {
@@ -51,6 +57,7 @@ struct OpeningPageView: View {
     }
 
     private var searchBar: some View {
+        LiquidGlassGroup(spacing: 8) {
         HStack(spacing: 10) {
 
             Image(systemName: "magnifyingglass")
@@ -69,14 +76,8 @@ struct OpeningPageView: View {
         .padding(.horizontal, 18)
         .padding(.vertical, 14)
         .frame(maxWidth: 560)
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(.ultraThinMaterial.opacity(0.3))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(Color.white.opacity(0.05))
-        )
+        .liquidGlassCapsule(tint: isSearchFieldFocused ? tabManager.windowThemeColor : nil)
+        .modifier(GlassEffectIDModifier(id: "opening-search", namespace: searchGlassNamespace))
         .hoverCursor(.iBeam)
         .overlay(alignment: .top) {
 
@@ -119,18 +120,20 @@ struct OpeningPageView: View {
                     }
                 }
                 .frame(maxWidth: 560)
-                .background(.ultraThinMaterial)
-                .clipShape(RoundedRectangle(cornerRadius: 14))
+                .glassBackground(cornerRadius: 14)
+                .modifier(GlassEffectIDModifier(id: "opening-suggestions", namespace: searchGlassNamespace))
                 .offset(y: 58)
                 .shadow(radius: 20)
                 .zIndex(1000)
             }
+        }
         }
     }
 
     private var backgroundView: some View {
 
         ZStack {
+            theme.windowBase
 
             RadialGradient(
                 colors: [
@@ -218,4 +221,3 @@ struct OpeningPageView: View {
         return input.contains(".") && !input.contains(" ")
     }
 }
-

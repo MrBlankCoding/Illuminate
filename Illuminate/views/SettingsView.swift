@@ -1,6 +1,7 @@
 //
 //  SettingsView.swift
 //  Illuminate
+//
 //  Created by MrBlankCoding on 3/8/26.
 //
 
@@ -12,9 +13,15 @@ import UniformTypeIdentifiers
 struct SettingsView: View {
     @EnvironmentObject private var tabManager: TabManager
     @EnvironmentObject private var environment: ProfileEnvironment
+    @Environment(\.colorScheme) private var colorScheme
 
     @Namespace private var tabSelectionAnimation
+    @Namespace private var glassNamespace
     @State private var selectedTab: SettingsTab = .appearance
+
+    private var theme: BrowserTheme {
+        BrowserTheme(accent: tabManager.windowThemeColor, colorScheme: colorScheme)
+    }
 
     var body: some View {
         GeometryReader { geometry in
@@ -30,7 +37,7 @@ struct SettingsView: View {
                 .padding(28)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Color.bgBase)
+            .background(theme.windowBase)
             .accessibilityIdentifier("settings.root")
         }
     }
@@ -40,8 +47,8 @@ struct SettingsView: View {
             LinearGradient(
                 colors: [
                     tabManager.windowThemeColor.opacity(0.18),
-                    Color.bgBase,
-                    Color.bgBase
+                    theme.windowBase,
+                    theme.windowBase
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
@@ -103,7 +110,7 @@ struct SettingsView: View {
         }
         .padding(18)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(SettingsShared.panelBackground(cornerRadius: 24))
+        .glassBackground(cornerRadius: 24)
     }
 
     private var navigationCard: some View {
@@ -113,7 +120,7 @@ struct SettingsView: View {
             }
         }
         .padding(16)
-        .background(SettingsShared.panelBackground(cornerRadius: 24))
+        .glassBackground(cornerRadius: 24)
     }
 
     private func tabRailButton(_ tab: SettingsTab) -> some View {
@@ -127,7 +134,7 @@ struct SettingsView: View {
             HStack(spacing: 12) {
                 ZStack {
                     RoundedRectangle(cornerRadius: 12)
-                        .fill(active ? Color.white.opacity(0.16) : Color.primary.opacity(0.05))
+                        .fill(active ? Color.white.opacity(0.16) : Color.clear)
 
                     Image(systemName: tab.icon)
                         .font(.system(size: 13, weight: .semibold))
@@ -145,27 +152,20 @@ struct SettingsView: View {
             }
             .padding(10)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background {
-                ZStack {
+            .background(
+                Group {
                     if active {
                         RoundedRectangle(cornerRadius: 18)
-                            .fill(
-                                LinearGradient(
-                                    colors: [
-                                        tabManager.windowThemeColor.opacity(0.95),
-                                        tabManager.windowThemeColor.opacity(0.55)
-                                    ],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
+                            .fill(Color.clear)
                             .matchedGeometryEffect(id: "settings-tab-selection", in: tabSelectionAnimation)
+                            .accentGlassPanel(accent: tabManager.windowThemeColor, cornerRadius: 18)
+                            .modifier(GlassEffectIDModifier(id: "settings-tab-selection", namespace: glassNamespace))
                     } else {
                         RoundedRectangle(cornerRadius: 18)
                             .fill(Color.clear)
                     }
                 }
-            }
+            )
         }
         .buttonStyle(.plain)
         .hoverCursor(.pointingHand)

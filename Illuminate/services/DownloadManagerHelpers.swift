@@ -173,11 +173,18 @@ extension DownloadManager {
     }
 
     nonisolated func stageDownloadedFile(at location: URL) -> URL? {
-        let stagingDirectory = FileManager.default.illuminateAppSupportDirectory().appendingPathComponent("DownloadStaging", isDirectory: true)
+        let fileManager = FileManager.default
+        let baseDirectory = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+            ?? fileManager.homeDirectoryForCurrentUser
+                .appendingPathComponent("Library", isDirectory: true)
+                .appendingPathComponent("Application Support", isDirectory: true)
+        let stagingDirectory = baseDirectory
+            .appendingPathComponent("Illuminate", isDirectory: true)
+            .appendingPathComponent("DownloadStaging", isDirectory: true)
         do {
-            try FileManager.default.createDirectory(at: stagingDirectory, withIntermediateDirectories: true)
+            try fileManager.createDirectory(at: stagingDirectory, withIntermediateDirectories: true)
             let stagingURL = stagingDirectory.appendingPathComponent(UUID().uuidString)
-            try FileManager.default.moveItem(at: location, to: stagingURL)
+            try fileManager.moveItem(at: location, to: stagingURL)
             return stagingURL
         } catch {
             AppLog.download("Failed to stage downloaded file path=\(location.path) error=\(error.localizedDescription)")
@@ -185,7 +192,7 @@ extension DownloadManager {
         }
     }
 
-    func moveDownload(at temporaryURL: URL, to destinationURL: URL) throws {
+    nonisolated func moveDownload(at temporaryURL: URL, to destinationURL: URL) throws {
         try ensureParentDirectoryExists(for: destinationURL)
 
         if FileManager.default.fileExists(atPath: destinationURL.path) {

@@ -28,7 +28,7 @@ struct SidebarHeader: View {
                         .fill(Color.white.opacity(0.1))
                         .overlay(
                             Circle()
-                                .strokeBorder(Color.borderGlass, lineWidth: 1)
+                                .strokeBorder(Color.borderSubtle, lineWidth: 1)
                         )
                 )
         }

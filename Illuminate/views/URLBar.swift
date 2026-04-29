@@ -22,93 +22,114 @@ struct URLBar: View {
     @State private var didCopyURL = false
     @State private var isCopyHovered = false
     @State private var showingPageInfo = false
+    @Namespace private var glassNamespace
+    private let barGlassID = "url-bar-shell"
 
     private var theme: BrowserTheme {
         BrowserTheme(accent: themeColor, colorScheme: colorScheme)
     }
 
     var body: some View {
-        HStack(spacing: 8) {
-            Button {
-                showingPageInfo = true
-            } label: {
-                Image(systemName: statusIcon)
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(isFocused ? themeColor : Color.textSecondary)
-                    .frame(width: 24, height: 24)
-                    .background(
-                        RoundedRectangle(cornerRadius: 6)
-                            .fill(showingPageInfo ? theme.panelActive : Color.clear)
+        LiquidGlassGroup(spacing: 8) {
+            HStack(spacing: 8) {
+                Button {
+                    showingPageInfo = true
+                } label: {
+                    Image(systemName: statusIcon)
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(isFocused ? themeColor : Color.textSecondary)
+                        .frame(width: 28, height: 28)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .fill(showingPageInfo ? theme.itemActive : Color.clear)
+                        )
+                }
+                .buttonStyle(.plain)
+                .hoverCursor(.pointingHand)
+                .modifier(
+                    URLBarAccessoryGlassModifier(
+                        namespace: glassNamespace,
+                        id: "url-bar-status",
+                        tint: isFocused ? themeColor : nil
                     )
-            }
-            .buttonStyle(.plain)
-            .hoverCursor(.pointingHand)
-            .popover(isPresented: $showingPageInfo, arrowEdge: .bottom) {
-                PageInfoPopoverView(tab: activeTab)
-                    .glassBackground()
-            }
-
-            TextField("Search or enter URL", text: $addressText)
-                .font(.system(size: 12, weight: .medium, design: .rounded))
-                .textFieldStyle(.plain)
-                .foregroundStyle(Color.textPrimary)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .layoutPriority(1)
-                .focused($isFocused)
-                .accessibilityIdentifier("browser.urlBar.textField")
-                .onSubmit {
-                    isFocused = false
-                    viewModel.setAddressBarEditing(false)
-                    onNavigate()
+                )
+                .popover(isPresented: $showingPageInfo, arrowEdge: .bottom) {
+                    PageInfoPopoverView(tab: activeTab)
+                        .glassBackground()
                 }
 
-            HStack(spacing: 6) {
-                if !addressText.isEmpty {
-                    Button {
-                        copyAddressToPasteboard()
-                    } label: {
-                        Image(systemName: didCopyURL ? "checkmark.circle.fill" : "doc.on.doc")
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(didCopyURL ? Color.green : Color.textSecondary)
-                            .frame(width: 20, height: 20)
-                            .background(
-                                Circle()
-                                    .fill(isCopyHovered ? theme.buttonHoverFill : Color.clear)
-                            )
-                            .overlay(
-                                Circle()
-                                    .strokeBorder(isCopyHovered ? theme.chromeStroke : Color.clear, lineWidth: 1)
-                            )
-                            .scaleEffect(isCopyHovered ? 1.05 : 1.0)
-                            .animation(.easeInOut(duration: 0.14), value: isCopyHovered)
+                TextField("Search or enter URL", text: $addressText)
+                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                    .textFieldStyle(.plain)
+                    .foregroundStyle(Color.textPrimary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .layoutPriority(1)
+                    .focused($isFocused)
+                    .accessibilityIdentifier("browser.urlBar.textField")
+                    .onSubmit {
+                        isFocused = false
+                        viewModel.setAddressBarEditing(false)
+                        onNavigate()
                     }
-                    .buttonStyle(.plain)
-                    .onHover { hovering in
-                        isCopyHovered = hovering
+
+                HStack(spacing: 6) {
+                    if !addressText.isEmpty {
+                        Button {
+                            copyAddressToPasteboard()
+                        } label: {
+                            Image(systemName: didCopyURL ? "checkmark.circle.fill" : "doc.on.doc")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(didCopyURL ? Color.green : Color.textSecondary)
+                                .frame(width: 20, height: 20)
+                                .background(
+                                    Circle()
+                                        .fill(isCopyHovered ? theme.itemHover : Color.clear)
+                                )
+                                .overlay(
+                                    Circle()
+                                        .strokeBorder(isCopyHovered ? Color.borderSubtle : Color.clear, lineWidth: 1)
+                                )
+                                .scaleEffect(isCopyHovered ? 1.05 : 1.0)
+                                .animation(.easeInOut(duration: 0.14), value: isCopyHovered)
+                        }
+                        .buttonStyle(.plain)
+                        .onHover { hovering in
+                            isCopyHovered = hovering
+                        }
+                        .hoverCursor(.pointingHand)
+                        .help(didCopyURL ? "Copied" : "Copy URL")
+                        .modifier(
+                            URLBarAccessoryGlassModifier(
+                                namespace: glassNamespace,
+                                id: "url-bar-copy",
+                                tint: didCopyURL ? .green : (isFocused ? themeColor : nil)
+                            )
+                        )
+                    } else {
+                        Color.clear
+                            .frame(width: 32, height: 28)
                     }
-                    .hoverCursor(.pointingHand)
-                    .help(didCopyURL ? "Copied" : "Copy URL")
-                } else {
-                    Color.clear
-                        .frame(width: 46, height: 20)
                 }
+                .fixedSize(horizontal: true, vertical: false)
             }
-            .fixedSize(horizontal: true, vertical: false)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .modifier(
+                URLBarShellGlassModifier(
+                    namespace: glassNamespace,
+                    id: barGlassID,
+                    isFocused: isFocused,
+                    themeColor: themeColor
+                )
+            )
+            .modifier(URLBarStrokeModifier(isFocused: isFocused, themeColor: themeColor))
+            .shadow(
+                color: themeColor.opacity(isFocused ? 0.18 : 0.08),
+                radius: isFocused ? 16 : 10,
+                y: isFocused ? 7 : 4
+            )
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 6)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .panelBackground(theme: theme, cornerRadius: 12)
-        .background(theme.chromeMaterial, in: RoundedRectangle(cornerRadius: 12))
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .strokeBorder(isFocused ? theme.urlBarStroke : theme.chromeStroke, lineWidth: 1)
-        )
-        .shadow(
-            color: themeColor.opacity(isFocused ? 0.18 : 0.08),
-            radius: isFocused ? 16 : 10,
-            y: isFocused ? 7 : 4
-        )
         .focusRing(isFocused)
         .font(.system(size: 14, weight: .medium, design: .rounded))
         .animation(.spring(response: 0.35, dampingFraction: 0.8), value: isFocused)
@@ -155,6 +176,68 @@ struct URLBar: View {
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
             didCopyURL = false
+        }
+    }
+}
+
+private struct URLBarShellGlassModifier: ViewModifier {
+    let namespace: Namespace.ID
+    let id: String
+    let isFocused: Bool
+    let themeColor: Color
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if #available(macOS 26.0, *) {
+            content
+                .glassEffect(
+                    .regular
+                        .tint(themeColor.opacity(isFocused ? 0.14 : 0.06))
+                        .interactive(),
+                    in: Capsule()
+                )
+                .glassEffectID(id, in: namespace)
+        } else {
+            content
+                .background(Capsule().fill(.regularMaterial))
+        }
+    }
+}
+
+private struct URLBarAccessoryGlassModifier: ViewModifier {
+    let namespace: Namespace.ID
+    let id: String
+    let tint: Color?
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if #available(macOS 26.0, *) {
+            let effect: Glass = tint.map {
+                .regular.tint($0.opacity(0.12)).interactive()
+            } ?? .regular.interactive()
+
+            content
+                .glassEffect(effect, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .glassEffectID(id, in: namespace)
+        } else {
+            content
+        }
+    }
+}
+
+private struct URLBarStrokeModifier: ViewModifier {
+    let isFocused: Bool
+    let themeColor: Color
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if #available(macOS 26.0, *) {
+            content
+        } else {
+            content.overlay(
+                Capsule()
+                    .strokeBorder(isFocused ? themeColor.opacity(0.35) : Color.borderSubtle, lineWidth: 1)
+            )
         }
     }
 }

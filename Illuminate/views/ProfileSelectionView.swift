@@ -36,7 +36,7 @@ struct ProfileSelectionView: View {
 
     var body: some View {
         ZStack {
-            Color.bgBase
+            theme.windowBase
                 .ignoresSafeArea()
 
             VStack(spacing: 0) {
@@ -158,13 +158,11 @@ struct ProfileSelectionView: View {
             .frame(width: 120, height: 128)
             .background(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(isHovered
-                          ? theme.buttonHoverFill
-                          : Color.clear)
+                    .fill(isHovered ? theme.itemHover : Color.clear)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .strokeBorder(isHovered ? theme.urlBarStroke.opacity(0.55) : Color.clear, lineWidth: 1)
+                    .strokeBorder(isHovered ? Color.borderSubtle : Color.clear, lineWidth: 1)
             )
             .contentShape(RoundedRectangle(cornerRadius: 12))
         }
@@ -200,14 +198,7 @@ struct ProfileSelectionView: View {
                 .foregroundStyle(Color.textPrimary)
                 .padding(.horizontal, 20)
                 .padding(.vertical, 9)
-                .background(
-                    Capsule()
-                        .fill(Color.bgSurface)
-                )
-                .overlay(
-                    Capsule()
-                        .stroke(Color.borderGlass, lineWidth: 1)
-                )
+                .liquidGlassCapsule()
             }
             .buttonStyle(.plain)
             .hoverCursor(.pointingHand)
@@ -225,14 +216,7 @@ struct ProfileSelectionView: View {
                 .foregroundStyle(Color.textPrimary)
                 .padding(.horizontal, 20)
                 .padding(.vertical, 9)
-                .background(
-                    Capsule()
-                        .fill(Color.bgSurface)
-                )
-                .overlay(
-                    Capsule()
-                        .stroke(Color.borderGlass, lineWidth: 1)
-                )
+                .liquidGlassCapsule()
             }
             .buttonStyle(.plain)
             .hoverCursor(.pointingHand)
@@ -282,8 +266,7 @@ struct AddProfileSheet: View {
                         .font(.system(size: 13, weight: .medium))
                         .foregroundStyle(Color.textSecondary)
                         .padding(8)
-                        .background(Color.bgSurface)
-                        .clipShape(Circle())
+                        .glassBackground(cornerRadius: 999)
                 }
                 .buttonStyle(.plain)
                 .hoverCursor(.pointingHand)
@@ -309,7 +292,7 @@ struct AddProfileSheet: View {
                         .frame(width: 24, height: 24)
                         .overlay(
                             Circle()
-                                .stroke(Color.bgBase, lineWidth: selectedColorIndex == i ? 2 : 0)
+                                .stroke(theme.windowBase, lineWidth: selectedColorIndex == i ? 2 : 0)
                                 .padding(1)
                         )
                         .overlay(
@@ -330,9 +313,7 @@ struct AddProfileSheet: View {
                                         ? previewColors[selectedColorIndex]
                                         : Color.textSecondary)
                         .frame(width: 36, height: 36)
-                        .background(selectedIcon == icon
-                                    ? theme.buttonHoverFill
-                                    : Color.clear)
+                        .background(selectedIcon == icon ? theme.itemHover : Color.clear)
                         .clipShape(RoundedRectangle(cornerRadius: 6))
                         .onTapGesture { selectedIcon = icon }
                         .hoverCursor(.pointingHand)
@@ -350,7 +331,7 @@ struct AddProfileSheet: View {
 
                 Rectangle()
                     .fill(name.isEmpty
-                          ? Color.borderGlass
+                          ? Color.borderSubtle
                           : previewColors[selectedColorIndex])
                     .frame(height: 2)
                     .animation(.easeInOut(duration: 0.15), value: name.isEmpty)
@@ -393,6 +374,6 @@ struct AddProfileSheet: View {
             .padding(.bottom, 24)
         }
         .frame(width: 320)
-        .background(Color.bgBase)
+        .glassBackground(cornerRadius: 24)
     }
 }

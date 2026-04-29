@@ -26,18 +26,12 @@ struct TabPeekPreview: View {
                         .foregroundStyle(Color.textSecondary)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(Color.bgElevated.opacity(0.8))
+                .background(Color.primary.opacity(0.06))
             }
         }
         .frame(width: 220, height: 140)
         .clipped()
-        .background(Color.bgSurface.opacity(0.9))
-        .cornerRadius(12)
+        .glassBackground(cornerRadius: 12)
         .shadow(color: Color.black.opacity(0.4), radius: 16, x: 0, y: 10)
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .strokeBorder(Color.borderGlass, lineWidth: 1)
-        )
     }
 }
-

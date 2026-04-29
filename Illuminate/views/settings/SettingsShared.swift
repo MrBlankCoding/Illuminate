@@ -64,13 +64,21 @@ struct SettingsShared {
     }
 
     static func panelBackground(cornerRadius: CGFloat) -> some View {
-        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-            .fill(.ultraThinMaterial)
-            .overlay {
+        Group {
+            if #available(macOS 26.0, *) {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .strokeBorder(Color.white.opacity(0.08), lineWidth: 1)
+                    .fill(.clear)
+                    .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            } else {
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .fill(.ultraThinMaterial)
+                    .overlay {
+                        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                            .strokeBorder(Color.white.opacity(0.08), lineWidth: 1)
+                    }
             }
-            .shadow(color: Color.black.opacity(0.08), radius: 18, y: 10)
+        }
+        .shadow(color: Color.black.opacity(0.08), radius: 18, y: 10)
     }
 
     static func metricsPill(value: String, label: String) -> some View {
@@ -85,8 +93,7 @@ struct SettingsShared {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
-        .background(Color.primary.opacity(0.05))
-        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .modifier(MetricsPillModifier())
     }
 
     static func infoRow(title: String, tint: Color? = nil, trailing: @escaping () -> some View) -> some View {
@@ -111,8 +118,7 @@ struct SettingsShared {
         .foregroundStyle(tint)
         .padding(.horizontal, 11)
         .padding(.vertical, 9)
-        .background(tint.opacity(0.1))
-        .clipShape(Capsule())
+        .modifier(ActionCapsuleModifier(tint: tint))
     }
 
     static func protectionBadge(icon: String, title: String, tabManager: TabManager) -> some View {
@@ -133,8 +139,73 @@ struct SettingsShared {
             Spacer(minLength: 0)
         }
         .padding(14)
-        .background(Color.primary.opacity(0.04))
-        .clipShape(RoundedRectangle(cornerRadius: 18))
+        .modifier(ProtectionBadgeModifier(tint: tabManager.windowThemeColor))
+    }
+
+    static func glassBox(cornerRadius: CGFloat = 16, tint: Color? = nil) -> some View {
+        Group {
+            if #available(macOS 26.0, *) {
+                let effect: Glass = tint.map {
+                    .regular.tint($0.opacity(0.12)).interactive()
+                } ?? .regular.interactive()
+                
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .fill(Color.clear)
+                    .glassEffect(effect, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            } else {
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .fill(tint?.opacity(0.08) ?? Color.primary.opacity(0.05))
+            }
+        }
+    }
+}
+
+private struct MetricsPillModifier: ViewModifier {
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if #available(macOS 26.0, *) {
+            content
+                .glassEffect(in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        } else {
+            content
+                .background(Color.primary.opacity(0.05))
+                .clipShape(RoundedRectangle(cornerRadius: 14))
+        }
+    }
+}
+
+private struct ActionCapsuleModifier: ViewModifier {
+    let tint: Color
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if #available(macOS 26.0, *) {
+            content
+                .glassEffect(.regular.tint(tint.opacity(0.14)).interactive(), in: Capsule())
+        } else {
+            content
+                .background(tint.opacity(0.1))
+                .clipShape(Capsule())
+        }
+    }
+}
+
+private struct ProtectionBadgeModifier: ViewModifier {
+    let tint: Color
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if #available(macOS 26.0, *) {
+            content
+                .glassEffect(
+                    .regular.tint(tint.opacity(0.10)),
+                    in: RoundedRectangle(cornerRadius: 18, style: .continuous)
+                )
+        } else {
+            content
+                .background(Color.primary.opacity(0.04))
+                .clipShape(RoundedRectangle(cornerRadius: 18))
+        }
     }
 }
 

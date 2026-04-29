@@ -50,8 +50,8 @@ struct SidebarTabRow: View {
                 RoundedRectangle(cornerRadius: 8)
                     .fill(
                         isActive
-                            ? theme.panelActive
-                            : (tab.groupID != nil ? theme.panelGrouped : (isHovered ? theme.panelHover : Color.clear))
+                            ? theme.itemActive
+                            : (isHovered ? theme.itemHover : Color.clear)
                     )
             )
             .contentShape(RoundedRectangle(cornerRadius: 8))
@@ -81,7 +81,7 @@ struct SidebarTabRow: View {
         }
         .overlay(
             RoundedRectangle(cornerRadius: 8)
-                .strokeBorder(isActive ? theme.urlBarStroke : (isHovered ? theme.chromeStroke.opacity(0.75) : Color.clear), lineWidth: 1)
+                .strokeBorder(isActive || isHovered ? Color.borderSubtle : Color.clear, lineWidth: 1)
                 .allowsHitTesting(false)
         )
         .accessibilityIdentifier("browser.sidebar.tabRow")
@@ -109,7 +109,7 @@ struct SidebarTabRow: View {
     private var faviconPlate: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 8)
-                .fill(isActive ? theme.faviconPlateFill.blended(with: themeColor, fraction: 0.24) : theme.faviconPlateFill)
+                .fill(isActive ? theme.itemActive.blended(with: themeColor, fraction: 0.24) : Color.primary.opacity(0.05))
                 .frame(width: 24, height: 24)
 
             favicon(for: tab, isActive: isActive)
@@ -147,7 +147,7 @@ private struct CloseTabButton: View {
         Button(action: action) {
             ZStack {
                 Circle()
-                    .fill(isHovered ? Color.red.opacity(0.18) : (isActive ? theme.buttonPressedFill : theme.panelRaised))
+                    .fill(isHovered ? Color.red.opacity(0.18) : (isActive ? theme.itemActive : Color.primary.opacity(0.05)))
                     .frame(width: 20, height: 20)
 
                 Image(systemName: "xmark")

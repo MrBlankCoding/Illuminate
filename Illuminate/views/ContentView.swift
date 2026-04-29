@@ -94,10 +94,7 @@ struct ContentView: View {
 
     private var backgroundLayer: some View {
         ZStack {
-            Rectangle()
-                .visualEffect { [theme] content, proxy in
-                    content.colorEffect(theme.shellGradientShader(size: proxy.size))
-                }
+            theme.windowBase
                 .ignoresSafeArea()
 
             if !tabManager.isResizing {
@@ -118,15 +115,15 @@ struct ContentView: View {
                         .animation(.spring(response: 0.35, dampingFraction: 0.8), value: tabManager.showBackgroundBehindSidebar)
                 }
 
-                Rectangle()
-                    .fill(Color.clear)
-                    .visualEffect { [theme] content, proxy in
-                        content.colorEffect(theme.ambientGlowShader(size: proxy.size))
-                    }
-                    .ignoresSafeArea()
+                Circle()
+                    .fill(tabManager.windowThemeColor.opacity(0.14))
+                    .frame(width: 420, height: 420)
+                    .blur(radius: 90)
+                    .offset(x: -220, y: -240)
+                    .allowsHitTesting(false)
                     .animation(.easeInOut(duration: 0.8), value: tabManager.windowThemeColor)
             } else {
-                theme.panelHover.opacity(0.6)
+                theme.itemHover.opacity(0.8)
                     .ignoresSafeArea()
             }
         }
@@ -144,12 +141,11 @@ struct ContentView: View {
                     } else {
                         VisualEffectView(material: .contentBackground, blendingMode: .withinWindow)
                             .ignoresSafeArea()
-                            .overlay(theme.sidebarTint.opacity(0.16))
                     }
                 }
                 
                 Rectangle()
-                    .strokeBorder(theme.chromeStroke, lineWidth: 1)
+                    .strokeBorder(Color.borderSubtle, lineWidth: 1)
                     .padding(.top, -1)
                     .opacity(tabManager.activeTab?.url == nil ? 0.3 : 1.0)
                     .ignoresSafeArea()

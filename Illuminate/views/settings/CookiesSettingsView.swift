@@ -21,7 +21,7 @@ struct CookiesSettingsView: View {
                             set: { environment.webKitManager.cookiesEnabled = $0 }
                         ))
                         .labelsHidden()
-                        .toggleStyle(SwitchToggleStyle(tint: tabManager.windowThemeColor))
+                        .toggleStyle(GlassToggleStyle(tint: tabManager.windowThemeColor))
                         .hoverCursor(.pointingHand)
                     }
 
@@ -39,8 +39,7 @@ struct CookiesSettingsView: View {
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(Color.red)
                         .padding(14)
-                        .background(Color.red.opacity(0.08))
-                        .clipShape(RoundedRectangle(cornerRadius: 18))
+                        .background(SettingsShared.glassBox(cornerRadius: 18, tint: .red))
                     }
                     .buttonStyle(.plain)
                     .hoverCursor(.pointingHand)
