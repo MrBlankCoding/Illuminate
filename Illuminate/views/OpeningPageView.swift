@@ -131,30 +131,33 @@ struct OpeningPageView: View {
     }
 
     private var backgroundView: some View {
-
         ZStack {
-            theme.windowBase
+            fallbackBackground
 
-            RadialGradient(
-                colors: [
-                    tabManager.windowThemeColor.opacity(0.15),
-                    .clear
-                ],
-                center: .top,
-                startRadius: 0,
-                endRadius: 600
-            )
-
-            RadialGradient(
-                colors: [
-                    tabManager.windowThemeColor.opacity(0.08),
-                    .clear
-                ],
-                center: .bottom,
-                startRadius: 0,
-                endRadius: 700
-            )
+            if let backgroundImageURL {
+                CachedBackgroundImageView(url: backgroundImageURL)
+                    .overlay {
+                        LinearGradient(
+                            colors: [
+                                Color.black.opacity(theme.isDark ? 0.18 : 0.08),
+                                Color.clear,
+                                Color.black.opacity(theme.isDark ? 0.28 : 0.14)
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    }
+            }
         }
+    }
+
+    private var fallbackBackground: Color {
+        theme.isDark ? .black : .white
+    }
+
+    private var backgroundImageURL: URL? {
+        guard !tabManager.backgroundImageURL.isEmpty else { return nil }
+        return URL(string: tabManager.backgroundImageURL)
     }
 
     private func scheduleSuggestions(for query: String) {

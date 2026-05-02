@@ -16,7 +16,13 @@ final class ImageColorExtractor {
     
     func extractPalette(from url: URL, count: Int = 6) async -> [Color] {
         do {
-            let (data, _) = try await URLSession.shared.data(from: url)
+            let data: Data
+            if url.isFileURL {
+                data = try Data(contentsOf: url)
+            } else {
+                let (remoteData, _) = try await URLSession.shared.data(from: url)
+                data = remoteData
+            }
             guard let image = NSImage(data: data) else { return [] }
             
             // Downscale for performance

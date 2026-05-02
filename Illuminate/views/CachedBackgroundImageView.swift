@@ -60,11 +60,16 @@ struct CachedBackgroundImageView: View {
             }
         }
         
-        // Fetch from network
         do {
-            let (data, response) = try await URLSession.shared.data(from: targetURL)
-            guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else { return }
-            
+            let data: Data
+            if targetURL.isFileURL {
+                data = try Data(contentsOf: targetURL)
+            } else {
+                let (remoteData, response) = try await URLSession.shared.data(from: targetURL)
+                guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else { return }
+                data = remoteData
+            }
+
             if let downloadedImage = NSImage(data: data) {
                 let downsampled = downloadedImage.downsampled(toWidth: 1920)
                 if let processedData = downsampled.jpegData(compressionQuality: 0.8) {
