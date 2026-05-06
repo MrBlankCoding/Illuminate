@@ -16,6 +16,8 @@ struct ContentView: View {
     @StateObject private var findViewModel = FindViewModel()
     @StateObject private var zoomViewModel = ZoomViewModel()
     @State private var hoveredSidebarTabID: UUID?
+    
+    private let sidebarWidth: CGFloat = 180 // SIDEBAR WIDTH
 
     private var theme: BrowserTheme {
         BrowserTheme(accent: tabManager.windowThemeColor, colorScheme: colorScheme)
@@ -28,7 +30,7 @@ struct ContentView: View {
             HStack(alignment: .top, spacing: 0) {
                 if tabManager.showSidebar {
                     TabDisplayView(hoveredSidebarTabID: $hoveredSidebarTabID)
-                        .frame(width: 220)
+                        .frame(width: sidebarWidth)
                         .frame(maxHeight: .infinity)
                         .transition(.move(edge: .leading).combined(with: .opacity))
                         .zIndex(2)
@@ -49,6 +51,7 @@ struct ContentView: View {
             .overlayPreferenceValue(TabRowFramePreferenceKey.self) { preferences in
                 GeometryReader { geometry in
                     if let hoveredID = hoveredSidebarTabID,
+                       tabManager.sidebarPanel == .tabs,
                        let anchor = preferences[hoveredID],
                        let tab = tabManager.tabs.first(where: { $0.id == hoveredID }) {
                         let rect = geometry[anchor]
@@ -105,7 +108,7 @@ struct ContentView: View {
                                 let showInSidebar = tabManager.showBackgroundBehindSidebar
                                 
                                 Rectangle()
-                                    .frame(width: tabManager.showSidebar ? 220 : 0)
+                                    .frame(width: tabManager.showSidebar ? sidebarWidth : 0)
                                     .opacity(showInSidebar ? 1.0 : 0.0)
                                 Rectangle()
                             }
@@ -119,7 +122,7 @@ struct ContentView: View {
                     .fill(tabManager.windowThemeColor.opacity(0.14))
                     .frame(width: 420, height: 420)
                     .blur(radius: 90)
-                    .offset(x: -220, y: -240)
+                    .offset(x: -sidebarWidth, y: -240)
                     .allowsHitTesting(false)
                     .animation(.easeInOut(duration: 0.8), value: tabManager.windowThemeColor)
             } else {
@@ -139,7 +142,8 @@ struct ContentView: View {
                     if tabManager.activeTab?.url == nil {
                         Color.clear
                     } else {
-                        VisualEffectView(material: .contentBackground, blendingMode: .withinWindow)
+                        Rectangle()
+                            .fill(.ultraThinMaterial)
                             .ignoresSafeArea()
                     }
                 }

@@ -11,7 +11,6 @@ struct SidebarFooter: View {
     var activeTab: Tab?
     @EnvironmentObject private var tabManager: TabManager
     @ObservedObject private var downloadManager = DownloadManager.shared
-    @State private var showingDownloads = false
 
     var body: some View {
         VStack(spacing: 12) {
@@ -20,45 +19,43 @@ struct SidebarFooter: View {
 
             HStack {
                 LiquidGlassGroup(spacing: 8) {
-                HStack(spacing: 8) {
-                    if let activeTab, activeTab.hasPiPCandidate {
+                    HStack(spacing: 8) {
+                        if let activeTab, activeTab.hasPiPCandidate {
+                            SidebarActionButton(
+                                iconName: "rectangle.inset.filled",
+                                themeColor: tabManager.windowThemeColor,
+                                help: "Picture in Picture"
+                            ) {
+                                activeTab.togglePictureInPicture()
+                            }
+                        }
+
                         SidebarActionButton(
-                            iconName: "rectangle.inset.filled",
+                            iconName: "gearshape.fill",
                             themeColor: tabManager.windowThemeColor,
-                            help: "Picture in Picture"
+                            help: "Settings"
                         ) {
-                            activeTab.togglePictureInPicture()
+                            tabManager.openSettingsTab()
                         }
                     }
-
-                    SidebarActionButton(
-                        iconName: "gearshape.fill",
-                        themeColor: tabManager.windowThemeColor,
-                        help: "Settings"
-                    ) {
-                        tabManager.openSettingsTab()
-                    }
-
-                    SidebarActionButton(
-                        iconName: downloadButtonIconName,
-                        themeColor: tabManager.windowThemeColor,
-                        symbolColor: downloadButtonColor,
-                        help: "Downloads"
-                    ) {
-                        downloadManager.acknowledgeRecentCompletedDownload()
-                        showingDownloads = true
-                    }
-                    .popover(isPresented: $showingDownloads, arrowEdge: .top) {
-                        DownloadsView()
-                            .environmentObject(tabManager)
-                    }
-                }
                 }
 
                 Spacer()
 
                 if let tab = activeTab {
                     LoadingIndicatorView(tab: tab)
+                }
+
+                SidebarActionButton(
+                    iconName: downloadButtonIconName,
+                    themeColor: tabManager.windowThemeColor,
+                    symbolColor: downloadButtonColor,
+                    help: "Downloads"
+                ) {
+                    downloadManager.acknowledgeRecentCompletedDownload()
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                        tabManager.toggleDownloadsSidebar()
+                    }
                 }
             }
             .padding(.horizontal, 2)
@@ -72,7 +69,10 @@ struct SidebarFooter: View {
     }
 
     private var downloadButtonColor: Color? {
-        downloadManager.hasRecentCompletedDownload ? .green : nil
+        if tabManager.sidebarPanel == .downloads {
+            return tabManager.windowThemeColor
+        }
+        return downloadManager.hasRecentCompletedDownload ? .green : nil
     }
 }
 
@@ -116,23 +116,11 @@ private struct SidebarActionButtonBackground: ViewModifier {
 
     @ViewBuilder
     func body(content: Content) -> some View {
-        if #available(macOS 26.0, *) {
-            content
-                .glassEffect(
-                    .regular.tint(themeColor.opacity(0.10)).interactive(),
-                    in: Circle()
-                )
-        } else {
-            content
-                .background(
-                    Circle()
-                        .fill(isHovered ? themeColor.opacity(0.18) : Color.clear)
-                )
-                .overlay(
-                    Circle()
-                        .strokeBorder(isHovered ? Color.borderSubtle : Color.clear, lineWidth: 1)
-                )
-        }
+        content
+            .background {
+                Circle().fill(.regularMaterial)
+                Circle().fill(themeColor.opacity(isHovered ? 0.18 : 0.10))
+            }
     }
 }
 

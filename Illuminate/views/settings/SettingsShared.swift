@@ -64,21 +64,13 @@ struct SettingsShared {
     }
 
     static func panelBackground(cornerRadius: CGFloat) -> some View {
-        Group {
-            if #available(macOS 26.0, *) {
+        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+            .fill(.ultraThinMaterial)
+            .overlay {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(.clear)
-                    .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-            } else {
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(.ultraThinMaterial)
-                    .overlay {
-                        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                            .strokeBorder(Color.white.opacity(0.08), lineWidth: 1)
-                    }
+                    .stroke(.white.opacity(0.1), lineWidth: 0.5)
             }
-        }
-        .shadow(color: Color.black.opacity(0.08), radius: 18, y: 10)
+            .shadow(color: Color.black.opacity(0.08), radius: 18, y: 10)
     }
 
     static func metricsPill(value: String, label: String) -> some View {
@@ -144,17 +136,11 @@ struct SettingsShared {
 
     static func glassBox(cornerRadius: CGFloat = 16, tint: Color? = nil) -> some View {
         Group {
-            if #available(macOS 26.0, *) {
-                let effect: Glass = tint.map {
-                    .regular.tint($0.opacity(0.12)).interactive()
-                } ?? .regular.interactive()
-                
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .fill(.regularMaterial)
+            if let tint {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(Color.clear)
-                    .glassEffect(effect, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-            } else {
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(tint?.opacity(0.08) ?? Color.primary.opacity(0.05))
+                    .fill(tint.opacity(0.12))
             }
         }
     }
@@ -163,14 +149,8 @@ struct SettingsShared {
 private struct MetricsPillModifier: ViewModifier {
     @ViewBuilder
     func body(content: Content) -> some View {
-        if #available(macOS 26.0, *) {
-            content
-                .glassEffect(in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-        } else {
-            content
-                .background(Color.primary.opacity(0.05))
-                .clipShape(RoundedRectangle(cornerRadius: 14))
-        }
+        content
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 }
 
@@ -179,14 +159,11 @@ private struct ActionCapsuleModifier: ViewModifier {
 
     @ViewBuilder
     func body(content: Content) -> some View {
-        if #available(macOS 26.0, *) {
-            content
-                .glassEffect(.regular.tint(tint.opacity(0.14)).interactive(), in: Capsule())
-        } else {
-            content
-                .background(tint.opacity(0.1))
-                .clipShape(Capsule())
-        }
+        content
+            .background {
+                Capsule().fill(.regularMaterial)
+                Capsule().fill(tint.opacity(0.14))
+            }
     }
 }
 
@@ -195,17 +172,11 @@ private struct ProtectionBadgeModifier: ViewModifier {
 
     @ViewBuilder
     func body(content: Content) -> some View {
-        if #available(macOS 26.0, *) {
-            content
-                .glassEffect(
-                    .regular.tint(tint.opacity(0.10)),
-                    in: RoundedRectangle(cornerRadius: 18, style: .continuous)
-                )
-        } else {
-            content
-                .background(Color.primary.opacity(0.04))
-                .clipShape(RoundedRectangle(cornerRadius: 18))
-        }
+        content
+            .background {
+                RoundedRectangle(cornerRadius: 18, style: .continuous).fill(.regularMaterial)
+                RoundedRectangle(cornerRadius: 18, style: .continuous).fill(tint.opacity(0.10))
+            }
     }
 }
 

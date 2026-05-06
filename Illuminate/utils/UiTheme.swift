@@ -34,20 +34,12 @@ struct GlassModifier: ViewModifier {
     var cornerRadius: CGFloat = 8
 
     func body(content: Content) -> some View {
-        if #available(macOS 26.0, *) {
-            content
-                .glassEffect(in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-        } else {
-            content
-                .background(
-                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                        .fill(.regularMaterial)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                        .strokeBorder(Color.borderSubtle, lineWidth: 0.5)
-                )
-        }
+        content
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .stroke(.white.opacity(0.12), lineWidth: 0.5)
+            }
     }
 }
 
@@ -56,20 +48,18 @@ struct LiquidGlassCapsuleModifier: ViewModifier {
     var padding: CGFloat = 0
 
     func body(content: Content) -> some View {
-        if #available(macOS 26.0, *) {
-            let effect: Glass = tint.map {
-                .regular.tint($0.opacity(0.10)).interactive()
-            } ?? .regular.interactive()
-
-            content
-                .padding(padding)
-                .glassEffect(effect, in: Capsule())
-        } else {
-            content
-                .padding(padding)
-                .background(Capsule().fill(.regularMaterial))
-                .overlay(Capsule().strokeBorder(Color.borderSubtle, lineWidth: 0.5))
-        }
+        content
+            .padding(padding)
+            .background(.ultraThinMaterial, in: Capsule())
+            .background {
+                if let tint {
+                    Capsule().fill(tint.opacity(0.12))
+                }
+            }
+            .overlay {
+                Capsule()
+                    .stroke(.white.opacity(0.15), lineWidth: 0.5)
+            }
     }
 }
 
@@ -84,74 +74,35 @@ extension View {
 
     @ViewBuilder
     func browserPanel(cornerRadius: CGFloat = 10) -> some View {
-        if #available(macOS 26.0, *) {
-            self.glassEffect(
-                in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-            )
-        } else {
-            self.background(
+        self.background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            .overlay {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(.regularMaterial)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                            .strokeBorder(Color.borderSubtle, lineWidth: 0.5)
-                    )
-            )
-        }
+                    .stroke(.white.opacity(0.1), lineWidth: 0.5)
+            }
     }
 
     @ViewBuilder
     func insetPanel(cornerRadius: CGFloat = 8) -> some View {
-        if #available(macOS 26.0, *) {
-            self.glassEffect(
-                .regular,
-                in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-            )
-        } else {
-            self.background(
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(.thinMaterial)
-            )
-        }
+        self.background(.thinMaterial, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
     }
 
     @ViewBuilder
     func accentGlassPanel(accent: Color, cornerRadius: CGFloat = 10) -> some View {
-        if #available(macOS 26.0, *) {
-            self.glassEffect(
-                .regular.tint(accent.opacity(0.12)).interactive(),
-                in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-            )
-        } else {
-            self.background(
+        self.background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            .background {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(.regularMaterial)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                            .strokeBorder(accent.opacity(0.25), lineWidth: 0.5)
-                    )
-            )
-        }
+                    .fill(accent.opacity(0.14))
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .stroke(.white.opacity(0.15), lineWidth: 0.5)
+            }
     }
 
     @ViewBuilder
     func floatingGlassPanel(cornerRadius: CGFloat = 10) -> some View {
-        if #available(macOS 26.0, *) {
-            self.glassEffect(
-                .regular.interactive(),
-                in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-            )
-        } else {
-            self
-                .background(
-                    VisualEffectView(material: .menu, blendingMode: .withinWindow)
-                        .cornerRadius(cornerRadius)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                        .strokeBorder(Color.borderSubtle, lineWidth: 0.5)
-                )
-        }
+        self.background(.regularMaterial, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            .shadow(color: .black.opacity(0.12), radius: 10, y: 5)
     }
 
     func focusRing(_ active: Bool) -> some View {
@@ -167,37 +118,23 @@ struct GlassButtonStyle: ButtonStyle {
     var tint: Color? = nil
 
     func makeBody(configuration: Configuration) -> some View {
-        if #available(macOS 26.0, *) {
-            let effect: Glass = tint.map {
-                .regular.tint($0.opacity(0.10)).interactive()
-            } ?? .regular.interactive()
-
-            configuration.label
-                .font(.webBody)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 6)
-                .glassEffect(
-                    effect,
-                    in: RoundedRectangle(cornerRadius: 6, style: .continuous)
-                )
-                .scaleEffect(configuration.isPressed ? 0.97 : 1)
-                .animation(.easeOut(duration: 0.1), value: configuration.isPressed)
-        } else {
-            configuration.label
-                .font(.webBody)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 6)
-                .background(
+        configuration.label
+            .font(.webBody)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 6)
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+            .background {
+                if let tint {
                     RoundedRectangle(cornerRadius: 6, style: .continuous)
-                        .fill(.regularMaterial)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 6, style: .continuous)
-                                .strokeBorder(Color.borderSubtle, lineWidth: 0.5)
-                        )
-                )
-                .scaleEffect(configuration.isPressed ? 0.97 : 1)
-                .animation(.easeOut(duration: 0.1), value: configuration.isPressed)
-        }
+                        .fill(tint.opacity(0.12))
+                }
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .stroke(.white.opacity(0.1), lineWidth: 0.5)
+            }
+            .scaleEffect(configuration.isPressed ? 0.97 : 1)
+            .animation(.easeOut(duration: 0.1), value: configuration.isPressed)
     }
 }
 
@@ -209,16 +146,12 @@ struct GlassToggleStyle: ToggleStyle {
             configuration.label
             Spacer()
             ZStack(alignment: configuration.isOn ? .trailing : .leading) {
-                if #available(macOS 26.0, *) {
+                Capsule()
+                    .fill(.ultraThinMaterial)
+                
+                if configuration.isOn {
                     Capsule()
-                        .fill(Color.clear)
-                        .glassEffect(
-                            configuration.isOn ? .regular.tint(tint.opacity(0.15)) : .regular,
-                            in: Capsule()
-                        )
-                } else {
-                    Capsule()
-                        .fill(configuration.isOn ? tint : Color.primary.opacity(0.1))
+                        .fill(tint.opacity(0.2))
                 }
 
                 Circle()
@@ -227,6 +160,10 @@ struct GlassToggleStyle: ToggleStyle {
                     .padding(2)
             }
             .frame(width: 36, height: 20)
+            .overlay {
+                Capsule()
+                    .stroke(.white.opacity(0.1), lineWidth: 0.5)
+            }
             .onTapGesture {
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                     configuration.isOn.toggle()
@@ -242,13 +179,7 @@ struct LiquidGlassGroup<Content: View>: View {
     @ViewBuilder let content: Content
 
     var body: some View {
-        if #available(macOS 26.0, *) {
-            GlassEffectContainer(spacing: spacing) {
-                content
-            }
-        } else {
-            content
-        }
+        content
     }
 }
 
@@ -258,11 +189,7 @@ struct GlassEffectIDModifier: ViewModifier {
 
     @ViewBuilder
     func body(content: Content) -> some View {
-        if #available(macOS 26.0, *) {
-            content.glassEffectID(id, in: namespace)
-        } else {
-            content
-        }
+        content
     }
 }
 

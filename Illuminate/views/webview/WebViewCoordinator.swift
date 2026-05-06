@@ -241,6 +241,12 @@ extension WebViewRepresentable {
         ) {
             guard let tab else { return }
             tab.isLoading = false
+            guard !isCancellationError(error) else {
+                tab.lastNavigationHadNetworkError = false
+                tab.lastNetworkErrorMessage = nil
+                tab.isDNSError = false
+                return
+            }
             tab.lastNavigationHadNetworkError = isNetworkError(error)
             tab.lastNetworkErrorMessage = error.localizedDescription
             tab.isDNSError = isDNSError(error)
@@ -664,7 +670,13 @@ extension WebViewRepresentable {
         }
 
         private func isNetworkError(_ error: Error) -> Bool {
-            (error as NSError).domain == NSURLErrorDomain
+            let nsError = error as NSError
+            return nsError.domain == NSURLErrorDomain && nsError.code != NSURLErrorCancelled
+        }
+
+        private func isCancellationError(_ error: Error) -> Bool {
+            let nsError = error as NSError
+            return nsError.domain == NSURLErrorDomain && nsError.code == NSURLErrorCancelled
         }
 
         private func isDNSError(_ error: Error) -> Bool {

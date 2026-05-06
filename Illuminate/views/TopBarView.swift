@@ -14,7 +14,6 @@ struct TopBarView: View {
     @Environment(\.colorScheme) private var colorScheme
     @Binding var addressBarText: String
     let onNavigate: () -> Void
-    
     private var theme: BrowserTheme {
         BrowserTheme(accent: tabManager.windowThemeColor, colorScheme: colorScheme)
     }
@@ -22,23 +21,39 @@ struct TopBarView: View {
     var body: some View {
         LiquidGlassGroup(spacing: 12) {
         HStack(spacing: 16) {
-            Group {
-                if let activeTab = tabManager.activeTab {
-                    NavigationControls(tab: activeTab, themeColor: tabManager.windowThemeColor)
-                } else {
-                    HStack(spacing: 4) {
-                        Image(systemName: "chevron.left").opacity(0.2)
-                        Image(systemName: "chevron.right").opacity(0.2)
-                        Image(systemName: "arrow.clockwise").opacity(0.2)
+            HStack(spacing: 10) {
+                Button {
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                        tabManager.showSidebar.toggle()
                     }
-                    .font(.system(size: 13, weight: .bold))
-                    .foregroundStyle(Color.textSecondary)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .liquidGlassCapsule(tint: tabManager.windowThemeColor, padding: 0)
+                } label: {
+                    Image(systemName: tabManager.showSidebar ? "sidebar.left" : "sidebar.right")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(Color.textSecondary)
+                        .frame(width: 26, height: 26)
+                        .modifier(ProfileIconGlassModifier(theme: theme, tint: tabManager.windowThemeColor))
                 }
+                .buttonStyle(.plain)
+                .help(tabManager.showSidebar ? "Hide Sidebar" : "Show Sidebar")
+
+                Group {
+                    if let activeTab = tabManager.activeTab {
+                        NavigationControls(tab: activeTab, themeColor: tabManager.windowThemeColor)
+                    } else {
+                        HStack(spacing: 4) {
+                            Image(systemName: "chevron.left").opacity(0.2)
+                            Image(systemName: "chevron.right").opacity(0.2)
+                            Image(systemName: "arrow.clockwise").opacity(0.2)
+                        }
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(Color.textSecondary)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .liquidGlassCapsule(tint: tabManager.windowThemeColor, padding: 0)
+                    }
+                }
+                .fixedSize()
             }
-            .fixedSize()
             
             Spacer(minLength: 0)
             
@@ -80,9 +95,9 @@ struct TopBarView: View {
                 }
             } label: {
                 Image(systemName: profileEnvironment.profile.iconName)
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(Color.textSecondary)
-                    .frame(width: 28, height: 28)
+                    .frame(width: 26, height: 26)
                     .modifier(ProfileIconGlassModifier(theme: theme, tint: tabManager.windowThemeColor))
             }
             .menuStyle(.borderlessButton)
@@ -90,7 +105,7 @@ struct TopBarView: View {
         }
         .padding(.leading, tabManager.showSidebar ? 16 : 80)
         .padding(.trailing, 20)
-        .padding(.vertical, 6)
+        .frame(height: 38)
         }
         .background(
             ZStack {
@@ -114,22 +129,15 @@ private struct ProfileIconGlassModifier: ViewModifier {
 
     @ViewBuilder
     func body(content: Content) -> some View {
-        if #available(macOS 26.0, *) {
-            content
-                .glassEffect(
-                    .regular
-                        .tint(tint.opacity(0.10))
-                        .interactive(),
-                    in: Circle()
-                )
-        } else {
-            content
-                .background(
-                    Circle()
-                        .fill(.regularMaterial)
-                        .shadow(color: Color.black.opacity(0.05), radius: 1, y: 1)
-                )
-        }
+        content
+            .background(.ultraThinMaterial, in: Circle())
+            .background {
+                Circle().fill(tint.opacity(0.12))
+            }
+            .overlay {
+                Circle()
+                    .stroke(.white.opacity(0.12), lineWidth: 0.5)
+            }
     }
 }
 
@@ -137,13 +145,7 @@ private struct TopBarBackground: View {
     let theme: BrowserTheme
 
     var body: some View {
-        if #available(macOS 26.0, *) {
-            Rectangle()
-                .fill(.clear)
-                .glassEffect(in: Rectangle())
-        } else {
-            Rectangle()
-                .fill(.regularMaterial)
-        }
+        Rectangle()
+            .fill(.ultraThinMaterial)
     }
 }

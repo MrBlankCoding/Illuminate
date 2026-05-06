@@ -93,18 +93,8 @@ struct DownloadsTabView: View {
 
     private func panelBackground(cornerRadius: CGFloat) -> some View {
         Group {
-            if #available(macOS 26.0, *) {
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(.clear)
-                    .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-            } else {
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(.ultraThinMaterial)
-                    .overlay {
-                        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                            .strokeBorder(Color.white.opacity(0.08), lineWidth: 1)
-                    }
-            }
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .fill(.ultraThinMaterial)
         }
         .shadow(color: Color.black.opacity(0.08), radius: 18, y: 10)
     }

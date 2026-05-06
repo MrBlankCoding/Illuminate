@@ -41,7 +41,7 @@ struct NavigationControls: View {
                 }
             }
         }
-        .padding(.horizontal, 6)
+        .padding(.horizontal, 8)
         .padding(.vertical, 4)
         .liquidGlassCapsule(tint: themeColor, padding: 0)
     }
@@ -70,9 +70,9 @@ private struct NavigationControlButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: systemName)
-                .font(.system(size: 13, weight: .bold))
+                .font(.system(size: 12, weight: .bold))
                 .foregroundStyle(isEnabled ? (isGreyedOut ? Color.textSecondary.opacity(0.4) : Color.textPrimary) : Color.textSecondary.opacity(0.2))
-                .frame(width: 28, height: 28)
+                .frame(width: 26, height: 26)
                 .background(
                     Circle()
                         .fill(isEnabled && isHovered && !isGreyedOut ? theme.itemHover : Color.clear)

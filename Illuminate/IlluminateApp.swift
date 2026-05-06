@@ -19,6 +19,7 @@ struct IlluminateApp: App {
     private let keyboardShortcutHandler: KeyboardShortcutHandler
     private let backgroundResourceManager: BackgroundResourceManager
     private let runtimeSecurityMonitor: RuntimeSecurityMonitor
+    private let passkeyAuthorizationService: PasskeyAuthorizationService
 
 
     let modelContainer: ModelContainer
@@ -31,6 +32,7 @@ struct IlluminateApp: App {
         keyboardShortcutHandler    = KeyboardShortcutHandler(notificationCenter: center)
         backgroundResourceManager  = BackgroundResourceManager()
         runtimeSecurityMonitor     = RuntimeSecurityMonitor(notificationCenter: center)
+        passkeyAuthorizationService = .shared
 
         do {
             let container: ModelContainer
@@ -48,6 +50,7 @@ struct IlluminateApp: App {
 
         runtimeSecurityMonitor.startMonitoring()
         backgroundResourceManager.start()
+        passkeyAuthorizationService.requestAccessIfNeeded()
     }
 
     var body: some Scene {

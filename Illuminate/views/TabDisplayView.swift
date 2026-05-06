@@ -8,6 +8,7 @@
 import SwiftUI
 import SwiftData
 import AppKit
+import UniformTypeIdentifiers
 
 struct TabDisplayView: View {
     @EnvironmentObject private var environment: ProfileEnvironment
@@ -18,6 +19,7 @@ struct TabDisplayView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Bookmark.title) private var allBookmarks: [Bookmark]
     @Binding var hoveredSidebarTabID: UUID?
+    @ObservedObject private var downloadManager = DownloadManager.shared
     @State private var hoveredTabID: UUID?
     @State private var hoveredNewTabButton = false
     @State private var dropTargetID: UUID?
@@ -48,13 +50,13 @@ struct TabDisplayView: View {
                     .padding(.bottom, 2)
                     
             ScrollView(.vertical, showsIndicators: false) {
-                tabsListContent
+                sidebarContent
                     .padding(.vertical, 6)
             }
             .layoutPriority(1)
 
             VStack(spacing: 0) {
-                if !bookmarks.isEmpty {
+                if tabManager.sidebarPanel == .tabs, !bookmarks.isEmpty {
                     CavedDivider()
                         .padding(.bottom, 2)
                     bookmarkDock
@@ -72,9 +74,11 @@ struct TabDisplayView: View {
                 NSApp.keyWindow?.makeFirstResponder(nil)
             }
             .contextMenu {
-                Button("Create Tab Group") {
-                    newGroupName = ""
-                    showingCreateGroup = true
+                if tabManager.sidebarPanel == .tabs {
+                    Button("Create Tab Group") {
+                        newGroupName = ""
+                        showingCreateGroup = true
+                    }
                 }
             }
             .sheet(isPresented: $showingCreateGroup) {
@@ -95,6 +99,16 @@ struct TabDisplayView: View {
                 .strokeBorder(Color.borderSubtle, lineWidth: 1)
                 .padding(.top, -1)
         )
+    }
+
+    @ViewBuilder
+    private var sidebarContent: some View {
+        switch tabManager.sidebarPanel {
+        case .tabs:
+            tabsListContent
+        case .downloads:
+            downloadsListContent
+        }
     }
 
     private var tabsListContent: some View {
@@ -133,6 +147,63 @@ struct TabDisplayView: View {
         }
         .padding(.bottom, 12)
         .contentShape(Rectangle())
+    }
+
+    private var downloadsListContent: some View {
+        LazyVStack(alignment: .leading, spacing: 8) {
+            downloadsHeader
+
+            if downloadManager.downloads.isEmpty {
+                downloadsEmptyState
+            } else {
+                ForEach(downloadManager.downloads) { task in
+                    SidebarDownloadRow(task: task, themeColor: tabManager.windowThemeColor)
+                }
+            }
+        }
+        .padding(.bottom, 12)
+        .contentShape(Rectangle())
+    }
+
+    private var downloadsHeader: some View {
+        HStack(spacing: 8) {
+            Label("Downloads", systemImage: "arrow.down.circle")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Color.textPrimary)
+
+            Spacer()
+
+            if !downloadManager.downloads.isEmpty {
+                Button("Clear") {
+                    downloadManager.clearFinishedDownloads()
+                }
+                .buttonStyle(.plain)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(Color.textSecondary)
+            }
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 8)
+    }
+
+    private var downloadsEmptyState: some View {
+        VStack(spacing: 10) {
+            Image(systemName: "arrow.down.circle")
+                .font(.system(size: 28))
+                .foregroundStyle(Color.textSecondary.opacity(0.6))
+
+            Text("No downloads yet")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Color.textPrimary)
+
+            Text("Files you download will appear here.")
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(Color.textSecondary)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, 20)
+        .padding(.vertical, 28)
     }
     
     private var insertionIndicator: some View {
@@ -319,18 +390,143 @@ struct TabDisplayView: View {
     }
 }
 
+private struct SidebarDownloadRow: View {
+    let task: DownloadTask
+    let themeColor: Color
+
+    var body: some View {
+        HStack(spacing: 10) {
+            fileIcon
+
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 8) {
+                    Text(task.filename)
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(Color.textPrimary)
+                        .lineLimit(1)
+
+                    Spacer(minLength: 0)
+
+                    if task.state == .completed, task.destinationURL != nil {
+                        Button("Open in Finder") {
+                            DownloadManager.shared.revealDownload(task)
+                        }
+                        .buttonStyle(.plain)
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(themeColor)
+                    } else if task.isActive {
+                        Button("Cancel") {
+                            DownloadManager.shared.cancelDownload(id: task.id)
+                        }
+                        .buttonStyle(.plain)
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(.red)
+                    }
+                }
+
+                HStack(spacing: 8) {
+                    Text(secondaryText)
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(Color.textSecondary)
+                        .lineLimit(1)
+
+                    Spacer(minLength: 0)
+
+                    Text(stateLabel)
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundStyle(statusTint)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 4)
+                        .background(statusTint.opacity(0.12))
+                        .clipShape(Capsule())
+                }
+
+                if task.isActive {
+                    ProgressView(value: task.progress)
+                        .progressViewStyle(.linear)
+                        .tint(themeColor)
+                }
+            }
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 8)
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .fill(Color.white.opacity(0.045))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .strokeBorder(Color.borderSubtle, lineWidth: 1)
+        )
+        .padding(.horizontal, 4)
+    }
+
+    private var fileIcon: some View {
+        Image(nsImage: resolvedFileIcon)
+            .resizable()
+            .interpolation(.high)
+            .scaledToFit()
+            .frame(width: 28, height: 28)
+    }
+
+    private var stateLabel: String {
+        switch task.state {
+        case .preparing:
+            return "Preparing"
+        case .downloading:
+            return "Downloading"
+        case .completed:
+            return "Complete"
+        case .failed:
+            return "Failed"
+        case .cancelled:
+            return "Cancelled"
+        }
+    }
+
+    private var secondaryText: String {
+        switch task.state {
+        case .completed:
+            if let destinationURL = task.destinationURL {
+                return destinationURL.deletingLastPathComponent().lastPathComponent
+            }
+            return "Completed"
+        default:
+            return task.statusDescription
+        }
+    }
+
+    private var statusTint: Color {
+        switch task.state {
+        case .completed:
+            return .green
+        case .failed, .cancelled:
+            return .red
+        case .preparing, .downloading:
+            return themeColor
+        }
+    }
+
+    private var resolvedFileIcon: NSImage {
+        if let destinationURL = task.destinationURL {
+            return NSWorkspace.shared.icon(forFile: destinationURL.path)
+        }
+
+        let fileExtension = (task.filename as NSString).pathExtension
+        if let contentType = UTType(filenameExtension: fileExtension), !fileExtension.isEmpty {
+            return NSWorkspace.shared.icon(for: contentType)
+        }
+
+        return NSWorkspace.shared.icon(for: .data)
+    }
+}
+
 private struct SidebarBackground: View {
     let theme: BrowserTheme
 
     var body: some View {
-        if #available(macOS 26.0, *) {
-            Rectangle()
-                .fill(.clear)
-                .glassEffect(in: Rectangle())
-        } else {
-            Rectangle()
-                .fill(.regularMaterial)
-        }
+        Rectangle()
+            .fill(.ultraThinMaterial)
     }
 }
 

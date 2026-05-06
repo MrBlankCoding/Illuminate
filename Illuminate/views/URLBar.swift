@@ -38,7 +38,7 @@ struct URLBar: View {
                     Image(systemName: statusIcon)
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(isFocused ? themeColor : Color.textSecondary)
-                        .frame(width: 28, height: 28)
+                        .frame(width: 24, height: 24)
                         .background(
                             RoundedRectangle(cornerRadius: 8, style: .continuous)
                                 .fill(showingPageInfo ? theme.itemActive : Color.clear)
@@ -78,9 +78,9 @@ struct URLBar: View {
                             copyAddressToPasteboard()
                         } label: {
                             Image(systemName: didCopyURL ? "checkmark.circle.fill" : "doc.on.doc")
-                                .font(.system(size: 12, weight: .semibold))
+                                .font(.system(size: 11, weight: .semibold))
                                 .foregroundStyle(didCopyURL ? Color.green : Color.textSecondary)
-                                .frame(width: 20, height: 20)
+                                .frame(width: 18, height: 18)
                                 .background(
                                     Circle()
                                         .fill(isCopyHovered ? theme.itemHover : Color.clear)
@@ -107,13 +107,13 @@ struct URLBar: View {
                         )
                     } else {
                         Color.clear
-                            .frame(width: 32, height: 28)
+                            .frame(width: 26, height: 24)
                     }
                 }
                 .fixedSize(horizontal: true, vertical: false)
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 2)
             .frame(maxWidth: .infinity, alignment: .leading)
             .modifier(
                 URLBarShellGlassModifier(
@@ -131,7 +131,7 @@ struct URLBar: View {
             )
         }
         .focusRing(isFocused)
-        .font(.system(size: 14, weight: .medium, design: .rounded))
+        .font(.system(size: 13, weight: .medium, design: .rounded))
         .animation(.spring(response: 0.35, dampingFraction: 0.8), value: isFocused)
         .hoverCursor(.iBeam)
         .onAppear {
@@ -188,19 +188,15 @@ private struct URLBarShellGlassModifier: ViewModifier {
 
     @ViewBuilder
     func body(content: Content) -> some View {
-        if #available(macOS 26.0, *) {
-            content
-                .glassEffect(
-                    .regular
-                        .tint(themeColor.opacity(isFocused ? 0.14 : 0.06))
-                        .interactive(),
-                    in: Capsule()
-                )
-                .glassEffectID(id, in: namespace)
-        } else {
-            content
-                .background(Capsule().fill(.regularMaterial))
-        }
+        content
+            .background(.ultraThinMaterial, in: Capsule())
+            .background {
+                Capsule().fill(themeColor.opacity(isFocused ? 0.16 : 0.08))
+            }
+            .overlay {
+                Capsule()
+                    .stroke(.white.opacity(isFocused ? 0.2 : 0.1), lineWidth: 0.5)
+            }
     }
 }
 
@@ -211,17 +207,17 @@ private struct URLBarAccessoryGlassModifier: ViewModifier {
 
     @ViewBuilder
     func body(content: Content) -> some View {
-        if #available(macOS 26.0, *) {
-            let effect: Glass = tint.map {
-                .regular.tint($0.opacity(0.12)).interactive()
-            } ?? .regular.interactive()
-
-            content
-                .glassEffect(effect, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-                .glassEffectID(id, in: namespace)
-        } else {
-            content
-        }
+        content
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .background {
+                if let tint {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous).fill(tint.opacity(0.14))
+                }
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .stroke(.white.opacity(0.12), lineWidth: 0.5)
+            }
     }
 }
 
@@ -231,13 +227,6 @@ private struct URLBarStrokeModifier: ViewModifier {
 
     @ViewBuilder
     func body(content: Content) -> some View {
-        if #available(macOS 26.0, *) {
-            content
-        } else {
-            content.overlay(
-                Capsule()
-                    .strokeBorder(isFocused ? themeColor.opacity(0.35) : Color.borderSubtle, lineWidth: 1)
-            )
-        }
+        content
     }
 }

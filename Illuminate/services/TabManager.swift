@@ -19,6 +19,10 @@ struct ClosedTabSnapshot {
 
 @MainActor
 final class TabManager: ObservableObject {
+    enum SidebarPanel {
+        case tabs
+        case downloads
+    }
 
     private enum Defaults {
         static let themeColor        = "89BBFF"
@@ -57,6 +61,8 @@ final class TabManager: ObservableObject {
     @Published var showBackgroundBehindSidebar: Bool {
         didSet { persistIfEnabled(showBackgroundBehindSidebar, forKey: "showBackgroundBehindSidebar") }
     }
+
+    @Published var sidebarPanel: SidebarPanel = .tabs
 
     @Published var userInterfaceStyle: UIStyle {
         didSet { persistIfEnabled(userInterfaceStyle.rawValue, forKey: "userInterfaceStyle") }
@@ -415,6 +421,21 @@ final class TabManager: ObservableObject {
 
         let tab = createTab(url: settingsURL)
         tab.title = "Settings"
+    }
+
+    func showTabsSidebar() {
+        sidebarPanel = .tabs
+        showSidebar = true
+    }
+
+    func toggleDownloadsSidebar() {
+        if showSidebar, sidebarPanel == .downloads {
+            sidebarPanel = .tabs
+            return
+        }
+
+        sidebarPanel = .downloads
+        showSidebar = true
     }
 
     func createTabGroup(name: String, color: String) {
