@@ -11,23 +11,6 @@ import Testing
 
 @MainActor
 struct ViewModelBehaviorTests {
-
-    @Test func navigateToSettingsURLUsesInternalSettingsRoute() async throws {
-        let synchronizer = URLSynchronizer()
-        let tabManager = TabManager(urlSynchronizer: synchronizer, isPersistenceEnabled: false)
-        let viewModel = ContentViewModel(tabManager: tabManager, urlSynchronizer: synchronizer)
-        _ = try #require(tabManager.activeTab)
-
-        viewModel.addressBarText = "illuminate://settings"
-        viewModel.navigateToAddressBarURL()
-
-        try await Task.sleep(nanoseconds: 50_000_000)
-
-        #expect(tabManager.activeTab?.url?.absoluteString == "illuminate://settings")
-        #expect(tabManager.activeTab?.title == "Settings")
-        #expect(synchronizer.currentURL?.absoluteString == "illuminate://settings")
-    }
-
     @Test func searchQueriesRouteToGoogleWithoutChromeSourceMarker() {
         let synchronizer = URLSynchronizer()
         let tabManager = TabManager(urlSynchronizer: synchronizer, isPersistenceEnabled: false)

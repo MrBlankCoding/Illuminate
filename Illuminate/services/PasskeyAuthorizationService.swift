@@ -2,7 +2,7 @@
 //  PasskeyAuthorizationService.swift
 //  Illuminate
 //
-//  Created by Codex on 8/13/25.
+//  Created by MrBlankCoding on 8/13/25.
 //
 
 import AuthenticationServices

@@ -60,7 +60,11 @@ final class ContentViewModel: ObservableObject {
     func setAddressBarEditing(_ isEditing: Bool) {
         isEditingAddressBar = isEditing
         if !isEditing {
-            syncAddressBarFromActiveTab(force: true)
+            // Defer the sync so any in-flight navigateToAddressBarURL call can
+            // read the current text before we reset it.
+            DispatchQueue.main.async { [weak self] in
+                self?.syncAddressBarFromActiveTab(force: true)
+            }
         }
     }
     
@@ -85,15 +89,11 @@ final class ContentViewModel: ObservableObject {
 
         isEditingAddressBar = false
 
-        if isSettingsURL(url) {
-            tabManager.openSettingsTab()
-        } else {
-            guard let tab = tabManager.activeTab else {
-                return
-            }
-            tab.load(url: url)
-            urlSynchronizer.updateCurrentURL(url)
+        guard let tab = tabManager.activeTab else {
+            return
         }
+        tab.load(url: url)
+        urlSynchronizer.updateCurrentURL(url)
     }
     
     func createNewTab(url: URL? = nil) {
@@ -115,10 +115,5 @@ final class ContentViewModel: ObservableObject {
     private func syncAddressBarFromActiveTab(force: Bool = false) {
         guard force || !isEditingAddressBar else { return }
         addressBarText = tabManager.activeTab?.url?.absoluteString ?? ""
-    }
-
-    private func isSettingsURL(_ url: URL) -> Bool {
-        url.scheme?.localizedCaseInsensitiveCompare("illuminate") == .orderedSame
-            && url.host?.localizedCaseInsensitiveCompare("settings") == .orderedSame
     }
 }

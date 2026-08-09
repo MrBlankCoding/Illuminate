@@ -287,36 +287,51 @@ struct AddProfileSheet: View {
 
             HStack(spacing: 10) {
                 ForEach(previewColors.indices, id: \.self) { i in
-                    Circle()
-                        .fill(previewColors[i])
-                        .frame(width: 24, height: 24)
-                        .overlay(
-                            Circle()
-                                .stroke(theme.windowBase, lineWidth: selectedColorIndex == i ? 2 : 0)
-                                .padding(1)
-                        )
-                        .overlay(
-                            Circle()
-                                .stroke(previewColors[i], lineWidth: selectedColorIndex == i ? 3 : 0)
-                        )
-                        .onTapGesture { selectedColorIndex = i }
-                        .hoverCursor(.pointingHand)
+                    Button {
+                        selectedColorIndex = i
+                    } label: {
+                        Circle()
+                            .fill(previewColors[i])
+                            .frame(width: 24, height: 24)
+                            .overlay(
+                                Circle()
+                                    .stroke(theme.windowBase, lineWidth: selectedColorIndex == i ? 2 : 0)
+                                    .padding(1)
+                            )
+                            .overlay(
+                                Circle()
+                                    .stroke(previewColors[i], lineWidth: selectedColorIndex == i ? 3 : 0)
+                            )
+                    }
+                    .labelStyle(.iconOnly)
+                    .buttonStyle(.plain)
+                    .hoverCursor(.pointingHand)
+                    .accessibilityLabel("Profile color")
                 }
             }
             .padding(.bottom, 20)
 
             LazyVGrid(columns: Array(repeating: GridItem(.fixed(40)), count: 5), spacing: 8) {
                 ForEach(icons, id: \.self) { icon in
-                    Image(systemName: icon)
-                        .font(.system(size: 16))
-                        .foregroundStyle(selectedIcon == icon
-                                        ? previewColors[selectedColorIndex]
-                                        : Color.textSecondary)
-                        .frame(width: 36, height: 36)
-                        .background(selectedIcon == icon ? theme.itemHover : Color.clear)
-                        .clipShape(RoundedRectangle(cornerRadius: 6))
-                        .onTapGesture { selectedIcon = icon }
-                        .hoverCursor(.pointingHand)
+                    Button {
+                        selectedIcon = icon
+                    } label: {
+                        Image(systemName: icon)
+                            .font(.system(size: 16))
+                            .foregroundStyle(selectedIcon == icon
+                                            ? previewColors[selectedColorIndex]
+                                            : Color.textSecondary)
+                            .frame(width: 36, height: 36)
+                            .macControlBackground(
+                                isActive: selectedIcon == icon,
+                                tint: previewColors[selectedColorIndex],
+                                radius: MacDesign.Radius.small
+                            )
+                    }
+                    .labelStyle(.iconOnly)
+                    .buttonStyle(.plain)
+                    .hoverCursor(.pointingHand)
+                    .accessibilityLabel("Profile icon")
                 }
             }
             .padding(.horizontal, 24)

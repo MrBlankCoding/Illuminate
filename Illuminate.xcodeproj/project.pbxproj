@@ -47,11 +47,6 @@
 			path = IlluminateTests;
 			sourceTree = "<group>";
 		};
-		F76B25042F5E1A550043FEAE /* IlluminateUITests */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = IlluminateUITests;
-			sourceTree = "<group>";
-		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -86,7 +81,6 @@
 			children = (
 				F76B1DFE2F5E1A520043FEAE /* Illuminate */,
 				F76B1E0E2F5E1A550043FEAE /* IlluminateTests */,
-				F76B25042F5E1A550043FEAE /* IlluminateUITests */,
 				F76B1F822F5E21300043FEAE /* Frameworks */,
 				F76B1DFD2F5E1A520043FEAE /* Products */,
 			);
@@ -171,9 +165,6 @@
 			);
 			dependencies = (
 				F76B1E172F5E1A550043FEAE /* PBXTargetDependency */,
-			);
-			fileSystemSynchronizedGroups = (
-				F76B25042F5E1A550043FEAE /* IlluminateUITests */,
 			);
 			name = IlluminateUITests;
 			packageProductDependencies = (

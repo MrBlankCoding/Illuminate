@@ -59,12 +59,13 @@ struct CookieManagerView: View {
                 .foregroundStyle(Color.textSecondary)
             TextField("Search cookies...", text: $viewModel.searchText)
                 .textFieldStyle(.plain)
+                .font(.system(size: 13, weight: .medium))
         }
-        .padding(12)
-        .background(Color.primary.opacity(0.04))
-        .cornerRadius(10)
-        .padding(.horizontal, 32)
-        .padding(.bottom, 16)
+        .padding(.horizontal, 12)
+        .frame(height: MacDesign.Size.urlBarHeight)
+        .insetPanel(cornerRadius: MacDesign.Radius.control)
+        .padding(.horizontal, MacDesign.Spacing.page)
+        .padding(.bottom, MacDesign.Spacing.roomy)
     }
 
     private var emptyState: some View {
@@ -94,16 +95,11 @@ struct CookieManagerView: View {
                             Button {
                                 viewModel.deleteCookies(for: domain, with: webKitManager)
                             } label: {
-                                Text("Clear")
-                                    .font(.system(size: 11, weight: .medium))
-                                    .foregroundStyle(Color.red.opacity(0.8))
-                                    .padding(.horizontal, 8)
-                                    .padding(.vertical, 4)
-                                    .background(Color.red.opacity(0.1))
-                                    .cornerRadius(6)
+                                SettingsShared.actionCapsule(icon: "trash", title: "Clear", tint: .red.opacity(0.72))
                             }
                             .buttonStyle(.plain)
                             .hoverCursor(.pointingHand)
+                            .accessibilityLabel("Clear cookies for \(domain)")
                         }
                         .padding(.horizontal, 4)
 
@@ -112,12 +108,7 @@ struct CookieManagerView: View {
                                 cookieRow(cookie)
                             }
                         }
-                        .background(Color.primary.opacity(0.03))
-                        .cornerRadius(12)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12)
-                                .strokeBorder(Color.primary.opacity(0.06), lineWidth: 1)
-                        )
+                        .insetPanel(cornerRadius: MacDesign.Radius.medium)
                     }
                 }
             }
@@ -147,8 +138,10 @@ struct CookieManagerView: View {
                     .font(.system(size: 12))
                     .foregroundStyle(Color.textSecondary.opacity(0.5))
             }
+            .labelStyle(.iconOnly)
             .buttonStyle(.plain)
             .hoverCursor(.pointingHand)
+            .accessibilityLabel("Delete cookie")
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)

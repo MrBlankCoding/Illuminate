@@ -21,6 +21,8 @@ final class DockMenuWindowRouter {
 
 class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
+        logPersistedSettings()
+
         guard UITestLaunchConfiguration.isRunningUITests else {
             return
         }
@@ -96,6 +98,94 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             return []
         }
         return profiles
+    }
+
+    private func logPersistedSettings() {
+        AppLog.info("--- Persisted settings at launch ---")
+
+        let defaults = UserDefaults.standard
+        let tabManagerKeys = [
+            "windowThemeColor",
+            "backgroundImageURL",
+            "showSidebar",
+            "showBackgroundBehindSidebar",
+            "userInterfaceStyle"
+        ]
+
+        let profileIDs = self.fetchProfiles().map { $0.id.uuidString }
+
+        if profileIDs.isEmpty {
+            AppLog.info("No profiles found.")
+        } else {
+            profileIDs.forEach { profileID in
+                AppLog.info("Profile settings for \(profileID):")
+                logProfileStringSetting(
+                    defaults: defaults,
+                    profileID: profileID,
+                    key: "windowThemeColor",
+                    defaultValue: "89BBFF"
+                )
+                logProfileStringSetting(
+                    defaults: defaults,
+                    profileID: profileID,
+                    key: "backgroundImageURL",
+                    defaultValue: ""
+                )
+                logProfileBoolSetting(
+                    defaults: defaults,
+                    profileID: profileID,
+                    key: "showSidebar",
+                    defaultValue: true
+                )
+                logProfileBoolSetting(
+                    defaults: defaults,
+                    profileID: profileID,
+                    key: "showBackgroundBehindSidebar",
+                    defaultValue: true
+                )
+                logProfileStringSetting(
+                    defaults: defaults,
+                    profileID: profileID,
+                    key: "userInterfaceStyle",
+                    defaultValue: "dark"
+                )
+
+                logProfileBoolSetting(
+                    defaults: defaults,
+                    profileID: profileID,
+                    key: "adBlockEnabled",
+                    defaultValue: true
+                )
+                logProfileBoolSetting(
+                    defaults: defaults,
+                    profileID: profileID,
+                    key: "cookiesEnabled",
+                    defaultValue: true
+                )
+            }
+        }
+
+        let adBlockEnabled = defaults.object(forKey: "adBlockEnabled") as? Bool ?? true
+        let cookiesEnabled = defaults.object(forKey: "cookiesEnabled") as? Bool ?? true
+        let downloadPreferencesData = defaults.data(forKey: "download.preferences")
+
+        AppLog.info("General settings:")
+        AppLog.info("  adBlockEnabled = \(adBlockEnabled)")
+        AppLog.info("  cookiesEnabled = \(cookiesEnabled)")
+        AppLog.info("  download.preferences present = \(downloadPreferencesData != nil)")
+        AppLog.info("--- End persisted settings ---")
+    }
+
+    private func logProfileStringSetting(defaults: UserDefaults, profileID: String, key: String, defaultValue: String) {
+        let scopedKey = "profile.\(profileID).\(key)"
+        let value = defaults.string(forKey: scopedKey) ?? defaultValue
+        AppLog.info("  \(scopedKey) = \(value)")
+    }
+
+    private func logProfileBoolSetting(defaults: UserDefaults, profileID: String, key: String, defaultValue: Bool) {
+        let scopedKey = "profile.\(profileID).\(key)"
+        let value = defaults.object(forKey: scopedKey) as? Bool ?? defaultValue
+        AppLog.info("  \(scopedKey) = \(value)")
     }
 
     private func bringAppToFrontForUITests() async {

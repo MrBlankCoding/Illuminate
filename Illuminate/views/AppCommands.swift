@@ -40,26 +40,27 @@ struct AppCommands: Commands {
 
             Divider()
 
-            BrowserCommand("Toggle Sidebar", shortcut: "s") { .toggleSidebar }
-
-            Divider()
-
             BrowserCommand("Find in Page",    shortcut: "f")                          { .findInPage }
             BrowserCommand("Toggle Full Screen", shortcut: "f", modifiers: [.command, .shift]) { .toggleFullScreen }
-            BrowserCommand("Developer Tools", shortcut: "i", modifiers: [.command, .shift]) { .openDevTools }
         }
 
         CommandGroup(replacing: .newItem) {}
         CommandGroup(replacing: .saveItem) {
             CloseTabCommand()
         }
-        CommandGroup(replacing: .appSettings) {
-            OpenSettingsCommand()
-        }
+
         CommandGroup(replacing: .toolbar) {
             BrowserCommand("Zoom In",     shortcut: "+") { .zoomIn }
             BrowserCommand("Zoom Out",    shortcut: "-") { .zoomOut }
             BrowserCommand("Actual Size", shortcut: "0") { .resetZoom }
+
+            Divider()
+
+            BrowserCommand("Developer Tools", shortcut: "i", modifiers: [.command, .shift]) { .openDevTools }
+
+            Divider()
+
+            BookmarkBarMenuContent()
         }
 
         CommandGroup(replacing: .sidebar) {}
@@ -118,14 +119,53 @@ private struct CloseTabCommand: View {
     }
 }
 
-private struct OpenSettingsCommand: View {
+private struct BookmarkBarMenuContent: View {
     @FocusedValue(\.activeEnvironment) private var environment
 
+    private var currentVisibility: BookmarkBarVisibility {
+        environment?.tabManager.bookmarkBarVisibility ?? .always
+    }
+
     var body: some View {
-        Button("Open Settings") {
-            environment?.tabManager.openSettingsTab()
+        Section("Bookmark Bar") {
+            Button {
+                set(.always)
+            } label: {
+                Label(
+                    BookmarkBarVisibility.always.displayName,
+                    systemImage: currentVisibility == .always ? "checkmark" : ""
+                )
+            }
+
+            Button {
+                set(.newTabOnly)
+            } label: {
+                Label(
+                    BookmarkBarVisibility.newTabOnly.displayName,
+                    systemImage: currentVisibility == .newTabOnly ? "checkmark" : ""
+                )
+            }
+
+            Button {
+                set(.hidden)
+            } label: {
+                Label(
+                    BookmarkBarVisibility.hidden.displayName,
+                    systemImage: currentVisibility == .hidden ? "checkmark" : ""
+                )
+            }
         }
-        .keyboardShortcut(",", modifiers: .command)
-        .disabled(environment == nil)
+
+        Divider()
+
+        Button("Toggle Bookmark Bar") {
+            NotificationCenter.default.post(name: .toggleBookmarkBar, object: nil)
+        }
+        .keyboardShortcut("b", modifiers: [.command, .shift])
+    }
+
+    private func set(_ visibility: BookmarkBarVisibility) {
+        environment?.tabManager.bookmarkBarVisibility = visibility
     }
 }
+

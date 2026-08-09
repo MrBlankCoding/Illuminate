@@ -105,7 +105,6 @@ final class FaviconCache: @unchecked Sendable {
         }
         lock.unlock()
         
-        // Try disk cache without holding the lock
         if let diskImage = loadFromDisk(key) {
             lock.lock()
             defer { lock.unlock() }
@@ -131,8 +130,6 @@ final class FaviconCache: @unchecked Sendable {
 
         if url.scheme?.lowercased() == "data" {
             guard let data = DataURLDecoder.decode(url.absoluteString) else { return nil }
-            // Compute pngData() inside MainActor.run — NSImage and tiffRepresentation
-            // are not thread-safe; doing both together avoids an extra async hop.
             guard let result = await MainActor.run(body: { () -> (NSImage, Data?)? in
                 guard let img = NSImage(data: data) else { return nil }
                 return (img, img.pngData())
@@ -153,9 +150,6 @@ final class FaviconCache: @unchecked Sendable {
                 return try await fetchData(key)
             }
 
-            // Compute pngData() inside MainActor.run alongside NSImage creation.
-            // This avoids dispatching back to MainActor later (which can starve
-            // when the main actor is occupied by parallel WebKit tests).
             guard let result = await MainActor.run(body: { () -> (NSImage, Data?)? in
                 guard let img = NSImage(data: data) else { return nil }
                 return (img, img.pngData())
@@ -224,10 +218,6 @@ final class FaviconCache: @unchecked Sendable {
     }
     
     nonisolated private func persistToDisk(_ data: Data, at fileURL: URL) {
-        // pngData() has already been computed on the correct thread by the caller.
-        // This function only does pure I/O — safe to run on any thread.
-        // .atomic writes to a temp file first, then renames, so readers never see
-        // a partial PNG (which caused libpng IDAT CRC errors and cascading deletes).
         Task.detached(priority: .userInitiated) {
             try? data.write(to: fileURL, options: .atomic)
         }

@@ -11,6 +11,9 @@ import WebKit
 
 final class AdBlockService: ObservableObject {
 
+    // this should be improved
+    // instead of using a downloaded list we could fetch a new one monthly?
+
     private static let sharedRuleListIdentifier = "IlluminateAdBlockRules"
     @Published var isEnabled: Bool = true {
         didSet {

@@ -14,12 +14,15 @@ struct ZoomIndicatorView: View {
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: "magnifyingglass")
-                .foregroundColor(.secondary)
+                .foregroundStyle(Color.textSecondary)
             
-            Button(action: { tabManager.activeTab?.zoomOut() }) {
+            Button {
+                tabManager.activeTab?.zoomOut()
+            } label: {
                 Image(systemName: "minus")
                     .font(.system(size: 11, weight: .bold))
             }
+            .labelStyle(.iconOnly)
             .buttonStyle(.plain)
             
             Button(action: { tabManager.activeTab?.resetZoom() }) {
@@ -30,25 +33,30 @@ struct ZoomIndicatorView: View {
             .buttonStyle(.plain)
             .help("Reset Zoom")
             
-            Button(action: { tabManager.activeTab?.zoomIn() }) {
+            Button {
+                tabManager.activeTab?.zoomIn()
+            } label: {
                 Image(systemName: "plus")
                     .font(.system(size: 11, weight: .bold))
             }
+            .labelStyle(.iconOnly)
             .buttonStyle(.plain)
             
             Divider()
                 .frame(height: 16)
             
-            Button(action: { viewModel.hide() }) {
+            Button {
+                viewModel.hide()
+            } label: {
                 Image(systemName: "xmark.circle.fill")
-                    .foregroundColor(.secondary)
+                    .foregroundStyle(Color.textSecondary)
             }
+            .labelStyle(.iconOnly)
             .buttonStyle(.plain)
             .help("Close")
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
-        .floatingGlassPanel(cornerRadius: 10)
-        .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: 2)
+        .floatingGlassPanel(cornerRadius: MacDesign.Radius.control)
     }
 }

@@ -12,7 +12,6 @@ import WebKit
 struct WebViewRepresentable: NSViewRepresentable {
     @ObservedObject var tab: Tab
     @ObservedObject var adBlockService: AdBlockService
-    @ObservedObject var redirectProtectionService: RedirectProtectionService
     let webKitManager: WebKitManager
     let passwordService: PasswordService
     let tabManager: TabManager
@@ -24,7 +23,6 @@ struct WebViewRepresentable: NSViewRepresentable {
             tabManager: tabManager,
             webScriptBridge: WebScriptBridge.shared,
             adBlockService: adBlockService,
-            redirectProtectionService: redirectProtectionService,
             dohService: DNSOverHTTPSService.shared,
             faviconCache: FaviconCache.shared,
             passwordService: passwordService

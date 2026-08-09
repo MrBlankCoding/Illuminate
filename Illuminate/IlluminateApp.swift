@@ -14,6 +14,7 @@ struct IlluminateApp: App {
     private static let profileWindowSize = CGSize(width: 320, height: 220)   // single source of truth
     private static let browserWindowSize  = CGSize(width: 1180, height: 720)
     @StateObject private var profileManager: ProfileManager
+    @StateObject private var settingsTabManager = TabManager(isPersistenceEnabled: false)
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
     private let keyboardShortcutHandler: KeyboardShortcutHandler
@@ -86,6 +87,12 @@ struct IlluminateApp: App {
             AppCommands(shortcutHandler: keyboardShortcutHandler)
             BookmarksCommands(modelContainer: modelContainer)
             ProfileCommands(profileManager: profileManager)
+        }
+
+        Settings {
+            NativeSettingsView()
+                .environmentObject(settingsTabManager)
+                .modelContainer(modelContainer)
         }
     }
 }

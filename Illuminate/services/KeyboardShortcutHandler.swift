@@ -19,7 +19,6 @@ final class KeyboardShortcutHandler {
         let action: Notification.Name
     }
 
-    /// Arrow key codes
     private enum KeyCode {
         static let leftArrow:  UInt16 = 123
         static let rightArrow: UInt16 = 124
@@ -35,8 +34,6 @@ final class KeyboardShortcutHandler {
     init(notificationCenter: NotificationCenter = .default) {
         self.shortcuts = Self.makeShortcuts()
         self.notificationCenter = notificationCenter
-        // Manual monitoring disabled to prevent double-triggering with SwiftUI Commands
-        // startMonitoring()
     }
 
     private static func makeShortcuts() -> [Shortcut] {
@@ -45,7 +42,6 @@ final class KeyboardShortcutHandler {
             Shortcut(modifiers: .command, trigger: .character("w"), action: .closeActiveTab),
             Shortcut(modifiers: .command, trigger: .character("l"), action: .focusURLBar),
             Shortcut(modifiers: .command, trigger: .character("r"), action: .reloadActiveTab),
-            Shortcut(modifiers: .command, trigger: .character("s"), action: .toggleSidebar),
             Shortcut(modifiers: .command, trigger: .character("b"), action: .bookmarkTab),
             Shortcut(modifiers: .command, trigger: .character("f"), action: .findInPage),
             Shortcut(modifiers: .command, trigger: .character("+"), action: .zoomIn),
@@ -77,7 +73,6 @@ final class KeyboardShortcutHandler {
     func goForward() { post(.goForward) }
     func nextTab() { post(.nextTab) }
     func previousTab() { post(.previousTab) }
-    func toggleSidebar() { post(.toggleSidebar) }
     func findInPage() { post(.findInPage) }
     func openDevTools() { post(.openDevTools) }
     func toggleFullScreen() { post(.toggleFullScreen) }
@@ -97,7 +92,7 @@ final class KeyboardShortcutHandler {
         }
     }
 
-    // returns nil
+    // return nil ?
     private func handle(_ event: NSEvent) -> NSEvent? {
         let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
         let chars = event.charactersIgnoringModifiers?.lowercased()
@@ -124,14 +119,14 @@ final class KeyboardShortcutHandler {
 }
 
 
-// TODO: Create an actual manager
+// TODO: create an actual manager
 final class BackgroundResourceManager {
     func start() {
         AppLog.info("BackgroundResourceManager started")
     }
 }
 
-// TODO: Replace logging stub with real integrity/policy checks.
+// TODO: replace logging stub with real integrity/policy checks.
 final class RuntimeSecurityMonitor {
 
     private let notificationCenter: NotificationCenter

@@ -141,20 +141,4 @@ struct TabManagerTests {
         #expect(tabManager.tabs.isEmpty)
         #expect(tabManager.activeTabID == nil)
     }
-
-    @Test func openSettingsTabReusesExistingSettingsTab() async throws {
-        let tabManager = makeTabManager()
-
-        tabManager.openSettingsTab()
-        let firstSettingsTab = try! #require(tabManager.activeTab)
-
-        tabManager.createTab(url: URL(string: "https://example.com"))
-        tabManager.openSettingsTab()
-
-        try await Task.sleep(nanoseconds: 50_000_000)
-
-        #expect(tabManager.tabs.filter { $0.url?.absoluteString == "illuminate://settings" }.count == 1)
-        #expect(tabManager.activeTabID == firstSettingsTab.id)
-        #expect(firstSettingsTab.title == "Settings")
-    }
 }

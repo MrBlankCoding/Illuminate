@@ -42,8 +42,7 @@ struct SiteUnreachableView: View {
                     .foregroundStyle(.white)
                     .padding(.horizontal, 20)
                     .padding(.vertical, 8)
-                    .background(tabManager.windowThemeColor)
-                    .cornerRadius(8)
+                    .background(tabManager.windowThemeColor, in: Capsule())
             }
             .buttonStyle(.plain)
             .padding(.top, 8)

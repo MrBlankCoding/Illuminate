@@ -11,13 +11,11 @@ import AppKit
 
 struct ContentView: View {
     @EnvironmentObject private var tabManager: TabManager
+    @EnvironmentObject private var environment: ProfileEnvironment
     @EnvironmentObject private var viewModel: ContentViewModel
     @Environment(\.colorScheme) private var colorScheme
     @StateObject private var findViewModel = FindViewModel()
     @StateObject private var zoomViewModel = ZoomViewModel()
-    @State private var hoveredSidebarTabID: UUID?
-    
-    private let sidebarWidth: CGFloat = 180 // SIDEBAR WIDTH
 
     private var theme: BrowserTheme {
         BrowserTheme(accent: tabManager.windowThemeColor, colorScheme: colorScheme)
@@ -26,48 +24,28 @@ struct ContentView: View {
     var body: some View {
         ZStack {
             backgroundLayer
+            VStack(spacing: 0) {
+                BrowserToolbarView(
+                    addressBarText: $viewModel.addressBarText,
+                    onNavigate: viewModel.navigateToAddressBarURL
+                )
+                .zIndex(3)
 
-            HStack(alignment: .top, spacing: 0) {
-                if tabManager.showSidebar {
-                    TabDisplayView(hoveredSidebarTabID: $hoveredSidebarTabID)
-                        .frame(width: sidebarWidth)
-                        .frame(maxHeight: .infinity)
-                        .transition(.move(edge: .leading).combined(with: .opacity))
+                if isBookmarkBarVisible {
+                    BookmarkBarView()
+                        .environmentObject(environment)
+                        .transition(
+                            .asymmetric(
+                                insertion: .opacity.combined(with: .move(edge: .top)),
+                                removal:   .opacity.combined(with: .move(edge: .top))
+                            )
+                        )
                         .zIndex(2)
                 }
 
-                VStack(spacing: 0) {
-                    TopBarView(
-                        addressBarText: $viewModel.addressBarText,
-                        onNavigate: viewModel.navigateToAddressBarURL
-                    )
-                    .zIndex(3)
-
-                    browserContent
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .zIndex(1)
-                }
-            }
-            .overlayPreferenceValue(TabRowFramePreferenceKey.self) { preferences in
-                GeometryReader { geometry in
-                    if let hoveredID = hoveredSidebarTabID,
-                       tabManager.sidebarPanel == .tabs,
-                       let anchor = preferences[hoveredID],
-                       let tab = tabManager.tabs.first(where: { $0.id == hoveredID }) {
-                        let rect = geometry[anchor]
-                        
-                        TabPeekPreview(image: tab.snapshot)
-                            .position(x: rect.maxX + 126, y: rect.midY)
-                            .id(hoveredID)
-                            .transition(.opacity)
-                            .animation(.easeInOut(duration: 0.2), value: hoveredID)
-                            .onAppear {
-                                if tab.id == tabManager.activeTabID {
-                                    tab.refreshSnapshot()
-                                }
-                            }
-                    }
-                }
+                browserContent
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .zIndex(1)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .ignoresSafeArea(edges: .top)
@@ -89,9 +67,21 @@ struct ContentView: View {
                 zoomViewModel.updateZoom(level)
             }
         }
-        .onChange(of: tabManager.activeTabID) { oldValue, newValue in
+        .onChange(of: tabManager.activeTabID) { _, _ in
             findViewModel.setWebView(tabManager.activeTab?.webView)
             zoomViewModel.hide()
+        }
+        .animation(MacDesign.springAnimation, value: isBookmarkBarVisible)
+    }
+
+    private var isBookmarkBarVisible: Bool {
+        switch tabManager.bookmarkBarVisibility {
+        case .always:
+            return true
+        case .newTabOnly:
+            return tabManager.activeTab?.url == nil
+        case .hidden:
+            return false
         }
     }
 
@@ -100,56 +90,31 @@ struct ContentView: View {
             theme.windowBase
                 .ignoresSafeArea()
 
-            if !tabManager.isResizing {
-                if let imageURL = URL(string: tabManager.backgroundImageURL), !tabManager.backgroundImageURL.isEmpty {
-                    CachedBackgroundImageView(url: imageURL)
-                        .mask(
-                            HStack(spacing: 0) {
-                                let showInSidebar = tabManager.showBackgroundBehindSidebar
-                                
-                                Rectangle()
-                                    .frame(width: tabManager.showSidebar ? sidebarWidth : 0)
-                                    .opacity(showInSidebar ? 1.0 : 0.0)
-                                Rectangle()
-                            }
-                        )
-                        .ignoresSafeArea()
-                        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: tabManager.showSidebar)
-                        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: tabManager.showBackgroundBehindSidebar)
-                }
-
-                Circle()
-                    .fill(tabManager.windowThemeColor.opacity(0.14))
-                    .frame(width: 420, height: 420)
-                    .blur(radius: 90)
-                    .offset(x: -sidebarWidth, y: -240)
-                    .allowsHitTesting(false)
-                    .animation(.easeInOut(duration: 0.8), value: tabManager.windowThemeColor)
-            } else {
-                theme.itemHover.opacity(0.8)
+            if !tabManager.isResizing,
+               !tabManager.backgroundImageURL.isEmpty,
+               let imageURL = URL(string: tabManager.backgroundImageURL) {
+                CachedBackgroundImageView(url: imageURL)
                     .ignoresSafeArea()
             }
         }
     }
 
-
     @ViewBuilder
     private var browserContent: some View {
         ZStack(alignment: .top) {
-            // Extended background/overlay
             ZStack {
                 Group {
                     if tabManager.activeTab?.url == nil {
                         Color.clear
                     } else {
                         Rectangle()
-                            .fill(.ultraThinMaterial)
+                            .fill(.regularMaterial)
                             .ignoresSafeArea()
                     }
                 }
-                
+
                 Rectangle()
-                    .strokeBorder(Color.borderSubtle, lineWidth: 1)
+                    .strokeBorder(theme.separator, lineWidth: 1)
                     .padding(.top, -1)
                     .opacity(tabManager.activeTab?.url == nil ? 0.3 : 1.0)
                     .ignoresSafeArea()
@@ -163,26 +128,29 @@ struct ContentView: View {
                             .environmentObject(viewModel)
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                     }
-                    
-                    if let activeTab = tabManager.activeTab, activeTab.lastNavigationHadNetworkError {
+
+                    if let activeTab = tabManager.activeTab,
+                       activeTab.lastNavigationHadNetworkError {
                         if activeTab.isDNSError {
                             SiteUnreachableView(host: activeTab.url?.host ?? "This site")
                                 .padding(30)
                         } else {
-                            NoInternetView(message: activeTab.lastNetworkErrorMessage ?? "Please check your connection and try again.")
-                                .padding(30)
+                            NoInternetView(
+                                message: activeTab.lastNetworkErrorMessage
+                                    ?? "Please check your connection and try again."
+                            )
+                            .padding(30)
                         }
                     }
                 }
             }
             .ignoresSafeArea(edges: .top)
-
             if zoomViewModel.isPresented {
                 VStack {
                     HStack {
                         Spacer()
                         ZoomIndicatorView(viewModel: zoomViewModel)
-                            .padding(.top, 60)
+                            .padding(.top, 12)
                             .padding(.trailing, 16)
                     }
                     Spacer()
@@ -203,5 +171,4 @@ struct ContentView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
-
 }

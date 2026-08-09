@@ -13,9 +13,9 @@ struct DownloadsTabView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
-            panelSection {
+            SettingsShared.panelSection {
                 VStack(alignment: .leading, spacing: 18) {
-                    infoRow(title: "Reveal finished downloads in Finder") {
+                    SettingsShared.infoRow(title: "Reveal finished downloads in Finder") {
                         Toggle(
                             "",
                             isOn: Binding(
@@ -29,7 +29,7 @@ struct DownloadsTabView: View {
                         .accessibilityIdentifier("settings.downloads.revealToggle")
                     }
 
-                    infoRow(title: "Ask where to save each file") {
+                    SettingsShared.infoRow(title: "Ask where to save each file") {
                         Toggle(
                             "",
                             isOn: Binding(
@@ -43,7 +43,7 @@ struct DownloadsTabView: View {
                         .accessibilityIdentifier("settings.downloads.askWhereToSave")
                     }
 
-                    infoRow(title: "Default save location") {
+                    SettingsShared.infoRow(title: "Default save location") {
                         HStack(spacing: 10) {
                             Text(downloadManager.downloadDirectoryURL.path)
                                 .font(.system(size: 12, weight: .bold, design: .monospaced))
@@ -79,35 +79,6 @@ struct DownloadsTabView: View {
                     }
                 }
             }
-        }
-    }
-
-    private func panelSection<Content: View>(@ViewBuilder content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 18) {
-            content()
-        }
-        .padding(22)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(panelBackground(cornerRadius: 26))
-    }
-
-    private func panelBackground(cornerRadius: CGFloat) -> some View {
-        Group {
-            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .fill(.ultraThinMaterial)
-        }
-        .shadow(color: Color.black.opacity(0.08), radius: 18, y: 10)
-    }
-
-    private func infoRow(title: String, tint: Color? = nil, trailing: @escaping () -> some View) -> some View {
-        HStack(alignment: .center, spacing: 12) {
-            Text(title)
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(tint ?? Color.textPrimary)
-
-            Spacer()
-
-            trailing()
         }
     }
 }

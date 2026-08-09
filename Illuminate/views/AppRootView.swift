@@ -25,7 +25,6 @@ struct AppRootView: View {
                     .environmentObject(env.webKitManager)
                     .environmentObject(env.urlSynchronizer)
                     .environmentObject(env.adBlockService)
-                    .environmentObject(env.redirectProtectionService)
                     .focusedSceneValue(\.activeEnvironment, env)
                     .id(route)
                     .onAppear {

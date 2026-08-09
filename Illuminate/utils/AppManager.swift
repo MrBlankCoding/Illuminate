@@ -29,6 +29,23 @@ extension Notification.Name {
     static let toggleFullScreen = Notification.Name("app.toggleFullScreen")
     static let closeActiveTab = Notification.Name("app.closeActiveTab")
     static let closeAllTabs = Notification.Name("app.closeAllTabs")
+    static let toggleBookmarkBar = Notification.Name("app.toggleBookmarkBar")
+}
+
+enum BookmarkBarVisibility: String, CaseIterable, Identifiable {
+    case always      = "always"
+    case newTabOnly  = "newTabOnly"
+    case hidden      = "hidden"
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .always:     return "Always Show"
+        case .newTabOnly: return "Show on New Tab Only"
+        case .hidden:     return "Never Show"
+        }
+    }
 }
 
 extension FileManager {

@@ -15,7 +15,7 @@ struct FindInPageView: View {
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: "magnifyingglass")
-                .foregroundColor(.secondary)
+                .foregroundStyle(Color.textSecondary)
             
             TextField("Find in page", text: $viewModel.searchText)
                 .textFieldStyle(.plain)
@@ -27,7 +27,7 @@ struct FindInPageView: View {
             if !viewModel.searchText.isEmpty {
                 Text(viewModel.matchFound ? "Found" : "No matches")
                     .font(.caption)
-                    .foregroundColor(viewModel.matchFound ? .secondary : .red)
+                    .foregroundStyle(viewModel.matchFound ? Color.textSecondary : .red)
                     .padding(.horizontal, 4)
             }
             
@@ -35,31 +35,39 @@ struct FindInPageView: View {
                 .frame(height: 16)
             
             Group {
-                Button(action: { viewModel.findPrevious() }) {
+                Button {
+                    viewModel.findPrevious()
+                } label: {
                     Image(systemName: "chevron.up")
                 }
+                .labelStyle(.iconOnly)
                 .buttonStyle(.plain)
                 .disabled(viewModel.searchText.isEmpty)
                 
-                Button(action: { viewModel.findNext() }) {
+                Button {
+                    viewModel.findNext()
+                } label: {
                     Image(systemName: "chevron.down")
                 }
+                .labelStyle(.iconOnly)
                 .buttonStyle(.plain)
                 .disabled(viewModel.searchText.isEmpty)
             }
             .help("Previous/Next match")
             
-            Button(action: { viewModel.dismiss() }) {
+            Button {
+                viewModel.dismiss()
+            } label: {
                 Image(systemName: "xmark.circle.fill")
-                    .foregroundColor(.secondary)
+                    .foregroundStyle(Color.textSecondary)
             }
+            .labelStyle(.iconOnly)
             .buttonStyle(.plain)
             .help("Close search")
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
-        .floatingGlassPanel(cornerRadius: 10)
-        .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: 2)
+        .floatingGlassPanel(cornerRadius: MacDesign.Radius.control)
         .onAppear {
             isSearchFocused = true
         }

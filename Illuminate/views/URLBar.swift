@@ -30,36 +30,25 @@ struct URLBar: View {
     }
 
     var body: some View {
-        LiquidGlassGroup(spacing: 8) {
-            HStack(spacing: 8) {
+        HStack(spacing: 8) {
                 Button {
                     showingPageInfo = true
                 } label: {
                     Image(systemName: statusIcon)
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.system(size: 11, weight: .medium))
                         .foregroundStyle(isFocused ? themeColor : Color.textSecondary)
-                        .frame(width: 24, height: 24)
-                        .background(
-                            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                .fill(showingPageInfo ? theme.itemActive : Color.clear)
-                        )
+                        .frame(width: 22, height: 22)
+                        .macControlBackground(isActive: showingPageInfo, isHovered: false, tint: themeColor, radius: 7)
                 }
                 .buttonStyle(.plain)
                 .hoverCursor(.pointingHand)
-                .modifier(
-                    URLBarAccessoryGlassModifier(
-                        namespace: glassNamespace,
-                        id: "url-bar-status",
-                        tint: isFocused ? themeColor : nil
-                    )
-                )
                 .popover(isPresented: $showingPageInfo, arrowEdge: .bottom) {
                     PageInfoPopoverView(tab: activeTab)
-                        .glassBackground()
+                        .macPopover()
                 }
 
                 TextField("Search or enter URL", text: $addressText)
-                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                    .font(.system(size: 13, weight: .regular))
                     .textFieldStyle(.plain)
                     .foregroundStyle(Color.textPrimary)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -68,29 +57,20 @@ struct URLBar: View {
                     .accessibilityIdentifier("browser.urlBar.textField")
                     .onSubmit {
                         isFocused = false
-                        viewModel.setAddressBarEditing(false)
                         onNavigate()
+                        viewModel.setAddressBarEditing(false)
                     }
 
-                HStack(spacing: 6) {
                     if !addressText.isEmpty {
                         Button {
                             copyAddressToPasteboard()
                         } label: {
                             Image(systemName: didCopyURL ? "checkmark.circle.fill" : "doc.on.doc")
-                                .font(.system(size: 11, weight: .semibold))
+                                .font(.system(size: 11, weight: .medium))
                                 .foregroundStyle(didCopyURL ? Color.green : Color.textSecondary)
-                                .frame(width: 18, height: 18)
-                                .background(
-                                    Circle()
-                                        .fill(isCopyHovered ? theme.itemHover : Color.clear)
-                                )
-                                .overlay(
-                                    Circle()
-                                        .strokeBorder(isCopyHovered ? Color.borderSubtle : Color.clear, lineWidth: 1)
-                                )
-                                .scaleEffect(isCopyHovered ? 1.05 : 1.0)
-                                .animation(.easeInOut(duration: 0.14), value: isCopyHovered)
+                                .frame(width: 22, height: 22)
+                                .macControlBackground(isHovered: isCopyHovered, tint: didCopyURL ? .green : themeColor, radius: 7)
+                                .animation(MacDesign.fastAnimation, value: isCopyHovered)
                         }
                         .buttonStyle(.plain)
                         .onHover { hovering in
@@ -98,22 +78,13 @@ struct URLBar: View {
                         }
                         .hoverCursor(.pointingHand)
                         .help(didCopyURL ? "Copied" : "Copy URL")
-                        .modifier(
-                            URLBarAccessoryGlassModifier(
-                                namespace: glassNamespace,
-                                id: "url-bar-copy",
-                                tint: didCopyURL ? .green : (isFocused ? themeColor : nil)
-                            )
-                        )
                     } else {
                         Color.clear
-                            .frame(width: 26, height: 24)
+                            .frame(width: 22, height: 22)
                     }
-                }
-                .fixedSize(horizontal: true, vertical: false)
             }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 2)
+            .padding(.horizontal, 9)
+            .frame(height: MacDesign.Size.urlBarHeight)
             .frame(maxWidth: .infinity, alignment: .leading)
             .modifier(
                 URLBarShellGlassModifier(
@@ -123,15 +94,13 @@ struct URLBar: View {
                     themeColor: themeColor
                 )
             )
-            .modifier(URLBarStrokeModifier(isFocused: isFocused, themeColor: themeColor))
             .shadow(
-                color: themeColor.opacity(isFocused ? 0.18 : 0.08),
-                radius: isFocused ? 16 : 10,
-                y: isFocused ? 7 : 4
+                color: Color.black.opacity(isFocused ? 0.10 : 0.04),
+                radius: isFocused ? 12 : 6,
+                y: isFocused ? 5 : 2
             )
-        }
         .focusRing(isFocused)
-        .font(.system(size: 13, weight: .medium, design: .rounded))
+        .font(.system(size: 13, weight: .regular))
         .animation(.spring(response: 0.35, dampingFraction: 0.8), value: isFocused)
         .hoverCursor(.iBeam)
         .onAppear {
@@ -189,13 +158,14 @@ private struct URLBarShellGlassModifier: ViewModifier {
     @ViewBuilder
     func body(content: Content) -> some View {
         content
-            .background(.ultraThinMaterial, in: Capsule())
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 11, style: .continuous))
             .background {
-                Capsule().fill(themeColor.opacity(isFocused ? 0.16 : 0.08))
+                RoundedRectangle(cornerRadius: 11, style: .continuous)
+                    .fill(themeColor.opacity(isFocused ? 0.10 : 0.035))
             }
             .overlay {
-                Capsule()
-                    .stroke(.white.opacity(isFocused ? 0.2 : 0.1), lineWidth: 0.5)
+                RoundedRectangle(cornerRadius: 11, style: .continuous)
+                    .stroke(isFocused ? themeColor.opacity(0.34) : Color.primary.opacity(0.10), lineWidth: 0.5)
             }
     }
 }

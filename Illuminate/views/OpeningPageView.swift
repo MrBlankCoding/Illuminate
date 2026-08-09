@@ -12,7 +12,7 @@ struct OpeningPageView: View {
     @EnvironmentObject private var tabManager: TabManager
     @ObservedObject var viewModel: ContentViewModel
     @Environment(\.colorScheme) private var colorScheme
-
+    @State private var searchText = ""
     @State private var googleSuggestions: [String] = []
     @State private var suggestionTask: Task<Void, Never>?
     @FocusState private var isSearchFieldFocused: Bool
@@ -43,7 +43,7 @@ struct OpeningPageView: View {
         .background(backgroundView)
         .ignoresSafeArea()
         .preferredColorScheme(tabManager.userInterfaceStyle.colorScheme)
-        .onChange(of: viewModel.addressBarText) { _, newQuery in
+        .onChange(of: searchText) { _, newQuery in
             scheduleSuggestions(for: newQuery)
         }
         .onDisappear {
@@ -63,14 +63,14 @@ struct OpeningPageView: View {
             Image(systemName: "magnifyingglass")
                 .foregroundStyle(Color.textSecondary)
 
-            TextField("Search the web or enter URL", text: $viewModel.addressBarText)
+            TextField("Search the web or enter URL", text: $searchText)
                 .textFieldStyle(.plain)
                 .font(.system(size: 15, weight: .medium, design: .rounded))
                 .foregroundStyle(Color.textPrimary)
                 .focused($isSearchFieldFocused)
                 .onSubmit {
                     googleSuggestions = []
-                    viewModel.navigateToAddressBarURL()
+                    navigate(with: searchText)
                 }
         }
         .padding(.horizontal, 18)
@@ -89,9 +89,9 @@ struct OpeningPageView: View {
 
                         Button {
 
-                            viewModel.addressBarText = suggestion
+                            searchText = suggestion
                             googleSuggestions = []
-                            viewModel.navigateToAddressBarURL()
+                            navigate(with: suggestion)
 
                         } label: {
 
@@ -159,6 +159,17 @@ struct OpeningPageView: View {
         guard !tabManager.backgroundImageURL.isEmpty else { return nil }
         return URL(string: tabManager.backgroundImageURL)
     }
+
+    private func navigate(with query: String) {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+
+        viewModel.addressBarText = trimmed
+        viewModel.navigateToAddressBarURL()
+
+        searchText = ""
+    }
+
 
     private func scheduleSuggestions(for query: String) {
 

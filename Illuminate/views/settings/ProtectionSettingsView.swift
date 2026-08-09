@@ -8,34 +8,26 @@
 import SwiftUI
 
 struct ProtectionSettingsView: View {
-    @EnvironmentObject private var tabManager: TabManager
     @EnvironmentObject private var environment: ProfileEnvironment
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            SettingsShared.panelSection {
-                VStack(alignment: .leading, spacing: 16) {
-                    SettingsShared.infoRow(title: "Enable ad blocker") {
-                        Toggle("", isOn: Binding(
-                            get: { environment.adBlockService.isEnabled },
-                            set: { environment.adBlockService.isEnabled = $0 }
-                        ))
-                        .labelsHidden()
-                        .toggleStyle(GlassToggleStyle(tint: tabManager.windowThemeColor))
-                        .hoverCursor(.pointingHand)
-                    }
-
-                    SettingsShared.infoRow(title: "Block cross-site redirects") {
-                        Toggle("", isOn: Binding(
-                            get: { environment.redirectProtectionService.isEnabled },
-                            set: { environment.redirectProtectionService.isEnabled = $0 }
-                        ))
-                        .labelsHidden()
-                        .toggleStyle(GlassToggleStyle(tint: tabManager.windowThemeColor))
-                        .hoverCursor(.pointingHand)
+        Form {
+            Section("Web Protection") {
+                Toggle(isOn: Binding(
+                    get: { environment.adBlockService.isEnabled },
+                    set: { environment.adBlockService.isEnabled = $0 }
+                )) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Enable ad blocker")
+                        Text("Block known advertising and tracking resources while pages load.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
                 }
+                .toggleStyle(.switch)
+
             }
         }
+        .settingsForm()
     }
 }

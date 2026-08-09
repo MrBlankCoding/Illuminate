@@ -19,11 +19,6 @@ struct ClosedTabSnapshot {
 
 @MainActor
 final class TabManager: ObservableObject {
-    enum SidebarPanel {
-        case tabs
-        case downloads
-    }
-
     private enum Defaults {
         static let themeColor        = "89BBFF"
         static let maxRecentlyClosed = 25
@@ -62,10 +57,12 @@ final class TabManager: ObservableObject {
         didSet { persistIfEnabled(showBackgroundBehindSidebar, forKey: "showBackgroundBehindSidebar") }
     }
 
-    @Published var sidebarPanel: SidebarPanel = .tabs
-
     @Published var userInterfaceStyle: UIStyle {
         didSet { persistIfEnabled(userInterfaceStyle.rawValue, forKey: "userInterfaceStyle") }
+    }
+
+    @Published var bookmarkBarVisibility: BookmarkBarVisibility {
+        didSet { persistIfEnabled(bookmarkBarVisibility.rawValue, forKey: "bookmarkBarVisibility") }
     }
 
     var activeTab: Tab? {
@@ -144,6 +141,11 @@ final class TabManager: ObservableObject {
             ? (userDefaults.string(forKey: Self.scopedKey("userInterfaceStyle", profileID: profileID)) ?? "dark")
             : "dark"
         self.userInterfaceStyle = UIStyle(rawValue: savedStyle) ?? .dark
+
+        let savedBarVisibility = isPersistenceEnabled
+            ? (userDefaults.string(forKey: Self.scopedKey("bookmarkBarVisibility", profileID: profileID)) ?? BookmarkBarVisibility.always.rawValue)
+            : BookmarkBarVisibility.always.rawValue
+        self.bookmarkBarVisibility = BookmarkBarVisibility(rawValue: savedBarVisibility) ?? .always
 
         if isPersistenceEnabled {
             restoreSession()
@@ -358,6 +360,14 @@ final class TabManager: ObservableObject {
         scheduleSave()
     }
 
+    func cycleBookmarkBarVisibility() {
+        switch bookmarkBarVisibility {
+        case .always:    bookmarkBarVisibility = .newTabOnly
+        case .newTabOnly: bookmarkBarVisibility = .hidden
+        case .hidden:    bookmarkBarVisibility = .always
+        }
+    }
+
     @discardableResult
     func reopenLastClosedTab() -> Tab? {
         guard let snapshot = recentlyClosed.popLast() else { return nil }
@@ -404,38 +414,6 @@ final class TabManager: ObservableObject {
         hydrateVisualState(for: tab)
         if tabID == activeTabID { syncActiveTabURL() }
         scheduleSave()
-    }
-
-    func openSettingsTab() {
-        let settingsURLString = "illuminate://settings"
-
-        if let existing = tabs.first(where: { $0.url?.absoluteString == settingsURLString }) {
-            switchTo(existing.id)
-            return
-        }
-
-        guard let settingsURL = URL(string: settingsURLString) else {
-            logger.error("Invalid settings URL string: \(settingsURLString, privacy: .public)")
-            return
-        }
-
-        let tab = createTab(url: settingsURL)
-        tab.title = "Settings"
-    }
-
-    func showTabsSidebar() {
-        sidebarPanel = .tabs
-        showSidebar = true
-    }
-
-    func toggleDownloadsSidebar() {
-        if showSidebar, sidebarPanel == .downloads {
-            sidebarPanel = .tabs
-            return
-        }
-
-        sidebarPanel = .downloads
-        showSidebar = true
     }
 
     func createTabGroup(name: String, color: String) {
@@ -532,12 +510,17 @@ final class TabManager: ObservableObject {
     }
 
     private func specialFavicon(for pageURL: URL?) -> NSImage? {
-        guard
-            pageURL?.scheme?.lowercased() == "illuminate",
-            pageURL?.host?.lowercased()   == "settings"
-        else { return nil }
-        // settings 
-        return NSImage(systemSymbolName: "gearshape.fill", accessibilityDescription: "Settings")
+        guard pageURL?.scheme?.lowercased() == "illuminate" else { return nil }
+        switch pageURL?.host?.lowercased() {
+        case "passwords":
+            return NSImage(systemSymbolName: "key.fill", accessibilityDescription: "Passwords")
+        case "cookies":
+            return NSImage(systemSymbolName: "circle.hexagongrid.fill", accessibilityDescription: "Cookies")
+        case "protection":
+            return NSImage(systemSymbolName: "shield.fill", accessibilityDescription: "Protection")
+        default:
+            return nil
+        }
     }
 
     private func removeTabAssets(for id: UUID) {
@@ -606,11 +589,6 @@ final class TabManager: ObservableObject {
             (.reopenTab,       { [weak self] in self?.reopenLastClosedTab() }),
             (.nextTab,         { [weak self] in self?.nextTab() }),
             (.previousTab,     { [weak self] in self?.previousTab() }),
-            (.toggleSidebar,   { [weak self] in
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-                    self?.showSidebar.toggle()
-                }
-            }),
             (.openDevTools,    { [weak self] in self?.activeTab?.openDevTools() }),
             (.zoomIn,          { [weak self] in self?.activeTab?.zoomIn() }),
             (.zoomOut,         { [weak self] in self?.activeTab?.zoomOut() }),
@@ -618,6 +596,7 @@ final class TabManager: ObservableObject {
             (.toggleFullScreen, { NSApp.keyWindow?.toggleFullScreen(nil) }),
             (Notification.Name.closeActiveTab, { [weak self] in self?.closeActiveTab() }),
             (Notification.Name.closeAllTabs, { [weak self] in self?.clearAllTabs() }),
+            (Notification.Name.toggleBookmarkBar, { [weak self] in self?.cycleBookmarkBarVisibility() }),
         ]
 
         observerTokens = pairs.map { name, handler in

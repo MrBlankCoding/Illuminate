@@ -16,7 +16,6 @@ extension WebViewRepresentable {
         private let tabManager: TabManager
         private let webScriptBridge: WebScriptBridge
         private let adBlockService: AdBlockService
-        private let redirectProtectionService: RedirectProtectionService
         private let dohService: DNSOverHTTPSService
         private let faviconCache: FaviconCache
         private let passwordService: PasswordService
@@ -73,7 +72,6 @@ extension WebViewRepresentable {
             tabManager: TabManager,
             webScriptBridge: WebScriptBridge,
             adBlockService: AdBlockService,
-            redirectProtectionService: RedirectProtectionService,
             dohService: DNSOverHTTPSService,
             faviconCache: FaviconCache,
             passwordService: PasswordService
@@ -82,7 +80,6 @@ extension WebViewRepresentable {
             self.tabManager = tabManager
             self.webScriptBridge = webScriptBridge
             self.adBlockService = adBlockService
-            self.redirectProtectionService = redirectProtectionService
             self.dohService = dohService
             self.faviconCache = faviconCache
             self.passwordService = passwordService
@@ -164,9 +161,6 @@ extension WebViewRepresentable {
             case "fieldsDetected":
                 let passwords = passwordService.fetchPasswords(for: url)
                 guard let first = passwords.first, let webView = message.webView else { return }
-                // Pass credentials as JSON rather than interpolating them directly into
-                // a JS string literal, which would break on special characters and is
-                // a potential injection vector.
                 let payload: [String: String] = ["username": first.username, "password": first.passwordData]
                 guard
                     let data = try? JSONEncoder().encode(payload),
@@ -197,9 +191,6 @@ extension WebViewRepresentable {
 
         func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
             lastLoadedURL = webView.url
-            if let tab, let committedURL = webView.url {
-                redirectProtectionService.recordCommittedNavigation(to: committedURL, tabID: tab.id)
-            }
         }
 
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
@@ -209,9 +200,6 @@ extension WebViewRepresentable {
             tab.isLoading = false
             tab.title = webView.title?.nilIfEmpty ?? tab.title
             tab.hasMixedContentWarning = !webView.hasOnlySecureContent
-            if tab.hasMixedContentWarning {
-                AppLog.security("Mixed content warning at \(webView.url?.absoluteString ?? "unknown URL")")
-            }
             tab.refreshSnapshot()
 
             if let lastAppliedStyle {
@@ -252,38 +240,6 @@ extension WebViewRepresentable {
             tab.isDNSError = isDNSError(error)
         }
 
-        func webView(_ webView: WKWebView, didReceiveServerRedirectForProvisionalNavigation navigation: WKNavigation!) {
-            guard let tab, let targetURL = webView.url else { return }
-
-            let sourceURL = redirectProtectionService.stableURL(for: tab.id) ?? lastLoadedURL ?? tab.url
-            guard redirectProtectionService.shouldBlockNavigation(
-                from: sourceURL,
-                to: targetURL,
-                tabID: tab.id,
-                isServerRedirect: true
-            ) else {
-                AppLog.security("Allowed server redirect source=\(sourceURL?.absoluteString ?? "<nil>") target=\(targetURL.absoluteString)")
-                return
-            }
-
-            AppLog.security("Blocked server redirect source=\(sourceURL?.absoluteString ?? "<nil>") target=\(targetURL.absoluteString)")
-            webView.stopLoading()
-            tab.isLoading = false
-            tab.url = sourceURL
-
-            redirectProtectionService.presentBlockedRedirect(
-                tabID: tab.id,
-                sourceURL: sourceURL,
-                targetURL: targetURL
-            ) { [weak webView, weak tab] in
-                guard let webView else { return }
-                tab?.lastNavigationHadNetworkError = false
-                tab?.lastNetworkErrorMessage = nil
-                tab?.isDNSError = false
-                webView.load(URLRequest(url: targetURL))
-            }
-        }
-
         func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
             guard circuitBreaker.canReloadAfterTermination() else {
                 AppLog.info("Circuit breaker prevented reload loop")
@@ -317,55 +273,13 @@ extension WebViewRepresentable {
             if navigationAction.shouldPerformDownload,
                shouldHandleDownloadOutsideWebKit(for: url)
             {
-                AppLog.download("Intercepted navigationAction download outside WebKit url=\(url.absoluteString) shouldPerformDownload=\(navigationAction.shouldPerformDownload)")
+                AppLog.download("Intercepted navigationAction download outside WebKit url=\(url.absoluteString)")
                 DownloadManager.shared.startDownload(
                     using: navigationAction.request,
                     suggestedFilename: url.lastPathComponent.nilIfEmpty
                 )
                 decisionHandler(.cancel)
                 return
-            }
-
-            // Redirect protection: detect client-side (JS) redirects.
-            // User-initiated navigations (link clicks, form submits) are tracked
-            // but not blocked. Only automatic/script-driven navigations are evaluated.
-            if let tab {
-                let isUserInitiated = navigationAction.navigationType == .linkActivated
-                    || navigationAction.navigationType == .formSubmitted
-                    || navigationAction.navigationType == .formResubmitted
-                    || navigationAction.navigationType == .backForward
-                    || navigationAction.navigationType == .reload
-
-                if isUserInitiated {
-                    redirectProtectionService.recordUserNavigation(to: url, tabID: tab.id)
-                } else if navigationAction.navigationType == .other && navigationAction.sourceFrame.isMainFrame {
-                    let sourceURL = redirectProtectionService.stableURL(for: tab.id) ?? lastLoadedURL ?? tab.url
-                    if redirectProtectionService.shouldBlockNavigation(
-                        from: sourceURL,
-                        to: url,
-                        tabID: tab.id,
-                        isServerRedirect: false
-                    ) {
-                        AppLog.security("Blocked client-side redirect source=\(sourceURL?.absoluteString ?? "<nil>") target=\(url.absoluteString)")
-                        tab.isLoading = false
-                        tab.url = sourceURL
-
-                        redirectProtectionService.presentBlockedRedirect(
-                            tabID: tab.id,
-                            sourceURL: sourceURL,
-                            targetURL: url
-                        ) { [weak webView, weak tab] in
-                            guard let webView else { return }
-                            tab?.lastNavigationHadNetworkError = false
-                            tab?.lastNetworkErrorMessage = nil
-                            tab?.isDNSError = false
-                            webView.load(URLRequest(url: url))
-                        }
-
-                        decisionHandler(.cancel)
-                        return
-                    }
-                }
             }
 
             decisionHandler(navigationAction.shouldPerformDownload ? .download : .allow)
@@ -380,7 +294,7 @@ extension WebViewRepresentable {
                let url = navigationResponse.response.url,
                shouldHandleDownloadOutsideWebKit(for: url)
             {
-                AppLog.download("Intercepted navigationResponse download outside WebKit url=\(url.absoluteString) mimeType=\(navigationResponse.response.mimeType ?? "<nil>") suggestedFilename=\(navigationResponse.response.suggestedFilename ?? "<nil>")")
+                AppLog.download("Intercepted navigationResponse download outside WebKit url=\(url.absoluteString)")
                 DownloadManager.shared.startDownload(
                     using: URLRequest(url: url),
                     suggestedFilename: navigationResponse.response.suggestedFilename
@@ -397,13 +311,10 @@ extension WebViewRepresentable {
                let url = request.url,
                ["http", "https"].contains(url.scheme?.lowercased() ?? "")
             {
-                AppLog.download("Fallback WebKit action download interception url=\(url.absoluteString); cancelling WKDownload and rerouting to URLSession")
                 download.cancel()
                 DownloadManager.shared.startDownload(using: request)
                 return
             }
-
-            AppLog.download("Allowing WebKit-managed action download url=\(download.originalRequest?.url?.absoluteString ?? "<nil>")")
             DownloadManager.shared.addDownload(download)
         }
 
@@ -412,7 +323,6 @@ extension WebViewRepresentable {
                let url = request.url,
                ["http", "https"].contains(url.scheme?.lowercased() ?? "")
             {
-                AppLog.download("Fallback WebKit response download interception url=\(url.absoluteString); cancelling WKDownload and rerouting to URLSession")
                 download.cancel()
                 DownloadManager.shared.startDownload(
                     using: request,
@@ -420,8 +330,6 @@ extension WebViewRepresentable {
                 )
                 return
             }
-
-            AppLog.download("Allowing WebKit-managed response download url=\(download.originalRequest?.url?.absoluteString ?? "<nil>") mimeType=\(navigationResponse.response.mimeType ?? "<nil>")")
             DownloadManager.shared.addDownload(download)
         }
 
@@ -433,36 +341,6 @@ extension WebViewRepresentable {
         ) -> WKWebView? {
             // Intercept target=_blank and similar popups as new tabs
             if navigationAction.targetFrame == nil {
-                let isUserInitiated = navigationAction.navigationType == .linkActivated
-                    || navigationAction.navigationType == .formSubmitted
-                    || navigationAction.navigationType == .formResubmitted
-                    || navigationAction.navigationType == .backForward
-                    || navigationAction.navigationType == .reload
-
-                if let url = navigationAction.request.url, let tab {
-                    if isUserInitiated {
-                        redirectProtectionService.recordUserNavigation(to: url, tabID: tab.id)
-                    } else {
-                        let sourceURL = redirectProtectionService.stableURL(for: tab.id) ?? lastLoadedURL ?? tab.url
-                        if redirectProtectionService.shouldBlockNavigation(
-                            from: sourceURL,
-                            to: url,
-                            tabID: tab.id,
-                            isServerRedirect: false
-                        ) {
-                            AppLog.security("Blocked popup creation source=\(sourceURL?.absoluteString ?? "<nil>") target=\(url.absoluteString)")
-                            redirectProtectionService.presentBlockedRedirect(
-                                tabID: tab.id,
-                                sourceURL: sourceURL,
-                                targetURL: url
-                            ) { [weak self] in
-                                self?.tabManager.createTab(url: url)
-                            }
-                            return nil
-                        }
-                    }
-                }
-
                 DispatchQueue.main.async { [weak self] in
                     self?.tabManager.createTab(url: navigationAction.request.url)
                 }
@@ -534,11 +412,6 @@ extension WebViewRepresentable {
             }
         }
 
-        // CONTEXT MENU
-        // should be extended in the future
-        // do people use mark?
-        // mark...?
-
         func webView(
             _ webView: WKWebView,
             contextMenu: NSMenu,
@@ -546,7 +419,6 @@ extension WebViewRepresentable {
             completionHandler: @escaping (NSMenu?) -> Void
         ) {
             contextMenuDownloadURL = preferredDownloadURL(from: elementInfo)
-            AppLog.download("Prepared context menu target url=\(contextMenuDownloadURL?.absoluteString ?? "<nil>")")
             contextMenu.addItem(.separator())
 
             let illuminateDownloadItem = NSMenuItem(title: "[Illuminate] Download", action: #selector(triggerIlluminateDownload), keyEquivalent: "")
@@ -568,46 +440,30 @@ extension WebViewRepresentable {
         @objc private func triggerIlluminateDownload() {
             guard let url = contextMenuDownloadURL ?? tab?.url, url.scheme != "illuminate" else { return }
             let suggestedFilename = url.lastPathComponent.nilIfEmpty ?? "download"
-            AppLog.download("Manual WebKit context menu download triggered url=\(url.absoluteString) suggestedFilename=\(suggestedFilename)")
             DownloadManager.shared.startDownload(from: url, suggestedFilename: suggestedFilename)
         }
 
         private func preferredDownloadURL(from elementInfo: Any) -> URL? {
             if let object = elementInfo as? NSObject {
                 for key in ["imageURL", "mediaURL", "linkURL", "url"] {
-                    if let value = object.value(forKey: key) as? URL {
-                        return value
-                    }
-
-                    if let raw = object.value(forKey: key) as? String, let url = URL(string: raw) {
-                        return url
-                    }
+                    if let value = object.value(forKey: key) as? URL { return value }
+                    if let raw = object.value(forKey: key) as? String, let url = URL(string: raw) { return url }
                 }
             }
-
             let mirror = Mirror(reflecting: elementInfo)
             for child in mirror.children {
                 guard let label = child.label?.lowercased() else { continue }
                 guard ["imageurl", "mediaurl", "linkurl", "url"].contains(label) else { continue }
-
-                if let url = child.value as? URL {
-                    return url
-                }
-
-                if let raw = child.value as? String, let url = URL(string: raw) {
-                    return url
-                }
+                if let url = child.value as? URL { return url }
+                if let raw = child.value as? String, let url = URL(string: raw) { return url }
             }
-
             return nil
         }
 
         func applyWebAppearance(to webView: WKWebView, style: TabManager.UIStyle) {
             guard lastAppliedStyle != style else { return }
             lastAppliedStyle = style
-
             let scheme = Self.resolvedScheme(for: style)
-
             webView.evaluateJavaScript(Self.colorSchemeScript(for: scheme), completionHandler: nil)
         }
 
@@ -622,7 +478,6 @@ extension WebViewRepresentable {
         private func resolveFaviconURL(from rawValue: String, pageURL: URL?) -> URL? {
             let trimmed = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !trimmed.isEmpty else { return nil }
-
             let resolvedURL: URL?
             if trimmed.hasPrefix("data:") {
                 resolvedURL = URL(string: trimmed)
@@ -631,14 +486,10 @@ extension WebViewRepresentable {
             } else {
                 resolvedURL = URL(string: trimmed)
             }
-
             guard let resolvedURL else { return nil }
-
             switch resolvedURL.scheme?.lowercased() {
-            case "http", "https", "data":
-                return resolvedURL
-            default:
-                return nil
+            case "http", "https", "data": return resolvedURL
+            default: return nil
             }
         }
 
@@ -648,10 +499,7 @@ extension WebViewRepresentable {
                 let scheme = pageURL.scheme?.lowercased(),
                 let host = pageURL.host,
                 scheme == "http" || scheme == "https"
-            else {
-                return nil
-            }
-
+            else { return nil }
             var components = URLComponents()
             components.scheme = scheme
             components.host = host
@@ -681,13 +529,11 @@ extension WebViewRepresentable {
 
         private func isDNSError(_ error: Error) -> Bool {
             let nsError = error as NSError
-            return nsError.domain == NSURLErrorDomain && 
+            return nsError.domain == NSURLErrorDomain &&
                    (nsError.code == NSURLErrorCannotFindHost || nsError.code == NSURLErrorDNSLookupFailed)
         }
     }
 }
-
-// always strings
 
 private extension String {
     var nilIfEmpty: String? { isEmpty ? nil : self }

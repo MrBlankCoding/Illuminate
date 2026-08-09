@@ -8,11 +8,11 @@
 import SwiftUI
 
 extension Color {
-    static let textPrimary   = Color.primary
+    static let textPrimary = Color.primary
     static let textSecondary = Color.secondary
-    static let borderSubtle  = Color.primary.opacity(0.08)
-    static let accentBeam    = Color.accentColor
-    static let accentSoft    = Color.accentColor.opacity(0.15)
+    static let borderSubtle = Color.primary.opacity(0.10)
+    static let accentBeam = Color.accentColor
+    static let accentSoft = Color.accentColor.opacity(0.14)
 }
 
 struct BrowserTheme {
@@ -20,26 +20,69 @@ struct BrowserTheme {
     let colorScheme: ColorScheme
 
     var isDark: Bool { colorScheme == .dark }
+
     var windowBase: Color {
-        isDark ? Color(hex: "101216") : Color(hex: "F8F9FB")
+        isDark ? Color(hex: "161617") : Color(hex: "F5F5F7")
     }
 
-    var itemHover: Color  { accent.opacity(isDark ? 0.10 : 0.08) }
-    var itemActive: Color { accent.opacity(isDark ? 0.18 : 0.14) }
+    var toolbarBase: Color { isDark ? Color.white.opacity(0.045) : Color.white.opacity(0.56) }
+    var sidebarBase: Color { isDark ? Color.white.opacity(0.035) : Color.white.opacity(0.42) }
+    var pageBase: Color { isDark ? Color(hex: "1C1C1E") : Color.white }
+    var itemHover: Color { isDark ? Color.white.opacity(0.075) : Color.black.opacity(0.055) }
+    var itemActive: Color { accent.opacity(isDark ? 0.22 : 0.16) }
+    var separator: Color { isDark ? Color.white.opacity(0.10) : Color.black.opacity(0.10) }
+    var controlFill: Color { isDark ? Color.white.opacity(0.075) : Color.white.opacity(0.72) }
+    var elevatedFill: Color { isDark ? Color.white.opacity(0.09) : Color.white.opacity(0.88) }
     var selectionIndicator: Color { accent }
-    var textOnAccent: Color { isDark ? .white : .black }
+    var textOnAccent: Color { .white }
 }
 
-struct GlassModifier: ViewModifier {
-    var cornerRadius: CGFloat = 8
+enum MacDesign {
+    enum Radius {
+        static let small: CGFloat = 7
+        static let control: CGFloat = 10
+        static let medium: CGFloat = 12
+        static let large: CGFloat = 16
+        static let panel: CGFloat = 20
+    }
+
+    enum Spacing {
+        static let hairline: CGFloat = 1
+        static let tight: CGFloat = 6
+        static let control: CGFloat = 8
+        static let regular: CGFloat = 12
+        static let roomy: CGFloat = 16
+        static let section: CGFloat = 20
+        static let page: CGFloat = 24
+    }
+
+    enum Size {
+        static let iconButton: CGFloat = 28
+        static let largeIconButton: CGFloat = 32
+        static let urlBarHeight: CGFloat = 34
+        static let tabHeight: CGFloat = 34
+        static let tabStripHeight: CGFloat = 42
+        static let toolbarRowHeight: CGFloat = 48
+    }
+
+    static let fastAnimation = Animation.easeInOut(duration: 0.16)
+    static let springAnimation = Animation.spring(response: 0.32, dampingFraction: 0.86)
+}
+
+struct MacMaterialModifier: ViewModifier {
+    var cornerRadius: CGFloat = MacDesign.Radius.medium
+    var material: Material = .regularMaterial
+    var strokeOpacity: Double = 0.10
+    var shadowOpacity: Double = 0.0
 
     func body(content: Content) -> some View {
         content
-            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            .background(material, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .stroke(.white.opacity(0.12), lineWidth: 0.5)
+                    .stroke(Color.primary.opacity(strokeOpacity), lineWidth: 0.5)
             }
+            .shadow(color: Color.black.opacity(shadowOpacity), radius: shadowOpacity > 0 ? 18 : 0, y: shadowOpacity > 0 ? 10 : 0)
     }
 }
 
@@ -50,22 +93,22 @@ struct LiquidGlassCapsuleModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
             .padding(padding)
-            .background(.ultraThinMaterial, in: Capsule())
+            .background(.regularMaterial, in: Capsule())
             .background {
                 if let tint {
-                    Capsule().fill(tint.opacity(0.12))
+                    Capsule().fill(tint.opacity(0.10))
                 }
             }
             .overlay {
                 Capsule()
-                    .stroke(.white.opacity(0.15), lineWidth: 0.5)
+                    .stroke(Color.primary.opacity(0.10), lineWidth: 0.5)
             }
     }
 }
 
 extension View {
     func glassBackground(cornerRadius: CGFloat = 8) -> some View {
-        modifier(GlassModifier(cornerRadius: cornerRadius))
+        modifier(MacMaterialModifier(cornerRadius: cornerRadius, material: .regularMaterial, strokeOpacity: 0.10))
     }
 
     func liquidGlassCapsule(tint: Color? = nil, padding: CGFloat = 0) -> some View {
@@ -74,35 +117,47 @@ extension View {
 
     @ViewBuilder
     func browserPanel(cornerRadius: CGFloat = 10) -> some View {
-        self.background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .stroke(.white.opacity(0.1), lineWidth: 0.5)
-            }
+        self.modifier(MacMaterialModifier(cornerRadius: cornerRadius, material: .regularMaterial, strokeOpacity: 0.09))
     }
 
     @ViewBuilder
     func insetPanel(cornerRadius: CGFloat = 8) -> some View {
         self.background(.thinMaterial, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .stroke(Color.primary.opacity(0.07), lineWidth: 0.5)
+            }
     }
 
     @ViewBuilder
     func accentGlassPanel(accent: Color, cornerRadius: CGFloat = 10) -> some View {
-        self.background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+        self.background(.regularMaterial, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
             .background {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(accent.opacity(0.14))
+                    .fill(accent.opacity(0.13))
             }
             .overlay {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .stroke(.white.opacity(0.15), lineWidth: 0.5)
+                    .stroke(accent.opacity(0.28), lineWidth: 0.5)
             }
     }
 
     @ViewBuilder
     func floatingGlassPanel(cornerRadius: CGFloat = 10) -> some View {
         self.background(.regularMaterial, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-            .shadow(color: .black.opacity(0.12), radius: 10, y: 5)
+            .overlay {
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .stroke(Color.primary.opacity(0.10), lineWidth: 0.5)
+            }
+            .shadow(color: .black.opacity(0.18), radius: 18, y: 10)
+    }
+
+    func macPopover(cornerRadius: CGFloat = MacDesign.Radius.large) -> some View {
+        modifier(MacMaterialModifier(cornerRadius: cornerRadius, material: .regularMaterial, strokeOpacity: 0.10, shadowOpacity: 0.16))
+    }
+
+    func macControlBackground(isActive: Bool = false, isHovered: Bool = false, tint: Color? = nil, radius: CGFloat = MacDesign.Radius.control) -> some View {
+        modifier(MacControlBackgroundModifier(isActive: isActive, isHovered: isHovered, tint: tint, radius: radius))
     }
 
     func focusRing(_ active: Bool) -> some View {
@@ -122,16 +177,16 @@ struct GlassButtonStyle: ButtonStyle {
             .font(.webBody)
             .padding(.horizontal, 14)
             .padding(.vertical, 6)
-            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: MacDesign.Radius.control, style: .continuous))
             .background {
                 if let tint {
-                    RoundedRectangle(cornerRadius: 6, style: .continuous)
-                        .fill(tint.opacity(0.12))
+                    RoundedRectangle(cornerRadius: MacDesign.Radius.control, style: .continuous)
+                        .fill(tint.opacity(0.11))
                 }
             }
             .overlay {
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .stroke(.white.opacity(0.1), lineWidth: 0.5)
+                RoundedRectangle(cornerRadius: MacDesign.Radius.control, style: .continuous)
+                    .stroke(Color.primary.opacity(0.10), lineWidth: 0.5)
             }
             .scaleEffect(configuration.isPressed ? 0.97 : 1)
             .animation(.easeOut(duration: 0.1), value: configuration.isPressed)
@@ -145,31 +200,10 @@ struct GlassToggleStyle: ToggleStyle {
         HStack {
             configuration.label
             Spacer()
-            ZStack(alignment: configuration.isOn ? .trailing : .leading) {
-                Capsule()
-                    .fill(.ultraThinMaterial)
-                
-                if configuration.isOn {
-                    Capsule()
-                        .fill(tint.opacity(0.2))
-                }
-
-                Circle()
-                    .fill(Color.white)
-                    .shadow(color: .black.opacity(0.15), radius: 2, y: 1)
-                    .padding(2)
-            }
-            .frame(width: 36, height: 20)
-            .overlay {
-                Capsule()
-                    .stroke(.white.opacity(0.1), lineWidth: 0.5)
-            }
-            .onTapGesture {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                    configuration.isOn.toggle()
-                }
-            }
-            .hoverCursor(.pointingHand)
+            Toggle("", isOn: configuration.$isOn)
+                .labelsHidden()
+                .toggleStyle(.switch)
+                .tint(tint)
         }
     }
 }
@@ -198,8 +232,8 @@ struct FocusRingModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
             .overlay(
-                RoundedRectangle(cornerRadius: 6)
-                    .stroke(isActive ? Color.accentBeam.opacity(0.6) : .clear, lineWidth: 3)
+                RoundedRectangle(cornerRadius: MacDesign.Radius.control)
+                    .stroke(isActive ? Color.accentBeam.opacity(0.34) : .clear, lineWidth: 3)
             )
             .animation(.easeOut(duration: 0.15), value: isActive)
     }
@@ -219,21 +253,83 @@ struct CavedDivider: View {
         Rectangle()
             .fill(Color.borderSubtle)
             .frame(height: 1)
-            .opacity(0.4)
-            .padding(.vertical, 2)
+            .opacity(0.7)
     }
 }
 
 extension Font {
-    static let webH1   = Font.system(size: 24, weight: .semibold, design: .rounded)
-    static let webH2   = Font.system(size: 20, weight: .medium,   design: .rounded)
+    static let webH1   = Font.system(size: 24, weight: .semibold)
+    static let webH2   = Font.system(size: 20, weight: .medium)
     static let webBody = Font.system(size: 14)
-    static let webMicro = Font.system(size: 12)
+    static let webMicro = Font.system(size: 12.5)
 }
 
 extension Animation {
     static var browserDefault: Animation {
-        .spring(response: 0.3, dampingFraction: 0.8)
+        MacDesign.springAnimation
+    }
+}
+
+struct MacToolbarButtonStyle: ButtonStyle {
+    var isActive = false
+    var tint: Color? = nil
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .frame(width: MacDesign.Size.iconButton, height: MacDesign.Size.iconButton)
+            .background {
+                Circle()
+                    .fill(backgroundFill(isPressed: configuration.isPressed))
+            }
+            .contentShape(Circle())
+            .scaleEffect(configuration.isPressed ? 0.94 : 1)
+            .animation(MacDesign.fastAnimation, value: configuration.isPressed)
+    }
+
+    private func backgroundFill(isPressed: Bool) -> Color {
+        if isPressed || isActive {
+            return (tint ?? .accentColor).opacity(0.18)
+        }
+        return .clear
+    }
+}
+
+private struct MacControlBackgroundModifier: ViewModifier {
+    let isActive: Bool
+    let isHovered: Bool
+    let tint: Color?
+    let radius: CGFloat
+
+    func body(content: Content) -> some View {
+        content
+            .background {
+                RoundedRectangle(cornerRadius: radius, style: .continuous)
+                    .fill(fill)
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: radius, style: .continuous)
+                    .stroke(stroke, lineWidth: 0.5)
+            }
+    }
+
+    private var fill: Color {
+        if isActive, let tint {
+            return tint.opacity(0.16)
+        }
+        if isActive {
+            return Color.primary.opacity(0.08)
+        }
+        if isHovered {
+            return Color.primary.opacity(0.06)
+        }
+        return Color.clear
+    }
+
+    private var stroke: Color {
+        if isActive, let tint {
+            return tint.opacity(0.24)
+        }
+        return isHovered || isActive ? Color.primary.opacity(0.10) : Color.clear
     }
 }
 

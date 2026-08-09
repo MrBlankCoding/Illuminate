@@ -18,7 +18,7 @@ struct NavigationControls: View {
     }
 
     var body: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: 2) {
             navButton(systemName: "chevron.left", isEnabled: tab.canGoBack, help: "Go Back") {
                 tab.webView?.goBack()
             }
@@ -41,9 +41,6 @@ struct NavigationControls: View {
                 }
             }
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
-        .liquidGlassCapsule(tint: themeColor, padding: 0)
     }
 
     private func navButton(systemName: String, isEnabled: Bool, isGreyedOut: Bool = false, help: String = "", action: @escaping () -> Void) -> some View {
@@ -70,19 +67,11 @@ private struct NavigationControlButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: systemName)
-                .font(.system(size: 12, weight: .bold))
-                .foregroundStyle(isEnabled ? (isGreyedOut ? Color.textSecondary.opacity(0.4) : Color.textPrimary) : Color.textSecondary.opacity(0.2))
-                .frame(width: 26, height: 26)
-                .background(
-                    Circle()
-                        .fill(isEnabled && isHovered && !isGreyedOut ? theme.itemHover : Color.clear)
-                )
-                .overlay(
-                    Circle()
-                        .strokeBorder(!isGreyedOut && isHovered ? Color.borderSubtle : Color.clear, lineWidth: 1)
-                )
-                .scaleEffect(!isGreyedOut && isHovered ? 1.06 : 1.0)
-                .animation(.easeInOut(duration: 0.14), value: isHovered)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(symbolColor)
+                .frame(width: MacDesign.Size.iconButton, height: MacDesign.Size.iconButton)
+                .macControlBackground(isHovered: isEnabled && isHovered && !isGreyedOut, tint: theme.accent, radius: 999)
+                .animation(MacDesign.fastAnimation, value: isHovered)
         }
         .buttonStyle(.plain)
         .disabled(!isEnabled || isGreyedOut)
@@ -91,5 +80,15 @@ private struct NavigationControlButton: View {
         }
         .hoverCursor(isGreyedOut ? .arrow : .pointingHand)
         .help(helpText)
+    }
+
+    private var symbolColor: Color {
+        guard isEnabled else {
+            return Color.textSecondary.opacity(0.28)
+        }
+        if isGreyedOut {
+            return Color.textSecondary.opacity(0.42)
+        }
+        return isHovered ? Color.textPrimary : Color.textSecondary
     }
 }
