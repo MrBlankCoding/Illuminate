@@ -18,6 +18,7 @@ private enum TabItemMetrics {
 
 struct TabItemView: View {
     @ObservedObject var tab: Tab
+
     let themeColor: Color
     let isActive: Bool
     let onSelect: () -> Void
@@ -57,13 +58,15 @@ struct TabItemView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(tabBackground)
                     .contentShape(
-                        RoundedRectangle(cornerRadius: TabItemMetrics.cornerRadius, style: .continuous)
+                        RoundedRectangle(
+                            cornerRadius: TabItemMetrics.cornerRadius,
+                            style: .continuous
+                        )
                     )
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(tab.title.isEmpty ? "New Tab" : tab.title)
                 .accessibilityAddTraits(isActive ? [.isSelected] : [])
-
                 if showClose {
                     closeButton
                         .padding(.trailing, 5)
@@ -85,12 +88,18 @@ struct TabItemView: View {
                 }
             }
             .frame(width: geo.size.width, height: TabItemMetrics.height)
-            .clipShape(RoundedRectangle(cornerRadius: TabItemMetrics.cornerRadius, style: .continuous))
+            .clipShape(
+                RoundedRectangle(
+                    cornerRadius: TabItemMetrics.cornerRadius,
+                    style: .continuous
+                )
+            )
         }
         .frame(height: TabItemMetrics.height)
-        .onHover { isHovering in
+        .contentShape(Rectangle())
+        .onHover { hovering in
             withAnimation(MacDesign.fastAnimation) {
-                isHovered = isHovering
+                isHovered = hovering
             }
         }
         .hoverCursor(.pointingHand)
@@ -112,7 +121,6 @@ struct TabItemView: View {
                 }
             }
             .frame(width: 16, height: 16)
-
             if tab.isMuted {
                 Image(systemName: "speaker.slash.fill")
                     .font(.system(size: 7, weight: .bold))

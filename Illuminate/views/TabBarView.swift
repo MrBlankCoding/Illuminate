@@ -10,67 +10,29 @@ import SwiftUI
 private enum TabBarMetrics {
     static let minTabWidth: CGFloat = 48
     static let maxTabWidth: CGFloat = 220
-    static let preferredTabWidth: CGFloat = 200
     static let tabSpacing: CGFloat = 3
     static let scrollThreshold: CGFloat = 72
     static let newTabButtonSize: CGFloat = 28
     static let rowHeight: CGFloat = 42
-    static let trafficLightClearance: CGFloat = 78
+    static let reorderAnimation: Animation = .spring(response: 0.34, dampingFraction: 0.82, blendDuration: 0.1)
 }
 
-struct HorizontalTabDropDelegate: DropDelegate {
-    let targetTab: Tab
-    @ObservedObject var tabManager: TabManager
-    @Binding var dropTargetID: UUID?
-    @Binding var draggedTabID: UUID?
+private struct TabDragSession {
+    var tabID: UUID
+    var startIndex: Int
+    var currentIndex: Int      // where it would land if the drag ended now
+    var translation: CGFloat = 0
+    var tabWidth: CGFloat
+    var spacing: CGFloat = TabBarMetrics.tabSpacing
 
-    func performDrop(info: DropInfo) -> Bool {
-        defer {
-            withAnimation(MacDesign.springAnimation) { dropTargetID = nil }
-        }
-        guard
-            let provider = info.itemProviders(for: ["public.text"]).first
-        else { return false }
-
-        provider.loadObject(ofClass: NSString.self) { string, _ in
-            guard
-                let uuidString = string as? String,
-                let sourceID = UUID(uuidString: uuidString),
-                sourceID != targetTab.id
-            else { return }
-
-            DispatchQueue.main.async {
-                if let sourceIndex = tabManager.tabs.firstIndex(where: { $0.id == sourceID }),
-                   let targetIndex = tabManager.tabs.firstIndex(where: { $0.id == targetTab.id }) {
-                    withAnimation(MacDesign.springAnimation) {
-                        tabManager.moveTab(fromOffsets: IndexSet(integer: sourceIndex), toOffset: targetIndex)
-                    }
-                }
-                draggedTabID = nil
-            }
-        }
-        return true
-    }
-
-    func dropEntered(info: DropInfo) {
-        withAnimation(MacDesign.springAnimation) { dropTargetID = targetTab.id }
-    }
-
-    func dropExited(info: DropInfo) {
-        withAnimation(MacDesign.springAnimation) { dropTargetID = nil }
-    }
-
-    func dropUpdated(info: DropInfo) -> DropProposal? {
-        DropProposal(operation: .move)
-    }
+    var stride: CGFloat { tabWidth + spacing }
 }
 
 struct TabBarView: View {
     @EnvironmentObject private var tabManager: TabManager
     @Environment(\.colorScheme) private var colorScheme
 
-    @State private var dropTargetID: UUID?
-    @State private var draggedTabID: UUID?
+    @State private var dragSession: TabDragSession?
     @State private var isNewTabHovered = false
 
     private var theme: BrowserTheme {
@@ -79,9 +41,8 @@ struct TabBarView: View {
 
     var body: some View {
         GeometryReader { geo in
-            let availableWidth = geo.size.width
             HStack(spacing: 0) {
-                tabStrip(availableWidth: availableWidth)
+                tabStrip(availableWidth: geo.size.width)
                 newTabButton
             }
         }
@@ -90,19 +51,17 @@ struct TabBarView: View {
 
     @ViewBuilder
     private func tabStrip(availableWidth: CGFloat) -> some View {
-        let tabs = tabManager.tabs
-        let count = max(tabs.count, 1)
-        let spacing = TabBarMetrics.tabSpacing * CGFloat(count - 1)
+        let count    = max(tabManager.tabs.count, 1)
         let newTabRoom = TabBarMetrics.newTabButtonSize + TabBarMetrics.tabSpacing
-        let usable = availableWidth - newTabRoom
+        let spacing  = TabBarMetrics.tabSpacing * CGFloat(count - 1)
+        let usable   = availableWidth - newTabRoom
         let rawWidth = (usable - spacing) / CGFloat(count)
-        let computedWidth = min(max(rawWidth, TabBarMetrics.minTabWidth), TabBarMetrics.maxTabWidth)
-        let needsScroll = computedWidth <= TabBarMetrics.scrollThreshold
+        let tabWidth = min(max(rawWidth, TabBarMetrics.minTabWidth), TabBarMetrics.maxTabWidth)
 
-        if needsScroll {
+        if tabWidth <= TabBarMetrics.scrollThreshold {
             ScrollViewReader { proxy in
                 ScrollView(.horizontal, showsIndicators: false) {
-                    tabRow(tabWidth: TabBarMetrics.scrollThreshold, proxy: proxy)
+                    tabRow(tabWidth: TabBarMetrics.scrollThreshold)
                 }
                 .onChange(of: tabManager.activeTabID) { _, newID in
                     if let id = newID {
@@ -113,36 +72,61 @@ struct TabBarView: View {
                 }
             }
         } else {
-            tabRow(tabWidth: computedWidth, proxy: nil)
+            tabRow(tabWidth: tabWidth)
         }
     }
 
-    @ViewBuilder
-    private func tabRow(tabWidth: CGFloat, proxy: ScrollViewProxy?) -> some View {
+    private func tabRow(tabWidth: CGFloat) -> some View {
         HStack(spacing: TabBarMetrics.tabSpacing) {
-            ForEach(tabManager.tabs) { tab in
-                tabItem(tab: tab, width: tabWidth)
-                    .id(tab.id)
-                    .overlay(alignment: .leading) {
-                        if dropTargetID == tab.id, draggedTabID != tab.id {
-                            Capsule()
-                                .fill(tabManager.windowThemeColor)
-                                .frame(width: 2, height: 20)
-                                .offset(x: -1)
-                                .transition(.opacity.animation(MacDesign.fastAnimation))
-                        }
-                    }
-                    .opacity(draggedTabID == tab.id ? 0.4 : 1.0)
-                    .animation(MacDesign.springAnimation, value: draggedTabID)
-                    .onDrop(
-                        of: ["public.text"],
-                        delegate: HorizontalTabDropDelegate(
-                            targetTab: tab,
-                            tabManager: tabManager,
-                            dropTargetID: $dropTargetID,
-                            draggedTabID: $draggedTabID
+            ForEach(Array(tabManager.tabs.enumerated()), id: \.element.id) { index, tab in
+                let isDragging  = dragSession?.tabID == tab.id
+                let dragOffsetX = offset(forTabAt: index, isDragging: isDragging)
+
+                TabItemView(
+                    tab: tab,
+                    themeColor: tabManager.windowThemeColor,
+                    isActive: tab.id == tabManager.activeTabID,
+                    onSelect: {
+                        withAnimation(MacDesign.springAnimation) { tabManager.switchTo(tab.id) }
+                    },
+                    onClose: {
+                        withAnimation(MacDesign.springAnimation) { tabManager.closeTab(id: tab.id) }
+                    },
+                    onDuplicate: {
+                        if let url = tab.url { tabManager.createTab(url: url) }
+                    },
+                    onCloseOthers: {
+                        let ids = tabManager.tabs.filter { $0.id != tab.id }.map { $0.id }
+                        withAnimation(MacDesign.springAnimation) { ids.forEach { tabManager.closeTab(id: $0) } }
+                    },
+                    onCloseToRight: {
+                        guard let idx = tabManager.tabs.firstIndex(where: { $0.id == tab.id }) else { return }
+                        let ids = tabManager.tabs[(idx + 1)...].map { $0.id }
+                        withAnimation(MacDesign.springAnimation) { ids.forEach { tabManager.closeTab(id: $0) } }
+                    },
+                    onCopyLink: {
+                        guard let s = tab.url?.absoluteString, !s.isEmpty else { return }
+                        NSPasteboard.general.clearContents()
+                        NSPasteboard.general.setString(s, forType: .string)
+                    },
+                    onToggleMute: { tab.toggleMute() }
+                )
+                .frame(width: tabWidth)
+                .zIndex(isDragging ? 1 : 0)
+                .offset(x: dragOffsetX)
+                .opacity(isDragging ? 0.92 : 1.0)
+                .scaleEffect(isDragging ? 1.02 : 1.0, anchor: .center)
+                .animation(isDragging ? .none : MacDesign.springAnimation, value: dragOffsetX)
+                .id(tab.id)
+                .simultaneousGesture(tabDragGesture(for: tab, tabWidth: tabWidth))
+                .background(
+                    GeometryReader { geo in
+                        Color.clear.preference(
+                            key: TabFramesKey.self,
+                            value: [tab.id: geo.frame(in: .named("top"))]
                         )
-                    )
+                    }
+                )
             }
         }
         .padding(.vertical, 4)
@@ -150,77 +134,90 @@ struct TabBarView: View {
         .animation(MacDesign.springAnimation, value: tabManager.tabs.map { $0.id })
     }
 
-    private func tabItem(tab: Tab, width: CGFloat) -> some View {
-        TabItemView(
-            tab: tab,
-            themeColor: tabManager.windowThemeColor,
-            isActive: tab.id == tabManager.activeTabID,
-            onSelect: {
-                withAnimation(MacDesign.springAnimation) {
-                    tabManager.switchTo(tab.id)
-                }
-            },
-            onClose: {
-                withAnimation(MacDesign.springAnimation) {
-                    tabManager.closeTab(id: tab.id)
-                }
-            },
-            onDuplicate: {
-                if let url = tab.url {
-                    tabManager.createTab(url: url)
-                }
-            },
-            onCloseOthers: {
-                let othersIDs = tabManager.tabs
-                    .filter { $0.id != tab.id }
-                    .map { $0.id }
-                withAnimation(MacDesign.springAnimation) {
-                    othersIDs.forEach { tabManager.closeTab(id: $0) }
-                }
-            },
-            onCloseToRight: {
-                guard let idx = tabManager.tabs.firstIndex(where: { $0.id == tab.id }) else { return }
-                let rightIDs = tabManager.tabs[(idx + 1)...].map { $0.id }
-                withAnimation(MacDesign.springAnimation) {
-                    rightIDs.forEach { tabManager.closeTab(id: $0) }
-                }
-            },
-            onCopyLink: {
-                guard let url = tab.url?.absoluteString, !url.isEmpty else { return }
-                NSPasteboard.general.clearContents()
-                NSPasteboard.general.setString(url, forType: .string)
-            },
-            onToggleMute: {
-                tab.toggleMute()
+    private func offset(forTabAt index: Int, isDragging: Bool) -> CGFloat {
+        guard let session = dragSession else { return 0 }
+        if isDragging { return session.translation }
+
+        if session.currentIndex > session.startIndex {
+            if index > session.startIndex && index <= session.currentIndex {
+                return -session.stride
             }
-        )
-        .frame(width: width)
-        .onDrag {
-            draggedTabID = tab.id
-            return NSItemProvider(object: tab.id.uuidString as NSString)
+        } else if session.currentIndex < session.startIndex {
+            if index >= session.currentIndex && index < session.startIndex {
+                return session.stride
+            }
+        }
+        return 0
+    }
+
+    private func tabDragGesture(for tab: Tab, tabWidth: CGFloat) -> some Gesture {
+        DragGesture(minimumDistance: 4, coordinateSpace: .named("top"))
+            .onChanged { value in
+                if dragSession == nil || dragSession?.tabID != tab.id {
+                    guard let idx = tabManager.tabs.firstIndex(where: { $0.id == tab.id })
+                    else { return }
+                    if tabManager.activeTabID != tab.id { tabManager.switchTo(tab.id) }
+                    dragSession = TabDragSession(
+                        tabID: tab.id,
+                        startIndex: idx,
+                        currentIndex: idx,
+                        translation: 0,
+                        tabWidth: tabWidth
+                    )
+                }
+
+                dragSession?.translation = value.translation.width
+                updateCurrentIndex()
+            }
+            .onEnded { _ in
+                commitReorder()
+            }
+    }
+
+    private func updateCurrentIndex() {
+        guard let session = dragSession else { return }
+        let rawShift = Int((session.translation / session.stride).rounded())
+        let proposed = session.startIndex + rawShift
+        let clamped = min(max(proposed, 0), tabManager.tabs.count - 1)
+
+        if clamped != session.currentIndex {
+            withAnimation(MacDesign.springAnimation) {
+                dragSession?.currentIndex = clamped
+            }
+        }
+    }
+
+    private func commitReorder() {
+        guard let session = dragSession else { return }
+        withAnimation(MacDesign.springAnimation) {
+            if session.currentIndex != session.startIndex {
+                let destination = session.currentIndex > session.startIndex
+                    ? session.currentIndex + 1
+                    : session.currentIndex
+                tabManager.moveTab(
+                    fromOffsets: IndexSet(integer: session.startIndex),
+                    toOffset: destination
+                )
+            }
+            dragSession = nil
         }
     }
 
     private var newTabButton: some View {
         Button {
-            withAnimation(MacDesign.springAnimation) {
-                _ = tabManager.createTab()
-            }
+            withAnimation(MacDesign.springAnimation) { _ = tabManager.createTab() }
         } label: {
             Image(systemName: "plus")
                 .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(isNewTabHovered ? Color.textPrimary : Color.textSecondary)
                 .frame(width: TabBarMetrics.newTabButtonSize, height: TabBarMetrics.newTabButtonSize)
                 .background {
-                    Circle()
-                        .fill(isNewTabHovered ? theme.itemHover : Color.clear)
+                    Circle().fill(isNewTabHovered ? theme.itemHover : Color.clear)
                 }
                 .animation(MacDesign.fastAnimation, value: isNewTabHovered)
         }
         .buttonStyle(.plain)
-        .onHover { hovering in
-            isNewTabHovered = hovering
-        }
+        .onHover { isNewTabHovered = $0 }
         .hoverCursor(.pointingHand)
         .help("New Tab (⌘T)")
         .accessibilityLabel("New Tab")

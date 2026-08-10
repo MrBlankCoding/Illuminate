@@ -233,6 +233,8 @@ final class TabManager: ObservableObject {
             activeTabID = state.activeTabID
             if let ids = state.tabIDs {
                 tabs = ids.map { Tab(id: $0, assetsBaseURL: tabAssetsBaseURL) }
+            } else if let payloads = state.tabs {
+                tabs = payloads.map { makeTab(from: $0) }
             }
             rebuildTabIndex()
         case .failure(let error):

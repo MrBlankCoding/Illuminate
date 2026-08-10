@@ -5,7 +5,67 @@
 //  Created by MrBlankCoding on 8/9/26.
 //
 
+
 import SwiftUI
+import AppKit
+
+struct TabFramesKey: PreferenceKey {
+    typealias Value = [UUID: CGRect]
+    static var defaultValue: Value { [:] }
+
+    static func reduce(value: inout Value, nextValue: () -> Value) {
+        value.merge(nextValue()) { _, new in new }
+    }
+}
+
+final class TopContainerNSView: NSView {
+    var tabFrames: [UUID: CGRect] = [:]
+    override var isFlipped: Bool { true }
+
+    override var mouseDownCanMoveWindow: Bool { false }
+
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
+    override func mouseDown(with event: NSEvent) {
+        let localPoint = convert(event.locationInWindow, from: nil)
+        let hitTab = tabFrames.values.contains { $0.contains(localPoint) }
+        if hitTab {
+            super.mouseDown(with: event)
+        } else {
+            window?.performDrag(with: event)
+        }
+    }
+}
+
+struct TopHostView<Content: View>: NSViewRepresentable {
+
+    let content: Content
+    let tabFrames: [UUID: CGRect]
+
+    init(tabFrames: [UUID: CGRect], @ViewBuilder content: () -> Content) {
+        self.tabFrames = tabFrames
+        self.content = content()
+    }
+
+    func makeNSView(context: Context) -> TopContainerNSView {
+        let container = TopContainerNSView()
+        container.wantsLayer = true
+
+        let hosting = NSHostingView(rootView: content)
+        hosting.translatesAutoresizingMaskIntoConstraints = true
+        hosting.autoresizingMask = [.width, .height]
+        hosting.frame = container.bounds
+        hosting.safeAreaRegions = []
+        container.addSubview(hosting)
+        return container
+    }
+
+    func updateNSView(_ container: TopContainerNSView, context: Context) {
+        container.tabFrames = tabFrames
+        guard let hosting = container.subviews.first as? NSHostingView<Content> else { return }
+        hosting.rootView = content
+    }
+}
 
 private enum ToolbarMetrics {
     static let tabRowHeight: CGFloat = 42
@@ -13,6 +73,7 @@ private enum ToolbarMetrics {
     static let trafficLightWidth: CGFloat = 78
     static let trailingPad: CGFloat = 14
     static let toolbarLeadingPad: CGFloat = 14
+    static let totalHeight: CGFloat = tabRowHeight + 1 + toolbarHeight
 }
 
 struct BrowserToolbarView: View {
@@ -24,40 +85,50 @@ struct BrowserToolbarView: View {
     @Binding var addressBarText: String
     let onNavigate: () -> Void
 
+    @State private var tabFrames: [UUID: CGRect] = [:]
+
     private var theme: BrowserTheme {
         BrowserTheme(accent: tabManager.windowThemeColor, colorScheme: colorScheme)
     }
 
     var body: some View {
+        TopHostView(tabFrames: tabFrames) {
+            topContent
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: ToolbarMetrics.totalHeight)
+        .ignoresSafeArea(edges: .top)
+        .onPreferenceChange(TabFramesKey.self) { frames in
+            tabFrames = frames
+        }
+    }
+    private var topContent: some View {
         VStack(spacing: 0) {
             tabStripRow
             separatorLine
             navigationRow
         }
+        .frame(maxWidth: .infinity)
+        .ignoresSafeArea()
         .background(toolbarBackground)
         .overlay(alignment: .bottom) {
             Rectangle()
                 .fill(theme.separator)
                 .frame(height: 1)
         }
-
-        .background(DraggableArea())
+        .coordinateSpace(name: "top")
     }
 
     private var tabStripRow: some View {
         HStack(spacing: 0) {
-            if !tabManager.isFullScreen {
-                Spacer()
-                    .frame(width: ToolbarMetrics.trafficLightWidth)
-            } else {
-                Spacer()
-                    .frame(width: 8)
-            }
+            Color.clear
+                .frame(width: tabManager.isFullScreen
+                       ? 8
+                       : ToolbarMetrics.trafficLightWidth)
 
             TabBarView()
                 .frame(maxWidth: .infinity)
-
-            Spacer()
+            Color.clear
                 .frame(width: ToolbarMetrics.trailingPad - 8)
         }
         .frame(height: ToolbarMetrics.tabRowHeight)
@@ -113,6 +184,7 @@ struct BrowserToolbarView: View {
             .frame(width: MacDesign.Size.iconButton, height: MacDesign.Size.iconButton)
     }
 
+
     private var profileMenu: some View {
         Menu {
             Section("Switch Profile") {
@@ -160,7 +232,6 @@ struct BrowserToolbarView: View {
 private struct ProfileIconGlassModifier: ViewModifier {
     let tint: Color
 
-    @ViewBuilder
     func body(content: Content) -> some View {
         content
             .background(.regularMaterial, in: Circle())

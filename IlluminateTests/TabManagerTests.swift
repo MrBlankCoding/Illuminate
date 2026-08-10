@@ -111,6 +111,24 @@ struct TabManagerTests {
         #expect(tabManager.tabs.first?.url == nil)
     }
 
+    @Test func initCreatesSingleBlankTabWhenPersistenceIsEnabledAndNoSessionFilePresent() {
+        let profile = BrowserProfile(name: "Launch Test")
+        let sessionURL = FileManager.default
+            .illuminateProfileDirectory(profileID: profile.id)
+            .appendingPathComponent("session.json")
+        try? FileManager.default.removeItem(at: sessionURL)
+
+        let tabManager = TabManager(
+            profile: profile,
+            urlSynchronizer: URLSynchronizer(),
+            isPersistenceEnabled: true
+        )
+
+        #expect(tabManager.tabs.count == 1)
+        #expect(tabManager.activeTabID == tabManager.tabs.first?.id)
+        #expect(tabManager.tabs.first?.url == nil)
+    }
+
     @Test func closeActiveTabSelectsNeighboringTab() {
         let tabManager = makeTabManager()
         let firstTab = tabManager.createTab(url: URL(string: "https://one.example"))
