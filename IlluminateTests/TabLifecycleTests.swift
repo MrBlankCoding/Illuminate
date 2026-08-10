@@ -105,12 +105,10 @@ struct TabLifecycleTests {
 
     @MainActor
     @Test func testTransferPayloadPreservesTabIdentityAndRoutingState() async throws {
-        let groupID = UUID()
         let tab = Tab(
             id: UUID(),
             url: URL(string: "https://example.com/path"),
-            title: "Example",
-            groupID: groupID
+            title: "Example"
         )
 
         let payload = tab.toTransferPayload()
@@ -118,6 +116,5 @@ struct TabLifecycleTests {
         #expect(payload.id == tab.id)
         #expect(payload.url == tab.url)
         #expect(payload.title == "Example")
-        #expect(payload.groupID == groupID)
     }
 }

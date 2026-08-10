@@ -8,13 +8,10 @@
 import SwiftUI
 
 struct NativeSettingsView: View {
+    @FocusedValue(\.activeEnvironment) private var activeEnvironment
+
     var body: some View {
         TabView {
-            AppearanceSettingsView()
-                .tabItem {
-                    Label("Appearance", systemImage: "paintpalette")
-                }
-
             DownloadsSettingsView()
                 .tabItem {
                     Label("Downloads", systemImage: "arrow.down.circle")
@@ -26,5 +23,6 @@ struct NativeSettingsView: View {
                 }
         }
         .frame(minWidth: 500, minHeight: 360)
+        .environmentObject(activeEnvironment?.tabManager ?? TabManager())
     }
 }

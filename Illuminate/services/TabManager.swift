@@ -28,7 +28,6 @@ final class TabManager: ObservableObject {
 
     @Published private(set) var tabs: [Tab] = []
     @Published private(set) var activeTabID: UUID?
-    @Published private(set) var tabGroups: [TabGroup] = []
     @Published var isResizing: Bool = false
     @Published var isFullScreen: Bool = false
     @Published var backgroundImagePalette: [Color] = []
@@ -213,14 +212,21 @@ final class TabManager: ObservableObject {
     private func restoreSession() {
         switch loadSessionState() {
         case .success(let state):
-            tabGroups   = state.tabGroups
             activeTabID = state.activeTabID
             if let ids = state.tabIDs {
                 tabs = ids.map { Tab(id: $0, assetsBaseURL: tabAssetsBaseURL) }
             }
             rebuildTabIndex()
         case .failure(let error):
-            logger.error("Session restore failed: \(error.localizedDescription, privacy: .public)")
+            // A missing session file is normal on first launch — log at debug, not error.
+            let nsError = error as NSError
+            let isMissingFile = nsError.domain == NSCocoaErrorDomain
+                && nsError.code == NSFileReadNoSuchFileError
+            if isMissingFile {
+                logger.debug("No session file found — starting fresh.")
+            } else {
+                logger.error("Session restore failed: \(error.localizedDescription, privacy: .public)")
+            }
             let fallback = Tab(assetsBaseURL: tabAssetsBaseURL)
             tabs = [fallback]
             rebuildTabIndex()
@@ -252,7 +258,6 @@ final class TabManager: ObservableObject {
 
             let state = SessionState(
                 tabIDs: self.tabs.map { $0.id },
-                tabGroups: self.tabGroups,
                 activeTabID: self.activeTabID
             )
             let url     = self.sessionURL
@@ -413,28 +418,6 @@ final class TabManager: ObservableObject {
         tab.favicon = nil
         hydrateVisualState(for: tab)
         if tabID == activeTabID { syncActiveTabURL() }
-        scheduleSave()
-    }
-
-    func createTabGroup(name: String, color: String) {
-        tabGroups.append(TabGroup(name: name, color: color))
-        scheduleSave()
-    }
-
-    func removeTabGroup(id: UUID) {
-        tabGroups.removeAll { $0.id == id }
-        tabs.filter { $0.groupID == id }.forEach { $0.groupID = nil }
-        scheduleSave()
-    }
-
-    func toggleGroupExpansion(id: UUID) {
-        guard let index = tabGroups.firstIndex(where: { $0.id == id }) else { return }
-        tabGroups[index].isExpanded.toggle()
-        scheduleSave()
-    }
-
-    func setTabGroup(tabID: UUID, groupID: UUID?) {
-        tabIndex[tabID]?.groupID = groupID
         scheduleSave()
     }
 

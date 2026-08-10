@@ -49,7 +49,6 @@ final class EasyListParser {
             }
 
             guard !trimmedLine.hasPrefix("@@") else {
-                // Exception rules do not map cleanly to a single content blocker rule.
                 continue
             }
 

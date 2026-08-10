@@ -21,17 +21,14 @@ struct TabPersistenceTests {
                 TabTransferPayload(
                     id: firstID,
                     url: URL(string: "https://apple.com"),
-                    title: "Apple",
-                    groupID: nil
+                    title: "Apple"
                 ),
                 TabTransferPayload(
                     id: secondID,
                     url: URL(string: "https://google.com"),
-                    title: "Google",
-                    groupID: nil
+                    title: "Google"
                 )
             ],
-            tabGroups: [],
             activeTabID: secondID
         )
 
@@ -52,14 +49,12 @@ struct TabPersistenceTests {
         let payload1 = TabTransferPayload(
             id: tabId1,
             url: URL(string: "https://github.com"),
-            title: "GitHub",
-            groupID: nil
+            title: "GitHub"
         )
         let payload2 = TabTransferPayload(
             id: tabId2,
             url: URL(string: "https://swift.org"),
-            title: "Swift",
-            groupID: nil
+            title: "Swift"
         )
 
         let restoredTabs = [Tab(payload: payload1), Tab(payload: payload2)]

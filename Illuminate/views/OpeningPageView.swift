@@ -17,27 +17,77 @@ struct OpeningPageView: View {
     @State private var suggestionTask: Task<Void, Never>?
     @FocusState private var isSearchFieldFocused: Bool
     @Namespace private var searchGlassNamespace
+    @State private var isCustomizePanelShown = false
 
     private var theme: BrowserTheme {
         BrowserTheme(accent: tabManager.windowThemeColor, colorScheme: colorScheme)
     }
 
     var body: some View {
-        VStack(spacing: 48) {
+        HStack(spacing: 0) {
+            ZStack(alignment: .bottomTrailing) {
+                VStack(spacing: 48) {
+                    Spacer()
 
-            Spacer()
+                    VStack(spacing: 6) {
+                        Text("Illuminate")
+                            .font(.system(size: 30, weight: .semibold, design: .rounded))
+                            .tracking(1)
+                            .foregroundStyle(Color.textPrimary)
+                    }
 
-            VStack(spacing: 6) {
-                Text("Illuminate")
-                    .font(.system(size: 30, weight: .semibold, design: .rounded))
-                    .tracking(1)
-                    .foregroundStyle(Color.textPrimary)
+                    searchBar
+
+                    Spacer()
+                    Spacer()
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                Button {
+                    withAnimation(MacDesign.springAnimation) {
+                        isCustomizePanelShown.toggle()
+                    }
+                } label: {
+                    Image(systemName: isCustomizePanelShown ? "xmark" : "pencil")
+                        .font(.system(size: 14, weight: .semibold))
+                        .frame(width: 36, height: 36)
+                        .background(
+                            isCustomizePanelShown
+                                ? tabManager.windowThemeColor.opacity(0.85)
+                                : Color.primary.opacity(0.08),
+                            in: Circle()
+                        )
+                        .foregroundStyle(isCustomizePanelShown ? .white : Color.primary.opacity(0.7))
+                        .overlay {
+                            Circle()
+                                .stroke(
+                                    isCustomizePanelShown
+                                        ? tabManager.windowThemeColor
+                                        : Color.primary.opacity(0.12),
+                                    lineWidth: 0.5
+                                )
+                        }
+                        .shadow(
+                            color: isCustomizePanelShown
+                                ? tabManager.windowThemeColor.opacity(0.35)
+                                : .black.opacity(0.10),
+                            radius: isCustomizePanelShown ? 8 : 4
+                        )
+                }
+                .buttonStyle(.plain)
+                .scaleEffect(isCustomizePanelShown ? 1.05 : 1)
+                .animation(MacDesign.springAnimation, value: isCustomizePanelShown)
+                .accessibilityLabel(isCustomizePanelShown ? "Close customize panel" : "Customize new tab page")
+                .help(isCustomizePanelShown ? "Close" : "Customize")
+                .padding(.trailing, 20)
+                .padding(.bottom, 20)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-            searchBar
-
-            Spacer()
-            Spacer()
+            if isCustomizePanelShown {
+                NewTabCustomizePanel()
+                    .environmentObject(tabManager)
+                    .transition(.move(edge: .trailing))
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(backgroundView)
@@ -48,6 +98,7 @@ struct OpeningPageView: View {
         }
         .onDisappear {
             suggestionTask?.cancel()
+            isCustomizePanelShown = false
         }
         .onAppear {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
@@ -169,7 +220,6 @@ struct OpeningPageView: View {
 
         searchText = ""
     }
-
 
     private func scheduleSuggestions(for query: String) {
 

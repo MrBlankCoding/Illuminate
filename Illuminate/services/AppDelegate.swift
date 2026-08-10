@@ -85,8 +85,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        // If no windows are visible, return true to let SwiftUI open the default window group.
-        // This is safer than manual routing and avoids the URL registration issues.
         return true
     }
 
@@ -104,13 +102,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         AppLog.info("--- Persisted settings at launch ---")
 
         let defaults = UserDefaults.standard
-        let tabManagerKeys = [
-            "windowThemeColor",
-            "backgroundImageURL",
-            "showSidebar",
-            "showBackgroundBehindSidebar",
-            "userInterfaceStyle"
-        ]
 
         let profileIDs = self.fetchProfiles().map { $0.id.uuidString }
 
@@ -149,7 +140,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     key: "userInterfaceStyle",
                     defaultValue: "dark"
                 )
-
+                logProfileStringSetting(
+                    defaults: defaults,
+                    profileID: profileID,
+                    key: "bookmarkBarVisibility",
+                    defaultValue: BookmarkBarVisibility.always.rawValue
+                )
                 logProfileBoolSetting(
                     defaults: defaults,
                     profileID: profileID,

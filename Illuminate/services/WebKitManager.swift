@@ -58,6 +58,8 @@ final class WebKitManager: ObservableObject {
         preferences.isElementFullscreenEnabled = true
 
         configuration.preferences = preferences
+        // !
+        configuration.websiteDataStore = .default()
         configuration.userContentController = WKUserContentController()
         configuration.preferences.setValue(true, forKey: "developerExtrasEnabled")
 

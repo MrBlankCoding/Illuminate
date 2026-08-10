@@ -172,9 +172,6 @@ final class FaviconCache: @unchecked Sendable {
     }
 
     @MainActor func set(_ image: NSImage, for key: URL) {
-        // Compute PNG data before acquiring the lock. This method is called from
-        // @MainActor contexts (tests, UI callbacks), so tiffRepresentation is safe.
-        // pngData() is intentionally NOT dispatched async — see persistToDisk().
         let pngData = image.pngData()
         setWithData(image, pngData: pngData, for: key)
     }

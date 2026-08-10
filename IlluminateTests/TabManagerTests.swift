@@ -55,19 +55,12 @@ struct TabManagerTests {
         #expect(tabManager.reopenLastClosedTab() == nil)
     }
 
-    @Test func tabGroupsCanBeAssignedAndRemoved() {
+    @Test func tabsAreCreatedWithoutGroupState() {
         let tabManager = makeTabManager()
         let tab = tabManager.createTab(url: URL(string: "https://grouped.example"))
 
-        tabManager.createTabGroup(name: "Work", color: "FF0000")
-        let group = try! #require(tabManager.tabGroups.first)
-
-        tabManager.setTabGroup(tabID: tab.id, groupID: group.id)
-        #expect(tab.groupID == group.id)
-
-        tabManager.removeTabGroup(id: group.id)
-        #expect(tabManager.tabGroups.isEmpty)
-        #expect(tab.groupID == nil)
+        #expect(tabManager.tabs.contains(where: { $0.id == tab.id }))
+        #expect(tab.url?.absoluteString == "https://grouped.example")
     }
 
     @Test func updateTabURLSynchronizesActiveTabURL() async throws {

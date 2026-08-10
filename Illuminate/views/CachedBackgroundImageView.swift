@@ -44,12 +44,12 @@ struct CachedBackgroundImageView: View {
         let cacheDirectory = appSupport.appendingPathComponent("Backgrounds", isDirectory: true)
         
         try? fileManager.createDirectory(at: cacheDirectory, withIntermediateDirectories: true, attributes: nil)
-
-        // Use a stable hash so the cache key survives across app restarts.
-        let stableKey = targetURL.absoluteString
-            .data(using: .utf8)
-            .map { String(format: "%02x", $0.reduce(5381) { (UInt64($0) &* 33) ^ UInt64($1) }) }
-            ?? String(abs(targetURL.absoluteString.hashValue), radix: 16)
+        let urlBytes = targetURL.absoluteString.utf8
+        var hash: UInt64 = 5381
+        for byte in urlBytes {
+            hash = (hash &* 33) ^ UInt64(byte)
+        }
+        let stableKey = String(format: "%016x", hash)
         let fileURL = cacheDirectory.appendingPathComponent("\(stableKey).jpg")
         
         if fileManager.fileExists(atPath: fileURL.path) {

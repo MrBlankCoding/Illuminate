@@ -84,9 +84,6 @@ final class Tab: ObservableObject, Identifiable {
     @Published var canGoBack: Bool = false
     @Published var canGoForward: Bool = false
     @Published var estimatedProgress: Double = 0
-    @Published var groupID: UUID? {
-        didSet { if oldValue != groupID { saveMetadata() } }
-    }
     @Published var zoomLevel: Double = 1.0
     @Published var snapshot: NSImage?
     @Published var hasPiPCandidate: Bool = false
@@ -105,8 +102,6 @@ final class Tab: ObservableObject, Identifiable {
         makeAssetsURL(createIfNeeded: true)
     }
 
-    // Returns the on-disk assets URL without creating the directory.
-    // Use only for path
     private var assetsURLWithoutCreating: URL {
         makeAssetsURL(createIfNeeded: false)
     }
@@ -132,7 +127,6 @@ final class Tab: ObservableObject, Identifiable {
         lastNavigationHadNetworkError: Bool = false,
         lastNetworkErrorMessage: String? = nil,
         hoveredLinkURLString: String? = nil,
-        groupID: UUID? = nil,
         assetsBaseURL: URL? = nil
     ) {
         self.id = id
@@ -146,7 +140,6 @@ final class Tab: ObservableObject, Identifiable {
         self.lastNavigationHadNetworkError = lastNavigationHadNetworkError
         self.lastNetworkErrorMessage = lastNetworkErrorMessage
         self.hoveredLinkURLString = hoveredLinkURLString
-        self.groupID = groupID
         self.assetsBaseURL = assetsBaseURL ?? FileManager.default.illuminateAppSupportDirectory()
         self.ownershipToken = id.uuidString
         self.lastActivatedAt = Date()
@@ -161,20 +154,17 @@ final class Tab: ObservableObject, Identifiable {
         let metaURL = folder.appendingPathComponent("metadata.json")
         var title = "New Tab"
         var url: URL? = nil
-        var groupID: UUID? = nil
         
         if let data = try? Data(contentsOf: metaURL),
            let payload = try? JSONDecoder().decode(TabMetadataPayload.self, from: data) {
             title = payload.title ?? "New Tab"
             url = payload.url
-            groupID = payload.groupID
         }
         
         self.init(
             id: id,
             url: url,
             title: title,
-            groupID: groupID,
             assetsBaseURL: assetsBaseURL
         )
     }
@@ -184,7 +174,6 @@ final class Tab: ObservableObject, Identifiable {
             id: payload.id,
             url: payload.url,
             title: payload.title ?? "New Tab",
-            groupID: payload.groupID,
             assetsBaseURL: assetsBaseURL
         )
     }
@@ -385,7 +374,7 @@ final class Tab: ObservableObject, Identifiable {
     }
 
     private func saveMetadata() {
-        let payload = TabMetadataPayload(url: url, title: title, groupID: groupID)
+        let payload = TabMetadataPayload(url: url, title: title)
         let folder = assetsURLWithoutCreating
         let encodedData = try? JSONEncoder().encode(payload)
         Task.detached(priority: .background) {
@@ -419,7 +408,7 @@ final class Tab: ObservableObject, Identifiable {
     }
 
     func toTransferPayload() -> TabTransferPayload {
-        TabTransferPayload(id: id, url: url, title: title, groupID: groupID)
+        TabTransferPayload(id: id, url: url, title: title)
     }
 
     private func setupWebViewObservers(_ webView: WKWebView) {
@@ -470,7 +459,6 @@ final class Tab: ObservableObject, Identifiable {
             }
             .store(in: &cancellables)
 
-        // Seed initial values outside the current view-update cycle.
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
             if self.canGoBack         != webView.canGoBack         { self.canGoBack         = webView.canGoBack }
