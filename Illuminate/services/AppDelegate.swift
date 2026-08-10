@@ -23,10 +23,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         logPersistedSettings()
 
-        guard UITestLaunchConfiguration.isRunningUITests else {
-            return
-        }
-
         Task { @MainActor in
             await bringAppToFrontForUITests()
         }

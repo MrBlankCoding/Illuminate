@@ -25,7 +25,6 @@ struct IlluminateApp: App {
     let modelContainer: ModelContainer
 
     init() {
-        UITestLaunchConfiguration.prepareAppStateIfNeeded()
         _profileManager = StateObject(wrappedValue: ProfileManager())
 
         let center = NotificationCenter.default
@@ -35,19 +34,11 @@ struct IlluminateApp: App {
         passkeyAuthorizationService = .shared
 
         do {
-            let container: ModelContainer
-            if UITestLaunchConfiguration.isRunningUITests {
-                let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
-                container = try ModelContainer(for: Bookmark.self, Password.self,
-                                               configurations: configuration)
-            } else {
-                container = try ModelContainer(for: Bookmark.self, Password.self)
-            }
-            modelContainer = container
+            modelContainer = try ModelContainer(for: Bookmark.self, Password.self)
         } catch {
-            fatalError("Could not initialize ModelContainer: \(error)")
+            AppLog.info("Failed to create ModelContainer: \(error)")
+            fatalError("Failed to create ModelContainer: \(error)")
         }
-
         runtimeSecurityMonitor.startMonitoring()
         backgroundResourceManager.start()
         passkeyAuthorizationService.requestAccessIfNeeded()
