@@ -130,17 +130,10 @@ struct ContentView: View {
                     }
 
                     if let activeTab = tabManager.activeTab,
-                       activeTab.lastNavigationHadNetworkError {
-                        if activeTab.isDNSError {
-                            SiteUnreachableView(host: activeTab.url?.host ?? "This site")
-                                .padding(30)
-                        } else {
-                            NoInternetView(
-                                message: activeTab.lastNetworkErrorMessage
-                                    ?? "Please check your connection and try again."
-                            )
-                            .padding(30)
-                        }
+                       let error = activeTab.networkError {
+                        BrowserErrorPageView(error: error)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .transition(.opacity.animation(MacDesign.fastAnimation))
                     }
                 }
             }

@@ -26,6 +26,7 @@ struct TabItemView: View {
     let onCloseOthers: () -> Void
     let onCloseToRight: () -> Void
     let onCopyLink: () -> Void
+    let onToggleMute: () -> Void
 
     @Environment(\.colorScheme) private var colorScheme
     @State private var isHovered = false
@@ -100,17 +101,30 @@ struct TabItemView: View {
 
     @ViewBuilder
     private var faviconArea: some View {
-        ZStack {
-            if tab.isLoading {
-                ProgressView()
-                    .controlSize(.mini)
-                    .tint(isActive ? themeColor : Color.textSecondary)
-            } else {
-                faviconImage
+        ZStack(alignment: .bottomTrailing) {
+            ZStack {
+                if tab.isLoading {
+                    ProgressView()
+                        .controlSize(.mini)
+                        .tint(isActive ? themeColor : Color.textSecondary)
+                } else {
+                    faviconImage
+                }
+            }
+            .frame(width: 16, height: 16)
+
+            if tab.isMuted {
+                Image(systemName: "speaker.slash.fill")
+                    .font(.system(size: 7, weight: .bold))
+                    .foregroundStyle(Color.white)
+                    .padding(1.5)
+                    .background(Color.secondary.opacity(0.85), in: Circle())
+                    .offset(x: 4, y: 4)
             }
         }
         .frame(width: 16, height: 16)
         .animation(MacDesign.fastAnimation, value: tab.isLoading)
+        .animation(MacDesign.fastAnimation, value: tab.isMuted)
     }
 
     @ViewBuilder
@@ -212,6 +226,8 @@ struct TabItemView: View {
 
         Button("Duplicate Tab") { onDuplicate() }
             .disabled(tab.url == nil)
+
+        Button(tab.isMuted ? "Unmute Tab" : "Mute Tab") { onToggleMute() }
 
         Divider()
 

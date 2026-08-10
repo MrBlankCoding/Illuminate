@@ -19,6 +19,7 @@ final class ProfileEnvironment: ObservableObject {
     let webKitManager: WebKitManager
     let passwordService: PasswordService
     let adBlockService: AdBlockService
+    let trackerBlockingService: TrackerBlockingService
     let urlSynchronizer: URLSynchronizer
     let viewModel: ContentViewModel
     
@@ -53,6 +54,11 @@ final class ProfileEnvironment: ObservableObject {
             profileID: isGuestSession ? nil : profile.id,
             isPersistenceEnabled: !isGuestSession,
             ruleListIdentifier: "IlluminateAdBlockRules-\((sessionIdentifier ?? profile.id).uuidString)"
+        )
+        self.trackerBlockingService = TrackerBlockingService(
+            profileID: isGuestSession ? nil : profile.id,
+            isPersistenceEnabled: !isGuestSession,
+            adBlockService: self.adBlockService
         )
         self.viewModel = ContentViewModel(tabManager: self.tabManager, urlSynchronizer: self.urlSynchronizer)
     }

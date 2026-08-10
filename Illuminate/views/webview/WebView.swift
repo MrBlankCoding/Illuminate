@@ -16,6 +16,7 @@ struct WebView: View {
     @EnvironmentObject private var adBlockService: AdBlockService
     @EnvironmentObject private var webKitManager: WebKitManager
     @EnvironmentObject private var passwordService: PasswordService
+    @EnvironmentObject private var trackerBlockingService: TrackerBlockingService
 
     var body: some View {
         ZStack {
@@ -30,6 +31,9 @@ struct WebView: View {
                 case .protection:
                     ProtectionPageView()
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
+                case .downloads:
+                    DownloadsPageView()
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                 case .none:
                     WebViewRepresentable(
                         tab: tab,
@@ -37,6 +41,7 @@ struct WebView: View {
                         webKitManager: webKitManager,
                         passwordService: passwordService,
                         tabManager: tabManager,
+                        trackerBlockingService: trackerBlockingService,
                         userInterfaceStyle: tabManager.userInterfaceStyle
                     )
                 }
@@ -69,7 +74,7 @@ struct WebView: View {
     // MARK: - Illuminate internal page routing
 
     private enum IlluminatePage: Equatable {
-        case passwords, cookies, protection
+        case passwords, cookies, protection, downloads
     }
 
     private func illuminatePage(for url: URL) -> IlluminatePage? {
@@ -80,6 +85,7 @@ struct WebView: View {
         case "passwords":  return .passwords
         case "cookies":    return .cookies
         case "protection": return .protection
+        case "downloads":  return .downloads
         default:           return nil
         }
     }

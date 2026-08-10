@@ -12,6 +12,49 @@ import ObjectiveC
 import SwiftUI
 import WebKit
 
+enum NetworkErrorKind: Equatable {
+    case dns(host: String)
+    case tls(message: String)
+    case noConnection(message: String)
+    case blocked(reason: String)
+    case generic(message: String)
+
+    var icon: String {
+        switch self {
+        case .dns:          return "exclamationmark.triangle.fill"
+        case .tls:          return "lock.trianglebadge.exclamationmark.fill"
+        case .noConnection: return "wifi.slash"
+        case .blocked:      return "hand.raised.fill"
+        case .generic:      return "exclamationmark.circle.fill"
+        }
+    }
+
+    var title: String {
+        switch self {
+        case .dns:          return "Site Can't Be Reached"
+        case .tls:          return "Your Connection Is Not Private"
+        case .noConnection: return "No Internet Connection"
+        case .blocked:      return "Connection Blocked"
+        case .generic:      return "Something Went Wrong"
+        }
+    }
+
+    var detail: String {
+        switch self {
+        case .dns(let host):
+            return "\(host)'s server IP address could not be found. Check that the address is correct and try again."
+        case .tls(let message):
+            return message
+        case .noConnection(let message):
+            return message
+        case .blocked(let reason):
+            return reason
+        case .generic(let message):
+            return message
+        }
+    }
+}
+
 private var webViewTabOwnerKey: UInt8 = 0
 
 final class IlluminateWebView: WKWebView {
@@ -77,16 +120,28 @@ final class Tab: ObservableObject, Identifiable {
     @Published var isLoading: Bool
     @Published var isHibernated: Bool
     @Published var hasMixedContentWarning: Bool
-    @Published var lastNavigationHadNetworkError: Bool
-    @Published var lastNetworkErrorMessage: String?
-    @Published var isDNSError: Bool = false
+    @Published var networkError: NetworkErrorKind?
     @Published var hoveredLinkURLString: String?
     @Published var canGoBack: Bool = false
+
+    var isDNSError: Bool {
+        if case .dns = networkError { return true }
+        return false
+    }
+
+    var lastNetworkErrorMessage: String? {
+        networkError?.detail
+    }
+
+    var lastNavigationHadNetworkError: Bool {
+        networkError != nil
+    }
     @Published var canGoForward: Bool = false
     @Published var estimatedProgress: Double = 0
     @Published var zoomLevel: Double = 1.0
     @Published var snapshot: NSImage?
     @Published var hasPiPCandidate: Bool = false
+    @Published var isMuted: Bool = false
 
     private(set) var webView: WKWebView?
     private var lastSnapshotAt: Date = .distantPast
@@ -98,22 +153,11 @@ final class Tab: ObservableObject, Identifiable {
     private let assetsBaseURL: URL
     private let ownershipToken: String
     private var cancellables = Set<AnyCancellable>()
-    private var assetsURL: URL {
-        makeAssetsURL(createIfNeeded: true)
-    }
 
     private var assetsURLWithoutCreating: URL {
-        makeAssetsURL(createIfNeeded: false)
-    }
-
-    private func makeAssetsURL(createIfNeeded: Bool) -> URL {
-        let base = assetsBaseURL
+        assetsBaseURL
             .appendingPathComponent("TabAssets", isDirectory: true)
             .appendingPathComponent(id.uuidString, isDirectory: true)
-        if createIfNeeded {
-            try? FileManager.default.createDirectory(at: base, withIntermediateDirectories: true)
-        }
-        return base
     }
 
     init(
@@ -124,8 +168,7 @@ final class Tab: ObservableObject, Identifiable {
         themeColor: Color? = nil,
         isLoading: Bool = false,
         hasMixedContentWarning: Bool = false,
-        lastNavigationHadNetworkError: Bool = false,
-        lastNetworkErrorMessage: String? = nil,
+        networkError: NetworkErrorKind? = nil,
         hoveredLinkURLString: String? = nil,
         assetsBaseURL: URL? = nil
     ) {
@@ -137,8 +180,7 @@ final class Tab: ObservableObject, Identifiable {
         self.isLoading = isLoading
         self.isHibernated = false
         self.hasMixedContentWarning = hasMixedContentWarning
-        self.lastNavigationHadNetworkError = lastNavigationHadNetworkError
-        self.lastNetworkErrorMessage = lastNetworkErrorMessage
+        self.networkError = networkError
         self.hoveredLinkURLString = hoveredLinkURLString
         self.assetsBaseURL = assetsBaseURL ?? FileManager.default.illuminateAppSupportDirectory()
         self.ownershipToken = id.uuidString
@@ -191,7 +233,8 @@ final class Tab: ObservableObject, Identifiable {
 
         let newWebView = IlluminateWebView(frame: .zero, configuration: configuration)
         newWebView.isInspectable = true
-        webKitManager.applySafariUserAgent(to: newWebView)
+        newWebView.pageZoom = zoomLevel
+        webKitManager.applyBrowserUserAgent(to: newWebView)
         objc_setAssociatedObject(
             newWebView,
             &webViewTabOwnerKey,
@@ -199,10 +242,7 @@ final class Tab: ObservableObject, Identifiable {
             .OBJC_ASSOCIATION_RETAIN_NONATOMIC
         )
         webView = newWebView
-        DispatchQueue.main.async { [weak self] in
-            guard let self = self else { return }
-            self.isHibernated = false
-        }
+        isHibernated = false
         setupWebViewObservers(newWebView)
     }
 
@@ -217,17 +257,18 @@ final class Tab: ObservableObject, Identifiable {
             ownershipToken,
             .OBJC_ASSOCIATION_RETAIN_NONATOMIC
         )
+        candidate.pageZoom = zoomLevel
         webView = candidate
-        DispatchQueue.main.async { [weak self] in
-            guard let self = self else { return }
-            self.isHibernated = false
-        }
+        isHibernated = false
         setupWebViewObservers(candidate)
     }
 
     func detachWebView() {
         cancellables.removeAll()
         webView = nil
+        isLoading = false
+        estimatedProgress = 0
+        hasPiPCandidate = false
     }
 
     func close() {
@@ -283,12 +324,12 @@ final class Tab: ObservableObject, Identifiable {
 
         let config = WKSnapshotConfiguration()
         webView.takeSnapshot(with: config) { [weak self] image, _ in
-            guard let self, let image else { return }
-            let downsampled = image.downsampled(toWidth: 400)
-            let favicon = self.favicon
-            self.saveAssets(snapshot: downsampled, favicon: favicon)
+            guard let image else { return }
             Task { @MainActor [weak self] in
-                self?.snapshot = downsampled
+                guard let self else { return }
+                let downsampled = image.downsampled(toWidth: 400)
+                self.saveAssets(snapshot: downsampled, favicon: self.favicon)
+                self.snapshot = downsampled
             }
         }
     }
@@ -321,6 +362,20 @@ final class Tab: ObservableObject, Identifiable {
         webView.evaluateJavaScript(script, completionHandler: nil)
     }
 
+    func toggleMute() {
+        isMuted.toggle()
+        guard let webView else { return }
+        let muted = isMuted
+        let script = """
+        (() => {
+            for (const media of document.querySelectorAll('audio, video')) {
+                media.muted = \(muted ? "true" : "false");
+            }
+        })();
+        """
+        webView.evaluateJavaScript(script, completionHandler: nil)
+    }
+
     func zoomIn() {
         applyZoom((webView?.pageZoom ?? ZoomBounds.default) + ZoomBounds.step)
     }
@@ -350,15 +405,20 @@ final class Tab: ObservableObject, Identifiable {
         guard let webView else { return }
         webView.isInspectable = true
 
-        if let inspector = webView
-            .perform(NSSelectorFromString("_inspector"))?
-            .takeUnretainedValue() as AnyObject? {
-            _ = inspector.perform(NSSelectorFromString("show"))
+        let inspectorSelector = NSSelectorFromString("_inspector")
+        guard webView.responds(to: inspectorSelector),
+              let inspector = webView.perform(inspectorSelector)?.takeUnretainedValue() as AnyObject? else {
+            AppLog.info("Web Inspector unavailable for tab: \(url?.absoluteString ?? "nil")")
+            return
         }
+
+        let showSelector = NSSelectorFromString("show")
+        guard inspector.responds(to: showSelector) else { return }
+        _ = inspector.perform(showSelector)
     }
 
     private func saveAssets(snapshot: NSImage?, favicon: NSImage?) {
-        let folder = assetsURL
+        let folder = assetsURLWithoutCreating
         let faviconData = favicon?.pngData()
         let snapshotData = snapshot?.jpegData(compressionQuality: 0.7)
 
@@ -436,7 +496,20 @@ final class Tab: ObservableObject, Identifiable {
         webView.publisher(for: \.isLoading)
             .removeDuplicates()
             .receive(on: RunLoop.main)
-            .sink { [weak self] v in self?.isLoading = v }
+            .sink { [weak self] v in
+                self?.isLoading = v
+                // Re-apply mute on every page load completion
+                if !v, let self, self.isMuted {
+                    let script = """
+                    (() => {
+                        for (const media of document.querySelectorAll('audio, video')) {
+                            media.muted = true;
+                        }
+                    })();
+                    """
+                    self.webView?.evaluateJavaScript(script, completionHandler: nil)
+                }
+            }
             .store(in: &cancellables)
 
         webView.publisher(for: \.url)
@@ -459,13 +532,10 @@ final class Tab: ObservableObject, Identifiable {
             }
             .store(in: &cancellables)
 
-        DispatchQueue.main.async { [weak self] in
-            guard let self else { return }
-            if self.canGoBack         != webView.canGoBack         { self.canGoBack         = webView.canGoBack }
-            if self.canGoForward      != webView.canGoForward      { self.canGoForward      = webView.canGoForward }
-            if self.estimatedProgress != webView.estimatedProgress { self.estimatedProgress = webView.estimatedProgress }
-            if self.isLoading         != webView.isLoading         { self.isLoading         = webView.isLoading }
-            if let currentURL = webView.url, self.url != currentURL { self.url = currentURL }
-        }
+        if canGoBack         != webView.canGoBack         { canGoBack         = webView.canGoBack }
+        if canGoForward      != webView.canGoForward      { canGoForward      = webView.canGoForward }
+        if estimatedProgress != webView.estimatedProgress { estimatedProgress = webView.estimatedProgress }
+        if isLoading         != webView.isLoading         { isLoading         = webView.isLoading }
+        if let currentURL = webView.url, url != currentURL { url = currentURL }
     }
 }

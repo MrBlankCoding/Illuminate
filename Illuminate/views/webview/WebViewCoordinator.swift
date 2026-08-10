@@ -16,9 +16,11 @@ extension WebViewRepresentable {
         private let tabManager: TabManager
         private let webScriptBridge: WebScriptBridge
         private let adBlockService: AdBlockService
+        private let trackerBlockingService: TrackerBlockingService
         private let dohService: DNSOverHTTPSService
         private let faviconCache: FaviconCache
         private let passwordService: PasswordService
+        private let webKitManager: WebKitManager
         private let preconnectManager = NavigationPreconnectManager.shared
 
         private let circuitBreaker = WebProcessCircuitBreaker()
@@ -72,17 +74,21 @@ extension WebViewRepresentable {
             tabManager: TabManager,
             webScriptBridge: WebScriptBridge,
             adBlockService: AdBlockService,
+            trackerBlockingService: TrackerBlockingService,
             dohService: DNSOverHTTPSService,
             faviconCache: FaviconCache,
-            passwordService: PasswordService
+            passwordService: PasswordService,
+            webKitManager: WebKitManager
         ) {
             self.tab = tab
             self.tabManager = tabManager
             self.webScriptBridge = webScriptBridge
             self.adBlockService = adBlockService
+            self.trackerBlockingService = trackerBlockingService
             self.dohService = dohService
             self.faviconCache = faviconCache
             self.passwordService = passwordService
+            self.webKitManager = webKitManager
             self.lastLoadedURL = tab.url
         }
 
@@ -185,7 +191,7 @@ extension WebViewRepresentable {
         func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
             guard let tab else { return }
             tab.isLoading = true
-            tab.lastNavigationHadNetworkError = false
+            tab.networkError = nil
             tab.hoveredLinkURLString = nil
         }
 
@@ -230,21 +236,16 @@ extension WebViewRepresentable {
             guard let tab else { return }
             tab.isLoading = false
             guard !isCancellationError(error) else {
-                tab.lastNavigationHadNetworkError = false
-                tab.lastNetworkErrorMessage = nil
-                tab.isDNSError = false
+                tab.networkError = nil
                 return
             }
-            tab.lastNavigationHadNetworkError = isNetworkError(error)
-            tab.lastNetworkErrorMessage = error.localizedDescription
-            tab.isDNSError = isDNSError(error)
+            tab.networkError = classifyError(error, url: tab.url)
         }
 
         func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
             guard circuitBreaker.canReloadAfterTermination() else {
                 AppLog.info("Circuit breaker prevented reload loop")
-                tab?.lastNavigationHadNetworkError = true
-                tab?.lastNetworkErrorMessage = "Web process repeatedly crashed. Reload paused by circuit breaker."
+                tab?.networkError = .generic(message: "The web process repeatedly crashed. Reload paused to protect your device.")
                 return
             }
             webView.reload()
@@ -259,6 +260,18 @@ extension WebViewRepresentable {
                 decisionHandler(.allow)
                 return
             }
+
+            // command click handeling -> open in nuevo tab
+            if navigationAction.navigationType == .linkActivated,
+               navigationAction.modifierFlags.contains(.command)
+            {
+                decisionHandler(.cancel)
+                DispatchQueue.main.async { [weak self] in
+                    self?.tabManager.createTab(url: url)
+                }
+                return
+            }
+
             guard dohService.shouldAllowRequest(for: url) else {
                 AppLog.security("Blocked non-HTTP(S) request: \(url.absoluteString)")
                 decisionHandler(.cancel)
@@ -268,6 +281,35 @@ extension WebViewRepresentable {
                 AppLog.security("Blocked unsafe URL: \(url.absoluteString)")
                 decisionHandler(.cancel)
                 return
+            }
+
+            // HTTPS-only mode: block plain HTTP navigations to external sites.
+            // illuminate:// internal pages and localhost/loopback are always allowed.
+            if webKitManager.httpsOnlyEnabled,
+               url.scheme?.lowercased() == "http"
+            {
+                let host = url.host?.lowercased() ?? ""
+                let isLocalhost = host == "localhost" || host == "127.0.0.1" || host == "::1"
+                if !isLocalhost {
+                    AppLog.security("HTTPS-only: blocked HTTP navigation to \(url.absoluteString)")
+                    decisionHandler(.cancel)
+                    // Attempt an automatic upgrade to HTTPS.
+                    if var components = URLComponents(url: url, resolvingAgainstBaseURL: false) {
+                        components.scheme = "https"
+                        if let upgraded = components.url {
+                            DispatchQueue.main.async { [weak self] in
+                                self?.tab?.load(url: upgraded)
+                            }
+                        } else {
+                            DispatchQueue.main.async { [weak self] in
+                                self?.tab?.networkError = .blocked(
+                                    reason: "\(url.host ?? url.absoluteString) doesn't support HTTPS. HTTPS-only mode prevented this connection."
+                                )
+                            }
+                        }
+                    }
+                    return
+                }
             }
 
             if navigationAction.shouldPerformDownload,
@@ -280,6 +322,25 @@ extension WebViewRepresentable {
                 )
                 decisionHandler(.cancel)
                 return
+            }
+
+            // ── Tracker heuristics ───────────────────────────────────────────
+            // Record third-party sub-resource loads for Privacy Badger-style
+            // learning. We skip top-level navigations (targetFrame.isMainFrame)
+            // so only embedded resources are counted.
+            if let frameInfo = navigationAction.targetFrame,
+               !frameInfo.isMainFrame,
+               let topURL = navigationAction.sourceFrame.webView?.url ?? tab?.url,
+               let firstParty = topURL.eTLDPlusOne,
+               let thirdParty = url.eTLDPlusOne,
+               thirdParty != firstParty
+            {
+                Task { @MainActor [weak self] in
+                    self?.trackerBlockingService.record(
+                        thirdPartyDomain: thirdParty,
+                        seenOn: firstParty
+                    )
+                }
             }
 
             decisionHandler(navigationAction.shouldPerformDownload ? .download : .allow)
@@ -517,20 +578,48 @@ extension WebViewRepresentable {
             }
         }
 
-        private func isNetworkError(_ error: Error) -> Bool {
+        private func classifyError(_ error: Error, url: URL?) -> NetworkErrorKind {
             let nsError = error as NSError
-            return nsError.domain == NSURLErrorDomain && nsError.code != NSURLErrorCancelled
+            guard nsError.domain == NSURLErrorDomain else {
+                return .generic(message: error.localizedDescription)
+            }
+
+            switch nsError.code {
+            case NSURLErrorCannotFindHost, NSURLErrorDNSLookupFailed:
+                let host = url?.host ?? "The server"
+                return .dns(host: host)
+
+            case NSURLErrorSecureConnectionFailed,
+                 NSURLErrorServerCertificateHasBadDate,
+                 NSURLErrorServerCertificateUntrusted,
+                 NSURLErrorServerCertificateHasUnknownRoot,
+                 NSURLErrorServerCertificateNotYetValid,
+                 NSURLErrorClientCertificateRequired,
+                 NSURLErrorClientCertificateRejected:
+                let detail = nsError.localizedDescription
+                return .tls(message: detail)
+
+            case NSURLErrorNotConnectedToInternet:
+                return .noConnection(message: "Your device is not connected to the internet. Check your Wi-Fi or Ethernet connection and try again.")
+
+            case NSURLErrorNetworkConnectionLost:
+                return .noConnection(message: "The network connection was lost. Check your connection and try again.")
+
+            case NSURLErrorTimedOut:
+                return .noConnection(message: "The connection timed out. The server may be busy or your connection may be slow.")
+
+            case NSURLErrorCannotConnectToHost, -102:
+                let host = url?.host ?? "the server"
+                return .noConnection(message: "A connection to \(host) could not be established.")
+
+            default:
+                return .generic(message: error.localizedDescription)
+            }
         }
 
         private func isCancellationError(_ error: Error) -> Bool {
             let nsError = error as NSError
             return nsError.domain == NSURLErrorDomain && nsError.code == NSURLErrorCancelled
-        }
-
-        private func isDNSError(_ error: Error) -> Bool {
-            let nsError = error as NSError
-            return nsError.domain == NSURLErrorDomain &&
-                   (nsError.code == NSURLErrorCannotFindHost || nsError.code == NSURLErrorDNSLookupFailed)
         }
     }
 }

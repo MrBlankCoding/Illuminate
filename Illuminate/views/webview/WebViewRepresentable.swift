@@ -15,6 +15,7 @@ struct WebViewRepresentable: NSViewRepresentable {
     let webKitManager: WebKitManager
     let passwordService: PasswordService
     let tabManager: TabManager
+    let trackerBlockingService: TrackerBlockingService
     let userInterfaceStyle: TabManager.UIStyle
 
     func makeCoordinator() -> Coordinator {
@@ -23,9 +24,11 @@ struct WebViewRepresentable: NSViewRepresentable {
             tabManager: tabManager,
             webScriptBridge: WebScriptBridge.shared,
             adBlockService: adBlockService,
+            trackerBlockingService: trackerBlockingService,
             dohService: DNSOverHTTPSService.shared,
             faviconCache: FaviconCache.shared,
-            passwordService: passwordService
+            passwordService: passwordService,
+            webKitManager: webKitManager
         )
     }
 

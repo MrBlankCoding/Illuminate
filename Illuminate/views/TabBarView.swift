@@ -189,6 +189,9 @@ struct TabBarView: View {
                 guard let url = tab.url?.absoluteString, !url.isEmpty else { return }
                 NSPasteboard.general.clearContents()
                 NSPasteboard.general.setString(url, forType: .string)
+            },
+            onToggleMute: {
+                tab.toggleMute()
             }
         )
         .frame(width: width)

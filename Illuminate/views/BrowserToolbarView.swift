@@ -80,16 +80,13 @@ struct BrowserToolbarView: View {
                 themeColor: tabManager.windowThemeColor,
                 onNavigate: onNavigate
             )
-            .frame(maxWidth: .infinity)   // fills everything between nav and right buttons
+            .frame(maxWidth: .infinity)
             .layoutPriority(1)
 
-            // Downloads popover button
             DownloadsToolbarButton()
-
-            // Profile switcher
             profileMenu
+            MoreOptionsMenu()
 
-            // Trailing padding
             Spacer()
                 .frame(width: ToolbarMetrics.trailingPad)
         }

@@ -90,14 +90,21 @@ private struct BookmarkItemView: View {
     @State private var isHovered = false
     @State private var isPressed = false
     @State private var faviconImage: NSImage?
+    @State private var isRenaming = false
+    @State private var renameText = ""
 
     private let faviconCache = FaviconCache.shared
+    private var hasUserTitle: Bool {
+        !bookmark.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
 
     var body: some View {
         Button(action: onOpen) {
-            HStack(spacing: MacDesign.Spacing.tight - 1) {
+            HStack(spacing: hasUserTitle ? MacDesign.Spacing.tight - 1 : 0) {
                 faviconView
-                titleText
+                if hasUserTitle {
+                    titleText
+                }
             }
             .padding(.horizontal, MacDesign.Spacing.control - 1)
             .padding(.vertical, 4)
@@ -121,6 +128,18 @@ private struct BookmarkItemView: View {
                 .onEnded { _ in isPressed = false }
         )
         .contextMenu { contextMenuItems }
+        .popover(isPresented: $isRenaming, arrowEdge: .bottom) {
+            RenamePopover(
+                initialTitle: bookmark.title,
+                placeholder: URL(string: bookmark.url)?.host ?? bookmark.url
+            ) { newTitle in
+                let trimmed = newTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+                bookmark.title = trimmed
+                isRenaming = false
+            } onCancel: {
+                isRenaming = false
+            }
+        }
         .task(id: bookmark.url) { await loadFavicon() }
         .accessibilityLabel(bookmark.title.isEmpty ? bookmark.url : bookmark.title)
         .help(bookmark.url)
@@ -154,6 +173,8 @@ private struct BookmarkItemView: View {
     private var contextMenuItems: some View {
         Button("Open") { onOpen() }
         Button("Open in New Tab") { onOpenInNewTab() }
+        Divider()
+        Button("Rename…") { isRenaming = true }
         Divider()
         Button("Delete Bookmark", role: .destructive) { onDelete() }
     }
@@ -190,5 +211,46 @@ private struct BookmarkItemView: View {
 
         let image = await faviconCache.fetchImage(for: faviconURL)
         await MainActor.run { faviconImage = image }
+    }
+}
+
+private struct RenamePopover: View {
+    let initialTitle: String
+    let placeholder: String
+    let onCommit: (String) -> Void
+    let onCancel: () -> Void
+
+    @State private var text: String
+    @FocusState private var isFocused: Bool
+
+    init(initialTitle: String, placeholder: String, onCommit: @escaping (String) -> Void, onCancel: @escaping () -> Void) {
+        self.initialTitle = initialTitle
+        self.placeholder = placeholder
+        self.onCommit = onCommit
+        self.onCancel = onCancel
+        _text = State(initialValue: initialTitle)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Rename Bookmark")
+                .font(.headline)
+
+            TextField(placeholder, text: $text)
+                .textFieldStyle(.roundedBorder)
+                .frame(minWidth: 220)
+                .focused($isFocused)
+                .onSubmit { onCommit(text) }
+
+            HStack {
+                Spacer()
+                Button("Cancel", role: .cancel) { onCancel() }
+                    .keyboardShortcut(.cancelAction)
+                Button("Rename") { onCommit(text) }
+                    .keyboardShortcut(.defaultAction)
+            }
+        }
+        .padding(16)
+        .onAppear { isFocused = true }
     }
 }

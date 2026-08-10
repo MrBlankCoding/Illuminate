@@ -16,6 +16,20 @@ struct ClosedTabSnapshot {
     let payload: TabTransferPayload
 }
 
+private actor SessionWriter {
+    private var latestVersion: UInt64 = 0
+
+    func write(data: Data, version: UInt64, to url: URL, logger: Logger) async {
+        guard version >= latestVersion else { return }
+        latestVersion = version
+        do {
+            try data.write(to: url, options: .atomic)
+        } catch {
+            logger.error("[TabManager] Session write failed: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+}
+
 
 @MainActor
 final class TabManager: ObservableObject {
@@ -77,6 +91,7 @@ final class TabManager: ObservableObject {
     private let isPersistenceEnabled: Bool
     private let sessionURL: URL
     private let faviconCache: FaviconCache
+    private let sessionWriter = SessionWriter()
     private let logger = Logger(subsystem: "com.illuminate", category: "TabManager")
 
     private var activeProfileID: UUID?
@@ -88,6 +103,8 @@ final class TabManager: ObservableObject {
     private var isInitializing = true
     private var pendingSaveTask: Task<Void, Never>?
     private var backgroundThemeTask: Task<Void, Never>?
+    private var pendingFocusTask: Task<Void, Never>?
+    private var saveVersion: UInt64 = 0
     private var observerTokens: [NSObjectProtocol] = []
 
     enum UIStyle: String, CaseIterable {
@@ -194,6 +211,7 @@ final class TabManager: ObservableObject {
         observerTokens.forEach { notificationCenter.removeObserver($0) }
         pendingSaveTask?.cancel()
         backgroundThemeTask?.cancel()
+        pendingFocusTask?.cancel()
     }
 
     private static func makeSessionURL(profileID: UUID?) -> URL {
@@ -218,7 +236,6 @@ final class TabManager: ObservableObject {
             }
             rebuildTabIndex()
         case .failure(let error):
-            // A missing session file is normal on first launch — log at debug, not error.
             let nsError = error as NSError
             let isMissingFile = nsError.domain == NSCocoaErrorDomain
                 && nsError.code == NSFileReadNoSuchFileError
@@ -251,6 +268,9 @@ final class TabManager: ObservableObject {
         guard isPersistenceEnabled else { return }
 
         pendingSaveTask?.cancel()
+        saveVersion &+= 1
+        let version = saveVersion
+
         pendingSaveTask = Task { [weak self] in
             guard let self else { return }
             try? await Task.sleep(nanoseconds: Defaults.saveDebounceNs)
@@ -263,14 +283,11 @@ final class TabManager: ObservableObject {
             let url     = self.sessionURL
             let encoded = try? JSONEncoder().encode(state)
             let log     = self.logger
+            let writer  = self.sessionWriter
 
             Task.detached(priority: .background) {
                 guard let data = encoded else { return }
-                do {
-                    try data.write(to: url, options: .atomic)
-                } catch {
-                    log.error("[TabManager] Session write failed: \(error.localizedDescription, privacy: .public)")
-                }
+                await writer.write(data: data, version: version, to: url, logger: log)
             }
         }
     }
@@ -311,11 +328,14 @@ final class TabManager: ObservableObject {
         }
 
         if url == nil {
-            DispatchQueue.main.asyncAfter(deadline: .now() + Defaults.tabCreationDelay) { [notificationCenter] in
+            pendingFocusTask?.cancel()
+            pendingFocusTask = Task { [weak self, notificationCenter] in
+                try? await Task.sleep(nanoseconds: UInt64(Defaults.tabCreationDelay * 1_000_000_000))
+                guard !Task.isCancelled, self != nil else { return }
                 notificationCenter.post(name: .focusNewTabSearchBar, object: nil)
             }
         }
-        
+
         scheduleSave()
 
         return tab
@@ -325,8 +345,9 @@ final class TabManager: ObservableObject {
         guard let index = tabs.firstIndex(where: { $0.id == id }) else { return }
 
         let tab = tabs[index]
+        let payload = tab.toTransferPayload()
         tab.close()
-        pushRecentlyClosed(tab.toTransferPayload())
+        pushRecentlyClosed(payload)
 
         tabs.remove(at: index)
         deindexTab(id: id)
@@ -354,8 +375,9 @@ final class TabManager: ObservableObject {
 
     func clearAllTabs() {
         tabs.forEach {
+            let payload = $0.toTransferPayload()
             $0.close()
-            pushRecentlyClosed($0.toTransferPayload())
+            pushRecentlyClosed(payload)
             removeTabAssets(for: $0.id)
         }
         tabs.removeAll()
@@ -501,6 +523,8 @@ final class TabManager: ObservableObject {
             return NSImage(systemSymbolName: "circle.hexagongrid.fill", accessibilityDescription: "Cookies")
         case "protection":
             return NSImage(systemSymbolName: "shield.fill", accessibilityDescription: "Protection")
+        case "downloads":
+            return NSImage(systemSymbolName: "arrow.down.circle.fill", accessibilityDescription: "Downloads")
         default:
             return nil
         }
@@ -514,7 +538,10 @@ final class TabManager: ObservableObject {
         do {
             try FileManager.default.removeItem(at: folder)
         } catch {
-            guard (error as NSError).code != NSFileNoSuchFileError else { return }
+            let nsError = error as NSError
+            let isMissingFile = nsError.domain == NSCocoaErrorDomain
+                && nsError.code == NSFileNoSuchFileError
+            guard !isMissingFile else { return }
             logger.debug(
                 "Could not remove tab assets for \(id.uuidString): \(error.localizedDescription, privacy: .public)"
             )

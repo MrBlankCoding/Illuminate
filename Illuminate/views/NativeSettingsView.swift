@@ -2,7 +2,7 @@
 //  NativeSettingsView.swift
 //  Illuminate
 //
-//  Created by MrBlankCoding on 2026-08-09.
+//  Created by MrBlankCoding on 8/9/26.
 //
 
 import SwiftUI
@@ -22,7 +22,7 @@ struct NativeSettingsView: View {
                     Label("Shortcuts", systemImage: "command")
                 }
         }
-        .frame(minWidth: 500, minHeight: 360)
+        .frame(minWidth: 520, minHeight: 400)
         .environmentObject(activeEnvironment?.tabManager ?? TabManager())
     }
 }

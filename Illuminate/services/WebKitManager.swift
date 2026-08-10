@@ -20,6 +20,13 @@ final class WebKitManager: ObservableObject {
         }
     }
 
+    @Published var httpsOnlyEnabled: Bool = false {
+        didSet {
+            guard !isLoadingProfile, isPersistenceEnabled else { return }
+            userDefaults.set(httpsOnlyEnabled, forKey: scopedKey("httpsOnlyEnabled"))
+        }
+    }
+
     private let userDefaults: UserDefaults
     private var activeProfileID: UUID?
     private var isLoadingProfile = false
@@ -36,6 +43,9 @@ final class WebKitManager: ObservableObject {
         self.cookiesEnabled = isPersistenceEnabled
             ? (userDefaults.object(forKey: scopedKey("cookiesEnabled")) as? Bool ?? true)
             : true
+        self.httpsOnlyEnabled = isPersistenceEnabled
+            ? (userDefaults.object(forKey: scopedKey("httpsOnlyEnabled")) as? Bool ?? false)
+            : false
         self.isLoadingProfile = false
     }
 
@@ -68,13 +78,38 @@ final class WebKitManager: ObservableObject {
 
     func makeWebView() -> WKWebView {
         let webView = WKWebView(frame: .zero, configuration: makeConfiguration())
-        applySafariUserAgent(to: webView)
+        applyBrowserUserAgent(to: webView)
         return webView
     }
+
+    // legacy way 
+    /*
     func applySafariUserAgent(to webView: WKWebView) {
         let safariUA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6 Safari/605.1.15"
         webView.customUserAgent = safariUA
         AppLog.info("Set custom UA: \(safariUA)")
+    }
+    */
+
+    // try to be a bit more modern 
+    func applyBrowserUserAgent(to webView: WKWebView) {
+        webView.evaluateJavaScript("navigator.userAgent") { result, error in
+            
+            Task { @MainActor in
+                guard let defaultUA = result as? String else {
+                    AppLog.info("Could not get default WebKit UA: \(error?.localizedDescription ?? "unknown error")")
+                    return
+                }
+
+                let chromeVersion = await ChromeVersionFetcher.fetchLatestStableVersion()
+
+                let enhancedUA = "\(defaultUA) Chrome/\(chromeVersion)"
+
+                webView.customUserAgent = enhancedUA
+
+                AppLog.info("Set enhanced UA: \(enhancedUA)")
+            }
+        }
     }
 
     func activeWebsiteDataStore() -> WKWebsiteDataStore {

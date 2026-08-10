@@ -32,6 +32,7 @@ final class AdBlockService: ObservableObject {
     @Published private(set) var contentRuleList: WKContentRuleList?
     
     private var blockedHosts: Set<String> = []
+    private var trackerBlockedHosts: Set<String> = []
     private var blockedURLKeywords: Set<String> = []
     private var allowlistedHosts: Set<String> = []
     private let userDefaults: UserDefaults
@@ -162,6 +163,19 @@ final class AdBlockService: ObservableObject {
             ])
         }
 
+        for host in trackerBlockedHosts {
+            rulesArray.append([
+                "trigger": [
+                    "url-filter": ".*\(host.replacingOccurrences(of: ".", with: "\\.")).*",
+                    "url-filter-is-case-sensitive": false,
+                    "load-type": ["third-party"]
+                ],
+                "action": [
+                    "type": "block"
+                ]
+            ])
+        }
+
         for keyword in blockedURLKeywords {
             rulesArray.append([
                 "trigger": [
@@ -202,6 +216,12 @@ final class AdBlockService: ObservableObject {
 
     func updateBlockedHosts(_ hosts: Set<String>) {
         self.blockedHosts = hosts
+        self.updateContentRuleList()
+    }
+
+    func updateTrackerBlockedHosts(_ hosts: Set<String>) {
+        guard trackerBlockedHosts != hosts else { return }
+        self.trackerBlockedHosts = hosts
         self.updateContentRuleList()
     }
 

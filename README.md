@@ -1,12 +1,38 @@
 # Illuminate
 
-Illuminate is a modern, web browser for macOS build with WebKit and SwiftUi meant to be minimilisitc.
+A lightweight browser built for MacOS that uses webkit and includes not arbitrary features or user tracking. 
+
+![License](https://img.shields.io/badge/license-MIT-blue.svg) ![Version](https://img.shields.io/badge/version-1.0.0-green.svg)
+
 
 ---
 
 ## Screenshots
 
 ![Browser Window](screenshots/image1.png)
+
+---
+
+### Features!
+
+- Bookmarks
+- Shortcuts
+- Download managment
+- Tab cacheing & previews
+- Cookie managment
+- Ad-blocker
+- Seperate Profiles
+
+## RoadMap
+- [ ] Hisotry
+- [ ] UI Refinments
+- [ ] Bug fixes
+- [ ] Redirect blocker
+- [*] HTTPS/http secutiry
+- [*] Tracker blocking
+- [ ] Tab Grouping
+- [*] Tab Muting
+
 
 ---
 

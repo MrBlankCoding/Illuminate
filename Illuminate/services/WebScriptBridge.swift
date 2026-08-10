@@ -252,8 +252,6 @@ final class WebScriptBridge {
                 subtree: true
             });
 
-            // Use capture phase so we receive the event before any page handler
-            // that might call preventDefault().
             document.addEventListener('submit', (e) => {
                 const form = e.target;
                 if (!(form instanceof HTMLFormElement)) return;
