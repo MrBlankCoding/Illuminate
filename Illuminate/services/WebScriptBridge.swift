@@ -11,6 +11,10 @@ import WebKit
 enum BridgeName: String, CaseIterable {
     case metadata = "metadataBridge"
     case password = "passwordBridge"
+    case permission = "permissionBridge"
+    var jsAccessor: String {
+        "window.webkit.messageHandlers.\(rawValue)"
+    }
 }
 
 final class WeakScriptMessageHandler: NSObject, WKScriptMessageHandler {
@@ -36,6 +40,8 @@ final class WebScriptBridge {
 
     var metadataBridgeName: String { BridgeName.metadata.rawValue }
     var passwordBridgeName: String { BridgeName.password.rawValue }
+    var permissionBridgeName: String { BridgeName.permission.rawValue }
+
     func installScripts(
         on contentController: WKUserContentController,
         handler: some WKScriptMessageHandler,
@@ -48,10 +54,9 @@ final class WebScriptBridge {
             contentController.add(weakHandler, name: bridge.rawValue)
         }
 
-        contentController.addUserScript(browserThemeSyncScript(colorScheme: colorScheme))
-        contentController.addUserScript(hoverTrackingScript())
-        contentController.addUserScript(passwordScript())
-        contentController.addUserScript(metadataExtractionScript())
+        for script in allScripts(colorScheme: colorScheme) {
+            contentController.addUserScript(script)
+        }
     }
 
     func removeAll(from contentController: WKUserContentController) {
@@ -59,6 +64,25 @@ final class WebScriptBridge {
         for bridge in BridgeName.allCases {
             contentController.removeScriptMessageHandler(forName: bridge.rawValue)
         }
+    }
+
+    private func allScripts(colorScheme: String) -> [WKUserScript] {
+        [
+            browserThemeSyncScript(colorScheme: colorScheme),
+            hoverTrackingScript(),
+            passwordScript(),
+            locationPermissionScript(),
+            metadataExtractionScript()
+        ]
+    }
+
+    private func jsStringLiteral(_ value: String, fallback: String = "\"\"") -> String {
+        guard let data = try? JSONEncoder().encode(value),
+              let literal = String(data: data, encoding: .utf8)
+        else {
+            return fallback
+        }
+        return literal
     }
 
     private func metadataExtractionScript() -> WKUserScript {
@@ -69,7 +93,7 @@ final class WebScriptBridge {
             const themeEl     = document.querySelector('meta[name="theme-color"]');
             const canonicalEl = document.querySelector('link[rel="canonical"]');
             try {
-                window.webkit.messageHandlers.\(BridgeName.metadata.rawValue).postMessage({
+                \(BridgeName.metadata.jsAccessor).postMessage({
                     favicon:      faviconEl   ? faviconEl.href    : null,
                     themeColor:   themeEl     ? themeEl.content   : null,
                     canonicalURL: canonicalEl ? canonicalEl.href  : null,
@@ -86,10 +110,7 @@ final class WebScriptBridge {
     }
 
     private func browserThemeSyncScript(colorScheme: String) -> WKUserScript {
-        let safeScheme = (try? String(
-            data: JSONEncoder().encode(colorScheme),
-            encoding: .utf8
-        )) ?? "\"light\""
+        let safeScheme = jsStringLiteral(colorScheme, fallback: "\"light\"")
 
         let source = """
         (() => {
@@ -196,9 +217,7 @@ final class WebScriptBridge {
                 if (value === lastHover) return;
                 lastHover = value;
                 try {
-                    window.webkit.messageHandlers.\(BridgeName.metadata.rawValue).postMessage(
-                        { hoverURL: value }
-                    );
+                    \(BridgeName.metadata.jsAccessor).postMessage({ hoverURL: value });
                 } catch (_) {}
             }
 
@@ -219,6 +238,64 @@ final class WebScriptBridge {
         )
     }
 
+    private func locationPermissionScript() -> WKUserScript {
+        let source = """
+        (() => {
+            'use strict';
+            if (window.__illuminateLocationInstalled || !navigator.geolocation) return;
+            window.__illuminateLocationInstalled = true;
+
+            let nextID = 0;
+            const callbacks = new Map();
+            const bridge = () => \(BridgeName.permission.jsAccessor);
+
+            window.__illuminateLocationResult = (id, result) => {
+                const callback = callbacks.get(id);
+                if (!callback) return;
+                callbacks.delete(id);
+
+                if (result.error) {
+                    callback.failure({ code: 1, message: result.error });
+                    return;
+                }
+
+                callback.success({
+                    coords: {
+                        latitude: result.latitude,
+                        longitude: result.longitude,
+                        accuracy: result.accuracy,
+                        altitude: null,
+                        altitudeAccuracy: null,
+                        heading: null,
+                        speed: null
+                    },
+                    timestamp: result.timestamp
+                });
+            };
+
+            const request = (success, failure) => {
+                const id = ++nextID;
+                callbacks.set(id, { success, failure: failure || (() => {}) });
+                try {
+                    bridge().postMessage({ type: 'location', id });
+                } catch (_) {
+                    window.__illuminateLocationResult(id, { error: 'Location access is unavailable.' });
+                }
+                return id;
+            };
+
+            navigator.geolocation.getCurrentPosition = (success, failure, _options) => request(success, failure);
+            navigator.geolocation.watchPosition = (success, failure, _options) => request(success, failure);
+            navigator.geolocation.clearWatch = (id) => callbacks.delete(id);
+        })();
+        """
+        return WKUserScript(
+            source: source,
+            injectionTime: .atDocumentStart,
+            forMainFrameOnly: true
+        )
+    }
+
     private func passwordScript() -> WKUserScript {
         let source = """
         (() => {
@@ -226,7 +303,7 @@ final class WebScriptBridge {
             if (window.__illuminatePasswordInstalled) return;
             window.__illuminatePasswordInstalled = true;
 
-            const bridge = () => window.webkit.messageHandlers.\(BridgeName.password.rawValue);
+            const bridge = () => \(BridgeName.password.jsAccessor);
 
             function notifyFieldsDetected() {
                 try { bridge().postMessage({ type: 'fieldsDetected' }); } catch (_) {}
@@ -258,6 +335,7 @@ final class WebScriptBridge {
 
                 const passwordField = form.querySelector('input[type="password"]');
                 if (!passwordField) return;
+
                 const userField = form.querySelector(
                     'input[type="email"], input[type="text"], input:not([type])'
                 );

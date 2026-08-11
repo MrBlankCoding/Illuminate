@@ -18,6 +18,7 @@ struct WebView: View {
     @EnvironmentObject private var passwordService: PasswordService
     @EnvironmentObject private var trackerBlockingService: TrackerBlockingService
     @EnvironmentObject private var historyManager: HistoryManager
+    @EnvironmentObject private var websitePermissionService: WebsitePermissionService
 
     var body: some View {
         ZStack {
@@ -38,6 +39,9 @@ struct WebView: View {
                 case .history:
                     HistoryPageView()
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
+                case .permissions:
+                    PermissionsPageView()
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                 case .none:
                     WebViewRepresentable(
                         tab: tab,
@@ -47,6 +51,7 @@ struct WebView: View {
                         tabManager: tabManager,
                         trackerBlockingService: trackerBlockingService,
                         historyManager: historyManager,
+                        websitePermissionService: websitePermissionService,
                         userInterfaceStyle: tabManager.userInterfaceStyle
                     )
                 }
@@ -77,7 +82,7 @@ struct WebView: View {
     }
 
     private enum IlluminatePage: Equatable {
-        case passwords, cookies, protection, downloads, history
+        case passwords, cookies, protection, downloads, history, permissions
     }
 
     private func illuminatePage(for url: URL) -> IlluminatePage? {
@@ -90,6 +95,7 @@ struct WebView: View {
         case "protection": return .protection
         case "downloads":  return .downloads
         case "history":    return .history
+        case "permissions": return .permissions
         default:           return nil
         }
     }

@@ -20,6 +20,7 @@ final class ProfileEnvironment: ObservableObject {
     let passwordService: PasswordService
     let adBlockService: AdBlockService
     let trackerBlockingService: TrackerBlockingService
+    let websitePermissionService: WebsitePermissionService
     let urlSynchronizer: URLSynchronizer
     let viewModel: ContentViewModel
     let historyManager: HistoryManager
@@ -58,6 +59,10 @@ final class ProfileEnvironment: ObservableObject {
             profileID: isGuestSession ? nil : profile.id,
             isPersistenceEnabled: !isGuestSession,
             adBlockService: self.adBlockService
+        )
+        self.websitePermissionService = WebsitePermissionService(
+            profileID: isGuestSession ? nil : profile.id,
+            persists: !isGuestSession
         )
         self.historyManager = HistoryManager(
             modelContainer: modelContainer,

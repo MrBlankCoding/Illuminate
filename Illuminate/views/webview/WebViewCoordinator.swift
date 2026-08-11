@@ -6,6 +6,7 @@
 //
 
 import AppKit
+import CoreLocation
 import WebKit
 import SwiftUI
 
@@ -22,6 +23,8 @@ extension WebViewRepresentable {
         private let passwordService: PasswordService
         private let webKitManager: WebKitManager
         private let historyManager: HistoryManager
+        private let websitePermissionService: WebsitePermissionService
+        private let locationService = WebsiteLocationService()
         private let preconnectManager = NavigationPreconnectManager.shared
 
         private let circuitBreaker = WebProcessCircuitBreaker()
@@ -53,7 +56,12 @@ extension WebViewRepresentable {
                 const prefersDark = "\(scheme)" === "dark";
                 if (window.__illuminateThemeSync) {
                     window.__illuminateThemeSync.prefersDark = prefersDark;
-                    window.__illuminateThemeSync.listeners.forEach((entry) => entry.dispatch());
+                    const entries = window.__illuminateThemeSync.entries;
+                    if (entries && typeof entries.forEach === "function") {
+                        entries.forEach((entry) => {
+                            if (typeof entry.dispatch === "function") entry.dispatch();
+                        });
+                    }
                 }
                 document.documentElement.style.colorScheme = "\(scheme)";
                 window.dispatchEvent(new CustomEvent("illuminatecolorschemechange", { detail: { scheme: "\(scheme)" } }));
@@ -80,7 +88,8 @@ extension WebViewRepresentable {
             faviconCache: FaviconCache,
             passwordService: PasswordService,
             webKitManager: WebKitManager,
-            historyManager: HistoryManager
+            historyManager: HistoryManager,
+            websitePermissionService: WebsitePermissionService
         ) {
             self.tab = tab
             self.tabManager = tabManager
@@ -92,6 +101,7 @@ extension WebViewRepresentable {
             self.passwordService = passwordService
             self.webKitManager = webKitManager
             self.historyManager = historyManager
+            self.websitePermissionService = websitePermissionService
             self.lastLoadedURL = tab.url
         }
 
@@ -108,6 +118,8 @@ extension WebViewRepresentable {
             switch message.name {
             case "passwordBridge":
                 handlePasswordMessage(message)
+            case "permissionBridge":
+                handlePermissionMessage(message)
             case webScriptBridge.metadataBridgeName:
                 handleMetadataMessage(message)
             default:
@@ -200,6 +212,43 @@ extension WebViewRepresentable {
             default:
                 break
             }
+        }
+
+        private func handlePermissionMessage(_ message: WKScriptMessage) {
+            guard
+                let body = message.body as? [String: Any],
+                body["type"] as? String == "location",
+                let requestID = body["id"] as? Int,
+                let webView = message.webView,
+                let url = webView.url
+            else { return }
+
+            let origin = displayOrigin(for: url)
+            websitePermissionService.requestPermission(for: origin, types: [.location]) { [weak self, weak webView] decision in
+                guard let self, let webView else { return }
+                guard decision == .allow else {
+                    self.respondToLocationRequest(requestID, error: "Location access was blocked.", in: webView)
+                    return
+                }
+                self.locationService.requestLocation { result in
+                    switch result {
+                    case .success(let location):
+                        self.respondToLocationRequest(requestID, location: location, in: webView)
+                    case .failure:
+                        self.respondToLocationRequest(requestID, error: "Location access is unavailable.", in: webView)
+                    }
+                }
+            }
+        }
+
+        private func respondToLocationRequest(_ requestID: Int, location: CLLocation, in webView: WKWebView) {
+            let result = "{ latitude: \(location.coordinate.latitude), longitude: \(location.coordinate.longitude), accuracy: \(location.horizontalAccuracy), timestamp: \(Int(location.timestamp.timeIntervalSince1970 * 1000)) }"
+            webView.evaluateJavaScript("if (typeof window.__illuminateLocationResult === 'function') window.__illuminateLocationResult(\(requestID), \(result));")
+        }
+
+        private func respondToLocationRequest(_ requestID: Int, error: String, in webView: WKWebView) {
+            guard let json = try? String(data: JSONEncoder().encode(error), encoding: .utf8) else { return }
+            webView.evaluateJavaScript("if (typeof window.__illuminateLocationResult === 'function') window.__illuminateLocationResult(\(requestID), { error: \(json) });")
         }
 
         func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
@@ -448,6 +497,34 @@ extension WebViewRepresentable {
 
         func webView(
             _ webView: WKWebView,
+            requestMediaCapturePermissionFor origin: WKSecurityOrigin,
+            initiatedByFrame frame: WKFrameInfo,
+            type: WKMediaCaptureType,
+            decisionHandler: @escaping (WKPermissionDecision) -> Void
+        ) {
+            let types: [WebsitePermissionType]
+            switch type {
+            case .camera:
+                types = [.camera]
+            case .microphone:
+                types = [.microphone]
+            case .cameraAndMicrophone:
+                types = [.camera, .microphone]
+            @unknown default:
+                decisionHandler(.deny)
+                return
+            }
+
+            websitePermissionService.requestPermission(
+                for: displayOrigin(origin),
+                types: types
+            ) { decision in
+                decisionHandler(decision == .allow ? .grant : .deny)
+            }
+        }
+
+        func webView(
+            _ webView: WKWebView,
             runJavaScriptConfirmPanelWithMessage message: String,
             initiatedByFrame frame: WKFrameInfo,
             completionHandler: @escaping (Bool) -> Void
@@ -576,6 +653,17 @@ extension WebViewRepresentable {
             case "http", "https", "data": return resolvedURL
             default: return nil
             }
+        }
+
+        private func displayOrigin(_ origin: WKSecurityOrigin) -> String {
+            let port = origin.port > 0 ? ":\(origin.port)" : ""
+            return "\(origin.protocol)://\(origin.host)\(port)"
+        }
+
+        private func displayOrigin(for url: URL) -> String {
+            guard let scheme = url.scheme, let host = url.host else { return url.absoluteString }
+            let port = url.port.map { ":\($0)" } ?? ""
+            return "\(scheme)://\(host)\(port)"
         }
 
         private func defaultFaviconURL(for pageURL: URL?) -> URL? {

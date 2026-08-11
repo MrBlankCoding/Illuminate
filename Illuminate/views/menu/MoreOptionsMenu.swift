@@ -123,6 +123,12 @@ struct MoreOptionsMenu: View {
                 }
 
                 Button {
+                    openInternalPage("illuminate://permissions")
+                } label: {
+                    Label("Permissions", systemImage: "hand.raised.fill")
+                }
+
+                Button {
                     openInternalPage("illuminate://cookies")
                 } label: {
                     Label("Cookies", systemImage: "circle.hexagongrid.fill")

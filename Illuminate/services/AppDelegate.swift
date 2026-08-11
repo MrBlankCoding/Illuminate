@@ -27,6 +27,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             await bringAppToFrontForUITests()
         }
     }
+
+    func applicationDidBecomeActive(_ notification: Notification) {
+        Task { @MainActor in
+            PasskeyAuthorizationService.shared.requestAccessIfNeeded()
+        }
+    }
     
     func applicationDockMenu(_ sender: NSApplication) -> NSMenu? {
         let menu = NSMenu()

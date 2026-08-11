@@ -13,6 +13,7 @@ struct ContentView: View {
     @EnvironmentObject private var tabManager: TabManager
     @EnvironmentObject private var environment: ProfileEnvironment
     @EnvironmentObject private var viewModel: ContentViewModel
+    @EnvironmentObject private var permissionService: WebsitePermissionService
     @Environment(\.colorScheme) private var colorScheme
     @StateObject private var findViewModel = FindViewModel()
     @StateObject private var zoomViewModel = ZoomViewModel()
@@ -75,6 +76,11 @@ struct ContentView: View {
         .onChange(of: tabManager.activeTabID) { _, _ in
             findViewModel.setWebView(tabManager.activeTab?.webView)
             zoomViewModel.hide()
+        }
+        .sheet(item: $permissionService.pendingRequest) { request in
+            WebsitePermissionPromptView(request: request) { decision in
+                permissionService.resolvePendingRequest(as: decision)
+            }
         }
         .animation(MacDesign.springAnimation, value: isBookmarkBarVisible)
     }
