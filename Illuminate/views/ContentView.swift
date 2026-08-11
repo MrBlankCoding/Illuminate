@@ -25,6 +25,11 @@ struct ContentView: View {
         ZStack {
             backgroundLayer
             VStack(spacing: 0) {
+                if environment.isGuestSession {
+                    PrivateBrowsingBanner()
+                        .zIndex(4)
+                }
+
                 BrowserToolbarView(
                     addressBarText: $viewModel.addressBarText,
                     onNavigate: viewModel.navigateToAddressBarURL
@@ -95,7 +100,20 @@ struct ContentView: View {
                let imageURL = URL(string: tabManager.backgroundImageURL) {
                 CachedBackgroundImageView(url: imageURL)
                     .ignoresSafeArea()
+            } else {
+                defaultBackgroundImage
             }
+        }
+    }
+
+    private var defaultBackgroundImage: some View {
+        GeometryReader { geometry in
+            Image("DefaultBackground")
+                .resizable()
+                .aspectRatio(contentMode: .fill)
+                .frame(width: geometry.size.width, height: geometry.size.height)
+                .clipped()
+                .ignoresSafeArea()
         }
     }
 

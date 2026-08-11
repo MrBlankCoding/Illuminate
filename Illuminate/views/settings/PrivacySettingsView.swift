@@ -1,0 +1,174 @@
+//
+//  PrivacySettingsView.swift
+//  Illuminate
+//
+//  Created by MrBlankCoding on 8/10/26.
+//
+
+import SwiftUI
+
+struct PrivacySettingsView: View {
+    @EnvironmentObject private var historyManager: HistoryManager
+    @EnvironmentObject private var tabManager: TabManager
+    @Environment(\.colorScheme) private var colorScheme
+
+    @State private var showClearSheet = false
+    @State private var clearRange: ClearRange = .allTime
+
+    private var theme: BrowserTheme {
+        BrowserTheme(accent: tabManager.windowThemeColor, colorScheme: colorScheme)
+    }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
+                settingsSection(title: "Browsing History") {
+                    VStack(spacing: 0) {
+                        toggleRow(
+                            icon: "clock",
+                            title: "Save browsing history",
+                            subtitle: "Pages you visit are saved to your history.",
+                            isOn: $historyManager.isSavingEnabled
+                        )
+                        Divider().padding(.leading, 48)
+                        toggleRow(
+                            icon: "star.square.on.square",
+                            title: "Show frequently visited sites",
+                            subtitle: "Top sites appear on the new tab page.",
+                            isOn: $historyManager.showTopSites
+                        )
+                        Divider().padding(.leading, 48)
+                        toggleRow(
+                            icon: "text.magnifyingglass",
+                            title: "Show history suggestions",
+                            subtitle: "Previously visited pages appear in the address bar.",
+                            isOn: $historyManager.showHistorySuggestions
+                        )
+                    }
+                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .stroke(Color.primary.opacity(0.08), lineWidth: 0.5)
+                    }
+                }
+
+                settingsSection(title: "Clear Browsing Data") {
+                    VStack(alignment: .leading, spacing: 14) {
+                        Picker("Time range", selection: $clearRange) {
+                            ForEach(ClearRange.allCases) { range in
+                                Text(range.label).tag(range)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+
+                        Text("Clears history for the selected time period. Cookies and cache are cleared regardless of range.")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.secondary)
+
+                        Button("Clear Browsing Data…") {
+                            showClearSheet = true
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(.red)
+                        .controlSize(.regular)
+                    }
+                }
+
+                Spacer()
+            }
+            .padding(24)
+        }
+        .confirmationDialog(
+            "Clear Browsing Data",
+            isPresented: $showClearSheet,
+            titleVisibility: .visible
+        ) {
+            Button("Clear \(clearRange.label)", role: .destructive) {
+                performClear()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This will remove your browsing history\(clearRange == .allTime ? " and cannot be undone" : "").")
+        }
+    }
+
+    @ViewBuilder
+    private func settingsSection<Content: View>(
+        title: String,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(.secondary)
+                .textCase(.uppercase)
+                .padding(.horizontal, 2)
+
+            content()
+        }
+    }
+
+    @ViewBuilder
+    private func toggleRow(
+        icon: String,
+        title: String,
+        subtitle: String,
+        isOn: Binding<Bool>
+    ) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(tabManager.windowThemeColor)
+                .frame(width: 28, height: 28)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.system(size: 13, weight: .medium))
+                Text(subtitle)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+
+            Toggle("", isOn: isOn)
+                .labelsHidden()
+                .toggleStyle(.switch)
+                .tint(tabManager.windowThemeColor)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .background(.regularMaterial)
+    }
+
+    private func performClear() {
+        switch clearRange {
+        case .lastHour:
+            historyManager.clearHistory(since: Date().addingTimeInterval(-3600))
+        case .today:
+            historyManager.clearToday()
+        case .lastWeek:
+            historyManager.clearHistory(since: Date().addingTimeInterval(-7 * 86400))
+        case .allTime:
+            historyManager.clearAll()
+        }
+    }
+}
+
+private enum ClearRange: String, CaseIterable, Identifiable {
+    case lastHour = "lastHour"
+    case today    = "today"
+    case lastWeek = "lastWeek"
+    case allTime  = "allTime"
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .lastHour: return "Last Hour"
+        case .today:    return "Today"
+        case .lastWeek: return "Last Week"
+        case .allTime:  return "All Time"
+        }
+    }
+}

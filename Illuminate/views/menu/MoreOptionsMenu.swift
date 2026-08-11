@@ -69,6 +69,48 @@ struct MoreOptionsMenu: View {
 
             Group {
                 Button {
+                    guard let webView = tabManager.activeTab?.webView else { return }
+                    let printInfo = NSPrintInfo.shared
+                    let operation = NSPrintOperation(view: webView)
+                    operation.printInfo = printInfo
+                    operation.showsPrintPanel = true
+                    operation.showsProgressPanel = true
+                    operation.run()
+                } label: {
+                    Label("Print Page", systemImage: "printer")
+                }
+                .disabled(tabManager.activeTab?.webView == nil)
+
+                Button {
+                    guard let window = NSApp.keyWindow,
+                          let contentView = window.contentView else { return }
+                    let bounds = contentView.bounds
+                    guard let imageRep = contentView.bitmapImageRepForCachingDisplay(in: bounds) else { return }
+                    contentView.cacheDisplay(in: bounds, to: imageRep)
+                    guard let pngData = imageRep.representation(using: .png, properties: [:]) else { return }
+
+                    let savePanel = NSSavePanel()
+                    savePanel.allowedFileTypes = ["png"]
+                    savePanel.nameFieldStringValue = "screenshot.png"
+                    savePanel.begin { response in
+                        guard response == .OK, let url = savePanel.url else { return }
+                        try? pngData.write(to: url)
+                    }
+                } label: {
+                    Label("Capture Screenshot", systemImage: "camera")
+                }
+            }
+
+            Divider()
+
+            Group {
+                Button {
+                    openInternalPage("illuminate://history")
+                } label: {
+                    Label("History", systemImage: "clock.arrow.circlepath")
+                }
+
+                Button {
                     openInternalPage("illuminate://passwords")
                 } label: {
                     Label("Passwords", systemImage: "key.fill")

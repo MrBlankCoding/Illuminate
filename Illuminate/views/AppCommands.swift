@@ -44,6 +44,24 @@ struct AppCommands: Commands {
             BrowserCommand("Toggle Full Screen", shortcut: "f", modifiers: [.command, .shift]) { .toggleFullScreen }
         }
 
+        CommandMenu("History") {
+            // Recently visited items first
+            RecentlyVisitedMenuContent()
+
+            Divider()
+
+            BrowserCommand("Reopen Closed Tab", shortcut: "t", modifiers: [.command, .shift]) { .reopenTab }
+
+            Divider()
+
+            BrowserCommand("Clear History…", shortcut: "\u{08}", modifiers: [.command, .shift]) { .clearHistory }
+
+            Divider()
+
+            // Show All History always at the bottom
+            BrowserCommand("Show All History", shortcut: "y") { .showHistory }
+        }
+
         CommandGroup(replacing: .newItem) {}
         CommandGroup(replacing: .saveItem) {
             CloseTabCommand()
@@ -169,3 +187,29 @@ private struct BookmarkBarMenuContent: View {
     }
 }
 
+private struct RecentlyVisitedMenuContent: View {
+    @FocusedValue(\.activeEnvironment) private var environment
+
+    private var recentEntries: [HistoryEntry] {
+        environment?.historyManager.recentEntries.prefix(10).map { $0 } ?? []
+    }
+
+    var body: some View {
+        if recentEntries.isEmpty {
+            Button("No Recent History") {}
+                .disabled(true)
+        } else {
+            ForEach(recentEntries) { entry in
+                Button(entry.displayTitle) {
+                    guard let url = entry.url else { return }
+                    NotificationCenter.default.post(
+                        name: .openURL,
+                        object: url
+                    )
+                }
+            }
+        }
+    }
+}
+
+// End of AppCommands helpers

@@ -60,6 +60,14 @@ private var webViewTabOwnerKey: UInt8 = 0
 final class IlluminateWebView: WKWebView {
     var onIlluminateDownload: ((NSEvent) -> Void)?
 
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        guard let window else { return }
+        if layer?.contentsScale != window.backingScaleFactor {
+            layer?.contentsScale = window.backingScaleFactor
+        }
+    }
+
     override func willOpenMenu(_ menu: NSMenu, with event: NSEvent) {
         super.willOpenMenu(menu, with: event)
         let itemTitle = "[Illuminate] Download"
@@ -233,6 +241,7 @@ final class Tab: ObservableObject, Identifiable {
 
         let newWebView = IlluminateWebView(frame: .zero, configuration: configuration)
         newWebView.isInspectable = true
+        newWebView.wantsLayer = true
         newWebView.pageZoom = zoomLevel
         webKitManager.applyBrowserUserAgent(to: newWebView)
         objc_setAssociatedObject(

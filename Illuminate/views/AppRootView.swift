@@ -26,6 +26,7 @@ struct AppRootView: View {
                     .environmentObject(env.urlSynchronizer)
                     .environmentObject(env.adBlockService)
                     .environmentObject(env.trackerBlockingService)
+                    .environmentObject(env.historyManager)
                     .focusedSceneValue(\.activeEnvironment, env)
                     .id(route)
                     .onAppear {
@@ -35,6 +36,9 @@ struct AppRootView: View {
             } else {
                 ProfileSelectionView(route: $route, isStandalone: isStandalone)
             }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .newPrivateWindow)) { _ in
+            openWindow(value: BrowserWindowRoute.guest(UUID()))
         }
     }
 

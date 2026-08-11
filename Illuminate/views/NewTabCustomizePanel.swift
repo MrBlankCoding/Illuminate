@@ -12,6 +12,7 @@ struct NewTabCustomizePanel: View {
     @EnvironmentObject private var tabManager: TabManager
     @Environment(\.colorScheme) private var colorScheme
     private static let contentWidth: CGFloat = 228
+    private static let subtleAnimation: Animation = .easeOut(duration: 0.15)
 
     private static let quickAccents: [Color] = [
         Color(hex: "89BBFF"),   // default blue
@@ -75,6 +76,7 @@ struct NewTabCustomizePanel: View {
                                 Text("#\(tabManager.windowThemeColor.toHex() ?? "89BBFF")")
                                     .font(.caption.monospaced())
                                     .foregroundStyle(.secondary)
+                                    .padding(.leading, 10)
                             }
                         }
                     }
@@ -118,7 +120,7 @@ struct NewTabCustomizePanel: View {
 
                                 if !tabManager.backgroundImageURL.isEmpty {
                                     Button {
-                                        withAnimation(MacDesign.springAnimation) {
+                                        withAnimation(Self.subtleAnimation) {
                                             tabManager.backgroundImageURL = ""
                                         }
                                     } label: {
@@ -176,7 +178,7 @@ struct NewTabCustomizePanel: View {
             ForEach(colors, id: \.self) { color in
                 let isSelected = tabManager.windowThemeColor == color
                 Button {
-                    withAnimation(MacDesign.springAnimation) {
+                    withAnimation(Self.subtleAnimation) {
                         tabManager.windowThemeColor = color
                     }
                 } label: {
@@ -187,12 +189,12 @@ struct NewTabCustomizePanel: View {
                             Circle()
                                 .strokeBorder(
                                     isSelected ? Color.white.opacity(0.9) : Color.primary.opacity(0.12),
-                                    lineWidth: isSelected ? 2.5 : 1
+                                    lineWidth: isSelected ? 2 : 1
                                 )
                         }
-                        .shadow(color: isSelected ? color.opacity(0.5) : .clear, radius: 4)
-                        .scaleEffect(isSelected ? 1.12 : 1)
-                        .animation(MacDesign.springAnimation, value: isSelected)
+                        .shadow(color: isSelected ? color.opacity(0.35) : .clear, radius: 2)
+                        .scaleEffect(isSelected ? 1.05 : 1)
+                        .animation(Self.subtleAnimation, value: isSelected)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Set accent color")

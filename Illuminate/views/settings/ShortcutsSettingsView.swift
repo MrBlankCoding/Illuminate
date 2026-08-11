@@ -8,33 +8,57 @@
 import SwiftUI
 
 struct ShortcutsSettingsView: View {
-    private let shortcuts: [(String, String)] = [
-        ("New Tab", "⌘T"),
-        ("Close Tab", "⌘W"),
-        ("Close All Tabs", "⌘⇧W"),
-        ("Reopen Closed Tab", "⌘⇧T"),
-        ("Bookmark Tab", "⌘B"),
-        ("Toggle Bookmark Bar", "⌘⇧B"),
-        ("Focus Address Bar", "⌘L"),
-        ("Reload Page", "⌘R"),
-        ("Find in Page", "⌘F"),
-        ("Toggle Full Screen", "⌘⇧F"),
-        ("Developer Tools", "⌘⇧I"),
-        ("Zoom In", "⌘+"),
-        ("Zoom Out", "⌘-"),
-        ("Reset Zoom", "⌘0"),
-        ("Go Back", "⌘←"),
-        ("Go Forward", "⌘→")
+
+    private struct ShortcutGroup {
+        let title: String
+        let shortcuts: [(String, String)]
+    }
+
+    private let groups: [ShortcutGroup] = [
+        ShortcutGroup(title: "Tabs & Windows", shortcuts: [
+            ("New Tab",              "⌘T"),
+            ("Close Tab",            "⌘W"),
+            ("Close All Tabs",       "⌘⇧W"),
+            ("Reopen Closed Tab",    "⌘⇧T"),
+            ("Next Tab",             "⌘↓"),
+            ("Previous Tab",         "⌘↑"),
+            ("New Window",           "⌘N"),
+            ("New Private Window",   "⌘⇧N"),
+        ]),
+        ShortcutGroup(title: "Navigation", shortcuts: [
+            ("Focus Address Bar",    "⌘L"),
+            ("Reload Page",          "⌘R"),
+            ("Go Back",              "⌘←"),
+            ("Go Forward",           "⌘→"),
+            ("Toggle Full Screen",   "⌘⇧F"),
+        ]),
+        ShortcutGroup(title: "History", shortcuts: [
+            ("Show All History",     "⌘Y"),
+            ("Clear History",        "⌘⇧⌫"),
+        ]),
+        ShortcutGroup(title: "Page", shortcuts: [
+            ("Find in Page",         "⌘F"),
+            ("Zoom In",              "⌘+"),
+            ("Zoom Out",             "⌘−"),
+            ("Reset Zoom",           "⌘0"),
+            ("Developer Tools",      "⌘⇧I"),
+        ]),
+        ShortcutGroup(title: "Bookmarks", shortcuts: [
+            ("Bookmark Tab",         "⌘B"),
+            ("Toggle Bookmark Bar",  "⌘⇧B"),
+        ]),
     ]
 
     var body: some View {
         Form {
-            Section("Keyboard Shortcuts") {
-                ForEach(shortcuts, id: \.0) { title, shortcut in
-                    LabeledContent(title) {
-                        Text(shortcut)
-                            .font(.caption.monospaced().bold())
-                            .foregroundStyle(.secondary)
+            ForEach(groups, id: \.title) { group in
+                Section(group.title) {
+                    ForEach(group.shortcuts, id: \.0) { title, shortcut in
+                        LabeledContent(title) {
+                            Text(shortcut)
+                                .font(.caption.monospaced().bold())
+                                .foregroundStyle(.secondary)
+                        }
                     }
                 }
             }

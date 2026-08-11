@@ -30,6 +30,10 @@ extension Notification.Name {
     static let closeActiveTab = Notification.Name("app.closeActiveTab")
     static let closeAllTabs = Notification.Name("app.closeAllTabs")
     static let toggleBookmarkBar = Notification.Name("app.toggleBookmarkBar")
+    static let showHistory       = Notification.Name("app.showHistory")
+    static let clearHistory      = Notification.Name("app.clearHistory")
+    static let newPrivateWindow  = Notification.Name("app.newPrivateWindow")
+    static let openURL           = Notification.Name("app.openURL")
 }
 
 enum BookmarkBarVisibility: String, CaseIterable, Identifiable {

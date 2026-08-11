@@ -88,7 +88,15 @@ struct BrowserToolbarView: View {
     @State private var tabFrames: [UUID: CGRect] = [:]
 
     private var theme: BrowserTheme {
-        BrowserTheme(accent: tabManager.windowThemeColor, colorScheme: colorScheme)
+        // Private windows use a purple accent so the toolbar is visually distinct
+        let accent = profileEnvironment.isGuestSession
+            ? Color(hex: "7B52CC")
+            : tabManager.windowThemeColor
+        return BrowserTheme(accent: accent, colorScheme: colorScheme)
+    }
+
+    private var effectiveThemeColor: Color {
+        profileEnvironment.isGuestSession ? Color(hex: "7B52CC") : tabManager.windowThemeColor
     }
 
     var body: some View {
@@ -97,6 +105,7 @@ struct BrowserToolbarView: View {
         }
         .frame(maxWidth: .infinity)
         .frame(height: ToolbarMetrics.totalHeight)
+        .background(toolbarBackground)
         .ignoresSafeArea(edges: .top)
         .onPreferenceChange(TabFramesKey.self) { frames in
             tabFrames = frames
@@ -110,7 +119,6 @@ struct BrowserToolbarView: View {
         }
         .frame(maxWidth: .infinity)
         .ignoresSafeArea()
-        .background(toolbarBackground)
         .overlay(alignment: .bottom) {
             Rectangle()
                 .fill(theme.separator)
@@ -148,7 +156,7 @@ struct BrowserToolbarView: View {
             URLBar(
                 activeTab: tabManager.activeTab,
                 addressText: $addressBarText,
-                themeColor: tabManager.windowThemeColor,
+                themeColor: effectiveThemeColor,
                 onNavigate: onNavigate
             )
             .frame(maxWidth: .infinity)
@@ -194,15 +202,15 @@ struct BrowserToolbarView: View {
                     } label: {
                         Label(profile.name, systemImage: profile.iconName)
                     }
-                    .disabled(profile.id == profileEnvironment.profile.id)
+                    .disabled(profile.id == profileEnvironment.profile.id && !profileEnvironment.isGuestSession)
                 }
             }
 
             Section {
                 Button {
-                    DockMenuWindowRouter.shared.openGuest?()
+                    NotificationCenter.default.post(name: .newPrivateWindow, object: nil)
                 } label: {
-                    Label("Guest Profile", systemImage: "person.crop.circle.badge.questionmark")
+                    Label("New Private Window", systemImage: "eyeglasses")
                 }
                 Button {
                     DockMenuWindowRouter.shared.openProfileSelection?()
@@ -211,11 +219,19 @@ struct BrowserToolbarView: View {
                 }
             }
         } label: {
-            Image(systemName: profileEnvironment.profile.iconName)
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(Color.textSecondary)
-                .frame(width: 26, height: 26)
-                .modifier(ProfileIconGlassModifier(tint: tabManager.windowThemeColor))
+            Group {
+                if profileEnvironment.isGuestSession {
+                    Image(systemName: "eyeglasses")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(Color(hex: "7B52CC"))
+                } else {
+                    Image(systemName: profileEnvironment.profile.iconName)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(Color.textSecondary)
+                }
+            }
+            .frame(width: 26, height: 26)
+            .modifier(ProfileIconGlassModifier(tint: effectiveThemeColor))
         }
         .menuStyle(.borderlessButton)
         .fixedSize()
@@ -227,6 +243,7 @@ struct BrowserToolbarView: View {
             .background(theme.toolbarBase)
             .ignoresSafeArea(edges: .top)
     }
+
 }
 
 private struct ProfileIconGlassModifier: ViewModifier {

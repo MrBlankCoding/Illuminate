@@ -312,6 +312,14 @@ final class TabManager: ObservableObject {
         return tab
     }
 
+    func navigateActiveTab(to url: URL) {
+        if let tab = activeTab {
+            tab.load(url: url)
+        } else {
+            createTab(url: url)
+        }
+    }
+
     // keep it simple
     func ensureHasAtLeastOneTab() {
         if tabs.isEmpty { createTab() }
@@ -527,6 +535,8 @@ final class TabManager: ObservableObject {
             return NSImage(systemSymbolName: "shield.fill", accessibilityDescription: "Protection")
         case "downloads":
             return NSImage(systemSymbolName: "arrow.down.circle.fill", accessibilityDescription: "Downloads")
+        case "history":
+            return NSImage(systemSymbolName: "clock.arrow.circlepath", accessibilityDescription: "History")
         default:
             return nil
         }
@@ -606,16 +616,28 @@ final class TabManager: ObservableObject {
             (.zoomOut,         { [weak self] in self?.activeTab?.zoomOut() }),
             (.resetZoom,       { [weak self] in self?.activeTab?.resetZoom() }),
             (.toggleFullScreen, { NSApp.keyWindow?.toggleFullScreen(nil) }),
+            (.showHistory,     { [weak self] in self?.navigateActiveTab(to: URL(string: "illuminate://history")!) }),
             (Notification.Name.closeActiveTab, { [weak self] in self?.closeActiveTab() }),
             (Notification.Name.closeAllTabs, { [weak self] in self?.clearAllTabs() }),
             (Notification.Name.toggleBookmarkBar, { [weak self] in self?.cycleBookmarkBarVisibility() }),
         ]
 
-        observerTokens = pairs.map { name, handler in
+        var tokens = pairs.map { name, handler in
             notificationCenter.addObserver(forName: name, object: nil, queue: .main) { _ in
                 Task { @MainActor in handler() }
             }
         }
+
+        let openURLToken = notificationCenter.addObserver(
+            forName: .openURL, object: nil, queue: .main
+        ) { [weak self] notification in
+            guard let url = notification.object as? URL else { return }
+            Task { @MainActor [weak self] in
+                self?.navigateActiveTab(to: url)
+            }
+        }
+        tokens.append(openURLToken)
+        observerTokens = tokens
     }
 }
 

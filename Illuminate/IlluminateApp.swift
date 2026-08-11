@@ -34,7 +34,7 @@ struct IlluminateApp: App {
         passkeyAuthorizationService = .shared
 
         do {
-            modelContainer = try ModelContainer(for: Bookmark.self, Password.self)
+            modelContainer = try ModelContainer(for: Bookmark.self, Password.self, HistoryEntry.self)
         } catch {
             AppLog.info("Failed to create ModelContainer: \(error)")
             fatalError("Failed to create ModelContainer: \(error)")

@@ -16,6 +16,7 @@ struct WebViewRepresentable: NSViewRepresentable {
     let passwordService: PasswordService
     let tabManager: TabManager
     let trackerBlockingService: TrackerBlockingService
+    let historyManager: HistoryManager
     let userInterfaceStyle: TabManager.UIStyle
 
     func makeCoordinator() -> Coordinator {
@@ -28,7 +29,8 @@ struct WebViewRepresentable: NSViewRepresentable {
             dohService: DNSOverHTTPSService.shared,
             faviconCache: FaviconCache.shared,
             passwordService: passwordService,
-            webKitManager: webKitManager
+            webKitManager: webKitManager,
+            historyManager: historyManager
         )
     }
 
@@ -42,6 +44,7 @@ struct WebViewRepresentable: NSViewRepresentable {
         
         webView.navigationDelegate = context.coordinator
         webView.uiDelegate = context.coordinator
+        webView.allowsLinkPreview = true
         webView.allowsBackForwardNavigationGestures = tab.id == tabManager.activeTabID
         if let illuminateWebView = webView as? IlluminateWebView {
             illuminateWebView.onIlluminateDownload = { [weak tab, weak webView] event in

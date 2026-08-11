@@ -13,23 +13,33 @@ struct ProfileCommands: Commands {
     var body: some Commands {
         CommandGroup(replacing: .newItem) {
             NewWindowButton()
+            NewPrivateWindowMenuButton()
         }
 
         CommandMenu("Profiles") {
             NewWindowButton()
-            NewGuestWindowButton()
+            NewPrivateWindowMenuButton()
+
             Divider()
 
             ForEach(profileManager.profiles) { profile in
                 OpenProfileWindowButton(profile: profile)
             }
+
+            Divider()
+
+            Button("Manage Profiles…") {
+                DockMenuWindowRouter.shared.openProfileSelection?()
+            }
         }
     }
 }
 
+// MARK: - New Window
+
 struct NewWindowButton: View {
     @Environment(\.openWindow) private var openWindow
-    
+
     var body: some View {
         let _ = registerDockMenuRoutes()
 
@@ -53,28 +63,30 @@ struct NewWindowButton: View {
     }
 }
 
-struct NewGuestWindowButton: View {
+// MARK: - New Private Window (merged guest concept)
+
+struct NewPrivateWindowMenuButton: View {
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
-        Button("New Guest Window") {
+        Button("New Private Window") {
             openWindow(value: BrowserWindowRoute.guest(UUID()))
         }
+        .keyboardShortcut("n", modifiers: [.command, .shift])
     }
 }
+
+// MARK: - Open specific profile
 
 struct OpenProfileWindowButton: View {
     let profile: BrowserProfile
     @Environment(\.openWindow) private var openWindow
-    
+
     var body: some View {
         Button {
             openWindow(value: BrowserWindowRoute.profile(profile.id))
         } label: {
-            HStack {
-                Text(profile.name)
-                Image(systemName: profile.iconName)
-            }
+            Label(profile.name, systemImage: profile.iconName)
         }
     }
 }

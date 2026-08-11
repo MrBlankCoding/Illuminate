@@ -9,6 +9,9 @@ import SwiftUI
 
 struct NativeSettingsView: View {
     @FocusedValue(\.activeEnvironment) private var activeEnvironment
+    private var tabManager: TabManager {
+        activeEnvironment?.tabManager ?? TabManager()
+    }
 
     var body: some View {
         TabView {
@@ -22,7 +25,7 @@ struct NativeSettingsView: View {
                     Label("Shortcuts", systemImage: "command")
                 }
         }
-        .frame(minWidth: 520, minHeight: 400)
-        .environmentObject(activeEnvironment?.tabManager ?? TabManager())
+        .frame(minWidth: 520, minHeight: 440)
+        .environmentObject(tabManager)
     }
 }

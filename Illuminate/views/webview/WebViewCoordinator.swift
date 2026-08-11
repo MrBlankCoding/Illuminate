@@ -21,6 +21,7 @@ extension WebViewRepresentable {
         private let faviconCache: FaviconCache
         private let passwordService: PasswordService
         private let webKitManager: WebKitManager
+        private let historyManager: HistoryManager
         private let preconnectManager = NavigationPreconnectManager.shared
 
         private let circuitBreaker = WebProcessCircuitBreaker()
@@ -78,7 +79,8 @@ extension WebViewRepresentable {
             dohService: DNSOverHTTPSService,
             faviconCache: FaviconCache,
             passwordService: PasswordService,
-            webKitManager: WebKitManager
+            webKitManager: WebKitManager,
+            historyManager: HistoryManager
         ) {
             self.tab = tab
             self.tabManager = tabManager
@@ -89,6 +91,7 @@ extension WebViewRepresentable {
             self.faviconCache = faviconCache
             self.passwordService = passwordService
             self.webKitManager = webKitManager
+            self.historyManager = historyManager
             self.lastLoadedURL = tab.url
         }
 
@@ -132,6 +135,9 @@ extension WebViewRepresentable {
 
                 if let title = body["title"] as? String, !title.isEmpty, tab.title != title {
                     tab.title = title
+                    if let url = tab.url {
+                        self.historyManager.updateMetadata(for: url, title: title)
+                    }
                 }
                 if let hex = body["themeColor"] as? String {
                     let newColor = Color(hex: hex)
@@ -142,7 +148,15 @@ extension WebViewRepresentable {
                     from: faviconString,
                     pageURL: message.webView?.url
                    ) {
-                    Task { await self.loadFavicon(from: faviconURL, for: tab) }
+                    Task {
+                        await self.loadFavicon(from: faviconURL, for: tab)
+                        // Update history with the resolved favicon URL
+                        if let pageURL = message.webView?.url {
+                            await MainActor.run {
+                                self.historyManager.updateMetadata(for: pageURL, title: tab.title, faviconURL: faviconURL)
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -219,6 +233,20 @@ extension WebViewRepresentable {
 
             if let fallbackFaviconURL = defaultFaviconURL(for: webView.url) {
                 Task { await self.loadFavicon(from: fallbackFaviconURL, for: tab) }
+            }
+
+            if let finishedURL = webView.url {
+                let pageTitle = webView.title?.nilIfEmpty ?? finishedURL.host ?? finishedURL.absoluteString
+                let faviconURLForHistory: URL? = defaultFaviconURL(for: finishedURL)
+                let tabID = tab.id
+                Task { @MainActor [weak self] in
+                    self?.historyManager.record(
+                        url: finishedURL,
+                        title: pageTitle,
+                        faviconURL: faviconURLForHistory,
+                        tabID: tabID
+                    )
+                }
             }
 
             webView.evaluateJavaScript(Self.videoDetectionScript) { [weak tab] result, _ in
@@ -324,10 +352,6 @@ extension WebViewRepresentable {
                 return
             }
 
-            // ── Tracker heuristics ───────────────────────────────────────────
-            // Record third-party sub-resource loads for Privacy Badger-style
-            // learning. We skip top-level navigations (targetFrame.isMainFrame)
-            // so only embedded resources are counted.
             if let frameInfo = navigationAction.targetFrame,
                !frameInfo.isMainFrame,
                let topURL = navigationAction.sourceFrame.webView?.url ?? tab?.url,
@@ -624,6 +648,6 @@ extension WebViewRepresentable {
     }
 }
 
-private extension String {
+extension String {
     var nilIfEmpty: String? { isEmpty ? nil : self }
 }

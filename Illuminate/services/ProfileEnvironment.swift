@@ -22,6 +22,7 @@ final class ProfileEnvironment: ObservableObject {
     let trackerBlockingService: TrackerBlockingService
     let urlSynchronizer: URLSynchronizer
     let viewModel: ContentViewModel
+    let historyManager: HistoryManager
     
     let modelContainer: ModelContainer
     
@@ -34,8 +35,6 @@ final class ProfileEnvironment: ObservableObject {
         self.profile = profile
         self.isGuestSession = isGuestSession
         self.modelContainer = modelContainer
-        
-        // Guest sessions stay in memory and avoid profile-backed persistence.
         self.urlSynchronizer = URLSynchronizer()
         self.tabManager = TabManager(
             profileID: isGuestSession ? nil : profile.id,
@@ -60,7 +59,15 @@ final class ProfileEnvironment: ObservableObject {
             isPersistenceEnabled: !isGuestSession,
             adBlockService: self.adBlockService
         )
-        self.viewModel = ContentViewModel(tabManager: self.tabManager, urlSynchronizer: self.urlSynchronizer)
+        self.historyManager = HistoryManager(
+            modelContainer: modelContainer,
+            profileID: isGuestSession ? nil : profile.id,
+            isGuestSession: isGuestSession
+        )
+        self.viewModel = ContentViewModel(
+            tabManager: self.tabManager,
+            urlSynchronizer: self.urlSynchronizer
+        )
     }
 }
 

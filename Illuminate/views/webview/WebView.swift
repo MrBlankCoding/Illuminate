@@ -17,6 +17,7 @@ struct WebView: View {
     @EnvironmentObject private var webKitManager: WebKitManager
     @EnvironmentObject private var passwordService: PasswordService
     @EnvironmentObject private var trackerBlockingService: TrackerBlockingService
+    @EnvironmentObject private var historyManager: HistoryManager
 
     var body: some View {
         ZStack {
@@ -34,6 +35,9 @@ struct WebView: View {
                 case .downloads:
                     DownloadsPageView()
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
+                case .history:
+                    HistoryPageView()
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                 case .none:
                     WebViewRepresentable(
                         tab: tab,
@@ -42,11 +46,12 @@ struct WebView: View {
                         passwordService: passwordService,
                         tabManager: tabManager,
                         trackerBlockingService: trackerBlockingService,
+                        historyManager: historyManager,
                         userInterfaceStyle: tabManager.userInterfaceStyle
                     )
                 }
             } else {
-                OpeningPageView(viewModel: viewModel)
+                NewTabView(viewModel: viewModel)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -71,10 +76,8 @@ struct WebView: View {
         }
     }
 
-    // MARK: - Illuminate internal page routing
-
     private enum IlluminatePage: Equatable {
-        case passwords, cookies, protection, downloads
+        case passwords, cookies, protection, downloads, history
     }
 
     private func illuminatePage(for url: URL) -> IlluminatePage? {
@@ -86,6 +89,7 @@ struct WebView: View {
         case "cookies":    return .cookies
         case "protection": return .protection
         case "downloads":  return .downloads
+        case "history":    return .history
         default:           return nil
         }
     }
