@@ -27,6 +27,7 @@ struct AppRootView: View {
                     .environmentObject(env.adBlockService)
                     .environmentObject(env.trackerBlockingService)
                     .environmentObject(env.websitePermissionService)
+                    .environmentObject(env.canvasFingerprintingService)
                     .environmentObject(env.historyManager)
                     .focusedSceneValue(\.activeEnvironment, env)
                     .id(route)

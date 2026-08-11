@@ -21,6 +21,7 @@ final class ProfileEnvironment: ObservableObject {
     let adBlockService: AdBlockService
     let trackerBlockingService: TrackerBlockingService
     let websitePermissionService: WebsitePermissionService
+    let canvasFingerprintingService: CanvasFingerprintingService
     let urlSynchronizer: URLSynchronizer
     let viewModel: ContentViewModel
     let historyManager: HistoryManager
@@ -61,6 +62,10 @@ final class ProfileEnvironment: ObservableObject {
             adBlockService: self.adBlockService
         )
         self.websitePermissionService = WebsitePermissionService(
+            profileID: isGuestSession ? nil : profile.id,
+            persists: !isGuestSession
+        )
+        self.canvasFingerprintingService = CanvasFingerprintingService(
             profileID: isGuestSession ? nil : profile.id,
             persists: !isGuestSession
         )

@@ -119,7 +119,7 @@ struct MoreOptionsMenu: View {
                 Button {
                     openInternalPage("illuminate://protection")
                 } label: {
-                    Label("Protection", systemImage: "shield.fill")
+                    Label("Privacy & Protection", systemImage: "shield.fill")
                 }
 
                 Button {

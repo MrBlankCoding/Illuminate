@@ -19,6 +19,7 @@ struct WebView: View {
     @EnvironmentObject private var trackerBlockingService: TrackerBlockingService
     @EnvironmentObject private var historyManager: HistoryManager
     @EnvironmentObject private var websitePermissionService: WebsitePermissionService
+    @EnvironmentObject private var canvasFingerprintingService: CanvasFingerprintingService
 
     var body: some View {
         ZStack {
@@ -52,6 +53,7 @@ struct WebView: View {
                         trackerBlockingService: trackerBlockingService,
                         historyManager: historyManager,
                         websitePermissionService: websitePermissionService,
+                        canvasFingerprintingService: canvasFingerprintingService,
                         userInterfaceStyle: tabManager.userInterfaceStyle
                     )
                 }

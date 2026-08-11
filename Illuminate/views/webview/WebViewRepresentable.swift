@@ -18,6 +18,7 @@ struct WebViewRepresentable: NSViewRepresentable {
     let trackerBlockingService: TrackerBlockingService
     let historyManager: HistoryManager
     let websitePermissionService: WebsitePermissionService
+    @ObservedObject var canvasFingerprintingService: CanvasFingerprintingService
     let userInterfaceStyle: TabManager.UIStyle
 
     func makeCoordinator() -> Coordinator {
@@ -57,7 +58,8 @@ struct WebViewRepresentable: NSViewRepresentable {
         WebScriptBridge.shared.installScripts(
             on: webView.configuration.userContentController,
             handler: context.coordinator,
-            colorScheme: Coordinator.resolvedScheme(for: userInterfaceStyle)
+            colorScheme: Coordinator.resolvedScheme(for: userInterfaceStyle),
+            canvasFingerprintingProtectionEnabled: canvasFingerprintingService.isEnabled
         )
         
         context.coordinator.applyContentRules(to: webView, ruleList: adBlockService.contentRuleList)
@@ -76,7 +78,8 @@ struct WebViewRepresentable: NSViewRepresentable {
         WebScriptBridge.shared.installScripts(
             on: nsView.configuration.userContentController,
             handler: context.coordinator,
-            colorScheme: Coordinator.resolvedScheme(for: userInterfaceStyle)
+            colorScheme: Coordinator.resolvedScheme(for: userInterfaceStyle),
+            canvasFingerprintingProtectionEnabled: canvasFingerprintingService.isEnabled
         )
         if let illuminateWebView = nsView as? IlluminateWebView {
             illuminateWebView.onIlluminateDownload = { [weak tab, weak nsView] event in

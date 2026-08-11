@@ -19,13 +19,14 @@ struct ProtectionPageView: View {
     var body: some View {
         InternalPage(
             icon: "shield.fill",
-            title: "Protection",
+            title: "Privacy & Protection",
             accentColor: tabManager.windowThemeColor
         ) {
             VStack(alignment: .leading, spacing: 24) {
                 adBlockerSection
                 httpsSection
                 trackerBlockingSection
+                PrivacySettingsView(isEmbedded: true)
             }
         }
     }

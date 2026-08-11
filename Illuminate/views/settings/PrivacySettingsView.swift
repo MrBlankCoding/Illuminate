@@ -8,20 +8,47 @@
 import SwiftUI
 
 struct PrivacySettingsView: View {
+    let isEmbedded: Bool
     @EnvironmentObject private var historyManager: HistoryManager
     @EnvironmentObject private var tabManager: TabManager
+    @EnvironmentObject private var canvasFingerprintingService: CanvasFingerprintingService
     @Environment(\.colorScheme) private var colorScheme
 
     @State private var showClearSheet = false
     @State private var clearRange: ClearRange = .allTime
+
+    init(isEmbedded: Bool = false) {
+        self.isEmbedded = isEmbedded
+    }
 
     private var theme: BrowserTheme {
         BrowserTheme(accent: tabManager.windowThemeColor, colorScheme: colorScheme)
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
+        Group {
+            if isEmbedded {
+                settingsContent
+            } else {
+                ScrollView { settingsContent.padding(24) }
+            }
+        }
+        .confirmationDialog(
+            "Clear Browsing Data",
+            isPresented: $showClearSheet,
+            titleVisibility: .visible
+        ) {
+            Button("Clear \(clearRange.label)", role: .destructive) {
+                performClear()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This will remove your browsing history\(clearRange == .allTime ? " and cannot be undone" : "").")
+        }
+    }
+
+    private var settingsContent: some View {
+        VStack(alignment: .leading, spacing: 24) {
                 settingsSection(title: "Browsing History") {
                     VStack(spacing: 0) {
                         toggleRow(
@@ -74,21 +101,16 @@ struct PrivacySettingsView: View {
                     }
                 }
 
-                Spacer()
-            }
-            .padding(24)
-        }
-        .confirmationDialog(
-            "Clear Browsing Data",
-            isPresented: $showClearSheet,
-            titleVisibility: .visible
-        ) {
-            Button("Clear \(clearRange.label)", role: .destructive) {
-                performClear()
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("This will remove your browsing history\(clearRange == .allTime ? " and cannot be undone" : "").")
+                settingsSection(title: "Fingerprinting") {
+                    toggleRow(
+                        icon: "hand.raised.shield.fill",
+                        title: "Block canvas fingerprinting",
+                        subtitle: "Limits websites from identifying this browser through canvas rendering.",
+                        isOn: $canvasFingerprintingService.isEnabled
+                    )
+                }
+
+            Spacer()
         }
     }
 

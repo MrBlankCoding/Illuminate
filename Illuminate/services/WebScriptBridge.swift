@@ -45,7 +45,8 @@ final class WebScriptBridge {
     func installScripts(
         on contentController: WKUserContentController,
         handler: some WKScriptMessageHandler,
-        colorScheme: String
+        colorScheme: String,
+        canvasFingerprintingProtectionEnabled: Bool
     ) {
         removeAll(from: contentController)
 
@@ -54,7 +55,10 @@ final class WebScriptBridge {
             contentController.add(weakHandler, name: bridge.rawValue)
         }
 
-        for script in allScripts(colorScheme: colorScheme) {
+        for script in allScripts(
+            colorScheme: colorScheme,
+            canvasFingerprintingProtectionEnabled: canvasFingerprintingProtectionEnabled
+        ) {
             contentController.addUserScript(script)
         }
     }
@@ -66,14 +70,21 @@ final class WebScriptBridge {
         }
     }
 
-    private func allScripts(colorScheme: String) -> [WKUserScript] {
-        [
+    private func allScripts(
+        colorScheme: String,
+        canvasFingerprintingProtectionEnabled: Bool
+    ) -> [WKUserScript] {
+        var scripts = [
             browserThemeSyncScript(colorScheme: colorScheme),
             hoverTrackingScript(),
             passwordScript(),
             locationPermissionScript(),
             metadataExtractionScript()
         ]
+        if canvasFingerprintingProtectionEnabled {
+            scripts.append(canvasFingerprintingProtectionScript())
+        }
+        return scripts
     }
 
     private func jsStringLiteral(_ value: String, fallback: String = "\"\"") -> String {
@@ -294,6 +305,61 @@ final class WebScriptBridge {
             injectionTime: .atDocumentStart,
             forMainFrameOnly: true
         )
+    }
+
+    private func canvasFingerprintingProtectionScript() -> WKUserScript {
+        let source = """
+        (() => {
+            'use strict';
+            if (window.__illuminateCanvasProtectionInstalled) return;
+            window.__illuminateCanvasProtectionInstalled = true;
+
+            let seed = 0;
+            const host = String(location.hostname || location.origin || 'illuminate');
+            for (let index = 0; index < host.length; index++) {
+                seed = ((seed << 5) - seed + host.charCodeAt(index)) | 0;
+            }
+            const offset = (Math.abs(seed) % 3) + 1;
+
+            const alter = (imageData) => {
+                const pixels = imageData && imageData.data;
+                if (!pixels || pixels.length < 4) return imageData;
+                for (let index = offset * 97; index < pixels.length; index += 4093) {
+                    pixels[index] = (pixels[index] + offset) & 255;
+                }
+                return imageData;
+            };
+
+            const contextPrototype = window.CanvasRenderingContext2D && window.CanvasRenderingContext2D.prototype;
+            if (contextPrototype && contextPrototype.getImageData) {
+                const originalGetImageData = contextPrototype.getImageData;
+                contextPrototype.getImageData = function(...args) {
+                    return alter(originalGetImageData.apply(this, args));
+                };
+            }
+
+            const canvasPrototype = window.HTMLCanvasElement && window.HTMLCanvasElement.prototype;
+            if (!canvasPrototype || !canvasPrototype.toDataURL) return;
+            const originalToDataURL = canvasPrototype.toDataURL;
+            canvasPrototype.toDataURL = function(...args) {
+                const context = this.getContext && this.getContext('2d');
+                if (!context || !this.width || !this.height) return originalToDataURL.apply(this, args);
+                try {
+                    const imageData = context.getImageData(0, 0, this.width, this.height);
+                    const originalPixels = new Uint8ClampedArray(imageData.data);
+                    alter(imageData);
+                    context.putImageData(imageData, 0, 0);
+                    const result = originalToDataURL.apply(this, args);
+                    imageData.data.set(originalPixels);
+                    context.putImageData(imageData, 0, 0);
+                    return result;
+                } catch (_) {
+                    return originalToDataURL.apply(this, args);
+                }
+            };
+        })();
+        """
+        return WKUserScript(source: source, injectionTime: .atDocumentStart, forMainFrameOnly: false)
     }
 
     private func passwordScript() -> WKUserScript {
