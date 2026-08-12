@@ -40,6 +40,15 @@ struct AppCommands: Commands {
 
             Divider()
 
+            Group {
+                BrowserCommand("New Tab Group", shortcut: "g", modifiers: [.command, .option]) { .newTabGroup }
+                BrowserCommand("Close Current Group", shortcut: "w", modifiers: [.command, .option, .shift]) { .closeCurrentGroup }
+                BrowserCommand("Move Tab to Left Group", shortcut: .leftArrow, modifiers: [.command, .option]) { .moveTabToLeftGroup }
+                BrowserCommand("Move Tab to Right Group", shortcut: .rightArrow, modifiers: [.command, .option]) { .moveTabToRightGroup }
+            }
+
+            Divider()
+
             BrowserCommand("Find in Page",    shortcut: "f")                          { .findInPage }
             BrowserCommand("Toggle Full Screen", shortcut: "f", modifiers: [.command, .shift]) { .toggleFullScreen }
         }

@@ -26,7 +26,7 @@ struct BookmarkBarView: View {
     }
 
     var body: some View {
-        if !bookmarks.isEmpty {
+        if !bookmarks.isEmpty || !tabManager.tabGroupManager.groups.isEmpty {
             VStack(spacing: 0) {
                 scrollContent
                 Rectangle()
@@ -40,6 +40,24 @@ struct BookmarkBarView: View {
     private var scrollContent: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             LazyHStack(spacing: MacDesign.Spacing.tight) {
+                let groups = tabManager.tabGroupManager.groups
+                if !groups.isEmpty {
+                    ForEach(groups) { group in
+                        BookmarkGroupItemView(group: group) {
+                            if let firstTabID = group.tabIDs.first {
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    tabManager.switchTo(firstTabID)
+                                }
+                            }
+                        }
+                    }
+                    if !bookmarks.isEmpty {
+                        Divider()
+                            .frame(height: 16)
+                            .padding(.horizontal, 4)
+                    }
+                }
+
                 ForEach(bookmarks) { bookmark in
                     BookmarkItemView(
                         bookmark: bookmark,
@@ -252,5 +270,57 @@ private struct RenamePopover: View {
         }
         .padding(16)
         .onAppear { isFocused = true }
+    }
+}
+
+private struct BookmarkGroupItemView: View {
+    @ObservedObject var group: TabGroup
+    let onOpen: () -> Void
+
+    @State private var isHovered = false
+    @State private var isPressed = false
+
+    var body: some View {
+        Button(action: onOpen) {
+            HStack(spacing: 4) {
+                Circle()
+                    .fill(group.groupColor.color)
+                    .frame(width: 8, height: 8)
+                
+                Text(group.name.isEmpty ? "Unnamed Group" : group.name)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(group.groupColor.color)
+                    .lineLimit(1)
+            }
+            .padding(.horizontal, MacDesign.Spacing.control - 1)
+            .padding(.vertical, 4)
+            .background {
+                RoundedRectangle(cornerRadius: MacDesign.Radius.small, style: .continuous)
+                    .fill(itemFill)
+            }
+            .contentShape(RoundedRectangle(cornerRadius: MacDesign.Radius.small, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .scaleEffect(isPressed ? 0.96 : 1.0)
+        .animation(MacDesign.fastAnimation, value: isPressed)
+        .onHover { hovering in
+            withAnimation(MacDesign.fastAnimation) { isHovered = hovering }
+        }
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in if !isPressed { isPressed = true } }
+                .onEnded { _ in isPressed = false }
+        )
+        .help("Tab Group: \(group.name)")
+    }
+
+    private var itemFill: Color {
+        if isPressed {
+            return group.groupColor.color.opacity(0.18)
+        }
+        if isHovered {
+            return Color.primary.opacity(0.07)
+        }
+        return Color.clear
     }
 }

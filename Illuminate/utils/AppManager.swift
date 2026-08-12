@@ -34,6 +34,10 @@ extension Notification.Name {
     static let clearHistory      = Notification.Name("app.clearHistory")
     static let newPrivateWindow  = Notification.Name("app.newPrivateWindow")
     static let openURL           = Notification.Name("app.openURL")
+    static let newTabGroup       = Notification.Name("app.newTabGroup")
+    static let closeCurrentGroup = Notification.Name("app.closeCurrentGroup")
+    static let moveTabToLeftGroup  = Notification.Name("app.moveTabToLeftGroup")
+    static let moveTabToRightGroup = Notification.Name("app.moveTabToRightGroup")
 }
 
 enum BookmarkBarVisibility: String, CaseIterable, Identifiable {

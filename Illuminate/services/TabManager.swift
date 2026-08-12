@@ -45,6 +45,7 @@ final class TabManager: ObservableObject {
     @Published var isResizing: Bool = false
     @Published var isFullScreen: Bool = false
     @Published var backgroundImagePalette: [Color] = []
+    let tabGroupManager: TabGroupManager
 
     @Published var windowThemeColor: Color {
         didSet {
@@ -135,6 +136,7 @@ final class TabManager: ObservableObject {
         self.isPersistenceEnabled = isPersistenceEnabled
         self.faviconCache       = faviconCache ?? .shared
         self.sessionURL         = Self.makeSessionURL(profileID: profileID)
+        self.tabGroupManager    = TabGroupManager(profileID: profileID, isPersistenceEnabled: isPersistenceEnabled)
 
         let savedHex = isPersistenceEnabled
             ? (userDefaults.string(forKey: Self.scopedKey("windowThemeColor", profileID: profileID)) ?? Defaults.themeColor)
@@ -358,6 +360,7 @@ final class TabManager: ObservableObject {
         let payload = tab.toTransferPayload()
         tab.close()
         pushRecentlyClosed(payload)
+        tabGroupManager.handleTabClosed(id)
 
         tabs.remove(at: index)
         deindexTab(id: id)
@@ -423,6 +426,7 @@ final class TabManager: ObservableObject {
 
     func moveTab(fromOffsets: IndexSet, toOffset: Int) {
         tabs.move(fromOffsets: fromOffsets, toOffset: toOffset)
+        tabGroupManager.handleTabsReordered(tabs.map { $0.id })
         scheduleSave()
     }
 
@@ -620,6 +624,27 @@ final class TabManager: ObservableObject {
             (Notification.Name.closeActiveTab, { [weak self] in self?.closeActiveTab() }),
             (Notification.Name.closeAllTabs, { [weak self] in self?.clearAllTabs() }),
             (Notification.Name.toggleBookmarkBar, { [weak self] in self?.cycleBookmarkBarVisibility() }),
+            (.newTabGroup, { [weak self] in
+                guard let self, let activeTabID = self.activeTabID else { return }
+                self.tabGroupManager.createGroup(name: "", color: .blue, tabIDs: [activeTabID])
+            }),
+            (.closeCurrentGroup, { [weak self] in
+                guard let self, let activeTabID = self.activeTabID,
+                      let group = self.tabGroupManager.group(for: activeTabID) else { return }
+                let tabIDs = group.tabIDs
+                self.tabGroupManager.closeGroup(group.id, tabs: self.tabs)
+                for tabID in tabIDs {
+                    self.closeTab(id: tabID)
+                }
+            }),
+            (.moveTabToLeftGroup, { [weak self] in
+                guard let self, let activeTabID = self.activeTabID else { return }
+                self.moveActiveTabToAdjacentGroup(direction: -1)
+            }),
+            (.moveTabToRightGroup, { [weak self] in
+                guard let self, let activeTabID = self.activeTabID else { return }
+                self.moveActiveTabToAdjacentGroup(direction: +1)
+            }),
         ]
 
         var tokens = pairs.map { name, handler in
@@ -638,6 +663,40 @@ final class TabManager: ObservableObject {
         }
         tokens.append(openURLToken)
         observerTokens = tokens
+    }
+
+    func moveActiveTabToAdjacentGroup(direction: Int) {
+        guard let activeTabID else { return }
+        let groups = tabGroupManager.groups
+        guard !groups.isEmpty else { return }
+
+        if let currentGroup = tabGroupManager.group(for: activeTabID) {
+            guard let groupIdx = tabGroupManager.position(ofGroup: currentGroup.id) else { return }
+            let targetIdx = groupIdx + direction
+            if groups.indices.contains(targetIdx) {
+                tabGroupManager.moveTabToGroup(activeTabID, targetGroupID: groups[targetIdx].id)
+            } else {
+                tabGroupManager.removeTabFromGroup(activeTabID)
+            }
+        } else {
+            guard let tabIdx = tabs.firstIndex(where: { $0.id == activeTabID }) else { return }
+
+            if direction > 0 {
+                for i in (tabIdx + 1)..<tabs.count {
+                    if let group = tabGroupManager.group(for: tabs[i].id) {
+                        tabGroupManager.addTabToGroup(activeTabID, groupID: group.id)
+                        return
+                    }
+                }
+            } else {
+                for i in stride(from: tabIdx - 1, through: 0, by: -1) {
+                    if let group = tabGroupManager.group(for: tabs[i].id) {
+                        tabGroupManager.addTabToGroup(activeTabID, groupID: group.id)
+                        return
+                    }
+                }
+            }
+        }
     }
 }
 

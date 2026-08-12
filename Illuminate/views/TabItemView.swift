@@ -30,6 +30,8 @@ struct TabItemView: View {
     let onToggleMute: () -> Void
 
     @Environment(\.colorScheme) private var colorScheme
+    @EnvironmentObject private var tabManager: TabManager
+    
     @State private var isHovered = false
     @State private var isCloseHovered = false
 
@@ -244,11 +246,44 @@ struct TabItemView: View {
 
         Divider()
 
+        Menu("Move to Group") {
+            Button("New Group") {
+                NotificationCenter.default.post(name: .newTabGroup, object: nil)
+            }
+            if let tabManager = getTabManager(), !tabManager.tabGroupManager.groups.isEmpty {
+                Divider()
+                ForEach(tabManager.tabGroupManager.groups) { group in
+                    Button {
+                        tabManager.tabGroupManager.moveTabToGroup(tab.id, targetGroupID: group.id)
+                    } label: {
+                        HStack {
+                            Circle()
+                                .fill(group.groupColor.color)
+                                .frame(width: 10, height: 10)
+                            Text(group.name.isEmpty ? "Unnamed Group" : group.name)
+                        }
+                    }
+                }
+            }
+        }
+        
+        if let tabManager = getTabManager(), tabManager.tabGroupManager.group(for: tab.id) != nil {
+            Button("Remove from Group") {
+                tabManager.tabGroupManager.removeTabFromGroup(tab.id)
+            }
+        }
+
+        Divider()
+
         Button("Close Other Tabs") { onCloseOthers() }
         Button("Close Tabs to the Right") { onCloseToRight() }
 
         Divider()
 
         Button("Close Tab", role: .destructive) { onClose() }
+    }
+    
+    private func getTabManager() -> TabManager? {
+        return tabManager
     }
 }

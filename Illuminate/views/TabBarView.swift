@@ -28,6 +28,18 @@ private struct TabDragSession {
     var stride: CGFloat { tabWidth + spacing }
 }
 
+private enum TabBarElement: Identifiable, Equatable {
+    case group(UUID, [UUID])
+    case tab(UUID)
+
+    var id: String {
+        switch self {
+        case .group(let id, _): return "group-\(id)"
+        case .tab(let id): return "tab-\(id)"
+        }
+    }
+}
+
 struct TabBarView: View {
     @EnvironmentObject private var tabManager: TabManager
     @Environment(\.colorScheme) private var colorScheme
@@ -35,8 +47,45 @@ struct TabBarView: View {
     @State private var dragSession: TabDragSession?
     @State private var isNewTabHovered = false
 
+    /// Bumped whenever anything about the tab groups changes (collapse,
+    /// rename, tab added/removed from a group, etc). TabBarView doesn't
+    /// hold TabGroupManager as an @ObservedObject, so it relies on this to
+    /// know when to recompute `layoutElements` and re-render. We deliberately
+    /// do NOT use `.id(_:)` with this token — that would force SwiftUI to
+    /// throw away and recreate the entire tab row (losing hover state,
+    /// interrupting animations, mid-drag state, etc.) on every small change.
+    /// Just toggling this @State value is enough to trigger a body
+    /// re-evaluation; SwiftUI's normal diffing handles the rest.
+    @State private var groupChangeToken = UUID()
+
     private var theme: BrowserTheme {
         BrowserTheme(accent: tabManager.windowThemeColor, colorScheme: colorScheme)
+    }
+
+    private var layoutElements: [TabBarElement] {
+        var elements: [TabBarElement] = []
+        var processedTabIDs = Set<UUID>()
+        let groupsManager = tabManager.tabGroupManager
+
+        // ensure view updates when tab selection changes
+        _ = tabManager.activeTabID
+        // establish a dependency on group-level changes (see groupChangeToken doc comment)
+        _ = groupChangeToken
+
+        for tab in tabManager.tabs {
+            guard !processedTabIDs.contains(tab.id) else { continue }
+
+            if let group = groupsManager.group(for: tab.id) {
+                elements.append(.group(group.id, group.tabIDs))
+                for gTabID in group.tabIDs {
+                    processedTabIDs.insert(gTabID)
+                }
+            } else {
+                elements.append(.tab(tab.id))
+                processedTabIDs.insert(tab.id)
+            }
+        }
+        return elements
     }
 
     var body: some View {
@@ -47,6 +96,9 @@ struct TabBarView: View {
             }
         }
         .frame(height: TabBarMetrics.rowHeight)
+        .onReceive(tabManager.tabGroupManager.$groups) { _ in
+            groupChangeToken = UUID()
+        }
     }
 
     @ViewBuilder
@@ -78,60 +130,114 @@ struct TabBarView: View {
 
     private func tabRow(tabWidth: CGFloat) -> some View {
         HStack(spacing: TabBarMetrics.tabSpacing) {
-            ForEach(Array(tabManager.tabs.enumerated()), id: \.element.id) { index, tab in
-                let isDragging  = dragSession?.tabID == tab.id
-                let dragOffsetX = offset(forTabAt: index, isDragging: isDragging)
+            ForEach(layoutElements) { element in
+                switch element {
+                case .group(let groupID, let tabIDs):
+                    if let group = tabManager.tabGroupManager.group(byID: groupID) {
+                        HStack(spacing: TabBarMetrics.tabSpacing) {
+                            TabGroupHeaderView(
+                                group: group,
+                                onToggleCollapse: {
+                                    withAnimation(MacDesign.springAnimation) {
+                                        tabManager.tabGroupManager.toggleCollapse(groupID)
+                                    }
+                                },
+                                onRename: { tabManager.tabGroupManager.renameGroup(groupID, to: $0) },
+                                onChangeColor: { tabManager.tabGroupManager.changeGroupColor(groupID, to: $0) },
+                                onCloseGroup: {
+                                    let ids = group.tabIDs
+                                    tabManager.tabGroupManager.closeGroup(groupID, tabs: tabManager.tabs)
+                                    ids.forEach { tabManager.closeTab(id: $0) }
+                                },
+                                onDeleteGroup: { tabManager.tabGroupManager.deleteGroup(groupID) },
+                                onUngroupTabs: {
+                                    for id in group.tabIDs {
+                                        tabManager.tabGroupManager.removeTabFromGroup(id)
+                                    }
+                                }
+                            )
+                            .padding(.trailing, 2)
+                            .padding(.leading, 2)
 
-                TabItemView(
-                    tab: tab,
-                    themeColor: tabManager.windowThemeColor,
-                    isActive: tab.id == tabManager.activeTabID,
-                    onSelect: {
-                        withAnimation(MacDesign.springAnimation) { tabManager.switchTo(tab.id) }
-                    },
-                    onClose: {
-                        withAnimation(MacDesign.springAnimation) { tabManager.closeTab(id: tab.id) }
-                    },
-                    onDuplicate: {
-                        if let url = tab.url { tabManager.createTab(url: url) }
-                    },
-                    onCloseOthers: {
-                        let ids = tabManager.tabs.filter { $0.id != tab.id }.map { $0.id }
-                        withAnimation(MacDesign.springAnimation) { ids.forEach { tabManager.closeTab(id: $0) } }
-                    },
-                    onCloseToRight: {
-                        guard let idx = tabManager.tabs.firstIndex(where: { $0.id == tab.id }) else { return }
-                        let ids = tabManager.tabs[(idx + 1)...].map { $0.id }
-                        withAnimation(MacDesign.springAnimation) { ids.forEach { tabManager.closeTab(id: $0) } }
-                    },
-                    onCopyLink: {
-                        guard let s = tab.url?.absoluteString, !s.isEmpty else { return }
-                        NSPasteboard.general.clearContents()
-                        NSPasteboard.general.setString(s, forType: .string)
-                    },
-                    onToggleMute: { tab.toggleMute() }
-                )
-                .frame(width: tabWidth)
-                .zIndex(isDragging ? 1 : 0)
-                .offset(x: dragOffsetX)
-                .opacity(isDragging ? 0.92 : 1.0)
-                .scaleEffect(isDragging ? 1.02 : 1.0, anchor: .center)
-                .animation(isDragging ? .none : MacDesign.springAnimation, value: dragOffsetX)
-                .id(tab.id)
-                .simultaneousGesture(tabDragGesture(for: tab, tabWidth: tabWidth))
-                .background(
-                    GeometryReader { geo in
-                        Color.clear.preference(
-                            key: TabFramesKey.self,
-                            value: [tab.id: geo.frame(in: .named("top"))]
-                        )
+                            if !group.isCollapsed {
+                                ForEach(tabIDs, id: \.self) { tabID in
+                                    renderTab(tabID: tabID, tabWidth: tabWidth)
+                                }
+                            }
+                        }
+                        .padding(.bottom, 4)
+                        .overlay(alignment: .bottom) {
+                            RoundedRectangle(cornerRadius: 1)
+                                .fill(group.groupColor.color)
+                                .frame(height: 2)
+                                .padding(.horizontal, 4)
+                        }
                     }
-                )
+
+                case .tab(let tabID):
+                    renderTab(tabID: tabID, tabWidth: tabWidth)
+                }
             }
         }
         .padding(.vertical, 4)
         .padding(.leading, 2)
         .animation(MacDesign.springAnimation, value: tabManager.tabs.map { $0.id })
+        .animation(MacDesign.springAnimation, value: tabManager.tabGroupManager.groups.map { $0.isCollapsed })
+    }
+
+    @ViewBuilder
+    private func renderTab(tabID: UUID, tabWidth: CGFloat) -> some View {
+        if let tab = tabManager.tabs.first(where: { $0.id == tabID }),
+           let index = tabManager.tabs.firstIndex(where: { $0.id == tabID }) {
+            let isDragging  = dragSession?.tabID == tab.id
+            let dragOffsetX = offset(forTabAt: index, isDragging: isDragging)
+
+            TabItemView(
+                tab: tab,
+                themeColor: tabManager.windowThemeColor,
+                isActive: tab.id == tabManager.activeTabID,
+                onSelect: {
+                    withAnimation(MacDesign.springAnimation) { tabManager.switchTo(tab.id) }
+                },
+                onClose: {
+                    withAnimation(MacDesign.springAnimation) { tabManager.closeTab(id: tab.id) }
+                },
+                onDuplicate: {
+                    if let url = tab.url { tabManager.createTab(url: url) }
+                },
+                onCloseOthers: {
+                    let ids = tabManager.tabs.filter { $0.id != tab.id }.map { $0.id }
+                    withAnimation(MacDesign.springAnimation) { ids.forEach { tabManager.closeTab(id: $0) } }
+                },
+                onCloseToRight: {
+                    guard let idx = tabManager.tabs.firstIndex(where: { $0.id == tab.id }) else { return }
+                    let ids = tabManager.tabs[(idx + 1)...].map { $0.id }
+                    withAnimation(MacDesign.springAnimation) { ids.forEach { tabManager.closeTab(id: $0) } }
+                },
+                onCopyLink: {
+                    guard let s = tab.url?.absoluteString, !s.isEmpty else { return }
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(s, forType: .string)
+                },
+                onToggleMute: { tab.toggleMute() }
+            )
+            .frame(width: tabWidth)
+            .zIndex(isDragging ? 1 : 0)
+            .offset(x: dragOffsetX)
+            .opacity(isDragging ? 0.92 : 1.0)
+            .scaleEffect(isDragging ? 1.02 : 1.0, anchor: .center)
+            .animation(isDragging ? .none : MacDesign.springAnimation, value: dragOffsetX)
+            .id(tab.id)
+            .simultaneousGesture(tabDragGesture(for: tab, tabWidth: tabWidth))
+            .background(
+                GeometryReader { geo in
+                    Color.clear.preference(
+                        key: TabFramesKey.self,
+                        value: [tab.id: geo.frame(in: .named("top"))]
+                    )
+                }
+            )
+        }
     }
 
     private func offset(forTabAt index: Int, isDragging: Bool) -> CGFloat {

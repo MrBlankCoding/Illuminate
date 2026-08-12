@@ -25,6 +25,12 @@ struct ShortcutsSettingsView: View {
             ("New Window",           "⌘N"),
             ("New Private Window",   "⌘⇧N"),
         ]),
+        ShortcutGroup(title: "Tab Groups", shortcuts: [
+            ("New Tab Group",                    "⌘⌥G"),
+            ("Close Current Group",              "⌘⌥⇧W"),
+            ("Move Tab to Left Group",           "⌘⌥←"),
+            ("Move Tab to Right Group",          "⌘⌥→"),
+        ]),
         ShortcutGroup(title: "Navigation", shortcuts: [
             ("Focus Address Bar",    "⌘L"),
             ("Reload Page",          "⌘R"),
