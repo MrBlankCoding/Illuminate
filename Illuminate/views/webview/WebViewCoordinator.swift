@@ -29,7 +29,8 @@ extension WebViewRepresentable {
 
         private let circuitBreaker = WebProcessCircuitBreaker()
         private var lastAppliedStyle: TabManager.UIStyle?
-        private var lastAppliedContentRuleList: WKContentRuleList?
+        private var lastAppliedContentRuleListIDs: [ObjectIdentifier] = []
+        private var lastAppliedFaviconURL: URL?
         private var contextMenuDownloadURL: URL?
         var lastLoadedURL: URL?
 
@@ -46,14 +47,16 @@ extension WebViewRepresentable {
         }
 
         private static func colorSchemeScript(for scheme: String) -> String {
-            """
+            let safeScheme = WebScriptBridge.jsStringLiteral(scheme, fallback: "\"light\"")
+            return """
             (() => {
+                const scheme = \(safeScheme);
                 const id = "illuminate-force-color-scheme";
                 let el = document.getElementById(id) ?? document.createElement("style");
                 el.id = id;
-                el.textContent = ":root, html { color-scheme: \(scheme) !important; }";
+                el.textContent = ":root, html { color-scheme: " + scheme + " !important; }";
                 if (!el.parentNode) document.documentElement.appendChild(el);
-                const prefersDark = "\(scheme)" === "dark";
+                const prefersDark = scheme === "dark";
                 if (window.__illuminateThemeSync) {
                     window.__illuminateThemeSync.prefersDark = prefersDark;
                     const entries = window.__illuminateThemeSync.entries;
@@ -63,8 +66,8 @@ extension WebViewRepresentable {
                         });
                     }
                 }
-                document.documentElement.style.colorScheme = "\(scheme)";
-                window.dispatchEvent(new CustomEvent("illuminatecolorschemechange", { detail: { scheme: "\(scheme)" } }));
+                document.documentElement.style.colorScheme = scheme;
+                window.dispatchEvent(new CustomEvent("illuminatecolorschemechange", { detail: { scheme } }));
             })();
             """
         }
@@ -116,9 +119,11 @@ extension WebViewRepresentable {
 
         func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
             switch message.name {
-            case "passwordBridge":
+            case webScriptBridge.passwordBridgeName:
+                guard message.frameInfo.isMainFrame else { return }
                 handlePasswordMessage(message)
-            case "permissionBridge":
+            case webScriptBridge.permissionBridgeName:
+                guard message.frameInfo.isMainFrame else { return }
                 handlePermissionMessage(message)
             case webScriptBridge.metadataBridgeName:
                 handleMetadataMessage(message)
@@ -128,22 +133,37 @@ extension WebViewRepresentable {
         }
 
         private func handleMetadataMessage(_ message: WKScriptMessage) {
-            guard let body = message.body as? [String: Any] else { return }
+            guard
+                let body = message.body as? [String: Any],
+                let kind = MetadataMessageKind(rawValue: body["type"] as? String ?? "")
+            else { return }
 
+            switch kind {
+            case .hover:
+                handleHoverMetadata(body, webView: message.webView)
+            case .page:
+                handlePageMetadata(body, webView: message.webView)
+            }
+        }
+
+        private func handleHoverMetadata(_ body: [String: Any], webView: WKWebView?) {
             DispatchQueue.main.async { [weak self] in
                 guard let self, let tab = self.tab else { return }
-                if let hoverURL = body["hoverURL"] as? String {
-                    let newValue: String? = hoverURL.isEmpty ? nil : hoverURL
-                    if tab.hoveredLinkURLString != newValue { tab.hoveredLinkURLString = newValue }
-                    if let newValue, let url = URL(string: newValue) {
-                        self.preconnectManager.preconnect(to: url, in: message.webView)
+
+                if let hoverURL = body["hoverURL"] as? String, !hoverURL.isEmpty {
+                    if tab.hoveredLinkURLString != hoverURL { tab.hoveredLinkURLString = hoverURL }
+                    if let url = URL(string: hoverURL) {
+                        self.preconnectManager.preconnect(to: url, in: webView)
                     }
-                    return
+                } else if tab.hoveredLinkURLString != nil {
+                    tab.hoveredLinkURLString = nil
                 }
-                if body["hoverURL"] is NSNull {
-                    if tab.hoveredLinkURLString != nil { tab.hoveredLinkURLString = nil }
-                    return
-                }
+            }
+        }
+
+        private func handlePageMetadata(_ body: [String: Any], webView: WKWebView?) {
+            DispatchQueue.main.async { [weak self] in
+                guard let self, let tab = self.tab else { return }
 
                 if let title = body["title"] as? String, !title.isEmpty, tab.title != title {
                     tab.title = title
@@ -151,22 +171,24 @@ extension WebViewRepresentable {
                         self.historyManager.updateMetadata(for: url, title: title)
                     }
                 }
+
                 if let hex = body["themeColor"] as? String {
                     let newColor = Color(hex: hex)
                     if tab.themeColor != newColor { tab.themeColor = newColor }
                 }
-                if let faviconString = body["favicon"] as? String,
-                   let faviconURL = self.resolveFaviconURL(
-                    from: faviconString,
-                    pageURL: message.webView?.url
-                   ) {
-                    Task {
-                        await self.loadFavicon(from: faviconURL, for: tab)
-                        // Update history with the resolved favicon URL
-                        if let pageURL = message.webView?.url {
-                            await MainActor.run {
-                                self.historyManager.updateMetadata(for: pageURL, title: tab.title, faviconURL: faviconURL)
-                            }
+
+                guard
+                    let faviconString = body["favicon"] as? String,
+                    let faviconURL = self.resolveFaviconURL(from: faviconString, pageURL: webView?.url),
+                    faviconURL != self.lastAppliedFaviconURL
+                else { return }
+                self.lastAppliedFaviconURL = faviconURL
+
+                Task {
+                    await self.loadFavicon(from: faviconURL, for: tab)
+                    if let pageURL = webView?.url {
+                        await MainActor.run {
+                            self.historyManager.updateMetadata(for: pageURL, title: tab.title, faviconURL: faviconURL)
                         }
                     }
                 }
@@ -242,8 +264,23 @@ extension WebViewRepresentable {
         }
 
         private func respondToLocationRequest(_ requestID: Int, location: CLLocation, in webView: WKWebView) {
-            let result = "{ latitude: \(location.coordinate.latitude), longitude: \(location.coordinate.longitude), accuracy: \(location.horizontalAccuracy), timestamp: \(Int(location.timestamp.timeIntervalSince1970 * 1000)) }"
-            webView.evaluateJavaScript("if (typeof window.__illuminateLocationResult === 'function') window.__illuminateLocationResult(\(requestID), \(result));")
+            let coordinate = location.coordinate
+            let payload: [String: Double] = [
+                "latitude": coordinate.latitude,
+                "longitude": coordinate.longitude,
+                "accuracy": location.horizontalAccuracy,
+                "timestamp": location.timestamp.timeIntervalSince1970 * 1000
+            ]
+            guard payload.values.allSatisfy(\.isFinite),
+                  let data = try? JSONEncoder().encode(payload),
+                  let json = String(data: data, encoding: .utf8)
+            else {
+                respondToLocationRequest(requestID, error: "Location access is unavailable.", in: webView)
+                return
+            }
+            webView.evaluateJavaScript(
+                "if (typeof window.__illuminateLocationResult === 'function') window.__illuminateLocationResult(\(requestID), \(json));"
+            )
         }
 
         private func respondToLocationRequest(_ requestID: Int, error: String, in webView: WKWebView) {
@@ -256,6 +293,7 @@ extension WebViewRepresentable {
             tab.isLoading = true
             tab.networkError = nil
             tab.hoveredLinkURLString = nil
+            lastAppliedFaviconURL = nil
         }
 
         func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
@@ -360,8 +398,6 @@ extension WebViewRepresentable {
                 return
             }
 
-            // HTTPS-only mode: block plain HTTP navigations to external sites.
-            // illuminate:// internal pages and localhost/loopback are always allowed.
             if webKitManager.httpsOnlyEnabled,
                url.scheme?.lowercased() == "http"
             {
@@ -370,7 +406,6 @@ extension WebViewRepresentable {
                 if !isLocalhost {
                     AppLog.security("HTTPS-only: blocked HTTP navigation to \(url.absoluteString)")
                     decisionHandler(.cancel)
-                    // Attempt an automatic upgrade to HTTPS.
                     if var components = URLComponents(url: url, resolvingAgainstBaseURL: false) {
                         components.scheme = "https"
                         if let upgraded = components.url {
@@ -443,7 +478,7 @@ extension WebViewRepresentable {
         func webView(_ webView: WKWebView, navigationAction: WKNavigationAction, didBecome download: WKDownload) {
             if let request = download.originalRequest,
                let url = request.url,
-               ["http", "https"].contains(url.scheme?.lowercased() ?? "")
+               shouldHandleDownloadOutsideWebKit(for: url)
             {
                 download.cancel()
                 DownloadManager.shared.startDownload(using: request)
@@ -455,7 +490,7 @@ extension WebViewRepresentable {
         func webView(_ webView: WKWebView, navigationResponse: WKNavigationResponse, didBecome download: WKDownload) {
             if let request = download.originalRequest,
                let url = request.url,
-               ["http", "https"].contains(url.scheme?.lowercased() ?? "")
+               shouldHandleDownloadOutsideWebKit(for: url)
             {
                 download.cancel()
                 DownloadManager.shared.startDownload(
@@ -473,7 +508,6 @@ extension WebViewRepresentable {
             for navigationAction: WKNavigationAction,
             windowFeatures: WKWindowFeatures
         ) -> WKWebView? {
-            // Intercept target=_blank and similar popups as new tabs
             if navigationAction.targetFrame == nil {
                 DispatchQueue.main.async { [weak self] in
                     self?.tabManager.createTab(url: navigationAction.request.url)
@@ -629,12 +663,18 @@ extension WebViewRepresentable {
             webView.evaluateJavaScript(Self.colorSchemeScript(for: scheme), completionHandler: nil)
         }
 
-        func applyContentRules(to webView: WKWebView, ruleList: WKContentRuleList?) {
-            guard lastAppliedContentRuleList !== ruleList else { return }
+        @discardableResult
+        func applyContentRules(to webView: WKWebView, ruleLists: [WKContentRuleList]) -> Bool {
+            let newIDs = ruleLists.map(ObjectIdentifier.init)
+            guard newIDs != lastAppliedContentRuleListIDs else { return false }
+
+            let didActivateRuleLists = lastAppliedContentRuleListIDs.isEmpty && !newIDs.isEmpty
+            print("WebViewCoordinator: applyContentRules called url=\(webView.url?.absoluteString ?? "(nil)") newCount=\(ruleLists.count) lastCount=\(lastAppliedContentRuleListIDs.count) didActivate=\(didActivateRuleLists)")
             let ucc = webView.configuration.userContentController
             ucc.removeAllContentRuleLists()
-            if let ruleList { ucc.add(ruleList) }
-            lastAppliedContentRuleList = ruleList
+            ruleLists.forEach { ucc.add($0) }
+            lastAppliedContentRuleListIDs = newIDs
+            return didActivateRuleLists
         }
 
         private func resolveFaviconURL(from rawValue: String, pageURL: URL?) -> URL? {

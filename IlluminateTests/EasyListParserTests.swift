@@ -79,6 +79,15 @@ struct EasyListParserTests {
         #expect(rules[0]["trigger"]?["url-filter"] as? String == "^[^:]+:(//)?([^/]+\\.)?blocked\\.com[^A-Za-z0-9._%-]")
     }
 
+    @Test func testDefaultLimitKeepsLateEasyListRules() throws {
+        let skippedLines = Array(repeating: "! filler", count: 45_000).joined(separator: "\n")
+        let content = skippedLines + "\n||pagead2.googlesyndication.com^"
+        let rules = try decodedRules(from: EasyListParser.parse(content: content))
+
+        #expect(rules.count == 1)
+        #expect(rules[0]["trigger"]?["url-filter"] as? String == "^[^:]+:(//)?([^/]+\\.)?pagead2\\.googlesyndication\\.com[^A-Za-z0-9._%-]")
+    }
+
     private func decodedRules(from json: String) throws -> [[String: [String: Any]]] {
         let data = try #require(json.data(using: .utf8))
         let raw = try JSONSerialization.jsonObject(with: data)

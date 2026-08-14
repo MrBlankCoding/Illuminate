@@ -28,11 +28,6 @@ final class TabGroupManager: ObservableObject {
     private var tabGroupIndex: [UUID: UUID] = [:]
     private var groupIndex: [UUID: TabGroup] = [:]
 
-    /// Forwards each TabGroup's own objectWillChange so mutations to an
-    /// individual group (rename, collapse, add/remove tab, etc.) are
-    /// reflected through `$groups` — not just structural array changes.
-    /// This is what makes SwiftUI views observing `$groups` (like
-    /// TabBarView) update without needing an unrelated action to happen.
     private var groupSubscriptions: [UUID: AnyCancellable] = [:]
 
     init(profileID: UUID?, isPersistenceEnabled: Bool = true) {
@@ -57,9 +52,6 @@ final class TabGroupManager: ObservableObject {
         groupIndex[id]
     }
 
-    /// Position of a group within the ordered `groups` array.
-    /// (Previously named `groupIndex(of:)`, which collided in name with the
-    /// `groupIndex` dictionary property below — renamed for clarity.)
     func position(ofGroup groupID: UUID) -> Int? {
         groups.firstIndex(where: { $0.id == groupID })
     }
@@ -212,10 +204,6 @@ final class TabGroupManager: ObservableObject {
         deleteGroup(groupID)
     }
 
-    /// Restores a previously closed group's metadata (name, color, etc.).
-    /// Note: this does not repopulate `tabIDs` — the caller is expected to
-    /// recreate the actual `Tab`s from `snapshot.tabPayloads` and re-add
-    /// them via `addTabToGroup`/`moveTabToGroup` once they exist.
     func restoreGroup(at index: Int) -> ClosedGroupSnapshot? {
         guard closedGroups.indices.contains(index) else { return nil }
         let snapshot = closedGroups.remove(at: index)
@@ -245,15 +233,12 @@ final class TabGroupManager: ObservableObject {
         removeTabFromGroup(tabID)
     }
 
-    /// Call when tabs are reordered to keep group membership/ordering consistent.
     func handleTabsReordered(_ tabIDs: [UUID]) {
         autoJoinSandwichedTabs(in: tabIDs)
         syncGroupOrder(to: tabIDs)
         scheduleSave()
     }
 
-    /// If a tab ends up sandwiched between two tabs that belong to the same
-    /// group, fold it into that group automatically.
     private func autoJoinSandwichedTabs(in tabIDs: [UUID]) {
         guard tabIDs.count >= 3 else { return }
 
@@ -268,8 +253,6 @@ final class TabGroupManager: ObservableObject {
                   tabGroupIndex[currentTabID] != prevGroupID,
                   let targetGroup = groupIndex[prevGroupID]
             else { continue }
-
-            // Leave whatever group the tab is currently in, if any.
             if let oldGroupID = tabGroupIndex[currentTabID],
                let oldGroup = groupIndex[oldGroupID] {
                 oldGroup.removeTab(currentTabID)
@@ -281,7 +264,6 @@ final class TabGroupManager: ObservableObject {
         }
     }
 
-    /// Re-orders each group's `tabIDs` to match the new overall tab order.
     private func syncGroupOrder(to tabIDs: [UUID]) {
         for group in groups {
             let currentIDs = group.tabIDs
@@ -296,8 +278,6 @@ final class TabGroupManager: ObservableObject {
             }
         }
     }
-
-    // MARK: - Storage helpers
 
     private func addToStorage(_ group: TabGroup) {
         groups.append(group)
@@ -323,14 +303,10 @@ final class TabGroupManager: ObservableObject {
         groupSubscriptions.removeValue(forKey: groupID)
     }
 
-    /// Re-publishes `groups` so any `TabGroup` mutation (collapse, rename,
-    /// color change, tab add/remove) is visible to `$groups` subscribers,
-    /// not just structural array changes (add/remove group).
     private func republishGroups() {
         groups = groups
     }
 
-    // MARK: - Persistence
 
     private func scheduleSave() {
         guard isPersistenceEnabled else { return }

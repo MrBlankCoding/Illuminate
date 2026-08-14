@@ -4,20 +4,6 @@
 //
 //  Created by MrBlankCoding on 8/10/26.
 //
-//
-//  How it works
-//  ─────────────────────────────────────────────────
-//  1. For every sub-resource request on a page we record the *third-party*
-//     eTLD+1 (e.g. "tracker.example.com" → "example.com") and the first-party
-//     eTLD+1 of the page that embedded it.
-//  2. Once a third-party domain is seen on ≥ `learnThreshold` distinct
-//     first-party origins it is treated as a tracker and handed off to
-//     AdBlockService to be blocked at the WebKit content-rule level.
-//  3. A per-domain user override (allow / block) always wins over the
-//     learned decision and is persisted to UserDefaults.
-//  4. All learned data is persisted to UserDefaults, scoped per profile, so
-//     it survives app restarts.
-//
 
 import Foundation
 import Combine

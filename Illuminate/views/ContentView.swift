@@ -179,7 +179,7 @@ struct ContentView: View {
                     Spacer()
                     HStack {
                         Spacer()
-                        FindInPageView(viewModel: findViewModel)
+                        FindInPageView(viewModel: findViewModel, theme: theme)
                             .padding(.trailing, 16)
                             .padding(.bottom, 16)
                     }

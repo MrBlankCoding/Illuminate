@@ -35,8 +35,6 @@ struct ProfileCommands: Commands {
     }
 }
 
-// MARK: - New Window
-
 struct NewWindowButton: View {
     @Environment(\.openWindow) private var openWindow
 
@@ -63,7 +61,6 @@ struct NewWindowButton: View {
     }
 }
 
-// MARK: - New Private Window (merged guest concept)
 
 struct NewPrivateWindowMenuButton: View {
     @Environment(\.openWindow) private var openWindow
@@ -76,7 +73,6 @@ struct NewPrivateWindowMenuButton: View {
     }
 }
 
-// MARK: - Open specific profile
 
 struct OpenProfileWindowButton: View {
     let profile: BrowserProfile

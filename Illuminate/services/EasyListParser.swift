@@ -35,7 +35,7 @@ final class EasyListParser {
         "xmlhttprequest": "raw"
     ]
 
-    static func parse(content: String, limit: Int = 45_000) -> String {
+    static func parse(content: String, limit: Int = 120_000) -> String {
         var rules: [Rule] = []
 
         for rawLine in content.components(separatedBy: .newlines) {

@@ -8,16 +8,24 @@
 import Combine
 import Foundation
 import SwiftData
+import os
 
 @MainActor
 final class ProfileManager: ObservableObject {
+    static let defaultIconName = "person.crop.circle"
+
     @Published private(set) var profiles: [BrowserProfile] = []
-    
+    let profileDeleted = PassthroughSubject<UUID, Never>()
+
     private var environments: [UUID: ProfileEnvironment] = [:]
     private var guestEnvironments: [UUID: ProfileEnvironment] = [:]
 
     private let fileManager: FileManager
     private let profilesURL: URL
+    private let logger = Logger(
+        subsystem: Bundle.main.bundleIdentifier ?? "com.illuminate.browser",
+        category: "ProfileManager"
+    )
 
     init(fileManager: FileManager = .default) {
         self.fileManager = fileManager
@@ -25,14 +33,54 @@ final class ProfileManager: ObservableObject {
         loadProfiles()
     }
 
-    func createProfile(named rawName: String, iconName: String = "person.crop.circle") -> BrowserProfile {
+    @discardableResult
+    func createProfile(named rawName: String, iconName: String = ProfileManager.defaultIconName) -> BrowserProfile {
         let trimmedName = rawName.trimmingCharacters(in: .whitespacesAndNewlines)
-        let name = trimmedName.isEmpty ? "Profile \(profiles.count + 1)" : trimmedName
+        let baseName = trimmedName.isEmpty ? "Profile \(profiles.count + 1)" : trimmedName
+        let name = uniqueName(baseName)
         let profile = BrowserProfile(name: name, iconName: iconName)
         profiles.append(profile)
         profiles.sort { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
         saveProfiles()
         return profile
+    }
+
+    func renameProfile(_ profile: BrowserProfile, to rawName: String) {
+        let trimmedName = rawName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedName.isEmpty, let index = profiles.firstIndex(where: { $0.id == profile.id }) else { return }
+
+        let name = uniqueName(trimmedName, excluding: profile.id)
+        profiles[index].name = name
+        profiles.sort { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        saveProfiles()
+    }
+
+    func updateIcon(for profile: BrowserProfile, iconName: String) {
+        guard let index = profiles.firstIndex(where: { $0.id == profile.id }) else { return }
+        profiles[index].iconName = iconName
+        saveProfiles()
+    }
+
+    func deleteProfile(_ profile: BrowserProfile) {
+        guard profiles.count > 1 else { return }
+        guard profiles.contains(where: { $0.id == profile.id }) else { return }
+
+        profiles.removeAll { $0.id == profile.id }
+
+        if let env = environments.removeValue(forKey: profile.id) {
+            env.prepareForRemoval()
+        }
+
+        saveProfiles()
+
+        let directory = fileManager.illuminateProfileDirectory(profileID: profile.id)
+        do {
+            try fileManager.removeItem(at: directory)
+        } catch {
+            logger.error("Failed to remove profile directory for \(profile.id.uuidString, privacy: .public): \(error.localizedDescription, privacy: .public)")
+        }
+
+        profileDeleted.send(profile.id)
     }
 
     func environment(for route: BrowserWindowRoute, container: ModelContainer) -> ProfileEnvironment? {
@@ -61,28 +109,9 @@ final class ProfileManager: ObservableObject {
         }
     }
 
-    func renameProfile(_ profile: BrowserProfile, to rawName: String) {
-        let name = rawName.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !name.isEmpty, let index = profiles.firstIndex(where: { $0.id == profile.id }) else { return }
-
-        profiles[index].name = name
-        profiles.sort { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
-        saveProfiles()
-    }
-
-    func updateIcon(for profile: BrowserProfile, iconName: String) {
-        guard let index = profiles.firstIndex(where: { $0.id == profile.id }) else { return }
-        profiles[index].iconName = iconName
-        saveProfiles()
-    }
-
-    func deleteProfile(_ profile: BrowserProfile) {
-        guard profiles.count > 1 else { return }
-
-        profiles.removeAll { $0.id == profile.id }
-        environments.removeValue(forKey: profile.id)
-        saveProfiles()
-        try? fileManager.removeItem(at: fileManager.illuminateProfileDirectory(profileID: profile.id))
+    func endGuestSession(_ sessionID: UUID) {
+        guard let env = guestEnvironments.removeValue(forKey: sessionID) else { return }
+        env.prepareForRemoval()
     }
 
     private func loadProfiles() {
@@ -98,7 +127,28 @@ final class ProfileManager: ObservableObject {
     }
 
     private func saveProfiles() {
-        guard let data = try? JSONEncoder().encode(profiles) else { return }
-        try? data.write(to: profilesURL, options: .atomic)
+        do {
+            let data = try JSONEncoder().encode(profiles)
+            try data.write(to: profilesURL, options: .atomic)
+        } catch {
+            logger.error("Failed to save profiles: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+    
+    private func uniqueName(_ desiredName: String, excluding excludedID: UUID? = nil) -> String {
+        let existingNames = Set(
+            profiles
+                .filter { $0.id != excludedID }
+                .map { $0.name.lowercased() }
+        )
+        guard existingNames.contains(desiredName.lowercased()) else { return desiredName }
+
+        var suffix = 2
+        var candidate = "\(desiredName) \(suffix)"
+        while existingNames.contains(candidate.lowercased()) {
+            suffix += 1
+            candidate = "\(desiredName) \(suffix)"
+        }
+        return candidate
     }
 }

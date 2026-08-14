@@ -62,7 +62,10 @@ struct WebViewRepresentable: NSViewRepresentable {
             canvasFingerprintingProtectionEnabled: canvasFingerprintingService.isEnabled
         )
         
-        context.coordinator.applyContentRules(to: webView, ruleList: adBlockService.contentRuleList)
+        context.coordinator.applyContentRules(
+            to: webView,
+            ruleLists: adBlockService.effectiveRuleLists(for: tab.url?.host)
+        )
         context.coordinator.applyWebAppearance(to: webView, style: userInterfaceStyle)
 
         if let url = tab.url, webView.url == nil {
@@ -87,7 +90,13 @@ struct WebViewRepresentable: NSViewRepresentable {
                 triggerIlluminateDownload(for: tab, in: nsView, event: event)
             }
         }
-        context.coordinator.applyContentRules(to: nsView, ruleList: adBlockService.contentRuleList)
+        let didActivateContentRules = context.coordinator.applyContentRules(
+            to: nsView,
+            ruleLists: adBlockService.effectiveRuleLists(for: tab.url?.host)
+        )
+        if didActivateContentRules, nsView.url != nil, !nsView.isLoading {
+            nsView.reload()
+        }
         context.coordinator.applyWebAppearance(to: nsView, style: userInterfaceStyle)
     }
 

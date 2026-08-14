@@ -17,7 +17,11 @@ struct ProfileSelectionView: View {
 
     @State private var hoveredProfileID: UUID?
     @State private var showingAddProfile = false
-    @State private var showingManage = false
+
+    @State private var renamingProfile: BrowserProfile?
+    @State private var renameText: String = ""
+
+    @State private var profileToDelete: BrowserProfile?
 
     private let profileAccentColors: [Color] = [
         Color(hex: "5E7BFF"),
@@ -50,7 +54,6 @@ struct ProfileSelectionView: View {
                 }
                 .padding(.bottom, 36)
 
-                // ui stuff
                 profileGrid
                 Spacer()
                 bottomActions
@@ -65,6 +68,29 @@ struct ProfileSelectionView: View {
             .environmentObject(profileManager)
             .accessibilityIdentifier("profileSelection.addProfileSheet")
         }
+        .alert("Rename Profile", isPresented: renamingProfileBinding) {
+            TextField("Profile name", text: $renameText)
+            Button("Cancel", role: .cancel) { renamingProfile = nil }
+            Button("Rename") {
+                if let profile = renamingProfile {
+                    profileManager.renameProfile(profile, to: renameText)
+                }
+                renamingProfile = nil
+            }
+        } message: {
+            Text("Enter a new name for this profile.")
+        }
+        .alert("Delete “\(profileToDelete?.name ?? "")”?", isPresented: profileToDeleteBinding) {
+            Button("Cancel", role: .cancel) { profileToDelete = nil }
+            Button("Delete", role: .destructive) {
+                if let profile = profileToDelete {
+                    profileManager.deleteProfile(profile)
+                }
+                profileToDelete = nil
+            }
+        } message: {
+            Text("This permanently deletes this profile's history, passwords, and other browsing data. This can't be undone.")
+        }
         .onAppear {
             registerDockMenuRoutes()
             checkAutoRedirect()
@@ -73,7 +99,21 @@ struct ProfileSelectionView: View {
             checkAutoRedirect()
         }
     }
-    
+
+    private var renamingProfileBinding: Binding<Bool> {
+        Binding(
+            get: { renamingProfile != nil },
+            set: { isPresented in if !isPresented { renamingProfile = nil } }
+        )
+    }
+
+    private var profileToDeleteBinding: Binding<Bool> {
+        Binding(
+            get: { profileToDelete != nil },
+            set: { isPresented in if !isPresented { profileToDelete = nil } }
+        )
+    }
+
     private func handleSelection(_ selection: BrowserWindowRoute) {
         if isStandalone {
             openWindow(value: selection)
@@ -96,13 +136,13 @@ struct ProfileSelectionView: View {
     }
 
     private func checkAutoRedirect() {
-        guard route == nil, !showingManage, !showingAddProfile else { return }
-        
+        guard route == nil, !showingAddProfile, renamingProfile == nil, profileToDelete == nil else { return }
+
         if profileManager.profiles.count == 1, let profile = profileManager.profiles.first {
             let visibleBrowserWindows = NSApp.windows.filter { window in
                 window.isVisible && window.title != "Profile Selection" // Heuristic
             }
-            
+
             if visibleBrowserWindows.isEmpty {
                 handleSelection(.profile(profile.id))
             }
@@ -110,9 +150,12 @@ struct ProfileSelectionView: View {
     }
 
     private var profileGrid: some View {
+        // One column per profile tile (up to 4 wide, then wraps). There's no
+        // "add profile" tile inside this grid — that action lives in
+        // `bottomActions` — so the column count is simply the profile count.
         let columns = Array(
             repeating: GridItem(.fixed(120), spacing: 8),
-            count: min(profileManager.profiles.count + 1, 4)
+            count: min(max(profileManager.profiles.count, 1), 4)
         )
 
         return LazyVGrid(columns: columns, spacing: 8) {
@@ -137,7 +180,7 @@ struct ProfileSelectionView: View {
                         .fill(avatarColor)
                         .frame(width: 76, height: 76)
 
-                    if profile.iconName == "person.crop.circle" {
+                    if profile.iconName == ProfileManager.defaultIconName {
                         Text(initials)
                             .font(.system(size: 30, weight: .medium, design: .rounded))
                             .foregroundStyle(.white)
@@ -175,12 +218,18 @@ struct ProfileSelectionView: View {
         .hoverCursor(.pointingHand)
         .contextMenu {
             Button("Rename…") {
+                renameText = profile.name
+                renamingProfile = profile
             }
+            .accessibilityIdentifier("profileSelection.renameProfileButton")
+
             Divider()
+
             Button("Delete", role: .destructive) {
-                profileManager.deleteProfile(profile)
+                profileToDelete = profile
             }
             .disabled(profileManager.profiles.count <= 1)
+            .accessibilityIdentifier("profileSelection.deleteProfileButton")
         }
     }
 
@@ -231,10 +280,10 @@ struct AddProfileSheet: View {
     @Environment(\.colorScheme) private var colorScheme
 
     @State private var name = ""
-    @State private var selectedIcon = "person.crop.circle"
+    @State private var selectedIcon = ProfileManager.defaultIconName
 
     private let icons = [
-        "person.crop.circle", "star.fill", "gamecontroller.fill",
+        ProfileManager.defaultIconName, "star.fill", "gamecontroller.fill",
         "briefcase.fill", "moon.stars.fill", "sparkles",
         "heart.fill", "leaf.fill", "flame.fill"
     ]
@@ -249,6 +298,10 @@ struct AddProfileSheet: View {
 
     private var theme: BrowserTheme {
         BrowserTheme(accent: previewColors[selectedColorIndex], colorScheme: colorScheme)
+    }
+
+    private var trimmedName: String {
+        name.trimmingCharacters(in: .whitespaces)
     }
 
     var body: some View {
@@ -367,8 +420,8 @@ struct AddProfileSheet: View {
                 .accessibilityIdentifier("profileSelection.cancelAddProfileButton")
 
                 Button("Add") {
-                    guard !name.trimmingCharacters(in: .whitespaces).isEmpty else { return }
-                    onCreate(name, selectedIcon)
+                    guard !trimmedName.isEmpty else { return }
+                    onCreate(trimmedName, selectedIcon)
                     isPresented = false
                 }
                 .font(.system(size: 13, weight: .medium))
@@ -377,13 +430,13 @@ struct AddProfileSheet: View {
                 .padding(.vertical, 9)
                 .background(
                     Capsule()
-                        .fill(name.trimmingCharacters(in: .whitespaces).isEmpty
+                        .fill(trimmedName.isEmpty
                               ? Color.secondary.opacity(0.3)
                               : previewColors[selectedColorIndex])
                 )
                 .buttonStyle(.plain)
                 .hoverCursor(.pointingHand)
-                .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
+                .disabled(trimmedName.isEmpty)
                 .accessibilityIdentifier("profileSelection.confirmAddProfileButton")
             }
             .padding(.bottom, 24)

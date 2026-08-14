@@ -46,16 +46,6 @@ struct TabBarView: View {
 
     @State private var dragSession: TabDragSession?
     @State private var isNewTabHovered = false
-
-    /// Bumped whenever anything about the tab groups changes (collapse,
-    /// rename, tab added/removed from a group, etc). TabBarView doesn't
-    /// hold TabGroupManager as an @ObservedObject, so it relies on this to
-    /// know when to recompute `layoutElements` and re-render. We deliberately
-    /// do NOT use `.id(_:)` with this token — that would force SwiftUI to
-    /// throw away and recreate the entire tab row (losing hover state,
-    /// interrupting animations, mid-drag state, etc.) on every small change.
-    /// Just toggling this @State value is enough to trigger a body
-    /// re-evaluation; SwiftUI's normal diffing handles the rest.
     @State private var groupChangeToken = UUID()
 
     private var theme: BrowserTheme {
@@ -66,10 +56,7 @@ struct TabBarView: View {
         var elements: [TabBarElement] = []
         var processedTabIDs = Set<UUID>()
         let groupsManager = tabManager.tabGroupManager
-
-        // ensure view updates when tab selection changes
         _ = tabManager.activeTabID
-        // establish a dependency on group-level changes (see groupChangeToken doc comment)
         _ = groupChangeToken
 
         for tab in tabManager.tabs {
@@ -331,4 +318,4 @@ struct TabBarView: View {
         .padding(.leading, TabBarMetrics.tabSpacing)
         .padding(.trailing, 8)
     }
-}
+}   

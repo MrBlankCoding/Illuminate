@@ -17,6 +17,11 @@ enum BridgeName: String, CaseIterable {
     }
 }
 
+enum MetadataMessageKind: String {
+    case hover
+    case page
+}
+
 final class WeakScriptMessageHandler: NSObject, WKScriptMessageHandler {
     private weak var delegate: (any WKScriptMessageHandler)?
 
@@ -41,6 +46,12 @@ final class WebScriptBridge {
     var metadataBridgeName: String { BridgeName.metadata.rawValue }
     var passwordBridgeName: String { BridgeName.password.rawValue }
     var permissionBridgeName: String { BridgeName.permission.rawValue }
+    private struct InstalledConfiguration: Equatable {
+        let colorScheme: String
+        let canvasFingerprintingProtectionEnabled: Bool
+    }
+
+    private let installedConfigurations = NSMapTable<WKUserContentController, NSObject>.weakToStrongObjects()
 
     func installScripts(
         on contentController: WKUserContentController,
@@ -48,6 +59,16 @@ final class WebScriptBridge {
         colorScheme: String,
         canvasFingerprintingProtectionEnabled: Bool
     ) {
+        let desired = InstalledConfiguration(
+            colorScheme: colorScheme,
+            canvasFingerprintingProtectionEnabled: canvasFingerprintingProtectionEnabled
+        )
+
+        if let box = installedConfigurations.object(forKey: contentController) as? Box<InstalledConfiguration>,
+           box.value == desired {
+            return
+        }
+
         removeAll(from: contentController)
 
         let weakHandler = WeakScriptMessageHandler(handler)
@@ -61,6 +82,8 @@ final class WebScriptBridge {
         ) {
             contentController.addUserScript(script)
         }
+
+        installedConfigurations.setObject(Box(desired), forKey: contentController)
     }
 
     func removeAll(from contentController: WKUserContentController) {
@@ -68,6 +91,7 @@ final class WebScriptBridge {
         for bridge in BridgeName.allCases {
             contentController.removeScriptMessageHandler(forName: bridge.rawValue)
         }
+        installedConfigurations.removeObject(forKey: contentController)
     }
 
     private func allScripts(
@@ -87,7 +111,7 @@ final class WebScriptBridge {
         return scripts
     }
 
-    private func jsStringLiteral(_ value: String, fallback: String = "\"\"") -> String {
+    static func jsStringLiteral(_ value: String, fallback: String = "\"\"") -> String {
         guard let data = try? JSONEncoder().encode(value),
               let literal = String(data: data, encoding: .utf8)
         else {
@@ -100,17 +124,48 @@ final class WebScriptBridge {
         let source = """
         (() => {
             'use strict';
-            const faviconEl   = document.querySelector('link[rel~="icon"]');
-            const themeEl     = document.querySelector('meta[name="theme-color"]');
-            const canonicalEl = document.querySelector('link[rel="canonical"]');
-            try {
-                \(BridgeName.metadata.jsAccessor).postMessage({
+            if (window.__illuminateMetadataInstalled) return;
+            window.__illuminateMetadataInstalled = true;
+
+            const bridge = () => \(BridgeName.metadata.jsAccessor);
+
+            function currentSnapshot() {
+                const faviconEl   = document.querySelector('link[rel~="icon"]');
+                const themeEl     = document.querySelector('meta[name="theme-color"]');
+                const canonicalEl = document.querySelector('link[rel="canonical"]');
+                return {
+                    type:         "\(MetadataMessageKind.page.rawValue)",
                     favicon:      faviconEl   ? faviconEl.href    : null,
                     themeColor:   themeEl     ? themeEl.content   : null,
                     canonicalURL: canonicalEl ? canonicalEl.href  : null,
                     title:        document.title
-                });
-            } catch (_) {}
+                };
+            }
+
+            let lastSent = null;
+            function post(snapshot) {
+                const key = JSON.stringify(snapshot);
+                if (key === lastSent) return;
+                lastSent = key;
+                try { bridge().postMessage(snapshot); } catch (_) {}
+            }
+
+            post(currentSnapshot());
+            const titleEl = document.querySelector('title') ?? document.head;
+            if (titleEl) {
+                new MutationObserver(() => post(currentSnapshot()))
+                    .observe(titleEl, { childList: true, characterData: true, subtree: true });
+            }
+
+            for (const method of ['pushState', 'replaceState']) {
+                const original = history[method];
+                history[method] = function (...args) {
+                    const result = original.apply(this, args);
+                    setTimeout(() => post(currentSnapshot()), 0);
+                    return result;
+                };
+            }
+            window.addEventListener('popstate', () => post(currentSnapshot()));
         })();
         """
         return WKUserScript(
@@ -121,7 +176,7 @@ final class WebScriptBridge {
     }
 
     private func browserThemeSyncScript(colorScheme: String) -> WKUserScript {
-        let safeScheme = jsStringLiteral(colorScheme, fallback: "\"light\"")
+        let safeScheme = Self.jsStringLiteral(colorScheme, fallback: "\"light\"")
 
         let source = """
         (() => {
@@ -228,7 +283,7 @@ final class WebScriptBridge {
                 if (value === lastHover) return;
                 lastHover = value;
                 try {
-                    \(BridgeName.metadata.jsAccessor).postMessage({ hoverURL: value });
+                    \(BridgeName.metadata.jsAccessor).postMessage({ type: "\(MetadataMessageKind.hover.rawValue)", hoverURL: value });
                 } catch (_) {}
             }
 
@@ -414,7 +469,12 @@ final class WebScriptBridge {
         return WKUserScript(
             source: source,
             injectionTime: .atDocumentEnd,
-            forMainFrameOnly: false
+            forMainFrameOnly: true
         )
     }
+}
+
+private final class Box<Value>: NSObject {
+    let value: Value
+    init(_ value: Value) { self.value = value }
 }

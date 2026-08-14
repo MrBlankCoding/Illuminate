@@ -7,13 +7,20 @@
 
 import Foundation
 import WebKit
+import os.log
 
 @MainActor
 final class NavigationPreconnectManager {
     static let shared = NavigationPreconnectManager()
 
-    private var lastPreconnectedAt: [String: Date] = [:]
-    private let cooldown: TimeInterval = 20
+    private var lastDNSPrefetchAt: [String: Date] = [:]
+    private var lastInjectedAt: [ObjectIdentifier: [String: Date]] = [:]
+
+    private let dnsCooldown: TimeInterval = 20
+    private let injectionCooldown: TimeInterval = 5
+    private let maxTrackedHosts = 128
+
+    private let logger = Logger(subsystem: "Illuminate", category: "NavigationPreconnectManager")
 
     private init() {}
 
@@ -22,24 +29,70 @@ final class NavigationPreconnectManager {
             let webView,
             let scheme = url.scheme?.lowercased(),
             scheme == "http" || scheme == "https",
-            let host = url.host?.lowercased()
+            let host = url.host?.lowercased(),
+            !host.isEmpty
         else { return }
 
         let origin = originString(for: url)
         let now = Date()
-        if let last = lastPreconnectedAt[origin], now.timeIntervalSince(last) < cooldown {
+
+        throttledDNSPrefetch(host: host, now: now)
+        injectPreconnectHintsIfNeeded(origin: origin, host: host, webView: webView, now: now)
+    }
+
+    private func throttledDNSPrefetch(host: String, now: Date) {
+        if let last = lastDNSPrefetchAt[host], now.timeIntervalSince(last) < dnsCooldown {
             return
         }
-
-        lastPreconnectedAt[origin] = now
+        lastDNSPrefetchAt[host] = now
+        pruneDNSCacheIfNeeded(now: now)
         DNSPreFetcher.shared.prefetchHost(host)
+    }
 
+    private func pruneDNSCacheIfNeeded(now: Date) {
+        guard lastDNSPrefetchAt.count > maxTrackedHosts else { return }
+        lastDNSPrefetchAt = lastDNSPrefetchAt.filter { now.timeIntervalSince($0.value) < dnsCooldown }
+        guard lastDNSPrefetchAt.count > maxTrackedHosts else { return }
+        let overflow = lastDNSPrefetchAt.count - maxTrackedHosts
+        let oldest = lastDNSPrefetchAt.sorted { $0.value < $1.value }.prefix(overflow).map(\.key)
+        oldest.forEach { lastDNSPrefetchAt.removeValue(forKey: $0) }
+    }
+
+    private func injectPreconnectHintsIfNeeded(origin: String, host: String, webView: WKWebView, now: Date) {
+        let webViewID = ObjectIdentifier(webView)
+        if let last = lastInjectedAt[webViewID]?[origin], now.timeIntervalSince(last) < injectionCooldown {
+            return
+        }
+        lastInjectedAt[webViewID, default: [:]][origin] = now
+        pruneStaleWebViews(now: now)
+
+        guard let script = preconnectScript(origin: origin, host: host) else { return }
+        webView.evaluateJavaScript(script) { [weak self] _, error in
+            if let error {
+                self?.logger.debug("Preconnect injection failed for \(origin, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            }
+        }
+    }
+
+    private func pruneStaleWebViews(now: Date) {
+        guard lastInjectedAt.count > maxTrackedHosts else { return }
+        for (id, origins) in lastInjectedAt {
+            let pruned = origins.filter { now.timeIntervalSince($0.value) < injectionCooldown * 4 }
+            if pruned.isEmpty {
+                lastInjectedAt.removeValue(forKey: id)
+            } else {
+                lastInjectedAt[id] = pruned
+            }
+        }
+    }
+
+    private func preconnectScript(origin: String, host: String) -> String? {
         guard
             let originJSON = jsonStringLiteral(origin),
             let dnsJSON = jsonStringLiteral("//\(host)")
-        else { return }
+        else { return nil }
 
-        let script = """
+        return """
         (() => {
             const head = document.head || document.documentElement;
             const ensure = (rel, href, crossOrigin) => {
@@ -58,15 +111,12 @@ final class NavigationPreconnectManager {
             ensure('preconnect', \(originJSON), true);
         })();
         """
-
-        webView.evaluateJavaScript(script, completionHandler: nil)
     }
 
     private func originString(for url: URL) -> String {
         guard var components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
             return url.absoluteString
         }
-
         components.path = ""
         components.query = nil
         components.fragment = nil
@@ -78,7 +128,6 @@ final class NavigationPreconnectManager {
             let data = try? JSONSerialization.data(withJSONObject: [string]),
             let json = String(data: data, encoding: .utf8)
         else { return nil }
-
         return String(json.dropFirst().dropLast())
     }
 }
