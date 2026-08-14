@@ -112,6 +112,25 @@ final class KeyboardShortcutHandler {
         return event
     }
 
+    nonisolated func lookupShortcutBy(character: String, modifiers: NSEvent.ModifierFlags) -> Notification.Name? {
+        let key = character.lowercased()
+        for shortcut in shortcuts where shortcut.modifiers == modifiers {
+            if case .character(let match) = shortcut.trigger, match.lowercased() == key {
+                return shortcut.action
+            }
+        }
+        return nil
+    }
+
+    nonisolated func lookupShortcutBy(keyCode: UInt16, modifiers: NSEvent.ModifierFlags) -> Notification.Name? {
+        for shortcut in shortcuts where shortcut.modifiers == modifiers {
+            if case .keyCode(let match) = shortcut.trigger, match == keyCode {
+                return shortcut.action
+            }
+        }
+        return nil
+    }
+
     private func post(_ name: Notification.Name) {
         AppLog.ui("Shortcut fired: \(name.rawValue)")
         notificationCenter.post(name: name, object: nil)

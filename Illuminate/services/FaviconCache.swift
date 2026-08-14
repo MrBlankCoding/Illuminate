@@ -47,8 +47,10 @@ final class FaviconCache: @unchecked Sendable {
     static let shared = FaviconCache(capacity: 128)
 
     private let capacity: Int
-    nonisolated(unsafe) private var storage: [URL: NSImage] = [:]
-    nonisolated(unsafe) private var order: [URL] = []
+    nonisolated(unsafe) var storage: [URL: NSImage] = [:]
+    nonisolated(unsafe) var accessOrder: [URL: UInt64] = [:]
+    nonisolated(unsafe) var accessCounter: UInt64 = 0
+
     private let lock = NSLock()
     private let cacheURL: URL
     private let fetchData: @Sendable (String) async throws -> Data
@@ -176,6 +178,14 @@ final class FaviconCache: @unchecked Sendable {
         setWithData(image, pngData: pngData, for: key)
     }
 
+    nonisolated func performInline_set(_ image: NSImage, for key: URL) {
+        lock.lock()
+        defer { lock.unlock() }
+        storage[key] = image
+        touch(key)
+        evictIfNeeded()
+    }
+
     nonisolated private func setWithData(_ image: NSImage, pngData: Data?, for key: URL) {
         lock.lock()
         defer { lock.unlock() }
@@ -188,15 +198,27 @@ final class FaviconCache: @unchecked Sendable {
         evictIfNeeded()
     }
 
-    nonisolated private func touch(_ key: URL) {
-        order.removeAll { $0 == key }
-        order.append(key)
+    nonisolated func touch(_ key: URL) {
+        accessCounter &+= 1
+        accessOrder[key] = accessCounter
     }
 
     nonisolated private func evictIfNeeded() {
-        while order.count > capacity, let oldest = order.first {
-            order.removeFirst()
-            storage.removeValue(forKey: oldest)
+        while accessOrder.count > capacity {
+            var oldestKey: URL?
+            var oldestSeq: UInt64 = .max
+            for (url, seq) in accessOrder {
+                if seq < oldestSeq {
+                    oldestSeq = seq
+                    oldestKey = url
+                }
+            }
+            if let oldest = oldestKey {
+                accessOrder.removeValue(forKey: oldest)
+                storage.removeValue(forKey: oldest)
+            } else {
+                break
+            }
         }
     }
     

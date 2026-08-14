@@ -18,7 +18,7 @@ extension DownloadManager {
         }
 
         let resolvedDestination = resolvedExplicitDestination(for: destinationURL)
-        AppLog.download("Starting URLSession download source=\(url.absoluteString) explicitDestination=\(resolvedDestination.path)")
+        AppLog.download("Starting URLSession download source=\(AppLog.sanitizedURL(url)) explicitDestination=\(resolvedDestination.path)")
         let item = makeTask(
             url: url,
             filename: resolvedDestination.lastPathComponent,
@@ -59,7 +59,7 @@ extension DownloadManager {
             return
         }
 
-        AppLog.download("Starting URLSession download source=\(url.absoluteString) suggestedFilename=\(suggestedFilename ?? "<nil>") resolvedFilename=\(resolvedFilename) defaultDirectory=\(downloadDirectoryURL.path)")
+        AppLog.download("Starting URLSession download source=\(AppLog.sanitizedURL(url)) suggestedFilename=\(suggestedFilename ?? "<nil>") resolvedFilename=\(resolvedFilename) defaultDirectory=\(downloadDirectoryURL.path)")
         let item = makeTask(
             url: url,
             filename: resolvedFilename,
@@ -87,7 +87,7 @@ extension DownloadManager {
             fallbackURL: url,
             mimeType: nil
         )
-        AppLog.download("Starting request-based URLSession download source=\(url.absoluteString) method=\(request.httpMethod ?? "GET") suggestedFilename=\(suggestedFilename ?? "<nil>") resolvedFilename=\(resolvedFilename)")
+        AppLog.download("Starting request-based URLSession download source=\(AppLog.sanitizedURL(url)) method=\(request.httpMethod ?? "GET") suggestedFilename=\(suggestedFilename ?? "<nil>") resolvedFilename=\(resolvedFilename)")
         let item = makeTask(
             url: url,
             filename: resolvedFilename,
@@ -169,7 +169,7 @@ extension DownloadManager {
     func addDownload(_ download: WKDownload) {
         let url = download.originalRequest?.url ?? URL(string: "about:blank")!
         let filename = resolvedFilename(nil, fallbackURL: url, mimeType: nil)
-        AppLog.download("Tracking WebKit-managed download source=\(url.absoluteString) resolvedFilename=\(filename)")
+        AppLog.download("Tracking WebKit-managed download source=\(AppLog.sanitizedURL(url)) resolvedFilename=\(filename)")
         let item = makeTask(
             url: url,
             filename: filename,
@@ -321,7 +321,7 @@ extension DownloadManager: WKDownloadDelegate {
         )
 
         webKitStagingURLsByID[id] = stagingDestinationURL
-        AppLog.download("WebKit destination resolved id=\(id.uuidString) source=\(download.originalRequest?.url?.absoluteString ?? "<nil>") staging=\(stagingDestinationURL.path) final=\(finalDestinationURL.path) mimeType=\(response.mimeType ?? "<nil>")")
+        AppLog.download("WebKit destination resolved id=\(id.uuidString) source=\(AppLog.sanitizedURL(download.originalRequest?.url)) staging=\(stagingDestinationURL.path) final=\(finalDestinationURL.path) mimeType=\(response.mimeType ?? "<nil>")")
 
         updateTask(id) { task in
             task.filename = finalDestinationURL.lastPathComponent
@@ -404,6 +404,9 @@ extension DownloadManager: WKDownloadDelegate {
         newRequest request: URLRequest,
         decisionHandler: @escaping (WKDownload.RedirectPolicy) -> Void
     ) {
+        if let url = request.url {
+            AppLog.info("WebKit download redirected to \(url.absoluteString) (status=\(response.statusCode))")
+        }
         decisionHandler(.allow)
     }
 
@@ -412,6 +415,7 @@ extension DownloadManager: WKDownloadDelegate {
         didReceive challenge: URLAuthenticationChallenge,
         completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void
     ) {
+        AppLog.info("WebKit download received auth challenge: \(challenge.protectionSpace.authenticationMethod)")
         completionHandler(.performDefaultHandling, nil)
     }
 }
@@ -473,7 +477,7 @@ extension DownloadManager: URLSessionDownloadDelegate, URLSessionTaskDelegate {
             }
 
             let finalLocation = stagingURL ?? location
-            AppLog.download("URLSession finished temporary download id=\(id.uuidString) stagingLocation=\(stagingURL?.path ?? "<nil>") source=\(sourceURL?.absoluteString ?? "<nil>") destination=\(destinationURL.path) mimeType=\(response?.mimeType ?? "<nil>")")
+            AppLog.download("URLSession finished temporary download id=\(id.uuidString) stagingLocation=\(stagingURL?.path ?? "<nil>") source=\(AppLog.sanitizedURL(sourceURL)) destination=\(destinationURL.path) mimeType=\(response?.mimeType ?? "<nil>")")
 
             do {
                 try self.moveDownload(at: finalLocation, to: destinationURL)

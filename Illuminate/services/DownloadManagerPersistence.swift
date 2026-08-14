@@ -37,7 +37,7 @@ extension DownloadManager {
             AppLog.download("Stored last-picked download directory path=\(resolvedDirectory.path)")
             persistPreferences(updated)
         } catch {
-            AppLog.download("Failed to store last-picked directory path=\(resolvedDirectory.path) error=\(error.localizedDescription)")
+            AppLog.error("Failed to store last-picked directory path=\(resolvedDirectory.path)", error: error)
         }
     }
 
@@ -61,7 +61,7 @@ extension DownloadManager {
 
             return resolvedURL
         } catch {
-            AppLog.download("Failed to resolve last-picked directory error=\(error.localizedDescription)")
+            AppLog.error("Failed to resolve last-picked directory", error: error)
             return nil
         }
     }
@@ -83,7 +83,7 @@ extension DownloadManager {
             AppLog.download("Stored custom download directory path=\(directoryURL.path)")
             persistPreferences(updated)
         } catch {
-            AppLog.download("Failed to store custom download directory path=\(directoryURL.path) error=\(error.localizedDescription)")
+            AppLog.error("Failed to store custom download directory path=\(directoryURL.path)", error: error)
         }
     }
 
@@ -98,8 +98,11 @@ extension DownloadManager {
         preferences = updated
         downloadDirectoryURL = resolvedDownloadDirectory(from: updated)
         AppLog.download("Persisted download preferences revealWhenFinished=\(updated.revealInFinderWhenFinished) activeDirectory=\(downloadDirectoryURL.path)")
-        if let data = try? JSONEncoder().encode(updated) {
+        do {
+            let data = try JSONEncoder().encode(updated)
             UserDefaults.standard.set(data, forKey: preferencesKey)
+        } catch {
+            AppLog.error("Failed to encode/persist download preferences", error: error)
         }
     }
 
@@ -129,7 +132,7 @@ extension DownloadManager {
 
             return resolvedURL
         } catch {
-            AppLog.download("Failed to resolve custom download directory error=\(error.localizedDescription); falling back to default path=\(FileManager.default.illuminateDownloadsDirectory().path)")
+            AppLog.error("Failed to resolve custom download directory; falling back to default path=\(FileManager.default.illuminateDownloadsDirectory().path)", error: error)
             return FileManager.default.illuminateDownloadsDirectory()
         }
     }
@@ -142,7 +145,7 @@ extension DownloadManager {
         do {
             try ensureDirectoryExists(at: directory)
         } catch {
-            AppLog.download("Failed to create download staging directory path=\(directory.path) error=\(error.localizedDescription)")
+            AppLog.error("Failed to create download staging directory path=\(directory.path)", error: error)
         }
 
         return directory

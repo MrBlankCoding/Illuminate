@@ -7,7 +7,6 @@
 
 import Combine
 import Foundation
-import OSLog
 import SwiftData
 import SwiftUI
 
@@ -40,7 +39,10 @@ final class HistoryManager: ObservableObject {
     @Published private(set) var topSites: [HistoryEntry] = []
 
     @Published var isSavingEnabled: Bool {
-        didSet { persist(isSavingEnabled, forKey: settingsKey("historySavingEnabled")) }
+        didSet { 
+            AppLog.info("HistoryManager: Setting changed isSavingEnabled=\(isSavingEnabled)")
+            persist(isSavingEnabled, forKey: settingsKey("historySavingEnabled")) 
+        }
     }
 
     @Published var showTopSites: Bool {
@@ -54,9 +56,12 @@ final class HistoryManager: ObservableObject {
     private let modelContext: ModelContext
     private let profileID: UUID?
     private let isGuestSession: Bool
-    private let logger = Logger(subsystem: "com.illuminate", category: "HistoryManager")
     private let userDefaults: UserDefaults
     private var lastRecordedURL: [UUID: String] = [:]
+    private var pendingRefreshTask: Task<Void, Never>?
+    private static let refreshDebounceNs: UInt64 = 300_000_000 // 300 ms
+    private static let suggestionsFetchLimit = 500
+    private static let searchFetchLimit = 1000
 
     init(
         modelContainer: ModelContainer,
@@ -77,6 +82,11 @@ final class HistoryManager: ObservableObject {
             refreshRecentEntries()
             refreshTopSites()
         }
+    }
+
+    func prepareForRemoval() {
+        pendingRefreshTask?.cancel()
+        lastRecordedURL.removeAll()
     }
 
     func record(url: URL, title: String, faviconURL: URL? = nil, tabID: UUID? = nil) {
@@ -110,11 +120,10 @@ final class HistoryManager: ObservableObject {
             }
             try modelContext.save()
         } catch {
-            logger.error("HistoryManager record failed: \(error.localizedDescription, privacy: .public)")
+            AppLog.error("HistoryManager record failed", error: error)
         }
 
-        refreshRecentEntries()
-        refreshTopSites()
+        scheduleDebouncedRefresh()
     }
 
     func updateMetadata(for url: URL, title: String, faviconURL: URL? = nil) {
@@ -125,45 +134,61 @@ final class HistoryManager: ObservableObject {
         let fetch = FetchDescriptor<HistoryEntry>(
             predicate: #Predicate { $0.urlString == urlString }
         )
-        guard let entry = try? modelContext.fetch(fetch).first else { return }
-        entry.title = finalTitle
-        if let fs = faviconURL?.absoluteString { entry.faviconURLString = fs }
-        try? modelContext.save()
-        refreshRecentEntries()
-        refreshTopSites()
+        
+        do {
+            guard let entry = try modelContext.fetch(fetch).first else { return }
+            entry.title = finalTitle
+            if let fs = faviconURL?.absoluteString { entry.faviconURLString = fs }
+            try modelContext.save()
+            scheduleDebouncedRefresh()
+        } catch {
+            AppLog.error("HistoryManager update metadata failed for \(url.host ?? urlString)", error: error)
+        }
     }
 
     func delete(id: UUID) {
         let fetch = FetchDescriptor<HistoryEntry>(
             predicate: #Predicate { $0.id == id }
         )
-        guard let entry = try? modelContext.fetch(fetch).first else { return }
-        modelContext.delete(entry)
-        try? modelContext.save()
-        refreshRecentEntries()
-        refreshTopSites()
+        do {
+            guard let entry = try modelContext.fetch(fetch).first else { return }
+            modelContext.delete(entry)
+            try modelContext.save()
+            refreshRecentEntries()
+            refreshTopSites()
+        } catch {
+            AppLog.error("HistoryManager delete failed for id=\(id.uuidString)", error: error)
+        }
     }
 
     func deleteAll(forHost host: String) {
         let fetch = FetchDescriptor<HistoryEntry>()
-        guard let all = try? modelContext.fetch(fetch) else { return }
-        let matching = all.filter { $0.url?.host == host }
-        matching.forEach { modelContext.delete($0) }
-        try? modelContext.save()
-        refreshRecentEntries()
-        refreshTopSites()
+        do {
+            let all = try modelContext.fetch(fetch)
+            let matching = all.filter { $0.url?.host == host }
+            matching.forEach { modelContext.delete($0) }
+            try modelContext.save()
+            refreshRecentEntries()
+            refreshTopSites()
+        } catch {
+            AppLog.error("HistoryManager delete all failed for host=\(host)", error: error)
+        }
     }
 
     func clearHistory(since date: Date) {
         let fetch = FetchDescriptor<HistoryEntry>(
             predicate: #Predicate { $0.lastVisited >= date }
         )
-        guard let entries = try? modelContext.fetch(fetch) else { return }
-        entries.forEach { modelContext.delete($0) }
-        try? modelContext.save()
-        refreshRecentEntries()
-        refreshTopSites()
-        logger.info("HistoryManager cleared \(entries.count) entries since \(date, privacy: .public)")
+        do {
+            let entries = try modelContext.fetch(fetch)
+            entries.forEach { modelContext.delete($0) }
+            try modelContext.save()
+            refreshRecentEntries()
+            refreshTopSites()
+            AppLog.info("HistoryManager cleared \(entries.count) entries since \(date)")
+        } catch {
+            AppLog.error("HistoryManager clear history failed since \(date)", error: error)
+        }
     }
 
     func clearToday() {
@@ -173,13 +198,17 @@ final class HistoryManager: ObservableObject {
 
     func clearAll() {
         let fetch = FetchDescriptor<HistoryEntry>()
-        guard let all = try? modelContext.fetch(fetch) else { return }
-        all.forEach { modelContext.delete($0) }
-        try? modelContext.save()
-        recentEntries = []
-        topSites = []
-        lastRecordedURL.removeAll()
-        logger.info("HistoryManager cleared all history (\(all.count) entries)")
+        do {
+            let all = try modelContext.fetch(fetch)
+            all.forEach { modelContext.delete($0) }
+            try modelContext.save()
+            recentEntries = []
+            topSites = []
+            lastRecordedURL.removeAll()
+            AppLog.info("HistoryManager cleared all history (\(all.count) entries)")
+        } catch {
+            AppLog.error("HistoryManager clear all history failed", error: error)
+        }
     }
 
     func allEntries() -> [HistoryEntry] {
@@ -197,7 +226,7 @@ final class HistoryManager: ObservableObject {
         var fetch = FetchDescriptor<HistoryEntry>(
             sortBy: [SortDescriptor(\.lastVisited, order: .reverse)]
         )
-        fetch.fetchLimit = 5000
+        fetch.fetchLimit = Self.searchFetchLimit
         let candidates = (try? modelContext.fetch(fetch)) ?? []
         return candidates
             .filter { $0.title.lowercased().contains(q) || $0.urlString.lowercased().contains(q) }
@@ -213,7 +242,7 @@ final class HistoryManager: ObservableObject {
         var fetch = FetchDescriptor<HistoryEntry>(
             sortBy: [SortDescriptor(\.lastVisited, order: .reverse)]
         )
-        fetch.fetchLimit = 3000
+        fetch.fetchLimit = Self.suggestionsFetchLimit
         let candidates = (try? modelContext.fetch(fetch)) ?? []
 
         let now = Date()
@@ -244,6 +273,19 @@ final class HistoryManager: ObservableObject {
 
     func invalidateTabCache(tabID: UUID) {
         lastRecordedURL.removeValue(forKey: tabID)
+    }
+
+    private func scheduleDebouncedRefresh() {
+        pendingRefreshTask?.cancel()
+        pendingRefreshTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: Self.refreshDebounceNs)
+            guard !Task.isCancelled else { return }
+            guard let self else { return }
+            await MainActor.run {
+                self.refreshRecentEntries()
+                self.refreshTopSites()
+            }
+        }
     }
 
     private func refreshRecentEntries() {

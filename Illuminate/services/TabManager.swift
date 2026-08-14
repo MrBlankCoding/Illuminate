@@ -19,13 +19,13 @@ struct ClosedTabSnapshot {
 private actor SessionWriter {
     private var latestVersion: UInt64 = 0
 
-    func write(data: Data, version: UInt64, to url: URL, logger: Logger) async {
+    func write(data: Data, version: UInt64, to url: URL) async {
         guard version >= latestVersion else { return }
         latestVersion = version
         do {
             try data.write(to: url, options: .atomic)
         } catch {
-            logger.error("[TabManager] Session write failed: \(error.localizedDescription, privacy: .public)")
+            AppLog.error("[TabManager] Session write failed", error: error)
         }
     }
 }
@@ -38,6 +38,7 @@ final class TabManager: ObservableObject {
         static let maxRecentlyClosed = 25
         static let saveDebounceNs: UInt64 = 500_000_000
         static let tabCreationDelay: TimeInterval = 0.1
+        static let rapidSwitchDebounceNs: UInt64 = 1_000_000_000 // 1 second for rapid switching
     }
 
     @Published private(set) var tabs: [Tab] = []
@@ -93,12 +94,10 @@ final class TabManager: ObservableObject {
     private let sessionURL: URL
     private let faviconCache: FaviconCache
     private let sessionWriter = SessionWriter()
-    private let logger = Logger(subsystem: "com.illuminate", category: "TabManager")
 
     private var activeProfileID: UUID?
-
-    // O(1) tab access by ID; kept in sync with the `tabs` array.
-    private var tabIndex: [UUID: Tab] = [:]
+    var tabIndex: [UUID: Tab] = [:]
+    private var tabPositionIndex: [UUID: Int] = [:]
 
     private var recentlyClosed: [ClosedTabSnapshot] = []
     private var isInitializing = true
@@ -107,6 +106,7 @@ final class TabManager: ObservableObject {
     private var pendingFocusTask: Task<Void, Never>?
     private var saveVersion: UInt64 = 0
     private var observerTokens: [NSObjectProtocol] = []
+    private var lastSwitchTime: Date?
 
     enum UIStyle: String, CaseIterable {
         case dark, light, system
@@ -244,9 +244,9 @@ final class TabManager: ObservableObject {
             let isMissingFile = nsError.domain == NSCocoaErrorDomain
                 && nsError.code == NSFileReadNoSuchFileError
             if isMissingFile {
-                logger.debug("No session file found — starting fresh.")
+                AppLog.info("[TabManager] No session file found — starting fresh.")
             } else {
-                logger.error("Session restore failed: \(error.localizedDescription, privacy: .public)")
+                AppLog.error("[TabManager] Session restore failed", error: error)
             }
             let fallback = Tab(assetsBaseURL: tabAssetsBaseURL)
             tabs = [fallback]
@@ -274,10 +274,17 @@ final class TabManager: ObservableObject {
         pendingSaveTask?.cancel()
         saveVersion &+= 1
         let version = saveVersion
+        let now = Date()
+        let debounceInterval: UInt64
+        if let lastSwitch = lastSwitchTime, now.timeIntervalSince(lastSwitch) < 1.0 {
+            debounceInterval = Defaults.rapidSwitchDebounceNs
+        } else {
+            debounceInterval = Defaults.saveDebounceNs
+        }
 
         pendingSaveTask = Task { [weak self] in
             guard let self else { return }
-            try? await Task.sleep(nanoseconds: Defaults.saveDebounceNs)
+            try? await Task.sleep(nanoseconds: debounceInterval)
             guard !Task.isCancelled else { return }
 
             let state = SessionState(
@@ -286,12 +293,11 @@ final class TabManager: ObservableObject {
             )
             let url     = self.sessionURL
             let encoded = try? JSONEncoder().encode(state)
-            let log     = self.logger
             let writer  = self.sessionWriter
 
             Task.detached(priority: .background) {
                 guard let data = encoded else { return }
-                await writer.write(data: data, version: version, to: url, logger: log)
+                await writer.write(data: data, version: version, to: url)
             }
         }
     }
@@ -299,15 +305,36 @@ final class TabManager: ObservableObject {
 
     private func rebuildTabIndex() {
         tabIndex = Dictionary(uniqueKeysWithValues: tabs.map { ($0.id, $0) })
+        tabPositionIndex = Dictionary(uniqueKeysWithValues: tabs.enumerated().map { ($1.id, $0) })
     }
 
     private func indexTab(_ tab: Tab) {
         tabIndex[tab.id] = tab
+        tabPositionIndex[tab.id] = tabs.firstIndex(where: { $0.id == tab.id }) ?? (tabs.count - 1)
     }
 
     private func deindexTab(id: UUID) {
         tabIndex.removeValue(forKey: id)
+        let removedPos = tabPositionIndex.removeValue(forKey: id)
+        if let removed = removedPos {
+            for (tid, pos) in tabPositionIndex where pos > removed {
+                tabPositionIndex[tid] = pos - 1
+            }
+        }
     }
+
+    func prepareForRemoval() {
+        observerTokens.forEach { notificationCenter.removeObserver($0) }
+        observerTokens.removeAll()
+        pendingSaveTask?.cancel()
+        backgroundThemeTask?.cancel()
+        pendingFocusTask?.cancel()
+        tabGroupManager.prepareForRemoval()
+        clearAllTabs()
+    }
+
+    func tab(forID id: UUID) -> Tab? { tabIndex[id] }
+    func indexOfTab(withID id: UUID) -> Int? { tabPositionIndex[id] }
 
     private func makeTab(from payload: TabTransferPayload) -> Tab {
         let tab = Tab(payload: payload, assetsBaseURL: tabAssetsBaseURL)
@@ -332,7 +359,8 @@ final class TabManager: ObservableObject {
         let tab = Tab(url: url, assetsBaseURL: tabAssetsBaseURL)
 
         tabs.append(tab)
-        indexTab(tab)
+        tabIndex[tab.id] = tab
+        tabPositionIndex[tab.id] = tabs.count - 1
         hydrateVisualState(for: tab)
 
         withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
@@ -354,7 +382,7 @@ final class TabManager: ObservableObject {
     }
 
     func closeTab(id: UUID) {
-        guard let index = tabs.firstIndex(where: { $0.id == id }) else { return }
+        guard let index = tabPositionIndex[id] ?? tabs.firstIndex(where: { $0.id == id }) else { return }
 
         let tab = tabs[index]
         let payload = tab.toTransferPayload()
@@ -395,6 +423,7 @@ final class TabManager: ObservableObject {
         }
         tabs.removeAll()
         tabIndex.removeAll()
+        tabPositionIndex.removeAll()
         activeTabID = nil
         syncActiveTabURL()
         scheduleSave()
@@ -414,7 +443,8 @@ final class TabManager: ObservableObject {
         let tab = makeTab(from: snapshot.payload)
 
         tabs.append(tab)
-        indexTab(tab)
+        tabIndex[tab.id] = tab
+        tabPositionIndex[tab.id] = tabs.count - 1
         hydrateVisualState(for: tab)
 
         withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
@@ -426,6 +456,7 @@ final class TabManager: ObservableObject {
 
     func moveTab(fromOffsets: IndexSet, toOffset: Int) {
         tabs.move(fromOffsets: fromOffsets, toOffset: toOffset)
+        for (i, t) in tabs.enumerated() { tabPositionIndex[t.id] = i }
         tabGroupManager.handleTabsReordered(tabs.map { $0.id })
         scheduleSave()
     }
@@ -435,6 +466,7 @@ final class TabManager: ObservableObject {
 
     func switchTo(_ id: UUID) {
         guard activeTabID != id else { return }
+        lastSwitchTime = Date()
         setActiveTab(id)
     }
 
@@ -445,6 +477,7 @@ final class TabManager: ObservableObject {
             tab.markAccessed()
         }
         syncActiveTabURL()
+        guard isPersistenceEnabled, !isInitializing else { return }
         scheduleSave()
     }
 
@@ -464,11 +497,12 @@ final class TabManager: ObservableObject {
     private func cycleTab(by delta: Int) {
         guard
             let currentID = activeTabID,
-            let index = tabs.firstIndex(where: { $0.id == currentID }),
+            let index = tabPositionIndex[currentID] ?? tabs.firstIndex(where: { $0.id == currentID }),
             tabs.count > 1
         else { return }
 
         let nextIndex = (index + delta + tabs.count) % tabs.count
+        lastSwitchTime = Date()
         withAnimation(.spring(response: 0.3, dampingFraction: 0.78)) {
             switchTo(tabs[nextIndex].id)
         }
@@ -503,8 +537,7 @@ final class TabManager: ObservableObject {
         }
 
         guard tab.favicon == nil, let faviconURL = defaultFaviconURL(for: tab.url) else { return }
-
-        Task(priority: .utility) { [weak tab, faviconCache] in
+        Task(priority: .background) { [weak tab, faviconCache] in
             guard let image = await faviconCache.fetchImage(for: faviconURL) else { return }
             await MainActor.run {
                 guard let tab, tab.favicon == nil else { return }
@@ -558,9 +591,7 @@ final class TabManager: ObservableObject {
             let isMissingFile = nsError.domain == NSCocoaErrorDomain
                 && nsError.code == NSFileNoSuchFileError
             guard !isMissingFile else { return }
-            logger.debug(
-                "Could not remove tab assets for \(id.uuidString): \(error.localizedDescription, privacy: .public)"
-            )
+            AppLog.error("Could not remove tab assets for \(id.uuidString)", error: error)
         }
     }
 
@@ -629,7 +660,8 @@ final class TabManager: ObservableObject {
                 self.tabGroupManager.createGroup(name: "", color: .blue, tabIDs: [activeTabID])
             }),
             (.closeCurrentGroup, { [weak self] in
-                guard let self, let activeTabID = self.activeTabID,
+                guard let self else { return }
+                guard let activeTabID = self.activeTabID,
                       let group = self.tabGroupManager.group(for: activeTabID) else { return }
                 let tabIDs = group.tabIDs
                 self.tabGroupManager.closeGroup(group.id, tabs: self.tabs)
@@ -638,11 +670,13 @@ final class TabManager: ObservableObject {
                 }
             }),
             (.moveTabToLeftGroup, { [weak self] in
-                guard let self, let activeTabID = self.activeTabID else { return }
+                guard let self else { return }
+                guard self.activeTabID != nil else { return }
                 self.moveActiveTabToAdjacentGroup(direction: -1)
             }),
             (.moveTabToRightGroup, { [weak self] in
-                guard let self, let activeTabID = self.activeTabID else { return }
+                guard let self else { return }
+                guard self.activeTabID != nil else { return }
                 self.moveActiveTabToAdjacentGroup(direction: +1)
             }),
         ]

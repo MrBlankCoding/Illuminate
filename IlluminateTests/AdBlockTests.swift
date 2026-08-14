@@ -22,7 +22,6 @@ struct AdBlockTests {
         let adBlock = AdBlockService(userDefaults: createTestUserDefaults())
         adBlock.prepareIfNeeded()
         
-        // Give it more time for potentially large EasyList parsing and compilation
         var attempts = 0
         while adBlock.contentRuleList == nil && attempts < 10 {
             try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second

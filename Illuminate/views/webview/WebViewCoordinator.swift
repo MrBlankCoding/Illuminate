@@ -28,10 +28,10 @@ extension WebViewRepresentable {
         private let preconnectManager = NavigationPreconnectManager.shared
 
         private let circuitBreaker = WebProcessCircuitBreaker()
-        private var lastAppliedStyle: TabManager.UIStyle?
         private var lastAppliedContentRuleListIDs: [ObjectIdentifier] = []
         private var lastAppliedFaviconURL: URL?
         private var contextMenuDownloadURL: URL?
+        var hasInstalledDownloadHandler = false
         var lastLoadedURL: URL?
 
         static func resolvedScheme(for style: TabManager.UIStyle) -> String {
@@ -309,9 +309,6 @@ extension WebViewRepresentable {
             tab.hasMixedContentWarning = !webView.hasOnlySecureContent
             tab.refreshSnapshot()
 
-            if let lastAppliedStyle {
-                applyWebAppearance(to: webView, style: lastAppliedStyle)
-            }
             circuitBreaker.reset()
 
             if tab.id == tabManager.activeTabID {
@@ -388,12 +385,12 @@ extension WebViewRepresentable {
             }
 
             guard dohService.shouldAllowRequest(for: url) else {
-                AppLog.security("Blocked non-HTTP(S) request: \(url.absoluteString)")
+                AppLog.security("Blocked non-HTTP(S) request: \(AppLog.sanitizedURL(url))")
                 decisionHandler(.cancel)
                 return
             }
             guard !SafeBrowsingManager.isUnsafe(url) else {
-                AppLog.security("Blocked unsafe URL: \(url.absoluteString)")
+                AppLog.security("Blocked unsafe URL: \(AppLog.sanitizedURL(url))")
                 decisionHandler(.cancel)
                 return
             }
@@ -404,7 +401,7 @@ extension WebViewRepresentable {
                 let host = url.host?.lowercased() ?? ""
                 let isLocalhost = host == "localhost" || host == "127.0.0.1" || host == "::1"
                 if !isLocalhost {
-                    AppLog.security("HTTPS-only: blocked HTTP navigation to \(url.absoluteString)")
+                    AppLog.security("HTTPS-only: blocked HTTP navigation to \(AppLog.sanitizedURL(url))")
                     decisionHandler(.cancel)
                     if var components = URLComponents(url: url, resolvingAgainstBaseURL: false) {
                         components.scheme = "https"
@@ -427,7 +424,7 @@ extension WebViewRepresentable {
             if navigationAction.shouldPerformDownload,
                shouldHandleDownloadOutsideWebKit(for: url)
             {
-                AppLog.download("Intercepted navigationAction download outside WebKit url=\(url.absoluteString)")
+                AppLog.download("Intercepted navigationAction download outside WebKit url=\(AppLog.sanitizedURL(url))")
                 DownloadManager.shared.startDownload(
                     using: navigationAction.request,
                     suggestedFilename: url.lastPathComponent.nilIfEmpty
@@ -463,7 +460,7 @@ extension WebViewRepresentable {
                let url = navigationResponse.response.url,
                shouldHandleDownloadOutsideWebKit(for: url)
             {
-                AppLog.download("Intercepted navigationResponse download outside WebKit url=\(url.absoluteString)")
+                AppLog.download("Intercepted navigationResponse download outside WebKit url=\(AppLog.sanitizedURL(url))")
                 DownloadManager.shared.startDownload(
                     using: URLRequest(url: url),
                     suggestedFilename: navigationResponse.response.suggestedFilename
@@ -656,20 +653,12 @@ extension WebViewRepresentable {
             return nil
         }
 
-        func applyWebAppearance(to webView: WKWebView, style: TabManager.UIStyle) {
-            guard lastAppliedStyle != style else { return }
-            lastAppliedStyle = style
-            let scheme = Self.resolvedScheme(for: style)
-            webView.evaluateJavaScript(Self.colorSchemeScript(for: scheme), completionHandler: nil)
-        }
-
         @discardableResult
         func applyContentRules(to webView: WKWebView, ruleLists: [WKContentRuleList]) -> Bool {
             let newIDs = ruleLists.map(ObjectIdentifier.init)
             guard newIDs != lastAppliedContentRuleListIDs else { return false }
 
             let didActivateRuleLists = lastAppliedContentRuleListIDs.isEmpty && !newIDs.isEmpty
-            print("WebViewCoordinator: applyContentRules called url=\(webView.url?.absoluteString ?? "(nil)") newCount=\(ruleLists.count) lastCount=\(lastAppliedContentRuleListIDs.count) didActivate=\(didActivateRuleLists)")
             let ucc = webView.configuration.userContentController
             ucc.removeAllContentRuleLists()
             ruleLists.forEach { ucc.add($0) }

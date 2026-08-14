@@ -87,8 +87,8 @@ struct BrowserToolbarView: View {
 
     @State private var tabFrames: [UUID: CGRect] = [:]
 
+    // gonna need to work on the spacing here
     private var theme: BrowserTheme {
-        // Private windows use a purple accent so the toolbar is visually distinct
         let accent = profileEnvironment.isGuestSession
             ? Color(hex: "7B52CC")
             : tabManager.windowThemeColor

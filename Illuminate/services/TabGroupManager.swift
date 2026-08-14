@@ -43,6 +43,12 @@ final class TabGroupManager: ObservableObject {
         }
     }
 
+    func prepareForRemoval() {
+        pendingSaveTask?.cancel()
+        groupSubscriptions.values.forEach { $0.cancel() }
+        groupSubscriptions.removeAll()
+    }
+
     func group(for tabID: UUID) -> TabGroup? {
         guard let groupID = tabGroupIndex[tabID] else { return nil }
         return groupIndex[groupID]

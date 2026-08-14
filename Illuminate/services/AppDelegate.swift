@@ -21,8 +21,6 @@ final class DockMenuWindowRouter {
 
 class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
-        logPersistedSettings()
-
         Task { @MainActor in
             await bringAppToFrontForUITests()
         }
@@ -62,7 +60,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 openProfile(profileID)
             } else {
                 AppLog.ui("Warning: openProfile closure not registered.")
-                // Fallback: try triggering selection
                 DockMenuWindowRouter.shared.openProfileSelection?()
             }
         }

@@ -66,7 +66,6 @@ struct WebViewRepresentable: NSViewRepresentable {
             to: webView,
             ruleLists: adBlockService.effectiveRuleLists(for: tab.url?.host)
         )
-        context.coordinator.applyWebAppearance(to: webView, style: userInterfaceStyle)
 
         if let url = tab.url, webView.url == nil {
             webView.load(makeRequest(for: url))
@@ -76,7 +75,11 @@ struct WebViewRepresentable: NSViewRepresentable {
     }
 
     func updateNSView(_ nsView: WKWebView, context: Context) {
-        nsView.allowsBackForwardNavigationGestures = tab.id == tabManager.activeTabID
+        let wasGesturesEnabled = nsView.allowsBackForwardNavigationGestures
+        let shouldEnableGestures = tab.id == tabManager.activeTabID
+        if wasGesturesEnabled != shouldEnableGestures {
+            nsView.allowsBackForwardNavigationGestures = shouldEnableGestures
+        }
 
         WebScriptBridge.shared.installScripts(
             on: nsView.configuration.userContentController,
@@ -84,20 +87,20 @@ struct WebViewRepresentable: NSViewRepresentable {
             colorScheme: Coordinator.resolvedScheme(for: userInterfaceStyle),
             canvasFingerprintingProtectionEnabled: canvasFingerprintingService.isEnabled
         )
-        if let illuminateWebView = nsView as? IlluminateWebView {
+
+        if let illuminateWebView = nsView as? IlluminateWebView,
+           !context.coordinator.hasInstalledDownloadHandler {
+            context.coordinator.hasInstalledDownloadHandler = true
             illuminateWebView.onIlluminateDownload = { [weak tab, weak nsView] event in
                 guard let tab, let nsView else { return }
                 triggerIlluminateDownload(for: tab, in: nsView, event: event)
             }
         }
-        let didActivateContentRules = context.coordinator.applyContentRules(
+
+        let _ = context.coordinator.applyContentRules(
             to: nsView,
             ruleLists: adBlockService.effectiveRuleLists(for: tab.url?.host)
         )
-        if didActivateContentRules, nsView.url != nil, !nsView.isLoading {
-            nsView.reload()
-        }
-        context.coordinator.applyWebAppearance(to: nsView, style: userInterfaceStyle)
     }
 
     private func triggerIlluminateDownload(for tab: Tab, in webView: WKWebView, event: NSEvent) {

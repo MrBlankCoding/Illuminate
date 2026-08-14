@@ -486,37 +486,56 @@ final class Tab: ObservableObject, Identifiable {
         webView.publisher(for: \.canGoBack)
             .removeDuplicates()
             .receive(on: RunLoop.main)
-            .sink { [weak self] v in self?.canGoBack = v }
+            .sink { [weak self] v in
+                guard let self else { return }
+                DispatchQueue.main.async {
+                    if self.canGoBack != v { self.canGoBack = v }
+                }
+            }
             .store(in: &cancellables)
 
         webView.publisher(for: \.canGoForward)
             .removeDuplicates()
             .receive(on: RunLoop.main)
-            .sink { [weak self] v in self?.canGoForward = v }
+            .sink { [weak self] v in
+                guard let self else { return }
+                DispatchQueue.main.async {
+                    if self.canGoForward != v { self.canGoForward = v }
+                }
+            }
             .store(in: &cancellables)
 
         webView.publisher(for: \.estimatedProgress)
             .removeDuplicates()
             .throttle(for: .milliseconds(100), scheduler: RunLoop.main, latest: true)
             .receive(on: RunLoop.main)
-            .sink { [weak self] v in self?.estimatedProgress = v }
+            .sink { [weak self] v in
+                guard let self else { return }
+                DispatchQueue.main.async {
+                    if self.estimatedProgress != v { self.estimatedProgress = v }
+                }
+            }
             .store(in: &cancellables)
 
         webView.publisher(for: \.isLoading)
             .removeDuplicates()
             .receive(on: RunLoop.main)
             .sink { [weak self] v in
-                self?.isLoading = v
-                // Re-apply mute on every page load completion
-                if !v, let self, self.isMuted {
-                    let script = """
-                    (() => {
-                        for (const media of document.querySelectorAll('audio, video')) {
-                            media.muted = true;
-                        }
-                    })();
-                    """
-                    self.webView?.evaluateJavaScript(script, completionHandler: nil)
+                guard let self else { return }
+                DispatchQueue.main.async {
+                    if self.isLoading != v {
+                        self.isLoading = v
+                    }
+                    if !v, self.isMuted {
+                        let script = """
+                        (() => {
+                            for (const media of document.querySelectorAll('audio, video')) {
+                                media.muted = true;
+                            }
+                        })();
+                        """
+                        self.webView?.evaluateJavaScript(script, completionHandler: nil)
+                    }
                 }
             }
             .store(in: &cancellables)
@@ -526,8 +545,10 @@ final class Tab: ObservableObject, Identifiable {
             .throttle(for: .milliseconds(100), scheduler: RunLoop.main, latest: true)
             .receive(on: RunLoop.main)
             .sink { [weak self] v in
-                guard let url = v else { return }
-                if self?.url != url { self?.url = url }
+                guard let self, let url = v, self.url != url else { return }
+                DispatchQueue.main.async {
+                    if self.url != url { self.url = url }
+                }
             }
             .store(in: &cancellables)
 
@@ -536,15 +557,20 @@ final class Tab: ObservableObject, Identifiable {
             .throttle(for: .milliseconds(200), scheduler: RunLoop.main, latest: true)
             .receive(on: RunLoop.main)
             .sink { [weak self] v in
-                guard let title = v, !title.isEmpty else { return }
-                if self?.title != title { self?.title = title }
+                guard let self, let title = v, !title.isEmpty, self.title != title else { return }
+                DispatchQueue.main.async {
+                    if self.title != title { self.title = title }
+                }
             }
             .store(in: &cancellables)
 
-        if canGoBack         != webView.canGoBack         { canGoBack         = webView.canGoBack }
-        if canGoForward      != webView.canGoForward      { canGoForward      = webView.canGoForward }
-        if estimatedProgress != webView.estimatedProgress { estimatedProgress = webView.estimatedProgress }
-        if isLoading         != webView.isLoading         { isLoading         = webView.isLoading }
-        if let currentURL = webView.url, url != currentURL { url = currentURL }
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            if self.canGoBack         != webView.canGoBack         { self.canGoBack         = webView.canGoBack }
+            if self.canGoForward      != webView.canGoForward      { self.canGoForward      = webView.canGoForward }
+            if self.estimatedProgress != webView.estimatedProgress { self.estimatedProgress = webView.estimatedProgress }
+            if self.isLoading         != webView.isLoading         { self.isLoading         = webView.isLoading }
+            if let currentURL = webView.url, self.url != currentURL { self.url = currentURL }
+        }
     }
 }

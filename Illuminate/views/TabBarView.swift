@@ -47,6 +47,7 @@ struct TabBarView: View {
     @State private var dragSession: TabDragSession?
     @State private var isNewTabHovered = false
     @State private var groupChangeToken = UUID()
+    @State private var previousActiveTabID: UUID?
 
     private var theme: BrowserTheme {
         BrowserTheme(accent: tabManager.windowThemeColor, colorScheme: colorScheme)
@@ -56,10 +57,9 @@ struct TabBarView: View {
         var elements: [TabBarElement] = []
         var processedTabIDs = Set<UUID>()
         let groupsManager = tabManager.tabGroupManager
-        _ = tabManager.activeTabID
-        _ = groupChangeToken
+        let currentTabs = tabManager.tabs
 
-        for tab in tabManager.tabs {
+        for tab in currentTabs {
             guard !processedTabIDs.contains(tab.id) else { continue }
 
             if let group = groupsManager.group(for: tab.id) {
@@ -103,6 +103,8 @@ struct TabBarView: View {
                     tabRow(tabWidth: TabBarMetrics.scrollThreshold)
                 }
                 .onChange(of: tabManager.activeTabID) { _, newID in
+                    guard newID != previousActiveTabID else { return }
+                    previousActiveTabID = newID
                     if let id = newID {
                         withAnimation(MacDesign.springAnimation) {
                             proxy.scrollTo(id, anchor: .center)
@@ -168,14 +170,12 @@ struct TabBarView: View {
         }
         .padding(.vertical, 4)
         .padding(.leading, 2)
-        .animation(MacDesign.springAnimation, value: tabManager.tabs.map { $0.id })
-        .animation(MacDesign.springAnimation, value: tabManager.tabGroupManager.groups.map { $0.isCollapsed })
     }
 
     @ViewBuilder
     private func renderTab(tabID: UUID, tabWidth: CGFloat) -> some View {
-        if let tab = tabManager.tabs.first(where: { $0.id == tabID }),
-           let index = tabManager.tabs.firstIndex(where: { $0.id == tabID }) {
+        if let tab = tabManager.tab(forID: tabID),
+           let index = tabManager.indexOfTab(withID: tabID) {
             let isDragging  = dragSession?.tabID == tab.id
             let dragOffsetX = offset(forTabAt: index, isDragging: isDragging)
 
@@ -197,7 +197,7 @@ struct TabBarView: View {
                     withAnimation(MacDesign.springAnimation) { ids.forEach { tabManager.closeTab(id: $0) } }
                 },
                 onCloseToRight: {
-                    guard let idx = tabManager.tabs.firstIndex(where: { $0.id == tab.id }) else { return }
+                    guard let idx = tabManager.indexOfTab(withID: tab.id) else { return }
                     let ids = tabManager.tabs[(idx + 1)...].map { $0.id }
                     withAnimation(MacDesign.springAnimation) { ids.forEach { tabManager.closeTab(id: $0) } }
                 },
@@ -247,7 +247,7 @@ struct TabBarView: View {
         DragGesture(minimumDistance: 4, coordinateSpace: .named("top"))
             .onChanged { value in
                 if dragSession == nil || dragSession?.tabID != tab.id {
-                    guard let idx = tabManager.tabs.firstIndex(where: { $0.id == tab.id })
+                    guard let idx = tabManager.indexOfTab(withID: tab.id)
                     else { return }
                     if tabManager.activeTabID != tab.id { tabManager.switchTo(tab.id) }
                     dragSession = TabDragSession(

@@ -28,7 +28,7 @@ final class TrackerBlockingService: ObservableObject {
             let clamped = max(1, learnThreshold)
             if clamped != learnThreshold {
                 learnThreshold = clamped
-                return // the recursive didSet call below will handle persistence/update
+                return
             }
             guard oldValue != learnThreshold else { return }
             persistSettings()
@@ -72,6 +72,10 @@ final class TrackerBlockingService: ObservableObject {
     }
 
     deinit {
+        pendingUpdateTask?.cancel()
+    }
+
+    func prepareForRemoval() {
         pendingUpdateTask?.cancel()
     }
 

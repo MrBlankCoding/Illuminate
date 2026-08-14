@@ -78,6 +78,14 @@ final class WebsitePermissionService: ObservableObject {
         refreshSites()
     }
 
+    func prepareForRemoval() {
+        if let completion = pendingCompletion {
+            pendingCompletion = nil
+            pendingRequest = nil
+            completion(.deny)
+        }
+    }
+
     func decision(for origin: String, type: WebsitePermissionType) -> WebsitePermissionDecision {
         decisions[origin]?[type] ?? .prompt
     }

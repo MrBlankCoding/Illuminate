@@ -12,7 +12,7 @@ import os
 
 @MainActor
 final class ProfileManager: ObservableObject {
-    static let defaultIconName = "person.crop.circle"
+    nonisolated static let defaultIconName = "person.crop.circle"
 
     @Published private(set) var profiles: [BrowserProfile] = []
     let profileDeleted = PassthroughSubject<UUID, Never>()
@@ -22,15 +22,13 @@ final class ProfileManager: ObservableObject {
 
     private let fileManager: FileManager
     private let profilesURL: URL
-    private let logger = Logger(
-        subsystem: Bundle.main.bundleIdentifier ?? "com.illuminate.browser",
-        category: "ProfileManager"
-    )
 
     init(fileManager: FileManager = .default) {
         self.fileManager = fileManager
         self.profilesURL = fileManager.illuminateProfilesCatalogURL()
-        loadProfiles()
+        Task {
+            await loadProfilesAsync()
+        }
     }
 
     @discardableResult
@@ -77,7 +75,7 @@ final class ProfileManager: ObservableObject {
         do {
             try fileManager.removeItem(at: directory)
         } catch {
-            logger.error("Failed to remove profile directory for \(profile.id.uuidString, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            AppLog.error("Failed to remove profile directory for \(profile.id.uuidString)", error: error)
         }
 
         profileDeleted.send(profile.id)
@@ -114,16 +112,24 @@ final class ProfileManager: ObservableObject {
         env.prepareForRemoval()
     }
 
-    private func loadProfiles() {
-        if let data = try? Data(contentsOf: profilesURL),
+    private func loadProfilesAsync() async {
+        let url = profilesURL
+        let loadedProfiles: [BrowserProfile]
+        
+        if let data = try? Data(contentsOf: url),
            let savedProfiles = try? JSONDecoder().decode([BrowserProfile].self, from: data),
            !savedProfiles.isEmpty {
-            profiles = savedProfiles.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
-            return
+            loadedProfiles = savedProfiles.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        } else {
+            loadedProfiles = [BrowserProfile(name: "Personal")]
         }
-
-        profiles = [BrowserProfile(name: "Personal")]
-        saveProfiles()
+        
+        await MainActor.run {
+            self.profiles = loadedProfiles
+            if loadedProfiles.count == 1 && loadedProfiles[0].name == "Personal" {
+                saveProfiles()
+            }
+        }
     }
 
     private func saveProfiles() {
@@ -131,7 +137,7 @@ final class ProfileManager: ObservableObject {
             let data = try JSONEncoder().encode(profiles)
             try data.write(to: profilesURL, options: .atomic)
         } catch {
-            logger.error("Failed to save profiles: \(error.localizedDescription, privacy: .public)")
+            AppLog.error("Failed to save profiles", error: error)
         }
     }
     

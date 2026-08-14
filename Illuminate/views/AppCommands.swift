@@ -54,7 +54,6 @@ struct AppCommands: Commands {
         }
 
         CommandMenu("History") {
-            // Recently visited items first
             RecentlyVisitedMenuContent()
 
             Divider()
@@ -67,7 +66,6 @@ struct AppCommands: Commands {
 
             Divider()
 
-            // Show All History always at the bottom
             BrowserCommand("Show All History", shortcut: "y") { .showHistory }
         }
 

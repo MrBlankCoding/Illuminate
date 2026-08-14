@@ -16,6 +16,7 @@ final class WebKitManager: ObservableObject {
     @Published var cookiesEnabled: Bool = true {
         didSet {
             guard !isLoadingProfile, isPersistenceEnabled else { return }
+            AppLog.info("WebKitManager: Setting changed cookiesEnabled=\(cookiesEnabled)")
             userDefaults.set(cookiesEnabled, forKey: scopedKey("cookiesEnabled"))
         }
     }
@@ -23,6 +24,7 @@ final class WebKitManager: ObservableObject {
     @Published var httpsOnlyEnabled: Bool = false {
         didSet {
             guard !isLoadingProfile, isPersistenceEnabled else { return }
+            AppLog.info("WebKitManager: Setting changed httpsOnlyEnabled=\(httpsOnlyEnabled)")
             userDefaults.set(httpsOnlyEnabled, forKey: scopedKey("httpsOnlyEnabled"))
         }
     }
@@ -31,13 +33,14 @@ final class WebKitManager: ObservableObject {
     private var activeProfileID: UUID?
     private var isLoadingProfile = false
     private let isPersistenceEnabled: Bool
+    private var cachedUserAgent: String?
 
     init(profileID: UUID? = nil, userDefaults: UserDefaults = .standard, isPersistenceEnabled: Bool = true) {
         self.userDefaults = userDefaults
         self.activeProfileID = profileID
         self.isPersistenceEnabled = isPersistenceEnabled
-        URLCache.shared.memoryCapacity = 100 * 1024 * 1024 // Increase to 100MB
-        URLCache.shared.diskCapacity = 500 * 1024 * 1024 // 500MB disk cache
+        
+        configureGlobalCache()
         
         self.isLoadingProfile = true
         self.cookiesEnabled = isPersistenceEnabled
@@ -53,20 +56,24 @@ final class WebKitManager: ObservableObject {
         self.init(profileID: profile.id, userDefaults: userDefaults, isPersistenceEnabled: isPersistenceEnabled)
     }
 
+    func prepareForRemoval() {
+        AppLog.info("WebKitManager: Tearing down (profile: \(activeProfileID?.uuidString ?? "guest"))")
+        // In the future, if we manage a shared WKProcessPool per profile, we would null it here.
+    }
+
     func makeConfiguration() -> WKWebViewConfiguration {
         let configuration = WKWebViewConfiguration()
-        
+
         configuration.mediaTypesRequiringUserActionForPlayback = []
-
+        
         configuration.websiteDataStore = makeWebsiteDataStore()
-
         configuration.defaultWebpagePreferences.allowsContentJavaScript = true
         configuration.defaultWebpagePreferences.preferredContentMode = .desktop
 
         let preferences = WKPreferences()
         preferences.isTextInteractionEnabled = true
         preferences.isElementFullscreenEnabled = true
-
+        
         configuration.preferences = preferences
         configuration.userContentController = WKUserContentController()
         configuration.preferences.setValue(true, forKey: "developerExtrasEnabled")
@@ -76,36 +83,34 @@ final class WebKitManager: ObservableObject {
 
     func makeWebView() -> WKWebView {
         let webView = WKWebView(frame: .zero, configuration: makeConfiguration())
-        applyBrowserUserAgent(to: webView)
+        if let cachedUA = cachedUserAgent {
+            webView.customUserAgent = cachedUA
+        } else {
+            applyBrowserUserAgent(to: webView)
+        }
         return webView
     }
 
-    // legacy way 
-    /*
-    func applySafariUserAgent(to webView: WKWebView) {
-        let safariUA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6 Safari/605.1.15"
-        webView.customUserAgent = safariUA
-        AppLog.info("Set custom UA: \(safariUA)")
-    }
-    */
-
-    // try to be a bit more modern 
     func applyBrowserUserAgent(to webView: WKWebView) {
+        if let cached = cachedUserAgent {
+            webView.customUserAgent = cached
+            return
+        }
+
         webView.evaluateJavaScript("navigator.userAgent") { result, error in
-            
             Task { @MainActor in
                 guard let defaultUA = result as? String else {
-                    AppLog.info("Could not get default WebKit UA: \(error?.localizedDescription ?? "unknown error")")
+                    AppLog.error("Could not get default WebKit UA", error: error)
                     return
                 }
 
                 let chromeVersion = await ChromeVersionFetcher.fetchLatestStableVersion()
-
                 let enhancedUA = "\(defaultUA) Chrome/\(chromeVersion)"
-
+                
+                self.cachedUserAgent = enhancedUA
                 webView.customUserAgent = enhancedUA
 
-                AppLog.info("Set enhanced UA: \(enhancedUA)")
+                AppLog.info("Set and cached enhanced UA: \(enhancedUA)")
             }
         }
     }
@@ -133,5 +138,27 @@ final class WebKitManager: ObservableObject {
     private func scopedKey(_ key: String) -> String {
         guard let activeProfileID else { return key }
         return "profile.\(activeProfileID.uuidString).\(key)"
+    }
+
+    /// Dynamically configures the global URLCache based on system resources.
+    private func configureGlobalCache() {
+        let physicalMemory = ProcessInfo.processInfo.physicalMemory
+        
+        // Memory Cache: ~2% of RAM, capped between 128MB and 512MB
+        let memoryLimit = min(max(physicalMemory / 50, 128 * 1024 * 1024), 512 * 1024 * 1024)
+        
+        // Disk Cache: ~5% of free space, capped between 512MB and 2GB
+        let diskLimit: UInt64
+        if let attributes = try? FileManager.default.attributesOfFileSystem(forPath: NSHomeDirectory()),
+           let freeSpace = attributes[.systemFreeSize] as? UInt64 {
+            diskLimit = min(max(freeSpace / 20, 512 * 1024 * 1024), 2 * 1024 * 1024 * 1024)
+        } else {
+            diskLimit = 1000 * 1024 * 1024 // Fallback to 1GB
+        }
+        
+        URLCache.shared.memoryCapacity = Int(memoryLimit)
+        URLCache.shared.diskCapacity = Int(diskLimit)
+        
+        AppLog.info("Dynamic cache configured: Memory=\(memoryLimit / 1024 / 1024)MB, Disk=\(diskLimit / 1024 / 1024)MB")
     }
 }

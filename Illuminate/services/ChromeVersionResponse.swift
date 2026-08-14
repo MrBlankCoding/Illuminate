@@ -47,7 +47,9 @@ final class ChromeVersionFetcher {
 
         let fallback = cachedVersion() ?? fallbackVersion
 
-        AppLog.info("Chrome version fetch failed; using \(fallback)")
+        if cachedVersion() == nil {
+            AppLog.info("Chrome version fetch failed; using \(fallback) (cached=\(cachedVersion() != nil))")
+        }
 
         return fallback
     }
@@ -77,7 +79,7 @@ final class ChromeVersionFetcher {
             return decoded.channels.stable.version
 
         } catch {
-            AppLog.info("Failed to fetch Chrome version: \(error.localizedDescription)")
+            AppLog.error("Failed to fetch Chrome version", error: error)
             return nil
         }
     }

@@ -95,7 +95,7 @@ extension DownloadManager {
     }
 
     func failDownload(id: UUID, error: Error) {
-        AppLog.download("Download failed id=\(id.uuidString) error=\(error.localizedDescription)")
+        AppLog.error("Download failed id=\(id.uuidString)", error: error)
         updateTask(id) { task in
             task.state = .failed
             task.finishedAt = Date()
@@ -187,7 +187,7 @@ extension DownloadManager {
             try fileManager.moveItem(at: location, to: stagingURL)
             return stagingURL
         } catch {
-            AppLog.download("Failed to stage downloaded file path=\(location.path) error=\(error.localizedDescription)")
+            AppLog.error("Failed to stage downloaded file path=\(location.path)", error: error)
             return nil
         }
     }

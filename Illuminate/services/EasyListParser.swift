@@ -77,7 +77,6 @@ final class EasyListParser {
     private static func makeElementHidingRule(from line: String) -> Rule? {
         let separator: String
         if line.contains("#@#") {
-            // Element hiding exceptions are not supported.
             return nil
         } else if line.contains("##") {
             separator = "##"
@@ -104,8 +103,8 @@ final class EasyListParser {
         let splitDomains = splitDomains(domains)
         let trigger = Trigger(
             urlFilter: ".*",
-            ifDomain: splitDomains.ifDomains.isEmpty ? nil : splitDomains.ifDomains,
-            unlessDomain: splitDomains.unlessDomains.isEmpty ? nil : splitDomains.unlessDomains
+            ifDomain: splitDomains.ifDomains,
+            unlessDomain: splitDomains.unlessDomains
         )
 
         return Rule(
@@ -124,6 +123,7 @@ final class EasyListParser {
         var loadTypes: [String]?
         var includedResourceTypes = Set<String>()
         var excludedResourceTypes = Set<String>()
+        var optionDomains: [String] = []
 
         if parts.count > 1 {
             let options = parts[1].components(separatedBy: ",")
@@ -134,18 +134,18 @@ final class EasyListParser {
                     continue
                 }
 
-                switch trimmedOption {
-                case "third-party":
+                switch true {
+                case trimmedOption == "third-party":
                     loadTypes = ["third-party"]
-                case "first-party":
+                case trimmedOption == "first-party":
                     loadTypes = ["first-party"]
+                case trimmedOption.hasPrefix("domain="):
+                    let domainList = trimmedOption.dropFirst("domain=".count)
+                    optionDomains = domainList
+                        .components(separatedBy: "|")
+                        .map { normalizedDomain($0) }
+                        .filter { !$0.isEmpty }
                 default:
-                    if trimmedOption.hasPrefix("domain=") {
-                        // EasyList domain modifiers target the embedding page's domain,
-                        // which does not map directly to WebKit's request-domain matching.
-                        continue
-                    }
-
                     let isExclusion = trimmedOption.hasPrefix("~")
                     let normalizedOption = isExclusion
                         ? String(trimmedOption.dropFirst())
@@ -174,8 +174,12 @@ final class EasyListParser {
             resourceTypes = nil
         }
 
+        let splitOptionDomains = splitDomains(optionDomains)
+
         let trigger = Trigger(
             urlFilter: convertToRegex(filter),
+            ifDomain: splitOptionDomains.ifDomains,
+            unlessDomain: splitOptionDomains.unlessDomains,
             resourceType: resourceTypes,
             loadType: loadTypes
         )
@@ -183,7 +187,7 @@ final class EasyListParser {
         return Rule(trigger: trigger, action: .block)
     }
 
-    private static func splitDomains(_ domains: [String]) -> (ifDomains: [String], unlessDomains: [String]) {
+    private static func splitDomains(_ domains: [String]) -> (ifDomains: [String]?, unlessDomains: [String]?) {
         var ifDomains: [String] = []
         var unlessDomains: [String] = []
 
@@ -201,7 +205,13 @@ final class EasyListParser {
             }
         }
 
-        return (ifDomains, unlessDomains)
+        if !ifDomains.isEmpty {
+            return (ifDomains, nil)
+        } else if !unlessDomains.isEmpty {
+            return (nil, unlessDomains)
+        } else {
+            return (nil, nil)
+        }
     }
 
     private static func normalizedDomain(_ domain: String) -> String {
@@ -218,7 +228,13 @@ final class EasyListParser {
         if filter.count > 1, filter.hasPrefix("/"), filter.hasSuffix("/") {
             let startIndex = filter.index(after: filter.startIndex)
             let endIndex = filter.index(before: filter.endIndex)
-            return String(filter[startIndex..<endIndex])
+            var regex = String(filter[startIndex..<endIndex])
+            
+            regex = regex.replacingOccurrences(of: "\\w", with: "[A-Za-z0-9_]")
+            regex = regex.replacingOccurrences(of: "\\d", with: "[0-9]")
+            regex = regex.replacingOccurrences(of: "\\s", with: "[ \t\r\n\u{000C}]")
+
+            return regex
         }
 
         var pattern = filter
@@ -259,7 +275,9 @@ final class EasyListParser {
             case "*":
                 translated += ".*"
             case "^":
-                translated += "[^A-Za-z0-9._%-]"
+                // WebKit's Content Rule List regex engine does not support disjunctions (|).
+                // We use [^a-zA-Z0-9] as a safe separator match, which avoids the "Disjunctions are not supported yet" error.
+                translated += "[^a-zA-Z0-9]"
             default:
                 translated += escapedRegexLiteral(for: character)
             }

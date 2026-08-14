@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct MoreOptionsMenu: View {
     @EnvironmentObject private var tabManager: TabManager
@@ -90,7 +91,7 @@ struct MoreOptionsMenu: View {
                     guard let pngData = imageRep.representation(using: .png, properties: [:]) else { return }
 
                     let savePanel = NSSavePanel()
-                    savePanel.allowedFileTypes = ["png"]
+                    savePanel.allowedContentTypes = [.png]
                     savePanel.nameFieldStringValue = "screenshot.png"
                     savePanel.begin { response in
                         guard response == .OK, let url = savePanel.url else { return }

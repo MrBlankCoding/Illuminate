@@ -150,9 +150,6 @@ struct ProfileSelectionView: View {
     }
 
     private var profileGrid: some View {
-        // One column per profile tile (up to 4 wide, then wraps). There's no
-        // "add profile" tile inside this grid — that action lives in
-        // `bottomActions` — so the column count is simply the profile count.
         let columns = Array(
             repeating: GridItem(.fixed(120), spacing: 8),
             count: min(max(profileManager.profiles.count, 1), 4)

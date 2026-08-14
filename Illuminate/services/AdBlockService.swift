@@ -20,6 +20,7 @@ final class AdBlockService: ObservableObject {
     @Published var isEnabled: Bool = true {
         didSet {
             guard !isLoadingProfile, oldValue != isEnabled else { return }
+            AppLog.info("AdBlockService: Setting changed isEnabled=\(isEnabled)")
             if isPersistenceEnabled {
                 userDefaults.set(isEnabled, forKey: scopedKey("adBlockEnabled"))
             }
@@ -99,6 +100,15 @@ final class AdBlockService: ObservableObject {
         )
     }
 
+    func prepareForRemoval() {
+        clearContentRuleLists()
+        
+        let identifier = scopedDynamicRuleListIdentifier()
+        WKContentRuleListStore.default().removeContentRuleList(forIdentifier: identifier) { _ in
+            AppLog.info("AdBlockService: Removed dynamic rule list for \(identifier)")
+        }
+    }
+
     func effectiveRuleLists(for host: String?) -> [WKContentRuleList] {
         guard isEnabled, !isHostAllowlisted(host) else { return [] }
         return contentRuleLists
@@ -175,9 +185,24 @@ final class AdBlockService: ObservableObject {
             ) { [weak self] list, error in
                 guard let self else { return }
                 if let error {
-                    print("AdBlockService: Failed to compile static rules: \(error)")
+                    let message = String(describing: error)
+                    let isExpectedUnsupportedRegex = message.lowercased().contains("unsupported regular expression")
+                        || message.lowercased().contains("disjunctions are not supported yet")
+                        || message.lowercased().contains("invalid or unsupported regular expression")
+
+                    if isExpectedUnsupportedRegex {
+                        if includeEasyList {
+                            AppLog.info("AdBlockService: Retrying static rule compilation without EasyList due to unsupported regex features")
+                            self.compileStaticRuleList(includeEasyList: false)
+                        } else {
+                            DispatchQueue.main.async { self.isPreparingStaticRuleList = false }
+                        }
+                        return
+                    }
+
+                    AppLog.error("AdBlockService: Failed to compile static rules", error: error)
                     if includeEasyList {
-                        print("AdBlockService: Retrying with built-in ad/privacy rules only")
+                        AppLog.info("AdBlockService: Retrying with built-in ad/privacy rules only")
                         self.compileStaticRuleList(includeEasyList: false)
                     } else {
                         DispatchQueue.main.async { self.isPreparingStaticRuleList = false }
@@ -187,7 +212,6 @@ final class AdBlockService: ObservableObject {
                 DispatchQueue.main.async {
                     self.staticRuleList = list
                     self.isPreparingStaticRuleList = false
-                    print("AdBlockService: Compiled static rule list successfully")
                     self.publishCombinedRuleLists()
                 }
             }
@@ -213,7 +237,7 @@ final class AdBlockService: ObservableObject {
                 }
 
                 if let error {
-                    print("AdBlockService: Failed to download EasyList: \(error)")
+                    AppLog.error("AdBlockService: Failed to download EasyList", error: error)
                     completion(false)
                     return
                 }
@@ -222,16 +246,17 @@ final class AdBlockService: ObservableObject {
                       (200..<300).contains(httpResponse.statusCode),
                       let data,
                       self.isValidEasyListData(data) else {
-                    print("AdBlockService: EasyList download returned an invalid response")
+                    AppLog.error("AdBlockService: EasyList download returned an invalid response (status=\((response as? HTTPURLResponse)?.statusCode ?? -1))")
                     completion(false)
                     return
                 }
 
                 do {
                     try self.writeEasyListCache(data)
+                    AppLog.info("AdBlockService: Successfully updated and cached EasyList")
                     completion(true)
                 } catch {
-                    print("AdBlockService: Failed to cache EasyList: \(error)")
+                    AppLog.error("AdBlockService: Failed to cache EasyList", error: error)
                     completion(false)
                 }
             }.resume()
@@ -335,22 +360,35 @@ final class AdBlockService: ObservableObject {
         ) { [weak self] list, error in
             guard let self else { return }
             if let error {
-                print("AdBlockService: Failed to compile dynamic rules: \(error)")
+                // fail silently 
+                let message = String(describing: error)
+                let isExpectedUnsupportedRegex = message.lowercased().contains("unsupported regular expression")
+                    || message.lowercased().contains("disjunctions are not supported yet")
+                    || message.lowercased().contains("invalid or unsupported regular expression")
+
+                if isExpectedUnsupportedRegex {
+                    AppLog.info("AdBlockService: Skipping dynamic rule list update due to unsupported regex features")
+                    DispatchQueue.main.async { self.isPreparingDynamicRuleList = false }
+                    return
+                }
+
+                AppLog.error("AdBlockService: Failed to compile dynamic rules", error: error)
                 DispatchQueue.main.async { self.isPreparingDynamicRuleList = false }
                 return
             }
             DispatchQueue.main.async {
                 self.dynamicRuleList = list
                 self.isPreparingDynamicRuleList = false
-                print("AdBlockService: Compiled dynamic rule list successfully")
                 self.publishCombinedRuleLists()
             }
         }
     }
 
     private func publishCombinedRuleLists() {
-        contentRuleLists = [staticRuleList, dynamicRuleList].compactMap { $0 }
-        print("AdBlockService: Publishing combined rule lists (count=\(contentRuleLists.count))")
+        Task { @MainActor in
+            self.contentRuleLists = [staticRuleList, dynamicRuleList].compactMap { $0 }
+            AppLog.info("AdBlockService: Publishing combined rule lists (count=\(contentRuleLists.count))")
+        }
     }
 
     private func clearContentRuleLists() {
@@ -428,7 +466,8 @@ final class AdBlockService: ObservableObject {
 
     private static func domainAnchoredPattern(for host: String) -> String {
         let escaped = NSRegularExpression.escapedPattern(for: host.lowercased())
-        return "^https?://([a-z0-9-]+\\.)*\(escaped)([:/]|$)"
+        // Simplified pattern to avoid unsupported regex features in some WebKit versions
+        return ".*\(escaped).*"
     }
 
     private static func blockRule(urlFilter: String, thirdPartyOnly: Bool = false) -> [String: Any] {
@@ -604,18 +643,18 @@ final class AdBlockService: ObservableObject {
     ]
 
     private static let supplementaryAdScriptRules: [[String: Any]] = [
-        blockRule(urlFilter: "(^|/)ads\\.js([?#]|$)"),
-        blockRule(urlFilter: "(^|/)pagead\\.js([?#]|$)"),
-        blockRule(urlFilter: "(^|/)adsbygoogle\\.js([?#]|$)"),
-        blockRule(urlFilter: "(^|/)show_ads_impl[^/]*\\.js([?#]|$)")
+        blockRule(urlFilter: ".*[/. ]ads\\.js.*"),
+        blockRule(urlFilter: ".*[/. ]pagead\\.js.*"),
+        blockRule(urlFilter: ".*[/. ]adsbygoogle\\.js.*"),
+        blockRule(urlFilter: ".*[/. ]show_ads_impl.*\\.js.*")
     ]
 
     private static let youTubeAdRequestRules: [[String: Any]] = [
-        blockRule(urlFilter: "^https?://([a-z0-9-]+\\.)?youtube\\.com/pagead/"),
-        blockRule(urlFilter: "^https?://([a-z0-9-]+\\.)?youtube\\.com/ptracking"),
-        blockRule(urlFilter: "^https?://([a-z0-9-]+\\.)?youtube\\.com/api/stats/ads"),
-        blockRule(urlFilter: "^https?://s\\.youtube\\.com/api/stats/ads"),
-        blockRule(urlFilter: "^https?://([a-z0-9-]+\\.)?youtube\\.com/get_midroll_")
+        blockRule(urlFilter: ".*youtube\\.com/pagead/"),
+        blockRule(urlFilter: ".*youtube\\.com/ptracking"),
+        blockRule(urlFilter: ".*youtube\\.com/api/stats/ads"),
+        blockRule(urlFilter: ".*s\\.youtube\\.com/api/stats/ads"),
+        blockRule(urlFilter: ".*youtube\\.com/get_midroll_")
     ]
 
     private static let youTubeCosmeticRule: [String: Any] = [

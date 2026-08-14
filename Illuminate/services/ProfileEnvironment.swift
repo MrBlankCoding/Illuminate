@@ -31,11 +31,6 @@ final class ProfileEnvironment: ObservableObject {
 
     let modelContainer: ModelContainer
 
-    private let logger = Logger(
-        subsystem: Bundle.main.bundleIdentifier ?? "com.illuminate.browser",
-        category: "ProfileEnvironment"
-    )
-
     private(set) var isTornDown = false
 
     init(
@@ -94,12 +89,15 @@ final class ProfileEnvironment: ObservableObject {
     func prepareForRemoval() {
         guard !isTornDown else { return }
         isTornDown = true
-        logger.debug("Tearing down environment (profile: \(self.profile.id.uuidString, privacy: .public), guest: \(self.isGuestSession))")
-        // TODO: as services gain explicit teardown APIs (e.g. removing the
-        // WKContentRuleList registered under `adBlockService`'s
-        // ruleListIdentifier, or closing WebKit process pools), invoke them
-        // here so guest sessions and deleted profiles don't leak OS-level
-        // resources for the remaining lifetime of the app.
+        AppLog.info("Tearing down environment (profile: \(self.profile.id.uuidString), guest: \(self.isGuestSession))")
+        
+        // Invoke explicit teardown APIs for services
+        adBlockService.prepareForRemoval()
+        webKitManager.prepareForRemoval()
+        tabManager.prepareForRemoval()
+        historyManager.prepareForRemoval()
+        trackerBlockingService.prepareForRemoval()
+        websitePermissionService.prepareForRemoval()
     }
 
     deinit {

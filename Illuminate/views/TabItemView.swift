@@ -72,7 +72,7 @@ struct TabItemView: View {
                 if showClose {
                     closeButton
                         .padding(.trailing, 5)
-                        .transition(.opacity.animation(MacDesign.fastAnimation))
+                        .transition(.opacity)
                         .zIndex(1)
                 }
 
@@ -100,14 +100,10 @@ struct TabItemView: View {
         .frame(height: TabItemMetrics.height)
         .contentShape(Rectangle())
         .onHover { hovering in
-            withAnimation(MacDesign.fastAnimation) {
-                isHovered = hovering
-            }
+            isHovered = hovering
         }
         .hoverCursor(.pointingHand)
         .contextMenu { contextMenuItems }
-        .animation(MacDesign.fastAnimation, value: isActive)
-        .animation(MacDesign.fastAnimation, value: isHovered)
     }
 
     @ViewBuilder
