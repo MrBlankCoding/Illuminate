@@ -32,10 +32,7 @@ struct FindInPageView: View {
                     .foregroundStyle(viewModel.matchFound ? theme.accent : .red)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 2)
-                    .background(
-                        Capsule()
-                            .fill(viewModel.matchFound ? theme.accent.opacity(0.14) : Color.red.opacity(0.12))
-                    )
+                    .liquidGlassCapsule(tint: viewModel.matchFound ? theme.accent : .red)
             }
 
             Divider()

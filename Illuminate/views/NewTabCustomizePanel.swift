@@ -113,8 +113,7 @@ struct NewTabCustomizePanel: View {
                                         .font(.caption)
                                         .padding(.horizontal, 10)
                                         .padding(.vertical, 5)
-                                        .background(.regularMaterial, in: Capsule())
-                                        .overlay(Capsule().stroke(Color.primary.opacity(0.10), lineWidth: 0.5))
+                                        .liquidGlassCapsule()
                                 }
                                 .buttonStyle(.plain)
 
@@ -128,8 +127,7 @@ struct NewTabCustomizePanel: View {
                                             .font(.caption)
                                             .padding(.horizontal, 10)
                                             .padding(.vertical, 5)
-                                            .background(Color.red.opacity(0.10), in: Capsule())
-                                            .overlay(Capsule().stroke(Color.red.opacity(0.20), lineWidth: 0.5))
+                                            .liquidGlassCapsule(tint: .red)
                                             .foregroundStyle(.red)
                                     }
                                     .buttonStyle(.plain)
@@ -148,7 +146,7 @@ struct NewTabCustomizePanel: View {
         }
         .frame(width: 260)
         .frame(maxHeight: .infinity)
-        .background(.regularMaterial)
+        .glassEffect(.regular, in: .rect)
         .overlay(alignment: .leading) {
             Rectangle()
                 .fill(Color.primary.opacity(0.10))

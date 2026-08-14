@@ -229,7 +229,7 @@ private struct URLBarShellGlassModifier: ViewModifier {
     @ViewBuilder
     func body(content: Content) -> some View {
         content
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 11, style: .continuous))
+            .glassEffect(.regular, in: .rect(cornerRadius: 11))
             .background {
                 RoundedRectangle(cornerRadius: 11, style: .continuous)
                     .fill(themeColor.opacity(isFocused ? 0.10 : 0.035))

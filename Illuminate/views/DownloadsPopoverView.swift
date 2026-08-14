@@ -108,9 +108,11 @@ private struct DownloadsPopoverContent: View {
                 emptyState
             } else {
                 ScrollView {
-                    LazyVStack(spacing: 6) {
-                        ForEach(downloadManager.downloads) { task in
-                            DownloadRowView(task: task, themeColor: tabManager.windowThemeColor)
+                    GlassEffectContainer(spacing: 6) {
+                        LazyVStack(spacing: 6) {
+                            ForEach(downloadManager.downloads) { task in
+                                DownloadRowView(task: task, themeColor: tabManager.windowThemeColor)
+                            }
                         }
                     }
                     .padding(12)
@@ -181,6 +183,7 @@ private struct DownloadRowView: View {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 9)
+        .glassEffect(.regular.interactive(), in: .rect(cornerRadius: MacDesign.Radius.medium))
         .background(
             RoundedRectangle(cornerRadius: MacDesign.Radius.medium, style: .continuous)
                 .fill(Color.primary.opacity(0.04))

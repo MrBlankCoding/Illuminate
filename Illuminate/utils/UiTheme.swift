@@ -71,13 +71,13 @@ enum MacDesign {
 
 struct MacMaterialModifier: ViewModifier {
     var cornerRadius: CGFloat = MacDesign.Radius.medium
-    var material: Material = .regularMaterial
+    var style: Glass = .regular
     var strokeOpacity: Double = 0.10
     var shadowOpacity: Double = 0.0
 
     func body(content: Content) -> some View {
         content
-            .background(material, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            .glassEffect(style, in: .rect(cornerRadius: cornerRadius))
             .overlay {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                     .stroke(Color.primary.opacity(strokeOpacity), lineWidth: 0.5)
@@ -93,7 +93,7 @@ struct LiquidGlassCapsuleModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
             .padding(padding)
-            .background(.regularMaterial, in: Capsule())
+            .glassEffect(.regular, in: .capsule)
             .background {
                 if let tint {
                     Capsule().fill(tint.opacity(0.10))
@@ -108,7 +108,7 @@ struct LiquidGlassCapsuleModifier: ViewModifier {
 
 extension View {
     func glassBackground(cornerRadius: CGFloat = 8) -> some View {
-        modifier(MacMaterialModifier(cornerRadius: cornerRadius, material: .regularMaterial, strokeOpacity: 0.10))
+        modifier(MacMaterialModifier(cornerRadius: cornerRadius, style: .regular, strokeOpacity: 0.10))
     }
 
     func liquidGlassCapsule(tint: Color? = nil, padding: CGFloat = 0) -> some View {
@@ -117,12 +117,12 @@ extension View {
 
     @ViewBuilder
     func browserPanel(cornerRadius: CGFloat = 10) -> some View {
-        self.modifier(MacMaterialModifier(cornerRadius: cornerRadius, material: .regularMaterial, strokeOpacity: 0.09))
+        self.modifier(MacMaterialModifier(cornerRadius: cornerRadius, style: .regular, strokeOpacity: 0.09))
     }
 
     @ViewBuilder
     func insetPanel(cornerRadius: CGFloat = 8) -> some View {
-        self.background(.thinMaterial, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+        self.glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
             .overlay {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                     .stroke(Color.primary.opacity(0.07), lineWidth: 0.5)
@@ -131,7 +131,7 @@ extension View {
 
     @ViewBuilder
     func accentGlassPanel(accent: Color, cornerRadius: CGFloat = 10) -> some View {
-        self.background(.regularMaterial, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+        self.glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
             .background {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                     .fill(accent.opacity(0.13))
@@ -144,7 +144,7 @@ extension View {
 
     @ViewBuilder
     func floatingGlassPanel(cornerRadius: CGFloat = 10) -> some View {
-        self.background(.regularMaterial, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+        self.glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
             .overlay {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                     .stroke(Color.primary.opacity(0.10), lineWidth: 0.5)
@@ -153,7 +153,7 @@ extension View {
     }
 
     func macPopover(cornerRadius: CGFloat = MacDesign.Radius.large) -> some View {
-        modifier(MacMaterialModifier(cornerRadius: cornerRadius, material: .regularMaterial, strokeOpacity: 0.10, shadowOpacity: 0.16))
+        modifier(MacMaterialModifier(cornerRadius: cornerRadius, style: .regular, strokeOpacity: 0.10, shadowOpacity: 0.16))
     }
 
     func macControlBackground(isActive: Bool = false, isHovered: Bool = false, tint: Color? = nil, radius: CGFloat = MacDesign.Radius.control) -> some View {
@@ -177,7 +177,7 @@ struct GlassButtonStyle: ButtonStyle {
             .font(.webBody)
             .padding(.horizontal, 14)
             .padding(.vertical, 6)
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: MacDesign.Radius.control, style: .continuous))
+            .glassEffect(.regular.interactive(), in: .rect(cornerRadius: MacDesign.Radius.control))
             .background {
                 if let tint {
                     RoundedRectangle(cornerRadius: MacDesign.Radius.control, style: .continuous)
@@ -213,7 +213,9 @@ struct LiquidGlassGroup<Content: View>: View {
     @ViewBuilder let content: Content
 
     var body: some View {
-        content
+        GlassEffectContainer(spacing: spacing) {
+            content
+        }
     }
 }
 
@@ -277,20 +279,16 @@ struct MacToolbarButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .frame(width: MacDesign.Size.iconButton, height: MacDesign.Size.iconButton)
+            .glassEffect(isActive ? .regular : .regular.interactive(), in: .circle)
             .background {
-                Circle()
-                    .fill(backgroundFill(isPressed: configuration.isPressed))
+                if isActive || configuration.isPressed {
+                    Circle()
+                        .fill((tint ?? .accentColor).opacity(0.18))
+                }
             }
             .contentShape(Circle())
             .scaleEffect(configuration.isPressed ? 0.94 : 1)
             .animation(MacDesign.fastAnimation, value: configuration.isPressed)
-    }
-
-    private func backgroundFill(isPressed: Bool) -> Color {
-        if isPressed || isActive {
-            return (tint ?? .accentColor).opacity(0.18)
-        }
-        return .clear
     }
 }
 

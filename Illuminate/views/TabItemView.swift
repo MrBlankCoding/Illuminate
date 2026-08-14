@@ -163,7 +163,7 @@ struct TabItemView: View {
     private var tabBackground: some View {
         if isActive {
             RoundedRectangle(cornerRadius: TabItemMetrics.cornerRadius, style: .continuous)
-                .fill(.regularMaterial)
+                .glassEffect(.regular.interactive(), in: .rect(cornerRadius: TabItemMetrics.cornerRadius))
                 .overlay {
                     RoundedRectangle(cornerRadius: TabItemMetrics.cornerRadius, style: .continuous)
                         .fill(themeColor.opacity(colorScheme == .dark ? 0.12 : 0.09))
@@ -182,7 +182,11 @@ struct TabItemView: View {
                 )
         } else if isHovered {
             RoundedRectangle(cornerRadius: TabItemMetrics.cornerRadius, style: .continuous)
-                .fill(theme.itemHover)
+                .glassEffect(.regular.interactive(), in: .rect(cornerRadius: TabItemMetrics.cornerRadius))
+                .overlay {
+                    RoundedRectangle(cornerRadius: TabItemMetrics.cornerRadius, style: .continuous)
+                        .fill(theme.itemHover)
+                }
                 .overlay {
                     RoundedRectangle(cornerRadius: TabItemMetrics.cornerRadius, style: .continuous)
                         .stroke(Color.primary.opacity(0.06), lineWidth: 0.5)
