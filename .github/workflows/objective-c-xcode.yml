@@ -36,6 +36,9 @@ jobs:
             -project "$PROJECT" \
             -destination "$DESTINATION" \
             -derivedDataPath "$DERIVED_DATA" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
             -resultBundlePath "$BUILD_RESULT" | xcbeautify
 
       - name: Test with Code Coverage
@@ -47,6 +50,9 @@ jobs:
             -destination "$DESTINATION" \
             -derivedDataPath "$DERIVED_DATA" \
             -enableCodeCoverage YES \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
             -resultBundlePath "$TEST_RESULT" | xcbeautify
 
       - name: Export Code Coverage Report
