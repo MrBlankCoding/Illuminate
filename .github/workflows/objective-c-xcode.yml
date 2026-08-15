@@ -2,15 +2,16 @@ name: Xcode - Build, Analyze, and Test
 
 on:
   push:
-    branches: [ "master" ]
+    branches: ["master"]
   pull_request:
-    branches: [ "master" ]
+    branches: ["master"]
 
 jobs:
   build:
     name: Build, analyze, and run regular tests
     runs-on: macos-26
     timeout-minutes: 30
+
     env:
       SCHEME: Illuminate
       PROJECT: Illuminate.xcodeproj
@@ -27,10 +28,18 @@ jobs:
         run: |
           sudo xcode-select -s /Applications/Xcode_26.6.app
           xcodebuild -version
+          swift --version
+
+      - name: Resolve Swift Package Dependencies
+        run: |
+          xcodebuild -resolvePackageDependencies \
+            -scheme "$SCHEME" \
+            -project "$PROJECT"
 
       - name: Build and Analyze
         run: |
           set -o pipefail
+
           xcodebuild clean build analyze \
             -scheme "$SCHEME" \
             -project "$PROJECT" \
@@ -39,25 +48,31 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
-            -resultBundlePath "$BUILD_RESULT" | xcbeautify
+            -resultBundlePath "$BUILD_RESULT" \
+            | xcbeautify
 
       - name: Test with Code Coverage
         run: |
           set -o pipefail
+
           xcodebuild test \
             -scheme "$SCHEME" \
             -project "$PROJECT" \
             -destination "$DESTINATION" \
             -derivedDataPath "$DERIVED_DATA" \
             -enableCodeCoverage YES \
+            -parallel-testing-enabled NO \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
-            -resultBundlePath "$TEST_RESULT" | xcbeautify
+            -resultBundlePath "$TEST_RESULT" \
+            | xcbeautify
 
       - name: Export Code Coverage Report
         if: always()
         run: |
+          mkdir -p build
+
           if [ -d "$TEST_RESULT" ]; then
             if xcrun xccov view --report --json "$TEST_RESULT" > build/coverage.json; then
               echo "Coverage report exported."
@@ -68,6 +83,7 @@ jobs:
           else
             echo "Test result bundle was not created; skipping coverage export."
           fi
+
       - name: Upload Xcode Results and Coverage
         if: always()
         uses: actions/upload-artifact@v7
@@ -76,5 +92,5 @@ jobs:
           path: |
             build/*.xcresult
             build/coverage.json
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 14
