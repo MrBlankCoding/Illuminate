@@ -42,7 +42,7 @@ final class PerformanceBenchmarks: XCTestCase {
 
         let nsPerOp = mean * 1_000_000_000
         print(String(
-            format: "[BENCH] %-40s  n=%-6d  mean=%.1fns  median=%.1fns  p95=%.1fns",
+            format: "[BENCH] %-40@  n=%-6lld  mean=%.1lfns  median=%.1lfns  p95=%.1lfns",
             name, iterations, nsPerOp, median * 1_000_000_000, p95 * 1_000_000_000
         ))
 

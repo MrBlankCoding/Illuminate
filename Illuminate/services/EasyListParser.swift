@@ -123,7 +123,6 @@ final class EasyListParser {
         var loadTypes: [String]?
         var includedResourceTypes = Set<String>()
         var excludedResourceTypes = Set<String>()
-        var optionDomains: [String] = []
 
         if parts.count > 1 {
             let options = parts[1].components(separatedBy: ",")
@@ -140,11 +139,9 @@ final class EasyListParser {
                 case trimmedOption == "first-party":
                     loadTypes = ["first-party"]
                 case trimmedOption.hasPrefix("domain="):
-                    let domainList = trimmedOption.dropFirst("domain=".count)
-                    optionDomains = domainList
-                        .components(separatedBy: "|")
-                        .map { normalizedDomain($0) }
-                        .filter { !$0.isEmpty }
+                    // WebKit content rule lists do not support domain= filters here,
+                    // so ignore them instead of emitting unsupported if-domain/unless-domain entries.
+                    continue
                 default:
                     let isExclusion = trimmedOption.hasPrefix("~")
                     let normalizedOption = isExclusion
@@ -174,12 +171,10 @@ final class EasyListParser {
             resourceTypes = nil
         }
 
-        let splitOptionDomains = splitDomains(optionDomains)
-
         let trigger = Trigger(
             urlFilter: convertToRegex(filter),
-            ifDomain: splitOptionDomains.ifDomains,
-            unlessDomain: splitOptionDomains.unlessDomains,
+            ifDomain: nil,
+            unlessDomain: nil,
             resourceType: resourceTypes,
             loadType: loadTypes
         )
@@ -268,6 +263,7 @@ final class EasyListParser {
     }
 
     private static func translatePattern(_ pattern: String) -> String {
+        let hostnameBoundaryClass = "[^A-Za-z0-9._%-]"
         var translated = ""
 
         for character in pattern {
@@ -276,8 +272,9 @@ final class EasyListParser {
                 translated += ".*"
             case "^":
                 // WebKit's Content Rule List regex engine does not support disjunctions (|).
-                // We use [^a-zA-Z0-9] as a safe separator match, which avoids the "Disjunctions are not supported yet" error.
-                translated += "[^a-zA-Z0-9]"
+                // Keep the hostname boundary permissive enough to match domain separators such as dots, underscores,
+                // percent-encoded characters, and hyphenated subdomains.
+                translated += hostnameBoundaryClass
             default:
                 translated += escapedRegexLiteral(for: character)
             }

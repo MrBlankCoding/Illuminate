@@ -1,5 +1,5 @@
 //
-//  DownloadManager+Helpers.swift
+//  DownloadManagerHelpers.swift
 //  Illuminate
 //
 // Created by MrBlankCoding on 4/4/26.
@@ -114,9 +114,37 @@ extension DownloadManager {
 
     func resolvedFilename(_ rawFilename: String?, fallbackURL: URL?, mimeType: String?) -> String {
         var filename = sanitizedFilename(rawFilename, fallbackURL: fallbackURL)
-        let pathExtension = (filename as NSString).pathExtension
 
-        if pathExtension.isEmpty,
+        let preferredExtension: String?
+        if let fallbackURL,
+           !fallbackURL.pathExtension.isEmpty,
+           let fallbackExtension = fallbackURL.pathExtension.lowercased().nilIfEmpty {
+            preferredExtension = fallbackExtension
+        } else if let mimeType,
+                  let type = UTType(mimeType: mimeType),
+                  let fallbackExtension = type.preferredFilenameExtension?.lowercased() {
+            preferredExtension = fallbackExtension
+        } else {
+            preferredExtension = nil
+        }
+
+        if let preferredExtension {
+            let normalized = filename.lowercased()
+            let alreadyCorrect = normalized.hasSuffix(".\(preferredExtension)")
+            if !alreadyCorrect {
+                let extensionless = (filename as NSString).deletingPathExtension
+                let withoutDuplicateSuffix = extensionless.replacingOccurrences(
+                    of: #" \(\d+\)\.[^.]+$"#,
+                    with: "",
+                    options: .regularExpression
+                )
+                let baseName = withoutDuplicateSuffix.isEmpty ? extensionless : withoutDuplicateSuffix
+                filename = "\(baseName).\(preferredExtension)"
+            }
+        }
+
+        let resolvedExtension = (filename as NSString).pathExtension
+        if resolvedExtension.isEmpty,
            let mimeType,
            let type = UTType(mimeType: mimeType),
            let preferredExtension = type.preferredFilenameExtension

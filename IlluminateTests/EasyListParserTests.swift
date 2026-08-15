@@ -88,6 +88,32 @@ struct EasyListParserTests {
         #expect(rules[0]["trigger"]?["url-filter"] as? String == "^[^:]+:(//)?([^/]+\\.)?pagead2\\.googlesyndication\\.com[^A-Za-z0-9._%-]")
     }
 
+    @Test func testParseAnchoredWildcardAndRegexEscapes() throws {
+        let anchored = try decodedRules(from: EasyListParser.parse(content: "|ads/*banner|"))
+        #expect(anchored[0]["trigger"]?["url-filter"] as? String == "^ads/.*banner$")
+
+        let regex = try decodedRules(from: EasyListParser.parse(content: "/\\w+\\d+\\s/"))
+        #expect(regex[0]["trigger"]?["url-filter"] as? String == "[A-Za-z0-9_]+[0-9]+[ \t\r\n\u{000C}]")
+    }
+
+    @Test func testParseElementHidingDomainAllowAndDenyLists() throws {
+        let content = " Example.COM, ~Ads.Example.com ## .sponsored "
+        let rules = try decodedRules(from: EasyListParser.parse(content: content))
+        #expect(rules.count == 1)
+        #expect((rules[0]["trigger"]?["if-domain"] as? [String]) == ["example.com"])
+        #expect(rules[0]["trigger"]?["unless-domain"] == nil)
+        #expect(rules[0]["action"]?["selector"] as? String == ".sponsored")
+    }
+
+    @Test func testParseResourceTypeInclusionsAndExclusions() throws {
+        let included = try decodedRules(from: EasyListParser.parse(content: "||ads.example^$script,image"))
+        #expect((included[0]["trigger"]?["resource-type"] as? [String]) == ["image", "script"])
+
+        let excluded = try decodedRules(from: EasyListParser.parse(content: "||ads.example^$~script"))
+        let excludedTypes = try #require(excluded[0]["trigger"]?["resource-type"] as? [String])
+        #expect(!excludedTypes.contains("script"))
+        #expect(excludedTypes.contains("image"))
+    }
     private func decodedRules(from json: String) throws -> [[String: [String: Any]]] {
         let data = try #require(json.data(using: .utf8))
         let raw = try JSONSerialization.jsonObject(with: data)

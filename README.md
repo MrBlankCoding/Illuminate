@@ -22,16 +22,14 @@ A lightweight browser built for MacOS that uses webkit and includes not arbitrar
 - Cookie managment
 - Ad-blocker
 - Seperate Profiles
+- History
+- Tab Groups
 
 ## RoadMap
-- [ ] Hisotry
 - [ ] UI Refinments
 - [ ] Bug fixes
 - [ ] Redirect blocker
-- [*] HTTPS/http secutiry
-- [*] Tracker blocking
-- [ ] Tab Grouping
-- [*] Tab Muting
+- [ ] Test Coverage < 75%
 
 
 ---
