@@ -41,17 +41,6 @@
                ReferencedContainer = "container:Illuminate.xcodeproj">
             </BuildableReference>
          </TestableReference>
-         <TestableReference
-            skipped = "NO"
-            parallelizable = "YES">
-            <BuildableReference
-               BuildableIdentifier = "primary"
-               BlueprintIdentifier = "F76B1E142F5E1A550043FEAE"
-               BuildableName = "IlluminateUITests.xctest"
-               BlueprintName = "IlluminateUITests"
-               ReferencedContainer = "container:Illuminate.xcodeproj">
-            </BuildableReference>
-         </TestableReference>
       </Testables>
    </TestAction>
    <LaunchAction

@@ -1,4 +1,4 @@
-name: Xcode - Build and Analyze
+name: Xcode - Build, Analyze, and Test
 
 on:
   push:
@@ -8,23 +8,61 @@ on:
 
 jobs:
   build:
-    name: Build and analyse default scheme using xcodebuild command
-    runs-on: macos-latest
+    name: Build, analyze, and run regular tests
+    runs-on: macos-15
+    timeout-minutes: 30
+    env:
+      SCHEME: Illuminate
+      PROJECT: Illuminate.xcodeproj
+      DESTINATION: platform=macOS,arch=arm64
+      DERIVED_DATA: build/DerivedData
+      BUILD_RESULT: build/Illuminate-build.xcresult
+      TEST_RESULT: build/Illuminate-tests.xcresult
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Set Default Scheme
+
+      - name: Select Xcode 26.3
         run: |
-          scheme_list=$(xcodebuild -list -json | tr -d "\n")
-          default=$(echo $scheme_list | ruby -e "require 'json'; puts JSON.parse(STDIN.gets)['project']['targets'][0]")
-          echo $default | cat >default
-          echo Using default scheme: $default
-      - name: Build
-        env:
-          scheme: ${{ 'default' }}
+          sudo xcode-select -s /Applications/Xcode_26.3.app
+          xcodebuild -version
+
+      - name: Build and Analyze
         run: |
-          if [ $scheme = default ]; then scheme=$(cat default); fi
-          if [ "`ls -A | grep -i \\.xcworkspace\$`" ]; then filetype_parameter="workspace" && file_to_build="`ls -A | grep -i \\.xcworkspace\$`"; else filetype_parameter="project" && file_to_build="`ls -A | grep -i \\.xcodeproj\$`"; fi
-          file_to_build=`echo $file_to_build | awk '{$1=$1;print}'`
-          xcodebuild clean build analyze -scheme "$scheme" -"$filetype_parameter" "$file_to_build" | xcpretty && exit ${PIPESTATUS[0]}
+          set -o pipefail
+          xcodebuild clean build analyze \
+            -scheme "$SCHEME" \
+            -project "$PROJECT" \
+            -destination "$DESTINATION" \
+            -derivedDataPath "$DERIVED_DATA" \
+            -resultBundlePath "$BUILD_RESULT" | xcbeautify
+
+      - name: Test with Code Coverage
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -scheme "$SCHEME" \
+            -project "$PROJECT" \
+            -destination "$DESTINATION" \
+            -derivedDataPath "$DERIVED_DATA" \
+            -enableCodeCoverage YES \
+            -resultBundlePath "$TEST_RESULT" | xcbeautify
+
+      - name: Export Code Coverage Report
+        if: always()
+        run: |
+          if [ -d "$TEST_RESULT" ]; then
+            xcrun xccov view --report --json "$TEST_RESULT" > build/coverage.json
+          fi
+
+      - name: Upload Xcode Results and Coverage
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: illuminate-xcode-results
+          path: |
+            build/*.xcresult
+            build/coverage.json
+          if-no-files-found: error
+          retention-days: 14

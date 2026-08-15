@@ -14,10 +14,6 @@
         <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="F76B1E0A2F5E1A550043FEAE" BuildableName="IlluminateTests.xctest" BlueprintName="IlluminateTests" ReferencedContainer="container:Illuminate.xcodeproj">
         </BuildableReference>
       </TestableReference>
-      <TestableReference skipped="NO" parallelizable="YES">
-        <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="F76B1E142F5E1A550043FEAE" BuildableName="IlluminateUITests.xctest" BlueprintName="IlluminateUITests" ReferencedContainer="container:Illuminate.xcodeproj">
-        </BuildableReference>
-      </TestableReference>
     </Testables>
     <MacroExpansion>
       <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="F76B1DFB2F5E1A520043FEAE" BuildableName="Illuminate.app" BlueprintName="Illuminate" ReferencedContainer="container:Illuminate.xcodeproj">

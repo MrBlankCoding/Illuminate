@@ -19,19 +19,11 @@
 			remoteGlobalIDString = F76B1DFB2F5E1A520043FEAE;
 			remoteInfo = Illuminate;
 		};
-		F76B1E162F5E1A550043FEAE /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = F76B1DF42F5E1A520043FEAE /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = F76B1DFB2F5E1A520043FEAE;
-			remoteInfo = Illuminate;
-		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
 		F76B1DFC2F5E1A520043FEAE /* Illuminate.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Illuminate.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		F76B1E0B2F5E1A550043FEAE /* IlluminateTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IlluminateTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		F76B1E152F5E1A550043FEAE /* IlluminateUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IlluminateUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		F76B1F832F5E21300043FEAE /* WebKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WebKit.framework; path = System/Library/Frameworks/WebKit.framework; sourceTree = SDKROOT; };
 		F76B1F852F5E213A0043FEAE /* SwiftData.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftData.framework; path = System/Library/Frameworks/SwiftData.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
@@ -47,11 +39,6 @@
 			path = IlluminateTests;
 			sourceTree = "<group>";
 		};
-		F76B1E182F5E1A550043FEAE /* IlluminateUITests */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = IlluminateUITests;
-			sourceTree = "<group>";
-		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -65,13 +52,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		F76B1E082F5E1A550043FEAE /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		F76B1E122F5E1A550043FEAE /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -97,7 +77,6 @@
 			children = (
 				F76B1DFC2F5E1A520043FEAE /* Illuminate.app */,
 				F76B1E0B2F5E1A550043FEAE /* IlluminateTests.xctest */,
-				F76B1E152F5E1A550043FEAE /* IlluminateUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -114,7 +93,6 @@
 		F78406BC30310EAF000DF0D9 /* Recovered References */ = {
 			isa = PBXGroup;
 			children = (
-				F76B1E182F5E1A550043FEAE /* IlluminateUITests */,
 			);
 			name = "Recovered References";
 			sourceTree = "<group>";
@@ -167,29 +145,6 @@
 			productReference = F76B1E0B2F5E1A550043FEAE /* IlluminateTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
-		F76B1E142F5E1A550043FEAE /* IlluminateUITests */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = F76B1E252F5E1A550043FEAE /* Build configuration list for PBXNativeTarget "IlluminateUITests" */;
-			buildPhases = (
-				F76B1E112F5E1A550043FEAE /* Sources */,
-				F76B1E122F5E1A550043FEAE /* Frameworks */,
-				F76B1E132F5E1A550043FEAE /* Resources */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-				F76B1E172F5E1A550043FEAE /* PBXTargetDependency */,
-			);
-			fileSystemSynchronizedGroups = (
-				F76B1E182F5E1A550043FEAE /* IlluminateUITests */,
-			);
-			name = IlluminateUITests;
-			packageProductDependencies = (
-			);
-			productName = IlluminateUITests;
-			productReference = F76B1E152F5E1A550043FEAE /* IlluminateUITests.xctest */;
-			productType = "com.apple.product-type.bundle.ui-testing";
-		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -204,10 +159,6 @@
 						CreatedOnToolsVersion = 26.3;
 					};
 					F76B1E0A2F5E1A550043FEAE = {
-						CreatedOnToolsVersion = 26.3;
-						TestTargetID = F76B1DFB2F5E1A520043FEAE;
-					};
-					F76B1E142F5E1A550043FEAE = {
 						CreatedOnToolsVersion = 26.3;
 						TestTargetID = F76B1DFB2F5E1A520043FEAE;
 					};
@@ -229,7 +180,6 @@
 			targets = (
 				F76B1DFB2F5E1A520043FEAE /* Illuminate */,
 				F76B1E0A2F5E1A550043FEAE /* IlluminateTests */,
-				F76B1E142F5E1A550043FEAE /* IlluminateUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -243,13 +193,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		F76B1E092F5E1A550043FEAE /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		F76B1E132F5E1A550043FEAE /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -273,13 +216,6 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		F76B1E112F5E1A550043FEAE /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -287,11 +223,6 @@
 			isa = PBXTargetDependency;
 			target = F76B1DFB2F5E1A520043FEAE /* Illuminate */;
 			targetProxy = F76B1E0C2F5E1A550043FEAE /* PBXContainerItemProxy */;
-		};
-		F76B1E172F5E1A550043FEAE /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = F76B1DFB2F5E1A520043FEAE /* Illuminate */;
-			targetProxy = F76B1E162F5E1A550043FEAE /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -562,48 +493,6 @@
 			};
 			name = Release;
 		};
-		F76B1E262F5E1A550043FEAE /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEAD_CODE_STRIPPING = YES;
-				DEVELOPMENT_TEAM = 548N22VJX8;
-				GENERATE_INFOPLIST_FILE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.MrBlankCoding.IlluminateUITests;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				STRING_CATALOG_GENERATE_SYMBOLS = NO;
-				SWIFT_APPROACHABLE_CONCURRENCY = YES;
-				SWIFT_EMIT_LOC_STRINGS = NO;
-				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
-				TEST_TARGET_NAME = Illuminate;
-			};
-			name = Debug;
-		};
-		F76B1E272F5E1A550043FEAE /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEAD_CODE_STRIPPING = YES;
-				DEVELOPMENT_TEAM = 548N22VJX8;
-				GENERATE_INFOPLIST_FILE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.MrBlankCoding.IlluminateUITests;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				STRING_CATALOG_GENERATE_SYMBOLS = NO;
-				SWIFT_APPROACHABLE_CONCURRENCY = YES;
-				SWIFT_EMIT_LOC_STRINGS = NO;
-				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
-				TEST_TARGET_NAME = Illuminate;
-			};
-			name = Release;
-		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -630,15 +519,6 @@
 			buildConfigurations = (
 				F76B1E232F5E1A550043FEAE /* Debug */,
 				F76B1E242F5E1A550043FEAE /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
-		F76B1E252F5E1A550043FEAE /* Build configuration list for PBXNativeTarget "IlluminateUITests" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				F76B1E262F5E1A550043FEAE /* Debug */,
-				F76B1E272F5E1A550043FEAE /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
