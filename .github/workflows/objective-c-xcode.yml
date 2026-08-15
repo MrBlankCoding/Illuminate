@@ -9,7 +9,7 @@ on:
 jobs:
   build:
     name: Build, analyze, and run regular tests
-    runs-on: macos-15
+    runs-on: macos-26
     timeout-minutes: 30
     env:
       SCHEME: Illuminate
@@ -23,9 +23,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Select Xcode 26.3
+      - name: Select Xcode 26.6
         run: |
-          sudo xcode-select -s /Applications/Xcode_26.3.app
+          sudo xcode-select -s /Applications/Xcode_26.6.app
           xcodebuild -version
 
       - name: Build and Analyze
@@ -59,9 +59,15 @@ jobs:
         if: always()
         run: |
           if [ -d "$TEST_RESULT" ]; then
-            xcrun xccov view --report --json "$TEST_RESULT" > build/coverage.json
+            if xcrun xccov view --report --json "$TEST_RESULT" > build/coverage.json; then
+              echo "Coverage report exported."
+            else
+              echo "Coverage data was not available; continuing so result bundles can still be uploaded."
+              rm -f build/coverage.json
+            fi
+          else
+            echo "Test result bundle was not created; skipping coverage export."
           fi
-
       - name: Upload Xcode Results and Coverage
         if: always()
         uses: actions/upload-artifact@v7
