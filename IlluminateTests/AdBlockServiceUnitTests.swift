@@ -9,6 +9,7 @@ import Testing
 import Foundation
 @testable import Illuminate
 
+@Suite(.serialized)
 @MainActor
 struct AdBlockServiceUnitTests {
 

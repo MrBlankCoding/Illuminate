@@ -22,7 +22,7 @@ struct DownloadManagerTests {
 
         try await Task.sleep(nanoseconds: 100_000_000)
 
-        let task = try #require(manager.downloads.first)
+        let task = try #require(manager.downloads.first(where: { $0.url == url }))
         #expect(task.url == url)
         #expect(task.filename == "report.pdf")
         #expect(task.state == .preparing || task.state == .downloading)
