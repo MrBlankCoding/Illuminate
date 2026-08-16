@@ -121,6 +121,7 @@ struct NewTabView: View {
         .buttonStyle(.plain)
         .animation(MacDesign.springAnimation, value: isCustomizePanelShown)
         .accessibilityLabel(isCustomizePanelShown ? "Close customize panel" : "Customize new tab page")
+        .accessibilityIdentifier("browser.newTab.customizeButton")
         .help(isCustomizePanelShown ? "Close" : "Customize")
     }
 
@@ -135,6 +136,7 @@ struct NewTabView: View {
                     .font(.system(size: 15, weight: .medium, design: .rounded))
                     .foregroundStyle(Color.textPrimary)
                     .focused($isSearchFieldFocused)
+                    .accessibilityIdentifier("browser.newTab.searchField")
                     .onSubmit {
                         googleSuggestions = []
                         navigate(with: searchText)

@@ -50,6 +50,8 @@ struct ProtectionPageView: View {
                     ))
                     .labelsHidden()
                     .toggleStyle(.switch)
+                    .accessibilityLabel("Block ads and trackers")
+                    .accessibilityIdentifier("browser.protection.adBlockerToggle")
                 }
             }
         }
@@ -71,12 +73,14 @@ struct ProtectionPageView: View {
                     Toggle("", isOn: $webKitManager.httpsOnlyEnabled)
                         .labelsHidden()
                         .toggleStyle(.switch)
+                        .accessibilityLabel("HTTPS-only mode")
+                        .accessibilityIdentifier("browser.protection.httpsOnlyToggle")
+                    }
                 }
             }
         }
-    }
 
-    private var trackerBlockingSection: some View {
+        private var trackerBlockingSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             sectionHeader("Tracker Blocking")
 
@@ -93,10 +97,12 @@ struct ProtectionPageView: View {
                     Toggle("", isOn: $trackerBlockingService.isEnabled)
                         .labelsHidden()
                         .toggleStyle(.switch)
+                        .accessibilityLabel("Enable tracker learning")
+                        .accessibilityIdentifier("browser.protection.trackerLearningToggle")
+                    }
                 }
-            }
 
-            if trackerBlockingService.isEnabled {
+                if trackerBlockingService.isEnabled {
                 InternalPageRow {
                     HStack {
                         VStack(alignment: .leading, spacing: 3) {
@@ -113,6 +119,7 @@ struct ProtectionPageView: View {
                             in: 1...10
                         )
                         .fixedSize()
+                        .accessibilityIdentifier("browser.protection.learnThresholdStepper")
                     }
                 }
 

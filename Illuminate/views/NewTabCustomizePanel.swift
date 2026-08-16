@@ -146,6 +146,7 @@ struct NewTabCustomizePanel: View {
         }
         .frame(width: 260)
         .frame(maxHeight: .infinity)
+        .accessibilityIdentifier("browser.newTab.customizePanel")
         .glassEffect(.regular, in: .rect)
         .overlay(alignment: .leading) {
             Rectangle()

@@ -68,6 +68,7 @@ struct TabItemView: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(tab.title.isEmpty ? "New Tab" : tab.title)
+                .accessibilityIdentifier("browser.tabbar.tab")
                 .accessibilityAddTraits(isActive ? [.isSelected] : [])
                 if showClose {
                     closeButton
@@ -220,6 +221,7 @@ struct TabItemView: View {
         .hoverCursor(.pointingHand)
         .help("Close Tab")
         .accessibilityLabel("Close \(tab.title.isEmpty ? "New Tab" : tab.title)")
+        .accessibilityIdentifier("browser.tabbar.closeTabButton")
         .animation(MacDesign.fastAnimation, value: isCloseHovered)
     }
 

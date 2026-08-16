@@ -51,6 +51,8 @@ struct DownloadsToolbarButton: View {
         .onHover { hovering in isHovered = hovering }
         .hoverCursor(.pointingHand)
         .help("Downloads")
+        .accessibilityLabel("Downloads")
+        .accessibilityIdentifier("browser.toolbar.downloadsButton")
         .popover(isPresented: $isPopoverPresented, arrowEdge: .bottom) {
             DownloadsPopoverContent()
                 .environmentObject(tabManager)
@@ -120,6 +122,7 @@ private struct DownloadsPopoverContent: View {
                 .frame(maxHeight: 400)
             }
         }
+        .accessibilityIdentifier("browser.downloads.popover")
     }
 
     private var emptyState: some View {
@@ -140,6 +143,7 @@ private struct DownloadsPopoverContent: View {
         .frame(maxWidth: .infinity)
         .padding(.horizontal, 20)
         .padding(.vertical, 32)
+        .accessibilityIdentifier("browser.downloads.popover.emptyState")
     }
 }
 

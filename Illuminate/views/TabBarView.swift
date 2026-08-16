@@ -83,6 +83,9 @@ struct TabBarView: View {
             }
         }
         .frame(height: TabBarMetrics.rowHeight)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("browser.tabbar")
+        .accessibilityLabel("Tab strip, \(tabManager.tabs.count) \(tabManager.tabs.count == 1 ? "tab" : "tabs")")
         .onReceive(tabManager.tabGroupManager.$groups) { _ in
             groupChangeToken = UUID()
         }

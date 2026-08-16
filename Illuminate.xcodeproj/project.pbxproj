@@ -19,6 +19,13 @@
 			remoteGlobalIDString = F76B1DFB2F5E1A520043FEAE;
 			remoteInfo = Illuminate;
 		};
+		F7A0000C2F5E1A550043FEAE /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = F76B1DF42F5E1A520043FEAE /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = F76B1DFB2F5E1A520043FEAE;
+			remoteInfo = Illuminate;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
@@ -26,6 +33,7 @@
 		F76B1E0B2F5E1A550043FEAE /* IlluminateTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IlluminateTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		F76B1F832F5E21300043FEAE /* WebKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WebKit.framework; path = System/Library/Frameworks/WebKit.framework; sourceTree = SDKROOT; };
 		F76B1F852F5E213A0043FEAE /* SwiftData.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftData.framework; path = System/Library/Frameworks/SwiftData.framework; sourceTree = SDKROOT; };
+		F7A0000B2F5E1A550043FEAE /* IlluminateUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IlluminateUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -37,6 +45,11 @@
 		F76B1E0E2F5E1A550043FEAE /* IlluminateTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = IlluminateTests;
+			sourceTree = "<group>";
+		};
+		F7A0000E2F5E1A550043FEAE /* IlluminateUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = IlluminateUITests;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -58,6 +71,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		F7A000082F5E1A550043FEAE /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -66,6 +86,7 @@
 			children = (
 				F76B1DFE2F5E1A520043FEAE /* Illuminate */,
 				F76B1E0E2F5E1A550043FEAE /* IlluminateTests */,
+				F7A0000E2F5E1A550043FEAE /* IlluminateUITests */,
 				F76B1F822F5E21300043FEAE /* Frameworks */,
 				F76B1DFD2F5E1A520043FEAE /* Products */,
 				F78406BC30310EAF000DF0D9 /* Recovered References */,
@@ -77,6 +98,7 @@
 			children = (
 				F76B1DFC2F5E1A520043FEAE /* Illuminate.app */,
 				F76B1E0B2F5E1A550043FEAE /* IlluminateTests.xctest */,
+				F7A0000B2F5E1A550043FEAE /* IlluminateUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -145,6 +167,29 @@
 			productReference = F76B1E0B2F5E1A550043FEAE /* IlluminateTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
+		F7A0000A2F5E1A550043FEAE /* IlluminateUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F7A000222F5E1A550043FEAE /* Build configuration list for PBXNativeTarget "IlluminateUITests" */;
+			buildPhases = (
+				F7A000072F5E1A550043FEAE /* Sources */,
+				F7A000082F5E1A550043FEAE /* Frameworks */,
+				F7A000092F5E1A550043FEAE /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				F7A0000D2F5E1A550043FEAE /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				F7A0000E2F5E1A550043FEAE /* IlluminateUITests */,
+			);
+			name = IlluminateUITests;
+			packageProductDependencies = (
+			);
+			productName = IlluminateUITests;
+			productReference = F7A0000B2F5E1A550043FEAE /* IlluminateUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -159,6 +204,10 @@
 						CreatedOnToolsVersion = 26.3;
 					};
 					F76B1E0A2F5E1A550043FEAE = {
+						CreatedOnToolsVersion = 26.3;
+						TestTargetID = F76B1DFB2F5E1A520043FEAE;
+					};
+					F7A0000A2F5E1A550043FEAE = {
 						CreatedOnToolsVersion = 26.3;
 						TestTargetID = F76B1DFB2F5E1A520043FEAE;
 					};
@@ -180,6 +229,7 @@
 			targets = (
 				F76B1DFB2F5E1A520043FEAE /* Illuminate */,
 				F76B1E0A2F5E1A550043FEAE /* IlluminateTests */,
+				F7A0000A2F5E1A550043FEAE /* IlluminateUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -193,6 +243,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		F76B1E092F5E1A550043FEAE /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F7A000092F5E1A550043FEAE /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -216,6 +273,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		F7A000072F5E1A550043FEAE /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -223,6 +287,11 @@
 			isa = PBXTargetDependency;
 			target = F76B1DFB2F5E1A520043FEAE /* Illuminate */;
 			targetProxy = F76B1E0C2F5E1A550043FEAE /* PBXContainerItemProxy */;
+		};
+		F7A0000D2F5E1A550043FEAE /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = F76B1DFB2F5E1A520043FEAE /* Illuminate */;
+			targetProxy = F7A0000C2F5E1A550043FEAE /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -493,6 +562,42 @@
 			};
 			name = Release;
 		};
+		F7A000232F5E1A550043FEAE /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 548N22VJX8;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.MrBlankCoding.IlluminateUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TEST_TARGET_NAME = Illuminate;
+			};
+			name = Debug;
+		};
+		F7A000242F5E1A550043FEAE /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 548N22VJX8;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.MrBlankCoding.IlluminateUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TEST_TARGET_NAME = Illuminate;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -519,6 +624,15 @@
 			buildConfigurations = (
 				F76B1E232F5E1A550043FEAE /* Debug */,
 				F76B1E242F5E1A550043FEAE /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		F7A000222F5E1A550043FEAE /* Build configuration list for PBXNativeTarget "IlluminateUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F7A000232F5E1A550043FEAE /* Debug */,
+				F7A000242F5E1A550043FEAE /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

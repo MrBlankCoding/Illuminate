@@ -151,6 +151,8 @@ struct MoreOptionsMenu: View {
         .menuStyle(.borderlessButton)
         .fixedSize()
         .help("More Options")
+        .accessibilityLabel("More Options")
+        .accessibilityIdentifier("browser.toolbar.moreOptionsButton")
     }
 
     private func openInternalPage(_ urlString: String) {

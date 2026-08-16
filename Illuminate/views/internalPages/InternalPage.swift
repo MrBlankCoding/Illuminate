@@ -29,6 +29,7 @@ struct InternalPage<Content: View>: View {
                     Text(title)
                         .font(.system(size: 26, weight: .bold, design: .rounded))
                         .foregroundStyle(Color.textPrimary)
+                        .accessibilityIdentifier("browser.internalPage.\(title.lowercased())")
                 }
 
                 content()

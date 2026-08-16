@@ -22,10 +22,12 @@ final class ProfileManager: ObservableObject {
 
     private let fileManager: FileManager
     private let profilesURL: URL
+    private let usesUITestProfiles: Bool
 
     init(fileManager: FileManager = .default) {
         self.fileManager = fileManager
         self.profilesURL = fileManager.illuminateProfilesCatalogURL()
+        self.usesUITestProfiles = ProcessInfo.processInfo.arguments.contains("-uiTesting")
         Task {
             await loadProfilesAsync()
         }
@@ -113,6 +115,14 @@ final class ProfileManager: ObservableObject {
     }
 
     private func loadProfilesAsync() async {
+        if usesUITestProfiles {
+            profiles = [
+                BrowserProfile(name: "UI Test Personal"),
+                BrowserProfile(name: "UI Test Work", iconName: "briefcase.fill"),
+            ]
+            return
+        }
+
         let url = profilesURL
         let loadedProfiles: [BrowserProfile]
         
@@ -133,6 +143,7 @@ final class ProfileManager: ObservableObject {
     }
 
     private func saveProfiles() {
+        guard !usesUITestProfiles else { return }
         do {
             let data = try JSONEncoder().encode(profiles)
             try data.write(to: profilesURL, options: .atomic)

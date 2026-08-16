@@ -41,6 +41,8 @@ struct CookiesPageView: View {
                         ))
                         .labelsHidden()
                         .toggleStyle(.switch)
+                        .accessibilityLabel("Enable cookies")
+                        .accessibilityIdentifier("browser.cookies.enabledToggle")
                     }
                 }
 
@@ -58,6 +60,7 @@ struct CookiesPageView: View {
                             showClearConfirmation = true
                         }
                         .buttonStyle(InternalPageChipButtonStyle(color: .red))
+                        .accessibilityIdentifier("browser.cookies.clearButton")
                     }
                 }
                 .confirmationDialog(
