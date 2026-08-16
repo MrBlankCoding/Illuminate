@@ -11,6 +11,7 @@ import UniformTypeIdentifiers
 struct MoreOptionsMenu: View {
     @EnvironmentObject private var tabManager: TabManager
     @EnvironmentObject private var profileEnvironment: ProfileEnvironment
+    @State private var isHovered = false
 
     var body: some View {
         Menu {
@@ -144,12 +145,16 @@ struct MoreOptionsMenu: View {
         } label: {
             Image(systemName: "ellipsis")
                 .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(Color.textSecondary)
+                .foregroundStyle(isHovered ? Color.textPrimary : Color.textSecondary)
                 .frame(width: MacDesign.Size.iconButton, height: MacDesign.Size.iconButton)
-                .contentShape(Rectangle())
+                .macControlBackground(isHovered: isHovered, tint: tabManager.windowThemeColor, radius: 999)
+                .contentShape(Circle())
+                .animation(MacDesign.fastAnimation, value: isHovered)
         }
         .menuStyle(.borderlessButton)
         .fixedSize()
+        .onHover { isHovered = $0 }
+        .hoverCursor(.pointingHand)
         .help("More Options")
         .accessibilityLabel("More Options")
         .accessibilityIdentifier("browser.toolbar.moreOptionsButton")

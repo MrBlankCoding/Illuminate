@@ -18,7 +18,7 @@ struct NavigationControls: View {
     }
 
     var body: some View {
-        HStack(spacing: 2) {
+        HStack(spacing: 1) {
             navButton(systemName: "chevron.left", identifier: "browser.navigation.backButton", isEnabled: tab.canGoBack, help: "Go Back") {
                 tab.webView?.goBack()
             }
@@ -42,6 +42,7 @@ struct NavigationControls: View {
                 }
             }
         }
+        .navClusterBackground()
     }
 
     private func navButton(systemName: String, identifier: String, isEnabled: Bool, isGreyedOut: Bool = false, help: String = "", action: @escaping () -> Void) -> some View {
@@ -74,9 +75,10 @@ private struct NavigationControlButton: View {
                 .foregroundStyle(symbolColor)
                 .frame(width: MacDesign.Size.iconButton, height: MacDesign.Size.iconButton)
                 .macControlBackground(isHovered: isEnabled && isHovered && !isGreyedOut, tint: theme.accent, radius: 999)
+                .contentShape(Circle())
                 .animation(MacDesign.fastAnimation, value: isHovered)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(ToolbarIconPressStyle())
         .disabled(!isEnabled || isGreyedOut)
         .onHover { hovering in
             isHovered = hovering
@@ -94,5 +96,26 @@ private struct NavigationControlButton: View {
             return Color.textSecondary.opacity(0.42)
         }
         return isHovered ? Color.textPrimary : Color.textSecondary
+    }
+}
+
+struct NavClusterBackgroundModifier: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .padding(3)
+            .background {
+                Capsule()
+                    .fill(Color.primary.opacity(0.035))
+            }
+            .overlay {
+                Capsule()
+                    .stroke(Color.primary.opacity(0.07), lineWidth: 0.5)
+            }
+    }
+}
+
+extension View {
+    func navClusterBackground() -> some View {
+        modifier(NavClusterBackgroundModifier())
     }
 }

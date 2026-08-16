@@ -14,6 +14,7 @@ private enum TabItemMetrics {
     static let closeButtonSize: CGFloat = 18
     static let hPad: CGFloat = 8
     static let closeReserve: CGFloat = 22
+    static let progressHeight: CGFloat = 2
 }
 
 struct TabItemView: View {
@@ -21,6 +22,7 @@ struct TabItemView: View {
 
     let themeColor: Color
     let isActive: Bool
+    let namespace: Namespace.ID
     let onSelect: () -> Void
     let onClose: () -> Void
     let onDuplicate: () -> Void
@@ -66,10 +68,11 @@ struct TabItemView: View {
                         )
                     )
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(TabPressButtonStyle())
                 .accessibilityLabel(tab.title.isEmpty ? "New Tab" : tab.title)
                 .accessibilityIdentifier("browser.tabbar.tab")
                 .accessibilityAddTraits(isActive ? [.isSelected] : [])
+
                 if showClose {
                     closeButton
                         .padding(.trailing, 5)
@@ -78,16 +81,9 @@ struct TabItemView: View {
                 }
 
                 if tab.isLoading && tab.estimatedProgress < 1.0 {
-                    VStack {
-                        Spacer()
-                        ProgressView(value: tab.estimatedProgress, total: 1.0)
-                            .progressViewStyle(.linear)
-                            .tint(themeColor)
-                            .scaleEffect(x: 1, y: 0.4, anchor: .bottom)
-                            .padding(.horizontal, TabItemMetrics.hPad - 2)
-                    }
-                    .transition(.opacity.animation(MacDesign.fastAnimation))
-                    .allowsHitTesting(false)
+                    loadingIndicator(width: geo.size.width)
+                        .transition(.opacity.animation(MacDesign.fastAnimation))
+                        .allowsHitTesting(false)
                 }
             }
             .frame(width: geo.size.width, height: TabItemMetrics.height)
@@ -101,7 +97,7 @@ struct TabItemView: View {
         .frame(height: TabItemMetrics.height)
         .contentShape(Rectangle())
         .onHover { hovering in
-            isHovered = hovering
+            withAnimation(MacDesign.fastAnimation) { isHovered = hovering }
         }
         .hoverCursor(.pointingHand)
         .contextMenu { contextMenuItems }
@@ -167,20 +163,22 @@ struct TabItemView: View {
                 .glassEffect(.regular.interactive(), in: .rect(cornerRadius: TabItemMetrics.cornerRadius))
                 .overlay {
                     RoundedRectangle(cornerRadius: TabItemMetrics.cornerRadius, style: .continuous)
-                        .fill(themeColor.opacity(colorScheme == .dark ? 0.12 : 0.09))
+                        .fill(themeColor.opacity(colorScheme == .dark ? 0.14 : 0.10))
                 }
                 .overlay {
                     RoundedRectangle(cornerRadius: TabItemMetrics.cornerRadius, style: .continuous)
                         .stroke(
-                            themeColor.opacity(colorScheme == .dark ? 0.22 : 0.18),
-                            lineWidth: 0.5
+                            themeColor.opacity(colorScheme == .dark ? 0.26 : 0.20),
+                            lineWidth: 0.75
                         )
                 }
                 .shadow(
-                    color: .black.opacity(colorScheme == .dark ? 0.22 : 0.08),
-                    radius: 5,
-                    y: 1.5
+                    color: .black.opacity(colorScheme == .dark ? 0.28 : 0.10),
+                    radius: 6,
+                    y: 2
                 )
+                .matchedGeometryEffect(id: "activeTabBackground", in: namespace)
+                .transition(.opacity)
         } else if isHovered {
             RoundedRectangle(cornerRadius: TabItemMetrics.cornerRadius, style: .continuous)
                 .glassEffect(.regular.interactive(), in: .rect(cornerRadius: TabItemMetrics.cornerRadius))
@@ -190,11 +188,42 @@ struct TabItemView: View {
                 }
                 .overlay {
                     RoundedRectangle(cornerRadius: TabItemMetrics.cornerRadius, style: .continuous)
-                        .stroke(Color.primary.opacity(0.06), lineWidth: 0.5)
+                        .stroke(Color.primary.opacity(0.07), lineWidth: 0.5)
                 }
+                .shadow(
+                    color: .black.opacity(colorScheme == .dark ? 0.14 : 0.05),
+                    radius: 3,
+                    y: 1
+                )
+                .transition(.opacity)
         } else {
             Color.clear
         }
+    }
+
+    private func loadingIndicator(width: CGFloat) -> some View {
+        VStack {
+            Spacer()
+            GeometryReader { proxy in
+                Capsule()
+                    .fill(
+                        LinearGradient(
+                            colors: [themeColor.opacity(0.55), themeColor],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .frame(
+                        width: max(proxy.size.width * tab.estimatedProgress, TabItemMetrics.progressHeight * 2),
+                        height: TabItemMetrics.progressHeight
+                    )
+                    .shadow(color: themeColor.opacity(0.45), radius: 2, y: 0)
+                    .animation(.easeOut(duration: 0.25), value: tab.estimatedProgress)
+            }
+            .frame(height: TabItemMetrics.progressHeight)
+        }
+        .padding(.horizontal, TabItemMetrics.hPad - 2)
+        .padding(.bottom, 4)
     }
 
     private var closeButton: some View {
@@ -287,5 +316,13 @@ struct TabItemView: View {
     
     private func getTabManager() -> TabManager? {
         return tabManager
+    }
+}
+
+private struct TabPressButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.975 : 1)
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
     }
 }

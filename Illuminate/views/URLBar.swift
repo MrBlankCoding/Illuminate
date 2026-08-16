@@ -133,13 +133,21 @@ struct URLBar: View {
     }
 
     private var suggestionsDropdown: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            ForEach(viewModel.historySuggestions) { suggestion in
-                suggestionRow(suggestion)
+        VStack(alignment: .leading, spacing: 1) {
+            Text("SUGGESTIONS")
+                .font(.system(size: 10, weight: .bold))
+                .tracking(0.4)
+                .foregroundStyle(Color.textSecondary.opacity(0.65))
+                .padding(.horizontal, 18)
+                .padding(.top, 6)
+                .padding(.bottom, 4)
 
-                if suggestion.id != viewModel.historySuggestions.last?.id {
-                    Divider()
-                        .padding(.horizontal, 10)
+            ForEach(viewModel.historySuggestions) { suggestion in
+                SuggestionRowView(suggestion: suggestion) {
+                    addressText = suggestion.urlString
+                    viewModel.cancelSuggestions()
+                    isFocused = false
+                    onNavigate()
                 }
             }
         }
@@ -149,14 +157,33 @@ struct URLBar: View {
         .accessibilityLabel("History suggestions")
     }
 
-    @ViewBuilder
-    private func suggestionRow(_ suggestion: HistorySuggestion) -> some View {
-        Button {
-            addressText = suggestion.urlString
-            viewModel.cancelSuggestions()
-            isFocused = false
-            onNavigate()
-        } label: {
+    private var statusIcon: String {
+        if activeTab?.url?.scheme?.localizedCaseInsensitiveCompare("illuminate") == .orderedSame {
+            return "gearshape.fill"
+        }
+        if activeTab?.url?.scheme == "https" { return "lock.fill" }
+        if activeTab?.url != nil { return "globe" }
+        return "magnifyingglass"
+    }
+
+    private func copyAddressToPasteboard() {
+        let value = activeTab?.url?.absoluteString ?? addressText
+        guard !value.isEmpty else { return }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(value, forType: .string)
+        didCopyURL = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { didCopyURL = false }
+    }
+}
+
+private struct SuggestionRowView: View {
+    let suggestion: HistorySuggestion
+    let onSelect: () -> Void
+
+    @State private var isHovered = false
+
+    var body: some View {
+        Button(action: onSelect) {
             HStack(spacing: 10) {
                 AsyncImage(url: suggestion.faviconURL) { phase in
                     if case .success(let img) = phase {
@@ -189,34 +216,18 @@ struct URLBar: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
-            .contentShape(Rectangle())
+            .background {
+                RoundedRectangle(cornerRadius: MacDesign.Radius.small, style: .continuous)
+                    .fill(isHovered ? Color.primary.opacity(0.07) : Color.clear)
+            }
+            .contentShape(RoundedRectangle(cornerRadius: MacDesign.Radius.small, style: .continuous))
         }
         .buttonStyle(.plain)
+        .padding(.horizontal, 6)
         .hoverCursor(.pointingHand)
-        .background(suggestionHoverBackground)
-    }
-
-    private var suggestionHoverBackground: some View {
-        RoundedRectangle(cornerRadius: 6, style: .continuous)
-            .fill(Color.clear)
-    }
-
-    private var statusIcon: String {
-        if activeTab?.url?.scheme?.localizedCaseInsensitiveCompare("illuminate") == .orderedSame {
-            return "gearshape.fill"
+        .onHover { hovering in
+            withAnimation(MacDesign.fastAnimation) { isHovered = hovering }
         }
-        if activeTab?.url?.scheme == "https" { return "lock.fill" }
-        if activeTab?.url != nil { return "globe" }
-        return "magnifyingglass"
-    }
-
-    private func copyAddressToPasteboard() {
-        let value = activeTab?.url?.absoluteString ?? addressText
-        guard !value.isEmpty else { return }
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(value, forType: .string)
-        didCopyURL = true
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { didCopyURL = false }
     }
 }
 

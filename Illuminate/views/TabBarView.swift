@@ -48,6 +48,7 @@ struct TabBarView: View {
     @State private var isNewTabHovered = false
     @State private var groupChangeToken = UUID()
     @State private var previousActiveTabID: UUID?
+    @Namespace private var activeTabNamespace
 
     private var theme: BrowserTheme {
         BrowserTheme(accent: tabManager.windowThemeColor, colorScheme: colorScheme)
@@ -186,6 +187,7 @@ struct TabBarView: View {
                 tab: tab,
                 themeColor: tabManager.windowThemeColor,
                 isActive: tab.id == tabManager.activeTabID,
+                namespace: activeTabNamespace,
                 onSelect: {
                     withAnimation(MacDesign.springAnimation) { tabManager.switchTo(tab.id) }
                 },
@@ -217,6 +219,12 @@ struct TabBarView: View {
             .opacity(isDragging ? 0.92 : 1.0)
             .scaleEffect(isDragging ? 1.02 : 1.0, anchor: .center)
             .animation(isDragging ? .none : MacDesign.springAnimation, value: dragOffsetX)
+            .transition(
+                .asymmetric(
+                    insertion: .scale(scale: 0.85).combined(with: .opacity),
+                    removal: .scale(scale: 0.85).combined(with: .opacity)
+                )
+            )
             .id(tab.id)
             .simultaneousGesture(tabDragGesture(for: tab, tabWidth: tabWidth))
             .background(

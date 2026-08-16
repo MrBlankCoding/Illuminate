@@ -47,7 +47,7 @@ struct DownloadsToolbarButton: View {
                 }
             }
         }
-        .buttonStyle(.plain)
+        .buttonStyle(ToolbarIconPressStyle())
         .onHover { hovering in isHovered = hovering }
         .hoverCursor(.pointingHand)
         .help("Downloads")

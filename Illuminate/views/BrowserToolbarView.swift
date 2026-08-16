@@ -86,6 +86,7 @@ struct BrowserToolbarView: View {
     let onNavigate: () -> Void
 
     @State private var tabFrames: [UUID: CGRect] = [:]
+    @State private var isProfileHovered = false
 
     // gonna need to work on the spacing here
     private var theme: BrowserTheme {
@@ -149,7 +150,7 @@ struct BrowserToolbarView: View {
     }
 
     private var navigationRow: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 10) {
             Spacer()
                 .frame(width: ToolbarMetrics.toolbarLeadingPad)
             navigationControls
@@ -162,9 +163,7 @@ struct BrowserToolbarView: View {
             .frame(maxWidth: .infinity)
             .layoutPriority(1)
 
-            DownloadsToolbarButton()
-            profileMenu
-            MoreOptionsMenu()
+            actionsCluster
 
             Spacer()
                 .frame(width: ToolbarMetrics.trailingPad)
@@ -172,16 +171,25 @@ struct BrowserToolbarView: View {
         .frame(height: ToolbarMetrics.toolbarHeight)
     }
 
+    private var actionsCluster: some View {
+        HStack(spacing: 2) {
+            DownloadsToolbarButton()
+            profileMenu
+            MoreOptionsMenu()
+        }
+    }
+
     @ViewBuilder
     private var navigationControls: some View {
         if let activeTab = tabManager.activeTab {
             NavigationControls(tab: activeTab, themeColor: tabManager.windowThemeColor)
         } else {
-            HStack(spacing: 2) {
+            HStack(spacing: 1) {
                 inertNavIcon("chevron.left")
                 inertNavIcon("chevron.right")
                 inertNavIcon("arrow.clockwise")
             }
+            .navClusterBackground()
         }
     }
 
@@ -226,15 +234,22 @@ struct BrowserToolbarView: View {
                         .foregroundStyle(Color(hex: "7B52CC"))
                 } else {
                     Image(systemName: profileEnvironment.profile.iconName)
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(Color.textSecondary)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(isProfileHovered ? Color.textPrimary : Color.textSecondary)
                 }
             }
-            .frame(width: 26, height: 26)
-            .modifier(ProfileIconGlassModifier(tint: effectiveThemeColor))
+            .frame(width: MacDesign.Size.iconButton, height: MacDesign.Size.iconButton)
+            .macControlBackground(isHovered: isProfileHovered, tint: effectiveThemeColor, radius: 999)
+            .contentShape(Circle())
+            .animation(MacDesign.fastAnimation, value: isProfileHovered)
         }
         .menuStyle(.borderlessButton)
         .fixedSize()
+        .onHover { isProfileHovered = $0 }
+        .hoverCursor(.pointingHand)
+        .help(profileEnvironment.isGuestSession ? "Guest Browsing" : profileEnvironment.profile.name)
+        .accessibilityLabel(profileEnvironment.isGuestSession ? "Guest Profile" : profileEnvironment.profile.name)
+        .accessibilityIdentifier("browser.toolbar.profileButton")
     }
 
     private var toolbarBackground: some View {
@@ -244,17 +259,4 @@ struct BrowserToolbarView: View {
             .ignoresSafeArea(edges: .top)
     }
 
-}
-
-private struct ProfileIconGlassModifier: ViewModifier {
-    let tint: Color
-
-    func body(content: Content) -> some View {
-        content
-            .background(.regularMaterial, in: Circle())
-            .background { Circle().fill(tint.opacity(0.08)) }
-            .overlay {
-                Circle().stroke(Color.primary.opacity(0.10), lineWidth: 0.5)
-            }
-    }
 }

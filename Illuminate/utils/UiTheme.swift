@@ -272,6 +272,14 @@ extension Animation {
     }
 }
 
+struct ToolbarIconPressStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.90 : 1)
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+    }
+}
+
 struct MacToolbarButtonStyle: ButtonStyle {
     var isActive = false
     var tint: Color? = nil
