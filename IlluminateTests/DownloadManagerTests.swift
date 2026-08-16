@@ -144,6 +144,13 @@ struct DownloadManagerTests {
         #expect(filename == "report.pdf")
     }
 
+    @Test func testResolvedFilenamePrefersSourceURLWhenServerAddsMIMEExtension() {
+        let manager = DownloadManager()
+        let sourceURL = URL(string: "https://example.com/files/report.pdf")!
+        let filename = manager.resolvedFilename("report.pdf.html", fallbackURL: sourceURL, mimeType: "text/html")
+        #expect(filename == "report.pdf")
+    }
+
     @Test func testUniqueDestinationURLAppendsSuffixForDuplicates() throws {
         let manager = DownloadManager()
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)

@@ -129,17 +129,27 @@ extension DownloadManager {
         }
 
         if let preferredExtension {
-            let normalized = filename.lowercased()
-            let alreadyCorrect = normalized.hasSuffix(".\(preferredExtension)")
-            if !alreadyCorrect {
-                let extensionless = (filename as NSString).deletingPathExtension
-                let withoutDuplicateSuffix = extensionless.replacingOccurrences(
-                    of: #" \(\d+\)\.[^.]+$"#,
-                    with: "",
-                    options: .regularExpression
-                )
-                let baseName = withoutDuplicateSuffix.isEmpty ? extensionless : withoutDuplicateSuffix
-                filename = "\(baseName).\(preferredExtension)"
+            let normalizedPreferred = preferredExtension.lowercased()
+            let currentExtension = (filename as NSString).pathExtension.lowercased()
+
+            if currentExtension.isEmpty {
+                filename = "\(filename).\(normalizedPreferred)"
+            } else if currentExtension != normalizedPreferred {
+                if let fallbackURL,
+                   !fallbackURL.pathExtension.isEmpty,
+                   fallbackURL.pathExtension.lowercased() == normalizedPreferred,
+                   !fallbackURL.lastPathComponent.isEmpty {
+                    filename = fallbackURL.lastPathComponent
+                } else {
+                    let extensionless = (filename as NSString).deletingPathExtension
+                    let withoutDuplicateSuffix = extensionless.replacingOccurrences(
+                        of: #" \(\d+\)\.[^.]+$"#,
+                        with: "",
+                        options: .regularExpression
+                    )
+                    let baseName = withoutDuplicateSuffix.isEmpty ? extensionless : withoutDuplicateSuffix
+                    filename = "\(baseName).\(normalizedPreferred)"
+                }
             }
         }
 

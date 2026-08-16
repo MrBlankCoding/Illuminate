@@ -348,6 +348,11 @@ final class AdBlockService: ObservableObject {
             blockedURLKeywords: blockedURLKeywords
         )
 
+#if DEBUG
+        // Expose generated JSON immediately so tests don't depend on debounced compilation finishing.
+        debug_lastGeneratedDynamicJSON = generateDynamicRulesJSON(snapshot: snapshot)
+#endif
+
         let workItem = DispatchWorkItem { [weak self] in
             self?.compileDynamicRuleList(snapshot: snapshot)
         }
