@@ -486,35 +486,19 @@ final class Tab: ObservableObject, Identifiable {
         webView.publisher(for: \.canGoBack)
             .removeDuplicates()
             .receive(on: RunLoop.main)
-            .sink { [weak self] v in
-                guard let self else { return }
-                DispatchQueue.main.async {
-                    if self.canGoBack != v { self.canGoBack = v }
-                }
-            }
+            .sink { [weak self] v in self?.canGoBack = v }
             .store(in: &cancellables)
 
         webView.publisher(for: \.canGoForward)
             .removeDuplicates()
             .receive(on: RunLoop.main)
-            .sink { [weak self] v in
-                guard let self else { return }
-                DispatchQueue.main.async {
-                    if self.canGoForward != v { self.canGoForward = v }
-                }
-            }
+            .sink { [weak self] v in self?.canGoForward = v }
             .store(in: &cancellables)
 
         webView.publisher(for: \.estimatedProgress)
             .removeDuplicates()
             .throttle(for: .milliseconds(100), scheduler: RunLoop.main, latest: true)
-            .receive(on: RunLoop.main)
-            .sink { [weak self] v in
-                guard let self else { return }
-                DispatchQueue.main.async {
-                    if self.estimatedProgress != v { self.estimatedProgress = v }
-                }
-            }
+            .sink { [weak self] v in self?.estimatedProgress = v }
             .store(in: &cancellables)
 
         webView.publisher(for: \.isLoading)
@@ -522,20 +506,16 @@ final class Tab: ObservableObject, Identifiable {
             .receive(on: RunLoop.main)
             .sink { [weak self] v in
                 guard let self else { return }
-                DispatchQueue.main.async {
-                    if self.isLoading != v {
-                        self.isLoading = v
-                    }
-                    if !v, self.isMuted {
-                        let script = """
-                        (() => {
-                            for (const media of document.querySelectorAll('audio, video')) {
-                                media.muted = true;
-                            }
-                        })();
-                        """
-                        self.webView?.evaluateJavaScript(script, completionHandler: nil)
-                    }
+                self.isLoading = v
+                if !v, self.isMuted {
+                    let script = """
+                    (() => {
+                        for (const media of document.querySelectorAll('audio, video')) {
+                            media.muted = true;
+                        }
+                    })();
+                    """
+                    self.webView?.evaluateJavaScript(script, completionHandler: nil)
                 }
             }
             .store(in: &cancellables)
@@ -543,24 +523,18 @@ final class Tab: ObservableObject, Identifiable {
         webView.publisher(for: \.url)
             .removeDuplicates()
             .throttle(for: .milliseconds(100), scheduler: RunLoop.main, latest: true)
-            .receive(on: RunLoop.main)
             .sink { [weak self] v in
                 guard let self, let url = v, self.url != url else { return }
-                DispatchQueue.main.async {
-                    if self.url != url { self.url = url }
-                }
+                self.url = url
             }
             .store(in: &cancellables)
 
         webView.publisher(for: \.title)
             .removeDuplicates()
             .throttle(for: .milliseconds(200), scheduler: RunLoop.main, latest: true)
-            .receive(on: RunLoop.main)
             .sink { [weak self] v in
                 guard let self, let title = v, !title.isEmpty, self.title != title else { return }
-                DispatchQueue.main.async {
-                    if self.title != title { self.title = title }
-                }
+                self.title = title
             }
             .store(in: &cancellables)
 

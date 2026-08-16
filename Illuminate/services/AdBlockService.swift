@@ -152,9 +152,8 @@ final class AdBlockService: ObservableObject {
             let hasCompiledList = list != nil
 
             if let list {
-                // Keep the generated static JSON available even when a compiled rule list already exists in the store.
-                let json = self.generateStaticRulesJSON(includeEasyList: true)
                 #if DEBUG
+                let json = self.generateStaticRulesJSON(includeEasyList: true)
                 self.debug_lastGeneratedStaticJSON = json
                 #endif
                 DispatchQueue.main.async {

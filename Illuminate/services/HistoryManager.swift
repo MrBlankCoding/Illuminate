@@ -19,6 +19,12 @@ struct HistorySuggestion: Identifiable, Equatable {
     let faviconURL: URL?
 
     var url: URL? { URL(string: urlString) }
+    private static let mediumDateFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateStyle = .medium
+        f.timeStyle = .none
+        return f
+    }()
 
     var recencyLabel: String {
         let cal = Calendar.current
@@ -26,10 +32,7 @@ struct HistorySuggestion: Identifiable, Equatable {
         if cal.isDateInYesterday(lastVisited) { return "Visited yesterday" }
         let days = cal.dateComponents([.day], from: lastVisited, to: Date()).day ?? 0
         if days <= 7 { return "Visited \(days) day\(days == 1 ? "" : "s") ago" }
-        let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-        formatter.timeStyle = .none
-        return "Visited \(formatter.string(from: lastVisited))"
+        return "Visited \(Self.mediumDateFormatter.string(from: lastVisited))"
     }
 }
 

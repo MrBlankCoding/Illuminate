@@ -140,7 +140,6 @@ final class WebKitManager: ObservableObject {
         return "profile.\(activeProfileID.uuidString).\(key)"
     }
 
-    /// Dynamically configures the global URLCache based on system resources.
     private func configureGlobalCache() {
         let physicalMemory = ProcessInfo.processInfo.physicalMemory
         

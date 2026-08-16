@@ -134,14 +134,6 @@ struct WebViewRepresentable: NSViewRepresentable {
         }
     }
 
-    private func shouldLoad(_ targetURL: URL, in webView: WKWebView) -> Bool {
-        return false
-    }
-
-    private func areEquivalentURLs(_ lhs: URL, _ rhs: URL) -> Bool {
-        canonicalURLString(lhs) == canonicalURLString(rhs)
-    }
-
     private func makeRequest(for url: URL) -> URLRequest {
         if url.scheme == "illuminate" {
             return URLRequest(url: URL(string: "about:blank")!)
@@ -152,22 +144,4 @@ struct WebViewRepresentable: NSViewRepresentable {
         return request
     }
 
-    private func canonicalURLString(_ url: URL) -> String {
-        guard var components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
-            var s = url.absoluteString.lowercased()
-            if s.hasSuffix("/") { s.removeLast() }
-            return s
-        }
-
-        components.fragment = nil
-        if components.path.hasSuffix("/") && components.path.count > 1 {
-            components.path.removeLast()
-        } else if components.path == "/" {
-            components.path = ""
-        }
-
-        var s = (components.string ?? url.absoluteString).lowercased()
-        if s.hasSuffix("/") { s.removeLast() }
-        return s
-    }
 }

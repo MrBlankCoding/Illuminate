@@ -11,19 +11,15 @@ import UniformTypeIdentifiers
 
 extension DownloadManager {
     func clearFinishedDownloads() {
-        updateOnMain {
-            self.downloads.removeAll { !$0.isActive }
-            self.rebuildIndexMap()
-            self.notifyDownloadsDidChange(immediate: true)
-        }
+        downloads.removeAll { !$0.isActive }
+        rebuildIndexMap()
+        notifyDownloadsDidChange(immediate: true)
     }
 
     func clearDownloads() {
-        updateOnMain {
-            self.downloads.removeAll()
-            self.downloadIndexMap.removeAll()
-            self.notifyDownloadsDidChange(immediate: true)
-        }
+        downloads.removeAll()
+        downloadIndexMap.removeAll()
+        notifyDownloadsDidChange(immediate: true)
     }
 
     internal func rebuildIndexMap() {
@@ -56,20 +52,16 @@ extension DownloadManager {
     }
 
     func insertTask(_ task: DownloadTask) {
-        updateOnMain {
-            self.downloads.insert(task, at: 0)
-            self.rebuildIndexMap()
-            AppLog.download("Inserted download item id=\(task.id.uuidString) source=\(task.url.absoluteString) filename=\(task.filename) state=\(task.state.rawValue)")
-            self.notifyDownloadsDidChange(immediate: true)
-        }
+        downloads.insert(task, at: 0)
+        rebuildIndexMap()
+        AppLog.download("Inserted download item id=\(task.id.uuidString) source=\(task.url.absoluteString) filename=\(task.filename) state=\(task.state.rawValue)")
+        notifyDownloadsDidChange(immediate: true)
     }
 
     func updateTask(_ id: UUID, mutate: @escaping (inout DownloadTask) -> Void) {
-        updateOnMain {
-            guard let index = self.downloadIndexMap[id] else { return }
-            mutate(&self.downloads[index])
-            self.notifyDownloadsDidChange(immediate: false)
-        }
+        guard let index = downloadIndexMap[id] else { return }
+        mutate(&downloads[index])
+        notifyDownloadsDidChange(immediate: false)
     }
 
     func finishDownload(id: UUID, destinationURL: URL) {
@@ -85,12 +77,9 @@ extension DownloadManager {
         }
         noteCompletedDownload()
 
-        if preferences.revealInFinderWhenFinished {
-            updateOnMain {
-                if let task = self.downloads.first(where: { $0.id == id }) {
-                    self.revealDownload(task)
-                }
-            }
+        if preferences.revealInFinderWhenFinished,
+           let task = downloads.first(where: { $0.id == id }) {
+            revealDownload(task)
         }
     }
 
@@ -269,7 +258,5 @@ extension DownloadManager {
         )
     }
 
-    func updateOnMain(_ work: () -> Void) {
-        work()
-    }
+
 }

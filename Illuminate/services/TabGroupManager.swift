@@ -310,7 +310,7 @@ final class TabGroupManager: ObservableObject {
     }
 
     private func republishGroups() {
-        groups = groups
+        objectWillChange.send()
     }
 
 

@@ -29,7 +29,6 @@ final class KeyboardShortcutHandler {
     private let shortcuts: [Shortcut]
 
     private let notificationCenter: NotificationCenter
-    private var eventMonitor: Any?
 
     init(notificationCenter: NotificationCenter = .default) {
         self.shortcuts = Self.makeShortcuts()
@@ -80,38 +79,6 @@ final class KeyboardShortcutHandler {
     func zoomOut() { post(.zoomOut) }
     func resetZoom() { post(.resetZoom) }
 
-    deinit {
-        if let monitor = eventMonitor {
-            NSEvent.removeMonitor(monitor)
-        }
-    }
-
-    private func startMonitoring() {
-        eventMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            self?.handle(event) ?? event
-        }
-    }
-
-    // return nil ?
-    private func handle(_ event: NSEvent) -> NSEvent? {
-        let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-        let chars = event.charactersIgnoringModifiers?.lowercased()
-
-        for shortcut in shortcuts {
-            guard shortcut.modifiers == modifiers else { continue }
-            let matches: Bool
-            switch shortcut.trigger {
-            case .character(let c): matches = chars == c
-            case .keyCode(let code): matches = event.keyCode == code
-            }
-            if matches {
-                post(shortcut.action)
-                return nil
-            }
-        }
-        return event
-    }
-
     nonisolated func lookupShortcutBy(character: String, modifiers: NSEvent.ModifierFlags) -> Notification.Name? {
         let key = character.lowercased()
         for shortcut in shortcuts where shortcut.modifiers == modifiers {
@@ -156,7 +123,12 @@ final class RuntimeSecurityMonitor {
     }
 
     func startMonitoring() {
+        // This observer exists as a placeholder for future integrity/policy checks.
+        // In release builds, emitting a security log on every new-tab creation
+        // adds a NotificationCenter observer + os_log call with no security value.
+        #if DEBUG
         observe(.newTab) { AppLog.security("Runtime check passed for New Tab action") }
+        #endif
     }
 
     private func observe(_ name: Notification.Name, handler: @escaping () -> Void) {
