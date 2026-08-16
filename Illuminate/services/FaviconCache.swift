@@ -44,7 +44,7 @@ final class FaviconCache: @unchecked Sendable {
         }
     }
 
-    static let shared = FaviconCache(capacity: 128)
+    nonisolated static let shared = FaviconCache(capacity: 128)
 
     private let capacity: Int
     nonisolated(unsafe) var storage: [URL: NSImage] = [:]
@@ -56,7 +56,7 @@ final class FaviconCache: @unchecked Sendable {
     private let fetchData: @Sendable (String) async throws -> Data
     private let inFlightRequests = AsyncRequestDeduplicator<String, Data>()
 
-    init(
+    nonisolated init(
         capacity: Int,
         cacheDirectory: URL? = nil,
         fetchData: (@Sendable (String) async throws -> Data)? = nil

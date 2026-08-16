@@ -57,7 +57,7 @@ enum BookmarkBarVisibility: String, CaseIterable, Identifiable {
 }
 
 extension FileManager {
-    func illuminateAppSupportDirectory() -> URL {
+    nonisolated func illuminateAppSupportDirectory() -> URL {
         let baseDirectory = urls(for: .applicationSupportDirectory, in: .userDomainMask).first
             ?? homeDirectoryForCurrentUser
                 .appendingPathComponent("Library", isDirectory: true)
@@ -68,7 +68,7 @@ extension FileManager {
         return appDirectory
     }
 
-    func illuminateDownloadsDirectory() -> URL {
+    nonisolated func illuminateDownloadsDirectory() -> URL {
         let downloadsDirectory = urls(for: .downloadsDirectory, in: .userDomainMask).first
             ?? temporaryDirectory.appendingPathComponent("Downloads", isDirectory: true)
 
@@ -76,17 +76,17 @@ extension FileManager {
         return downloadsDirectory
     }
 
-    func illuminateProfilesDirectory() -> URL {
+    nonisolated func illuminateProfilesDirectory() -> URL {
         let profilesDirectory = illuminateAppSupportDirectory().appendingPathComponent("Profiles", isDirectory: true)
         try? createDirectory(at: profilesDirectory, withIntermediateDirectories: true)
         return profilesDirectory
     }
 
-    func illuminateProfilesCatalogURL() -> URL {
+    nonisolated func illuminateProfilesCatalogURL() -> URL {
         illuminateProfilesDirectory().appendingPathComponent("profiles.json")
     }
 
-    func illuminateProfileDirectory(profileID: UUID) -> URL {
+    nonisolated func illuminateProfileDirectory(profileID: UUID) -> URL {
         let directory = illuminateProfilesDirectory().appendingPathComponent(profileID.uuidString, isDirectory: true)
         try? createDirectory(at: directory, withIntermediateDirectories: true)
         return directory

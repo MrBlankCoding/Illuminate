@@ -13,19 +13,17 @@ import Testing
 @MainActor
 struct DownloadManagerTests {
 
-    @Test func testStartDownloadCreatesTrackedItem() async throws {
+    @Test func testStartDownloadCreatesTrackedItem() throws {
         let manager = DownloadManager()
         manager.clearDownloads()
 
         let url = URL(string: "https://example.com/files/report.pdf")!
         manager.startDownload(from: url)
 
-        try await Task.sleep(nanoseconds: 100_000_000)
-
         let task = try #require(manager.downloads.first(where: { $0.url == url }))
         #expect(task.url == url)
         #expect(task.filename == "report.pdf")
-        #expect(task.state == .preparing || task.state == .downloading)
+        #expect(task.state == .preparing)
 
         manager.cancelDownload(id: task.id)
     }
