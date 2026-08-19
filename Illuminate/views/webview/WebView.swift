@@ -34,7 +34,7 @@ enum IlluminatePage: String, CaseIterable, Equatable {
 
 struct WebView: View {
     @ObservedObject var tab: Tab
-    @EnvironmentObject private var viewModel: ContentViewModel
+
     @EnvironmentObject private var tabManager: TabManager
     @EnvironmentObject private var adBlockService: AdBlockService
     @EnvironmentObject private var webKitManager: WebKitManager
@@ -49,7 +49,7 @@ struct WebView: View {
             if let url = tab.url {
                 content(for: url)
             } else {
-                NewTabView(viewModel: viewModel)
+                NewTabView()
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

@@ -15,6 +15,7 @@ private enum TabItemMetrics {
     static let hPad: CGFloat = 8
     static let closeReserve: CGFloat = 22
     static let progressHeight: CGFloat = 2
+    static let separatorHeight: CGFloat = 12.5
 }
 
 struct TabItemView: View {
@@ -22,6 +23,7 @@ struct TabItemView: View {
 
     let themeColor: Color
     let isActive: Bool
+    let showsTrailingSeparator: Bool
     let namespace: Namespace.ID
     let onSelect: () -> Void
     let onClose: () -> Void
@@ -95,6 +97,13 @@ struct TabItemView: View {
             )
         }
         .frame(height: TabItemMetrics.height)
+        .overlay(alignment: .trailing) {
+            if showsTrailingSeparator {
+                Rectangle()
+                    .fill(Color.white.opacity(isActive ? 0.50 : 0.38))
+                    .frame(width: 1, height: TabItemMetrics.separatorHeight)
+            }
+        }
         .contentShape(Rectangle())
         .onHover { hovering in
             withAnimation(MacDesign.fastAnimation) { isHovered = hovering }

@@ -12,6 +12,8 @@ struct AppRootView: View {
     @Binding var route: BrowserWindowRoute?
     var isStandalone: Bool = false
     let modelContainer: ModelContainer
+    @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
+    @State private var hasRequestedOnboarding = false
     @EnvironmentObject private var profileManager: ProfileManager
 
     var body: some View {
@@ -35,16 +37,44 @@ struct AppRootView: View {
                         env.tabManager.ensureHasAtLeastOneTab()
                         registerDockMenuRoutes()
                     }
+                    .task {
+                        // History is useful on the new-tab page, but must not delay the first frame.
+                        await Task.yield()
+                        guard !Task.isCancelled else { return }
+                        env.historyManager.loadInitialData()
+                    }
             } else {
-                ProfileSelectionView(route: $route, isStandalone: isStandalone)
+                ProfileSelectionView(
+                    route: $route,
+                    isStandalone: isStandalone,
+                    prewarmProfile: { profileID in
+                        profileManager.prewarmProfileEnvironment(for: profileID, container: modelContainer)
+                    }
+                )
             }
+        }
+        .task(id: profileManager.profiles) {
+            // Let the profile chooser render before restoring the most likely browser session.
+            await Task.yield()
+            guard !Task.isCancelled else { return }
+            profileManager.prewarmLastUsedProfileEnvironment(container: modelContainer)
         }
         .onReceive(NotificationCenter.default.publisher(for: .newPrivateWindow)) { _ in
             openWindow(value: BrowserWindowRoute.guest(UUID()))
         }
+        .onAppear {
+            presentOnboardingIfNeeded()
+        }
     }
 
     @Environment(\.openWindow) private var openWindow
+
+    private func presentOnboardingIfNeeded() {
+        guard isStandalone, !hasCompletedOnboarding, !hasRequestedOnboarding else { return }
+        guard !ProcessInfo.processInfo.arguments.contains("-UITest") else { return }
+        hasRequestedOnboarding = true
+        openWindow(id: OnboardingView.windowID)
+    }
 
     private func registerDockMenuRoutes() {
         DockMenuWindowRouter.shared.openProfileSelection = {

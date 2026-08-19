@@ -21,11 +21,14 @@ final class ProfileManager: ObservableObject {
     private var guestEnvironments: [UUID: ProfileEnvironment] = [:]
 
     private let fileManager: FileManager
+    private let userDefaults: UserDefaults
     private let profilesURL: URL
     private let usesUITestProfiles: Bool
+    private let lastUsedProfileKey = "lastUsedProfileID"
 
-    init(fileManager: FileManager = .default) {
+    init(fileManager: FileManager = .default, userDefaults: UserDefaults = .standard) {
         self.fileManager = fileManager
+        self.userDefaults = userDefaults
         self.profilesURL = fileManager.illuminateProfilesCatalogURL()
         self.usesUITestProfiles = ProcessInfo.processInfo.arguments.contains("-uiTesting")
         Task {
@@ -86,11 +89,8 @@ final class ProfileManager: ObservableObject {
     func environment(for route: BrowserWindowRoute, container: ModelContainer) -> ProfileEnvironment? {
         switch route {
         case let .profile(profileID):
-            if let env = environments[profileID] { return env }
-            guard let profile = profiles.first(where: { $0.id == profileID }) else { return nil }
-            let env = ProfileEnvironment(profile: profile, modelContainer: container)
-            environments[profileID] = env
-            return env
+            userDefaults.set(profileID.uuidString, forKey: lastUsedProfileKey)
+            return profileEnvironment(for: profileID, container: container)
         case let .guest(sessionID):
             if let env = guestEnvironments[sessionID] { return env }
             let guestProfile = BrowserProfile(
@@ -112,6 +112,24 @@ final class ProfileManager: ObservableObject {
     func endGuestSession(_ sessionID: UUID) {
         guard let env = guestEnvironments.removeValue(forKey: sessionID) else { return }
         env.prepareForRemoval()
+    }
+
+    func prewarmProfileEnvironment(for profileID: UUID, container: ModelContainer) {
+        _ = profileEnvironment(for: profileID, container: container)
+    }
+
+    func prewarmLastUsedProfileEnvironment(container: ModelContainer) {
+        guard let rawID = userDefaults.string(forKey: lastUsedProfileKey),
+              let profileID = UUID(uuidString: rawID) else { return }
+        prewarmProfileEnvironment(for: profileID, container: container)
+    }
+
+    private func profileEnvironment(for profileID: UUID, container: ModelContainer) -> ProfileEnvironment? {
+        if let env = environments[profileID] { return env }
+        guard let profile = profiles.first(where: { $0.id == profileID }) else { return nil }
+        let env = ProfileEnvironment(profile: profile, modelContainer: container)
+        environments[profileID] = env
+        return env
     }
 
     private func loadProfilesAsync() async {

@@ -63,7 +63,7 @@ final class HistoryManager: ObservableObject {
     private var lastRecordedURL: [UUID: String] = [:]
     private var pendingRefreshTask: Task<Void, Never>?
     private static let refreshDebounceNs: UInt64 = 300_000_000 // 300 ms
-    private static let suggestionsFetchLimit = 500
+
     private static let searchFetchLimit = 1000
 
     init(
@@ -81,10 +81,12 @@ final class HistoryManager: ObservableObject {
         self.showTopSites       = userDefaults.bool(forKey: Self.scopedKey("historyShowTopSites",     profileID: profileID), default: true)
         self.showHistorySuggestions = userDefaults.bool(forKey: Self.scopedKey("historyShowSuggestions", profileID: profileID), default: true)
 
-        if !isGuestSession {
-            refreshRecentEntries()
-            refreshTopSites()
-        }
+    }
+
+    func loadInitialData() {
+        guard !isGuestSession else { return }
+        refreshRecentEntries()
+        refreshTopSites()
     }
 
     func prepareForRemoval() {
@@ -242,12 +244,9 @@ final class HistoryManager: ObservableObject {
         let q = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         guard !q.isEmpty else { return [] }
 
-        var fetch = FetchDescriptor<HistoryEntry>(
-            sortBy: [SortDescriptor(\.lastVisited, order: .reverse)]
-        )
-        fetch.fetchLimit = Self.suggestionsFetchLimit
-        let candidates = (try? modelContext.fetch(fetch)) ?? []
-
+        // `recentEntries` is refreshed after history writes and already capped for UI use.
+        // Filtering it keeps address-bar suggestions synchronous without querying SwiftData per keystroke.
+        let candidates = recentEntries
         let now = Date()
         let daySeconds: Double = 86_400
 

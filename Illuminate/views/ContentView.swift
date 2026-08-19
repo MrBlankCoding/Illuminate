@@ -37,18 +37,6 @@ struct ContentView: View {
                 )
                 .zIndex(3)
 
-                if isBookmarkBarVisible {
-                    BookmarkBarView()
-                        .environmentObject(environment)
-                        .transition(
-                            .asymmetric(
-                                insertion: .opacity.combined(with: .move(edge: .top)),
-                                removal:   .opacity.combined(with: .move(edge: .top))
-                            )
-                        )
-                        .zIndex(2)
-                }
-
                 browserContent
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .zIndex(1)
@@ -68,6 +56,7 @@ struct ContentView: View {
             findViewModel.setWebView(tabManager.activeTab?.webView)
             findViewModel.isPresented.toggle()
         }
+
         .onReceive(NotificationCenter.default.publisher(for: .zoomChanged)) { notification in
             if let level = notification.userInfo?["level"] as? Double {
                 zoomViewModel.updateZoom(level)
@@ -81,18 +70,6 @@ struct ContentView: View {
             WebsitePermissionPromptView(request: request) { decision in
                 permissionService.resolvePendingRequest(as: decision)
             }
-        }
-        .animation(MacDesign.springAnimation, value: isBookmarkBarVisible)
-    }
-
-    private var isBookmarkBarVisible: Bool {
-        switch tabManager.bookmarkBarVisibility {
-        case .always:
-            return true
-        case .newTabOnly:
-            return tabManager.activeTab?.url == nil
-        case .hidden:
-            return false
         }
     }
 

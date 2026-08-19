@@ -82,7 +82,8 @@ final class ProfileEnvironment: ObservableObject {
         )
         self.viewModel = ContentViewModel(
             tabManager: self.tabManager,
-            urlSynchronizer: self.urlSynchronizer
+            urlSynchronizer: self.urlSynchronizer,
+            historyManager: self.historyManager
         )
     }
     

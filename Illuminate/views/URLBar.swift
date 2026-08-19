@@ -29,22 +29,17 @@ struct URLBar: View {
     }
 
     private var showSuggestions: Bool {
-        isFocused && !viewModel.historySuggestions.isEmpty
+        isFocused && (!viewModel.historySuggestions.isEmpty || !viewModel.webSuggestions.isEmpty)
     }
 
     var body: some View {
-        ZStack(alignment: .top) {
-            barContent
-                .zIndex(1)
-
-            if showSuggestions {
-                suggestionsDropdown
-                    .offset(y: MacDesign.Size.urlBarHeight + 6)
-                    .zIndex(2)
-                    .transition(.opacity.combined(with: .move(edge: .top)))
+        barContent
+            .overlay(alignment: .top) {
+                if showSuggestions {
+                    suggestionsDropdown
+                        .offset(y: MacDesign.Size.urlBarHeight + 5)
+                }
             }
-        }
-        .animation(MacDesign.springAnimation, value: showSuggestions)
         .onReceive(NotificationCenter.default.publisher(for: .focusURLBar)) { _ in
             isFocused = true
         }
@@ -133,15 +128,7 @@ struct URLBar: View {
     }
 
     private var suggestionsDropdown: some View {
-        VStack(alignment: .leading, spacing: 1) {
-            Text("SUGGESTIONS")
-                .font(.system(size: 10, weight: .bold))
-                .tracking(0.4)
-                .foregroundStyle(Color.textSecondary.opacity(0.65))
-                .padding(.horizontal, 18)
-                .padding(.top, 6)
-                .padding(.bottom, 4)
-
+        VStack(alignment: .leading, spacing: 2) {
             ForEach(viewModel.historySuggestions) { suggestion in
                 SuggestionRowView(suggestion: suggestion) {
                     addressText = suggestion.urlString
@@ -150,11 +137,21 @@ struct URLBar: View {
                     onNavigate()
                 }
             }
+
+            ForEach(viewModel.webSuggestions, id: \.self) { suggestion in
+                WebSuggestionRowView(text: suggestion, accentColor: themeColor) {
+                    addressText = suggestion
+                    viewModel.cancelSuggestions()
+                    isFocused = false
+                    onNavigate()
+                }
+            }
         }
-        .padding(.vertical, 6)
+        .padding(.vertical, 4)
+        .background(theme.windowBase.opacity(0.72), in: RoundedRectangle(cornerRadius: MacDesign.Radius.medium, style: .continuous))
         .floatingGlassPanel(cornerRadius: MacDesign.Radius.medium)
-        .frame(maxWidth: .infinity)
-        .accessibilityLabel("History suggestions")
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityLabel("Search suggestions")
     }
 
     private var statusIcon: String {
@@ -184,38 +181,27 @@ private struct SuggestionRowView: View {
 
     var body: some View {
         Button(action: onSelect) {
-            HStack(spacing: 10) {
+            HStack(spacing: 8) {
                 AsyncImage(url: suggestion.faviconURL) { phase in
-                    if case .success(let img) = phase {
-                        img.resizable().scaledToFit().frame(width: 14, height: 14)
+                    if case .success(let image) = phase {
+                        image.resizable().scaledToFit().frame(width: 13, height: 13)
                     } else {
                         Image(systemName: "clock")
-                            .font(.system(size: 11, weight: .medium))
+                            .font(.system(size: 10, weight: .medium))
                             .foregroundStyle(.secondary)
                     }
                 }
-                .frame(width: 20, height: 20)
+                .frame(width: 16, height: 16)
 
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(suggestion.title)
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(Color.textPrimary)
-                        .lineLimit(1)
+                Text(suggestion.title)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(Color.textPrimary)
+                    .lineLimit(1)
 
-                    Text(suggestion.urlString)
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
-
-                Spacer()
-
-                Text(suggestion.recencyLabel)
-                    .font(.system(size: 11))
-                    .foregroundStyle(.tertiary)
+                Spacer(minLength: 8)
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
             .background {
                 RoundedRectangle(cornerRadius: MacDesign.Radius.small, style: .continuous)
                     .fill(isHovered ? Color.primary.opacity(0.07) : Color.clear)
@@ -223,11 +209,48 @@ private struct SuggestionRowView: View {
             .contentShape(RoundedRectangle(cornerRadius: MacDesign.Radius.small, style: .continuous))
         }
         .buttonStyle(.plain)
-        .padding(.horizontal, 6)
+        .padding(.horizontal, 4)
         .hoverCursor(.pointingHand)
         .onHover { hovering in
             withAnimation(MacDesign.fastAnimation) { isHovered = hovering }
         }
+    }
+}
+
+private struct WebSuggestionRowView: View {
+    let text: String
+    let accentColor: Color
+    let onSelect: () -> Void
+
+    @State private var isHovered = false
+
+    var body: some View {
+        Button(action: onSelect) {
+            HStack(spacing: 8) {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(isHovered ? accentColor : Color.textSecondary)
+                    .frame(width: 16, height: 16)
+
+                Text(text)
+                    .font(.system(size: 12))
+                    .foregroundStyle(Color.textPrimary)
+                    .lineLimit(1)
+
+                Spacer(minLength: 8)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background {
+                RoundedRectangle(cornerRadius: MacDesign.Radius.small, style: .continuous)
+                    .fill(isHovered ? Color.primary.opacity(0.07) : Color.clear)
+            }
+            .contentShape(RoundedRectangle(cornerRadius: MacDesign.Radius.small, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .padding(.horizontal, 4)
+        .hoverCursor(.pointingHand)
+        .onHover { isHovered = $0 }
     }
 }
 

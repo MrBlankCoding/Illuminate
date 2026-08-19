@@ -4,44 +4,43 @@
 //
 //  Created by MrBlankCoding on 3/8/26.
 //
-//
 
+import SwiftData
 import SwiftUI
-
-private enum NewTabLayout {
-    static let searchBarMaxWidth: CGFloat = 560
-    static let suggestionDebounceNanoseconds: UInt64 = 110_000_000
-}
 
 struct NewTabView: View {
     @EnvironmentObject private var tabManager: TabManager
-    @ObservedObject var viewModel: ContentViewModel
+    @EnvironmentObject private var environment: ProfileEnvironment
+
     @Environment(\.colorScheme) private var colorScheme
-    @State private var searchText = ""
-    @State private var googleSuggestions: [String] = []
-    @State private var suggestionTask: Task<Void, Never>?
-    @FocusState private var isSearchFieldFocused: Bool
-    @Namespace private var searchGlassNamespace
+    @Environment(\.modelContext) private var modelContext
+    @Query(sort: \Bookmark.title) private var allBookmarks: [Bookmark]
     @State private var isCustomizePanelShown = false
+    @State private var hasAppeared = false
 
     private var theme: BrowserTheme {
         BrowserTheme(accent: tabManager.windowThemeColor, colorScheme: colorScheme)
     }
 
+    private var bookmarks: [Bookmark] {
+        guard !environment.isGuestSession else { return [] }
+        return allBookmarks.filter { $0.profileID == environment.profile.id }
+    }
+
     var body: some View {
         HStack(spacing: 0) {
             ZStack(alignment: .bottomTrailing) {
-                VStack(spacing: 48) {
-                    Spacer()
-
-                    header
-
-                    searchBar
-
-                    Spacer()
-                    Spacer()
+                ScrollView {
+                    VStack(spacing: 48) {
+                        Spacer(minLength: 72)
+                        header
+                        bookmarkGrid
+                        Spacer(minLength: 72)
+                    }
+                    .frame(maxWidth: .infinity, minHeight: 480)
+                    .padding(.horizontal, 32)
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .scrollIndicators(.hidden)
 
                 customizeButton
                     .padding(.trailing, 20)
@@ -59,31 +58,87 @@ struct NewTabView: View {
         .background(backgroundView)
         .ignoresSafeArea()
         .preferredColorScheme(tabManager.userInterfaceStyle.colorScheme)
-        .onChange(of: searchText) { _, newQuery in
-            scheduleSuggestions(for: newQuery)
-        }
-        .onDisappear {
-            suggestionTask?.cancel()
-            isCustomizePanelShown = false
-        }
         .onAppear {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                isSearchFieldFocused = true
-            }
+            guard !hasAppeared else { return }
+            hasAppeared = true
         }
     }
 
     private var header: some View {
-        Text("Illuminate")
-            .font(.system(size: 32, weight: .semibold, design: .rounded))
-            .tracking(1)
-            .foregroundStyle(
-                LinearGradient(
-                    colors: [Color.textPrimary, Color.textPrimary.opacity(0.75)],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-            )
+        VStack(spacing: 8) {
+            Text("Illuminate")
+                .font(.system(size: 40, weight: .semibold, design: .rounded))
+                .tracking(1)
+                .foregroundStyle(.white)
+                .shadow(color: .black.opacity(0.32), radius: 10, y: 2)
+                .shadow(color: .black.opacity(0.18), radius: 2, y: 1)
+        }
+        .opacity(hasAppeared ? 1 : 0)
+        .offset(y: hasAppeared ? 0 : 6)
+    }
+
+    @ViewBuilder
+    private var bookmarkGrid: some View {
+        if !environment.isGuestSession {
+            Group {
+                if bookmarks.isEmpty {
+                    emptyState
+                } else {
+                    GlassEffectContainer(spacing: NewTabLayout.gridSpacing) {
+                        LazyVGrid(
+                            columns: [
+                                GridItem(.adaptive(minimum: NewTabLayout.tileWidth, maximum: NewTabLayout.tileWidth), spacing: NewTabLayout.gridSpacing)
+                            ],
+                            alignment: .center,
+                            spacing: NewTabLayout.gridSpacing
+                        ) {
+                            ForEach(bookmarks) { bookmark in
+                                NewTabBookmarkCard(
+                                    bookmark: bookmark,
+                                    accentColor: tabManager.windowThemeColor,
+                                    onOpen: { open(bookmark, inNewTab: false) },
+                                    onOpenInNewTab: { open(bookmark, inNewTab: true) },
+                                    onDelete: { modelContext.delete(bookmark) }
+                                )
+                            }
+                        }
+                    }
+                    .frame(maxWidth: 560)
+                }
+            }
+            .opacity(hasAppeared ? 1 : 0)
+            .offset(y: hasAppeared ? 0 : 10)
+        }
+    }
+
+    private var emptyState: some View {
+        VStack(spacing: 14) {
+            Image(systemName: "bookmark")
+                .font(.system(size: 26, weight: .medium))
+                .foregroundStyle(.white.opacity(0.85))
+
+            VStack(spacing: 4) {
+                Text("No Bookmarks Yet")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(.white)
+
+                Text("Bookmark a page with ⌘B and it will appear here.")
+                    .font(.system(size: 12.5))
+                    .foregroundStyle(.white.opacity(0.7))
+                    .multilineTextAlignment(.center)
+            }
+        }
+        .padding(.horizontal, 28)
+        .padding(.vertical, 24)
+        .background(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(Color.black.opacity(0.28))
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(Color.white.opacity(0.10), lineWidth: 0.5)
+        }
+        .frame(maxWidth: 340)
     }
 
     private var customizeButton: some View {
@@ -97,108 +152,35 @@ struct NewTabView: View {
                 .frame(width: 36, height: 36)
                 .background(
                     isCustomizePanelShown
-                        ? tabManager.windowThemeColor.opacity(0.85)
-                        : Color.primary.opacity(0.08),
+                        ? AnyShapeStyle(tabManager.windowThemeColor.opacity(0.85))
+                        : AnyShapeStyle(.ultraThinMaterial),
                     in: Circle()
                 )
-                .foregroundStyle(isCustomizePanelShown ? .white : Color.primary.opacity(0.75))
+                .foregroundStyle(isCustomizePanelShown ? .white : .white.opacity(0.9))
                 .overlay {
                     Circle()
                         .stroke(
                             isCustomizePanelShown
                                 ? tabManager.windowThemeColor
-                                : Color.primary.opacity(0.12),
+                                : Color.white.opacity(0.18),
                             lineWidth: 0.5
                         )
                 }
                 .shadow(
                     color: isCustomizePanelShown
                         ? tabManager.windowThemeColor.opacity(0.35)
-                        : .black.opacity(0.10),
-                    radius: isCustomizePanelShown ? 8 : 4
+                        : .black.opacity(0.25),
+                    radius: isCustomizePanelShown ? 8 : 5,
+                    y: 2
                 )
+                
+                .contentShape(Circle())
+                .padding(4)
         }
         .buttonStyle(.plain)
-        .animation(MacDesign.springAnimation, value: isCustomizePanelShown)
         .accessibilityLabel(isCustomizePanelShown ? "Close customize panel" : "Customize new tab page")
         .accessibilityIdentifier("browser.newTab.customizeButton")
         .help(isCustomizePanelShown ? "Close" : "Customize")
-    }
-
-    private var searchBar: some View {
-        LiquidGlassGroup(spacing: 8) {
-            HStack(spacing: 10) {
-                Image(systemName: "magnifyingglass")
-                    .foregroundStyle(Color.textSecondary)
-
-                TextField("Search the web or enter URL", text: $searchText)
-                    .textFieldStyle(.plain)
-                    .font(.system(size: 15, weight: .medium, design: .rounded))
-                    .foregroundStyle(Color.textPrimary)
-                    .focused($isSearchFieldFocused)
-                    .accessibilityIdentifier("browser.newTab.searchField")
-                    .onSubmit {
-                        googleSuggestions = []
-                        navigate(with: searchText)
-                    }
-
-                if !searchText.isEmpty {
-                    Button {
-                        searchText = ""
-                        googleSuggestions = []
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundStyle(Color.textSecondary.opacity(0.6))
-                    }
-                    .buttonStyle(.plain)
-                    .transition(.opacity)
-                }
-            }
-            .padding(.horizontal, 18)
-            .padding(.vertical, 14)
-            .frame(maxWidth: NewTabLayout.searchBarMaxWidth)
-            .liquidGlassCapsule(tint: isSearchFieldFocused ? tabManager.windowThemeColor : nil)
-            .modifier(GlassEffectIDModifier(id: "opening-search", namespace: searchGlassNamespace))
-            .hoverCursor(.iBeam)
-            .shadow(
-                color: isSearchFieldFocused ? tabManager.windowThemeColor.opacity(0.22) : .clear,
-                radius: 16,
-                y: 6
-            )
-            .animation(.easeOut(duration: 0.2), value: isSearchFieldFocused)
-            .overlay(alignment: .top) {
-                if isSearchFieldFocused && !googleSuggestions.isEmpty {
-                    suggestionsList
-                }
-            }
-        }
-    }
-
-    private var suggestionsList: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            ForEach(googleSuggestions, id: \.self) { suggestion in
-                SuggestionRow(
-                    text: suggestion,
-                    isURL: isLikelyURL(suggestion),
-                    accent: tabManager.windowThemeColor
-                ) {
-                    searchText = suggestion
-                    googleSuggestions = []
-                    navigate(with: suggestion)
-                }
-
-                if suggestion != googleSuggestions.last {
-                    Divider().padding(.horizontal, 8)
-                }
-            }
-        }
-        .frame(maxWidth: NewTabLayout.searchBarMaxWidth)
-        .glassBackground(cornerRadius: 14)
-        .modifier(GlassEffectIDModifier(id: "opening-suggestions", namespace: searchGlassNamespace))
-        .offset(y: 58)
-        .shadow(radius: 20)
-        .zIndex(1000)
-        .transition(.opacity)
     }
 
     private var backgroundView: some View {
@@ -207,18 +189,18 @@ struct NewTabView: View {
 
             if let backgroundImageURL {
                 CachedBackgroundImageView(url: backgroundImageURL)
-                    .overlay {
-                        LinearGradient(
-                            colors: [
-                                Color.black.opacity(theme.isDark ? 0.18 : 0.08),
-                                Color.clear,
-                                Color.black.opacity(theme.isDark ? 0.28 : 0.14)
-                            ],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    }
             }
+
+            LinearGradient(
+                colors: [
+                    Color.black.opacity(0.30),
+                    Color.black.opacity(0.08),
+                    Color.black.opacity(0.05),
+                    Color.black.opacity(0.32)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
         }
     }
 
@@ -233,120 +215,124 @@ struct NewTabView: View {
         }
     }
 
-    private var fallbackBackground: Color {
-        theme.isDark ? .black : .white
-    }
-
     private var backgroundImageURL: URL? {
         guard !tabManager.backgroundImageURL.isEmpty else { return nil }
         return URL(string: tabManager.backgroundImageURL)
     }
 
-    private func navigate(with query: String) {
-        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
-
-        viewModel.addressBarText = trimmed
-        viewModel.navigateToAddressBarURL()
-
-        searchText = ""
-    }
-
-    private func scheduleSuggestions(for query: String) {
-        suggestionTask?.cancel()
-
-        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
-
-        guard !trimmed.isEmpty, !isLikelyURL(trimmed) else {
-            googleSuggestions = []
-            return
+    private func open(_ bookmark: Bookmark, inNewTab: Bool) {
+        guard let url = URL(string: bookmark.url) else { return }
+        if inNewTab {
+            tabManager.createTab(url: url, inBackground: true)
+        } else {
+            tabManager.activeTab?.load(url: url)
         }
-
-        suggestionTask = Task {
-            try? await Task.sleep(nanoseconds: NewTabLayout.suggestionDebounceNanoseconds)
-
-            guard !Task.isCancelled else { return }
-
-            let suggestions = await fetchGoogleSuggestions(query: trimmed)
-
-            guard !Task.isCancelled else { return }
-
-            await MainActor.run {
-                withAnimation(.easeInOut(duration: 0.35)) {
-                    self.googleSuggestions = suggestions
-                }
-            }
-        }
-    }
-
-    private func fetchGoogleSuggestions(query: String) async -> [String] {
-        guard
-            let escaped = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
-            let url = URL(string: "https://suggestqueries.google.com/complete/search?client=chrome&q=\(escaped)")
-        else {
-            return []
-        }
-
-        do {
-            let (data, _) = try await URLSession.shared.data(from: url)
-
-            guard
-                let payload = try JSONSerialization.jsonObject(with: data) as? [Any],
-                payload.count > 1,
-                let suggestions = payload[1] as? [String]
-            else {
-                return []
-            }
-
-            return Array(suggestions.prefix(6))
-        } catch {
-            return []
-        }
-    }
-
-    private func isLikelyURL(_ input: String) -> Bool {
-        if let url = URL(string: input), url.scheme != nil {
-            return true
-        }
-
-        return input.contains(".") && !input.contains(" ")
     }
 }
 
-private struct SuggestionRow: View {
-    let text: String
-    let isURL: Bool
-    let accent: Color
-    let action: () -> Void
+private enum NewTabLayout {
+    static let tileWidth: CGFloat = 88
+    static let iconSize: CGFloat = 47
+    static let gridSpacing: CGFloat = 18
+}
 
+private struct NewTabBookmarkCard: View {
+    let bookmark: Bookmark
+    let accentColor: Color
+    let onOpen: () -> Void
+    let onOpenInNewTab: () -> Void
+    let onDelete: () -> Void
+
+    @State private var faviconImage: NSImage?
     @State private var isHovered = false
 
     var body: some View {
-        Button(action: action) {
-            HStack(spacing: 10) {
-                Image(systemName: isURL ? "arrow.up.right" : "magnifyingglass")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(isHovered ? accent : Color.textSecondary)
-                    .frame(width: 14)
+        Button(action: onOpen) {
+            VStack(spacing: 8) {
+                faviconTile
+                    .frame(width: NewTabLayout.iconSize, height: NewTabLayout.iconSize)
+                    .glassEffect(.regular.interactive(), in: .rect(cornerRadius: 14))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .stroke(Color.white.opacity(0.12), lineWidth: 0.5)
+                    }
+                    .shadow(color: .black.opacity(0.18), radius: 4, y: 2)
 
-                Text(text)
-                    .font(.system(size: 13))
-                    .foregroundStyle(Color.textPrimary)
+                Text(displayTitle)
+                    .font(.system(size: 11, weight: .regular))
+                    .foregroundStyle(.white.opacity(0.85))
                     .lineLimit(1)
-
-                Spacer()
+                    .truncationMode(.tail)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .background(
+                        Capsule()
+                            .fill(Color.black.opacity(0.22))
+                            .overlay(
+                                Capsule().stroke(Color.white.opacity(0.08), lineWidth: 0.5)
+                            )
+                    )
+                    .frame(maxWidth: NewTabLayout.tileWidth)
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
-            .background(isHovered ? accent.opacity(0.08) : .clear)
-            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .onHover { hovering in
-            withAnimation(.easeOut(duration: 0.1)) {
-                isHovered = hovering
+        .frame(width: NewTabLayout.tileWidth)
+        .opacity(isHovered ? 0.65 : 1)
+        .animation(.easeInOut(duration: 0.12), value: isHovered)
+        .onHover { isHovered = $0 }
+        .contextMenu {
+            Button("Open") { onOpen() }
+            Button("Open in New Tab") { onOpenInNewTab() }
+            Divider()
+            Button("Delete Bookmark", role: .destructive) { onDelete() }
+        }
+        .task(id: bookmark.url) {
+            await loadFavicon()
+        }
+        .accessibilityLabel(displayTitle)
+        .accessibilityHint("Opens \(bookmark.url)")
+        .help(bookmark.url)
+    }
+
+    @ViewBuilder
+    private var faviconTile: some View {
+        if let faviconImage {
+            FaviconView(image: faviconImage, size: NewTabLayout.iconSize - 12)
+        } else {
+            ZStack {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(accentColor.opacity(0.55))
+                    .frame(width: NewTabLayout.iconSize - 12, height: NewTabLayout.iconSize - 12)
+                Text(monogram)
+                    .font(.system(size: 18, weight: .medium, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.9))
             }
         }
+    }
+
+    private var monogram: String {
+        String(displayTitle.trimmingCharacters(in: .whitespaces).prefix(1)).uppercased()
+    }
+
+    private var displayTitle: String {
+        let title = bookmark.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        return title.isEmpty ? (URL(string: bookmark.url)?.host ?? bookmark.url) : title
+    }
+
+    private func loadFavicon() async {
+        guard let pageURL = URL(string: bookmark.url),
+              let scheme = pageURL.scheme?.lowercased(),
+              (scheme == "http" || scheme == "https"),
+              let host = pageURL.host
+        else { return }
+
+        var components = URLComponents()
+        components.scheme = scheme
+        components.host = host
+        components.path = "/favicon.ico"
+        guard let faviconURL = components.url else { return }
+
+        faviconImage = await FaviconCache.shared.fetchImage(for: faviconURL)
     }
 
 }

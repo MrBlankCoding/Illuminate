@@ -187,6 +187,7 @@ struct TabBarView: View {
                 tab: tab,
                 themeColor: tabManager.windowThemeColor,
                 isActive: tab.id == tabManager.activeTabID,
+                showsTrailingSeparator: index < tabManager.tabs.count - 1,
                 namespace: activeTabNamespace,
                 onSelect: {
                     withAnimation(MacDesign.springAnimation) { tabManager.switchTo(tab.id) }

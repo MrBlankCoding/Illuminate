@@ -10,7 +10,9 @@ import Foundation
 extension Notification.Name {
     static let newTab = Notification.Name("app.newTab")
     static let focusURLBar = Notification.Name("app.focusURLBar")
-    static let focusNewTabSearchBar = Notification.Name("app.focusNewTabSearchBar")
+    static let copyCurrentURL = Notification.Name("app.copyCurrentURL")
+    static let switchToMostRecentTab = Notification.Name("app.switchToMostRecentTab")
+
     static let openBookmarks = Notification.Name("app.openBookmarks")
     static let reloadActiveTab = Notification.Name("app.reloadActiveTab")
     static let goBack = Notification.Name("app.goBack")
@@ -29,7 +31,7 @@ extension Notification.Name {
     static let toggleFullScreen = Notification.Name("app.toggleFullScreen")
     static let closeActiveTab = Notification.Name("app.closeActiveTab")
     static let closeAllTabs = Notification.Name("app.closeAllTabs")
-    static let toggleBookmarkBar = Notification.Name("app.toggleBookmarkBar")
+
     static let showHistory       = Notification.Name("app.showHistory")
     static let clearHistory      = Notification.Name("app.clearHistory")
     static let newPrivateWindow  = Notification.Name("app.newPrivateWindow")
@@ -40,21 +42,6 @@ extension Notification.Name {
     static let moveTabToRightGroup = Notification.Name("app.moveTabToRightGroup")
 }
 
-enum BookmarkBarVisibility: String, CaseIterable, Identifiable {
-    case always      = "always"
-    case newTabOnly  = "newTabOnly"
-    case hidden      = "hidden"
-
-    var id: String { rawValue }
-
-    var displayName: String {
-        switch self {
-        case .always:     return "Always Show"
-        case .newTabOnly: return "Show on New Tab Only"
-        case .hidden:     return "Never Show"
-        }
-    }
-}
 
 extension FileManager {
     nonisolated func illuminateAppSupportDirectory() -> URL {

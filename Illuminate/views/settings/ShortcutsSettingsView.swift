@@ -22,6 +22,7 @@ struct ShortcutsSettingsView: View {
             ("Reopen Closed Tab",    "⌘⇧T"),
             ("Next Tab",             "⌘↓"),
             ("Previous Tab",         "⌘↑"),
+            ("Switch to Most Recent Tab", "⌃⇥"),
             ("New Window",           "⌘N"),
             ("New Private Window",   "⌘⇧N"),
         ]),
@@ -33,6 +34,7 @@ struct ShortcutsSettingsView: View {
         ]),
         ShortcutGroup(title: "Navigation", shortcuts: [
             ("Focus Address Bar",    "⌘L"),
+            ("Copy Current URL",     "⌘⇧C"),
             ("Reload Page",          "⌘R"),
             ("Go Back",              "⌘←"),
             ("Go Forward",           "⌘→"),
@@ -50,8 +52,7 @@ struct ShortcutsSettingsView: View {
             ("Developer Tools",      "⌘⇧I"),
         ]),
         ShortcutGroup(title: "Bookmarks", shortcuts: [
-            ("Bookmark Tab",         "⌘B"),
-            ("Toggle Bookmark Bar",  "⌘⇧B"),
+            ("Bookmark Tab", "⌘B"),
         ]),
     ]
 

@@ -10,6 +10,7 @@ import SwiftUI
 struct ProfileSelectionView: View {
     @Binding var route: BrowserWindowRoute?
     var isStandalone: Bool = false
+    var prewarmProfile: (UUID) -> Void = { _ in }
     @EnvironmentObject private var profileManager: ProfileManager
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dismiss) private var dismiss
@@ -211,6 +212,9 @@ struct ProfileSelectionView: View {
         .animation(.easeInOut(duration: 0.12), value: isHovered)
         .onHover { hovering in
             hoveredProfileID = hovering ? profile.id : nil
+            if hovering {
+                prewarmProfile(profile.id)
+            }
         }
         .hoverCursor(.pointingHand)
         .contextMenu {

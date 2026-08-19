@@ -28,7 +28,7 @@ struct HistoryPageView: View {
         return q.isEmpty ? historyManager.recentEntries : historyManager.search(query: q)
     }
 
-    private var groupedEntries: [(label: String, entries: [HistoryEntry])] {
+    private func groupedEntries(for displayedEntries: [HistoryEntry]) -> [(label: String, entries: [HistoryEntry])] {
         let cal = Calendar.current
         let now = Date()
 
@@ -57,6 +57,9 @@ struct HistoryPageView: View {
     }
 
     var body: some View {
+        let entries = displayedEntries
+        let groups = groupedEntries(for: entries)
+
         InternalPage(
             icon: "clock.arrow.circlepath",
             title: "History",
@@ -65,7 +68,7 @@ struct HistoryPageView: View {
             VStack(alignment: .leading, spacing: 20) {
                 searchBar
 
-                if displayedEntries.isEmpty {
+                if entries.isEmpty {
                     InternalPageEmptyState(
                         icon: searchText.isEmpty ? "clock" : "magnifyingglass",
                         message: searchText.isEmpty
@@ -73,7 +76,7 @@ struct HistoryPageView: View {
                             : "No history matches \"\(searchText)\"."
                     )
                 } else {
-                    ForEach(groupedEntries, id: \.label) { group in
+                    ForEach(groups, id: \.label) { group in
                         sectionView(label: group.label, entries: group.entries)
                     }
 
@@ -130,7 +133,7 @@ struct HistoryPageView: View {
                 .textCase(.uppercase)
                 .padding(.horizontal, 4)
 
-            VStack(spacing: 1) {
+            LazyVStack(spacing: 1) {
                 ForEach(entries) { entry in
                     HistoryRowView(entry: entry) { action in
                         handleRowAction(action, entry: entry)

@@ -13,13 +13,15 @@ final class ContentViewModel: ObservableObject {
     @Published var addressBarText = ""
 
     @Published private(set) var historySuggestions: [HistorySuggestion] = []
+    @Published private(set) var webSuggestions: [String] = []
 
     private let tabManager: TabManager
     private let urlSynchronizer: URLSynchronizer
     private let historyManager: HistoryManager?
     private var cancellables = Set<AnyCancellable>()
     private var activeTabURLCancellable: AnyCancellable?
-    private var suggestionTask: Task<Void, Never>?
+    private var webSuggestionTask: Task<Void, Never>?
+    private var webSuggestionCache: [String: [String]] = [:]
     private(set) var isEditingAddressBar = false
 
     init(
@@ -103,26 +105,78 @@ final class ContentViewModel: ObservableObject {
     }
 
     func updateSuggestions(for query: String) {
-        suggestionTask?.cancel()
+        webSuggestionTask?.cancel()
         let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
 
-        guard !q.isEmpty, let historyManager else {
+        guard q.count >= 2 else {
             historySuggestions = []
+            webSuggestions = []
             return
         }
 
-        suggestionTask = Task { [weak self, weak historyManager] in
-            try? await Task.sleep(nanoseconds: 80_000_000)
-            guard !Task.isCancelled, let self, let historyManager else { return }
-            let results = historyManager.suggestions(for: q, limit: 6)
-            guard !Task.isCancelled else { return }
-            self.historySuggestions = results
+        let historyResults = historyManager?.suggestions(for: q, limit: 3) ?? []
+        if historySuggestions != historyResults {
+            historySuggestions = historyResults
+        }
+
+        guard !isLikelyURL(q) else {
+            webSuggestions = []
+            return
+        }
+
+        if let cachedResults = webSuggestionCache[q] {
+            if webSuggestions != cachedResults {
+                webSuggestions = cachedResults
+            }
+            return
+        }
+
+        webSuggestionTask = Task { [weak self] in
+            let results = await Self.fetchWebSuggestions(for: q)
+            guard !Task.isCancelled, let self else { return }
+            if self.webSuggestionCache.count >= 50 {
+                self.webSuggestionCache.removeAll(keepingCapacity: true)
+            }
+            self.webSuggestionCache[q] = results
+            guard self.webSuggestions != results else { return }
+            self.webSuggestions = results
         }
     }
 
     func cancelSuggestions() {
-        suggestionTask?.cancel()
+        webSuggestionTask?.cancel()
         historySuggestions = []
+        webSuggestions = []
+    }
+
+    private nonisolated static func fetchWebSuggestions(for query: String) async -> [String] {
+        guard
+            let escaped = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+            let url = URL(string: "https://suggestqueries.google.com/complete/search?client=chrome&q=\(escaped)")
+        else {
+            return []
+        }
+
+        do {
+            let (data, _) = try await URLSession.shared.data(from: url)
+            guard
+                let payload = try JSONSerialization.jsonObject(with: data) as? [Any],
+                payload.count > 1,
+                let suggestions = payload[1] as? [String]
+            else {
+                return []
+            }
+            return Array(suggestions.prefix(3))
+        } catch {
+            return []
+        }
+    }
+
+    private func isLikelyURL(_ input: String) -> Bool {
+        if let url = URL(string: input), url.scheme != nil {
+            return true
+        }
+        return input.contains(".") && !input.contains(" ")
     }
 
     private func googleSearchURL(for query: String) -> URL? {

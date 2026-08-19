@@ -17,6 +17,7 @@ struct AppCommands: Commands {
                 BrowserCommand("New Tab",            shortcut: "t")                     { .newTab }
                 BrowserCommand("Reopen Closed Tab",  shortcut: "t", modifiers: [.command, .shift]) { .reopenTab }
                 BrowserCommand("Focus URL Bar",      shortcut: "l")                     { .focusURLBar }
+                BrowserCommand("Copy Current URL",    shortcut: "c", modifiers: [.command, .shift]) { .copyCurrentURL }
                 BrowserCommand("Refresh Page",       shortcut: "r")                     { .reloadActiveTab }
             }
 
@@ -30,8 +31,9 @@ struct AppCommands: Commands {
             Divider()
 
             Group {
-                BrowserCommand("Next Tab",     shortcut: .downArrow) { .nextTab }
-                BrowserCommand("Previous Tab", shortcut: .upArrow)   { .previousTab }
+                BrowserCommand("Next Tab",                shortcut: .downArrow) { .nextTab }
+                BrowserCommand("Previous Tab",            shortcut: .upArrow)   { .previousTab }
+                BrowserCommand("Switch to Most Recent Tab", shortcut: .tab, modifiers: .control) { .switchToMostRecentTab }
             }
 
             Divider()
@@ -82,10 +84,6 @@ struct AppCommands: Commands {
             Divider()
 
             BrowserCommand("Developer Tools", shortcut: "i", modifiers: [.command, .shift]) { .openDevTools }
-
-            Divider()
-
-            BookmarkBarMenuContent()
         }
 
         CommandGroup(replacing: .sidebar) {}
@@ -144,55 +142,6 @@ private struct CloseTabCommand: View {
     }
 }
 
-private struct BookmarkBarMenuContent: View {
-    @FocusedValue(\.activeEnvironment) private var environment
-
-    private var currentVisibility: BookmarkBarVisibility {
-        environment?.tabManager.bookmarkBarVisibility ?? .always
-    }
-
-    var body: some View {
-        Section("Bookmark Bar") {
-            Button {
-                set(.always)
-            } label: {
-                Label(
-                    BookmarkBarVisibility.always.displayName,
-                    systemImage: currentVisibility == .always ? "checkmark" : ""
-                )
-            }
-
-            Button {
-                set(.newTabOnly)
-            } label: {
-                Label(
-                    BookmarkBarVisibility.newTabOnly.displayName,
-                    systemImage: currentVisibility == .newTabOnly ? "checkmark" : ""
-                )
-            }
-
-            Button {
-                set(.hidden)
-            } label: {
-                Label(
-                    BookmarkBarVisibility.hidden.displayName,
-                    systemImage: currentVisibility == .hidden ? "checkmark" : ""
-                )
-            }
-        }
-
-        Divider()
-
-        Button("Toggle Bookmark Bar") {
-            NotificationCenter.default.post(name: .toggleBookmarkBar, object: nil)
-        }
-        .keyboardShortcut("b", modifiers: [.command, .shift])
-    }
-
-    private func set(_ visibility: BookmarkBarVisibility) {
-        environment?.tabManager.bookmarkBarVisibility = visibility
-    }
-}
 
 private struct RecentlyVisitedMenuContent: View {
     @FocusedValue(\.activeEnvironment) private var environment

@@ -139,8 +139,6 @@ final class EasyListParser {
                 case trimmedOption == "first-party":
                     loadTypes = ["first-party"]
                 case trimmedOption.hasPrefix("domain="):
-                    // WebKit content rule lists do not support domain= filters here,
-                    // so ignore them instead of emitting unsupported if-domain/unless-domain entries.
                     continue
                 default:
                     let isExclusion = trimmedOption.hasPrefix("~")
@@ -271,9 +269,6 @@ final class EasyListParser {
             case "*":
                 translated += ".*"
             case "^":
-                // WebKit's Content Rule List regex engine does not support disjunctions (|).
-                // Keep the hostname boundary permissive enough to match domain separators such as dots, underscores,
-                // percent-encoded characters, and hyphenated subdomains.
                 translated += hostnameBoundaryClass
             default:
                 translated += escapedRegexLiteral(for: character)

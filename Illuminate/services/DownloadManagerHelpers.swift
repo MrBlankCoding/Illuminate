@@ -52,6 +52,7 @@ extension DownloadManager {
     }
 
     func insertTask(_ task: DownloadTask) {
+        markSessionHasDownload()
         downloads.insert(task, at: 0)
         rebuildIndexMap()
         AppLog.download("Inserted download item id=\(task.id.uuidString) source=\(task.url.absoluteString) filename=\(task.filename) state=\(task.state.rawValue)")

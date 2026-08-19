@@ -25,7 +25,6 @@ final class DNSPreFetcher {
         let script = """
         (function() {
             try {
-                // Limit to first 100 links to avoid performance issues on huge pages
                 const anchors = Array.from(document.querySelectorAll('a[href]')).slice(0, 100);
                 const urls = anchors.map(a => a.href).filter(Boolean);
                 const hosts = Array.from(new Set(urls.map(u => {

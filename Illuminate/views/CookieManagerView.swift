@@ -18,6 +18,9 @@ struct CookieManagerView: View {
     }
 
     var body: some View {
+        let groupedCookies = viewModel.groupedCookies
+        let sortedDomains = groupedCookies.keys.sorted()
+
         VStack(spacing: 0) {
             header
             searchBar
@@ -25,10 +28,10 @@ struct CookieManagerView: View {
             if viewModel.isLoading {
                 ProgressView()
                     .padding(.top, 40)
-            } else if viewModel.filteredCookies.isEmpty {
+            } else if groupedCookies.isEmpty {
                 emptyState
             } else {
-                cookieList
+                cookieList(groupedCookies: groupedCookies, sortedDomains: sortedDomains)
             }
         }
         .onAppear {
@@ -80,10 +83,13 @@ struct CookieManagerView: View {
         }
     }
 
-    private var cookieList: some View {
+    private func cookieList(
+        groupedCookies: [String: [HTTPCookie]],
+        sortedDomains: [String]
+    ) -> some View {
         ScrollView {
-            VStack(spacing: 20) {
-                ForEach(viewModel.sortedDomains, id: \.self) { domain in
+            LazyVStack(spacing: 20) {
+                ForEach(sortedDomains, id: \.self) { domain in
                     VStack(alignment: .leading, spacing: 10) {
                         HStack {
                             Text(domain)
@@ -104,7 +110,7 @@ struct CookieManagerView: View {
                         .padding(.horizontal, 4)
 
                         VStack(spacing: 1) {
-                            ForEach(viewModel.groupedCookies[domain] ?? [], id: \.self) { cookie in
+                            ForEach(groupedCookies[domain] ?? [], id: \.self) { cookie in
                                 cookieRow(cookie)
                             }
                         }

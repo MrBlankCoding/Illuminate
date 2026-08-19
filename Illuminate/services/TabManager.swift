@@ -5,6 +5,7 @@
 // Created by MrBlankCoding on 4/8/26.
 //
 
+import AppKit
 import Combine
 import Foundation
 import OSLog
@@ -76,9 +77,6 @@ final class TabManager: ObservableObject {
         didSet { persistIfEnabled(userInterfaceStyle.rawValue, forKey: "userInterfaceStyle") }
     }
 
-    @Published var bookmarkBarVisibility: BookmarkBarVisibility {
-        didSet { persistIfEnabled(bookmarkBarVisibility.rawValue, forKey: "bookmarkBarVisibility") }
-    }
 
     var activeTab: Tab? {
         guard let activeTabID else { return nil }
@@ -160,10 +158,6 @@ final class TabManager: ObservableObject {
             : "dark"
         self.userInterfaceStyle = UIStyle(rawValue: savedStyle) ?? .dark
 
-        let savedBarVisibility = isPersistenceEnabled
-            ? (userDefaults.string(forKey: Self.scopedKey("bookmarkBarVisibility", profileID: profileID)) ?? BookmarkBarVisibility.always.rawValue)
-            : BookmarkBarVisibility.always.rawValue
-        self.bookmarkBarVisibility = BookmarkBarVisibility(rawValue: savedBarVisibility) ?? .always
 
         if isPersistenceEnabled {
             restoreSession()
@@ -355,7 +349,7 @@ final class TabManager: ObservableObject {
     }
 
     @discardableResult
-    func createTab(url: URL? = nil) -> Tab {
+    func createTab(url: URL? = nil, inBackground: Bool = false) -> Tab {
         let tab = Tab(url: url, assetsBaseURL: tabAssetsBaseURL)
 
         tabs.append(tab)
@@ -363,16 +357,18 @@ final class TabManager: ObservableObject {
         tabPositionIndex[tab.id] = tabs.count - 1
         hydrateVisualState(for: tab)
 
-        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-            switchTo(tab.id)
+        if !inBackground {
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                switchTo(tab.id)
+            }
         }
 
-        if url == nil {
+        if url == nil, !inBackground {
             pendingFocusTask?.cancel()
             pendingFocusTask = Task { [weak self, notificationCenter] in
                 try? await Task.sleep(nanoseconds: UInt64(Defaults.tabCreationDelay * 1_000_000_000))
                 guard !Task.isCancelled, self != nil else { return }
-                notificationCenter.post(name: .focusNewTabSearchBar, object: nil)
+                notificationCenter.post(name: .focusURLBar, object: nil)
             }
         }
 
@@ -429,13 +425,6 @@ final class TabManager: ObservableObject {
         scheduleSave()
     }
 
-    func cycleBookmarkBarVisibility() {
-        switch bookmarkBarVisibility {
-        case .always:    bookmarkBarVisibility = .newTabOnly
-        case .newTabOnly: bookmarkBarVisibility = .hidden
-        case .hidden:    bookmarkBarVisibility = .always
-        }
-    }
 
     @discardableResult
     func reopenLastClosedTab() -> Tab? {
@@ -463,6 +452,18 @@ final class TabManager: ObservableObject {
 
     func nextTab()     { cycleTab(by: +1) }
     func previousTab() { cycleTab(by: -1) }
+
+    func switchToMostRecentTab() {
+        guard let activeTabID else { return }
+        guard let mostRecentTab = tabs
+            .filter({ $0.id != activeTabID })
+            .max(by: { $0.lastActivatedAt < $1.lastActivatedAt })
+        else { return }
+
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.78)) {
+            switchTo(mostRecentTab.id)
+        }
+    }
 
     func switchTo(_ id: UUID) {
         guard activeTabID != id else { return }
@@ -641,11 +642,13 @@ final class TabManager: ObservableObject {
         let pairs: [(Notification.Name, Handler)] = [
             (.newTab,          { [weak self] in self?.createTab() }),
             (.reloadActiveTab, { [weak self] in self?.activeTab?.reload() }),
+            (.copyCurrentURL,  { [weak self] in self?.copyCurrentURL() }),
             (.goBack,          { [weak self] in self?.activeTab?.webView?.goBack() }),
             (.goForward,       { [weak self] in self?.activeTab?.webView?.goForward() }),
             (.reopenTab,       { [weak self] in self?.reopenLastClosedTab() }),
             (.nextTab,         { [weak self] in self?.nextTab() }),
             (.previousTab,     { [weak self] in self?.previousTab() }),
+            (.switchToMostRecentTab, { [weak self] in self?.switchToMostRecentTab() }),
             (.openDevTools,    { [weak self] in self?.activeTab?.openDevTools() }),
             (.zoomIn,          { [weak self] in self?.activeTab?.zoomIn() }),
             (.zoomOut,         { [weak self] in self?.activeTab?.zoomOut() }),
@@ -654,7 +657,7 @@ final class TabManager: ObservableObject {
             (.showHistory,     { [weak self] in self?.navigateActiveTab(to: URL(string: "illuminate://history")!) }),
             (Notification.Name.closeActiveTab, { [weak self] in self?.closeActiveTab() }),
             (Notification.Name.closeAllTabs, { [weak self] in self?.clearAllTabs() }),
-            (Notification.Name.toggleBookmarkBar, { [weak self] in self?.cycleBookmarkBarVisibility() }),
+
             (.newTabGroup, { [weak self] in
                 guard let self, let activeTabID = self.activeTabID else { return }
                 self.tabGroupManager.createGroup(name: "", color: .blue, tabIDs: [activeTabID])
@@ -697,6 +700,13 @@ final class TabManager: ObservableObject {
         }
         tokens.append(openURLToken)
         observerTokens = tokens
+    }
+
+    private func copyCurrentURL() {
+        guard let url = activeTab?.url else { return }
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(url.absoluteString, forType: .string)
     }
 
     func moveActiveTabToAdjacentGroup(direction: Int) {

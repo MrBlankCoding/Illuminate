@@ -20,6 +20,7 @@ final class DownloadManager: NSObject, ObservableObject {
     @Published var preferences: DownloadPreferences
     @Published var downloadDirectoryURL: URL
     @Published private(set) var hasRecentCompletedDownload = false
+    @Published private(set) var hasSessionDownload = false
     var notificationThrottleTask: Task<Void, Never>?
 
     lazy var session: URLSession = {
@@ -58,6 +59,14 @@ final class DownloadManager: NSObject, ObservableObject {
 
     var hasVisibleDownloads: Bool {
         !downloads.isEmpty
+    }
+
+    var hasActiveDownloads: Bool {
+        downloads.contains(where: \.isActive)
+    }
+
+    func markSessionHasDownload() {
+        hasSessionDownload = true
     }
 
     func noteCompletedDownload() {

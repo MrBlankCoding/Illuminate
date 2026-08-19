@@ -20,14 +20,13 @@ struct DownloadsToolbarButton: View {
     }
 
     var body: some View {
-        Button {
-            downloadManager.acknowledgeRecentCompletedDownload()
-            isPopoverPresented.toggle()
-        } label: {
-            ZStack(alignment: .topTrailing) {
-                Image(systemName: downloadIconName)
+        if downloadManager.hasSessionDownload {
+            Button {
+                isPopoverPresented.toggle()
+            } label: {
+                Image(systemName: downloadManager.hasActiveDownloads ? "arrow.down.circle.fill" : "arrow.down.circle")
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(downloadIconColor)
+                    .foregroundStyle(isPopoverPresented ? tabManager.windowThemeColor : (isHovered ? Color.textPrimary : Color.textSecondary))
                     .frame(width: MacDesign.Size.iconButton, height: MacDesign.Size.iconButton)
                     .background {
                         Circle()
@@ -38,43 +37,20 @@ struct DownloadsToolbarButton: View {
                             )
                     }
                     .animation(MacDesign.fastAnimation, value: isHovered)
-
-                if downloadManager.downloads.contains(where: \.isActive) {
-                    Circle()
-                        .fill(tabManager.windowThemeColor)
-                        .frame(width: 7, height: 7)
-                        .offset(x: 2, y: -2)
-                }
+            }
+            .buttonStyle(ToolbarIconPressStyle())
+            .onHover { hovering in isHovered = hovering }
+            .hoverCursor(.pointingHand)
+            .help("Downloads")
+            .accessibilityLabel("Downloads")
+            .accessibilityIdentifier("browser.toolbar.downloadsButton")
+            .popover(isPresented: $isPopoverPresented, arrowEdge: .bottom) {
+                DownloadsPopoverContent()
+                    .environmentObject(tabManager)
+                    .frame(width: 340)
+                    .macPopover(cornerRadius: MacDesign.Radius.large)
             }
         }
-        .buttonStyle(ToolbarIconPressStyle())
-        .onHover { hovering in isHovered = hovering }
-        .hoverCursor(.pointingHand)
-        .help("Downloads")
-        .accessibilityLabel("Downloads")
-        .accessibilityIdentifier("browser.toolbar.downloadsButton")
-        .popover(isPresented: $isPopoverPresented, arrowEdge: .bottom) {
-            DownloadsPopoverContent()
-                .environmentObject(tabManager)
-                .frame(width: 340)
-                .macPopover(cornerRadius: MacDesign.Radius.large)
-        }
-    }
-
-    private var downloadIconName: String {
-        downloadManager.downloads.contains(where: \.isActive)
-            ? "arrow.down.circle.fill"
-            : "arrow.down.circle"
-    }
-
-    private var downloadIconColor: Color {
-        if isPopoverPresented {
-            return tabManager.windowThemeColor
-        }
-        if downloadManager.hasRecentCompletedDownload {
-            return .green
-        }
-        return isHovered ? Color.textPrimary : Color.textSecondary
     }
 }
 

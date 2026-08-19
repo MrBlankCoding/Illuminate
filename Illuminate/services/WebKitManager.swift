@@ -12,7 +12,8 @@ import Combine
 
 @MainActor
 final class WebKitManager: ObservableObject {
-
+    private static var hasConfiguredGlobalCache = false
+    
     @Published var cookiesEnabled: Bool = true {
         didSet {
             guard !isLoadingProfile, isPersistenceEnabled else { return }
@@ -40,7 +41,10 @@ final class WebKitManager: ObservableObject {
         self.activeProfileID = profileID
         self.isPersistenceEnabled = isPersistenceEnabled
         
-        configureGlobalCache()
+        if !Self.hasConfiguredGlobalCache {
+            Self.hasConfiguredGlobalCache = true
+            configureGlobalCache()
+        }
         
         self.isLoadingProfile = true
         self.cookiesEnabled = isPersistenceEnabled

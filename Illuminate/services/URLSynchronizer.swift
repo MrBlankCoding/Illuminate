@@ -16,6 +16,7 @@ final class URLSynchronizer: ObservableObject {
     init() {}
 
     func updateCurrentURL(_ url: URL?) {
+        guard currentURL != url else { return }
         currentURL = url
     }
 }

@@ -79,5 +79,11 @@ struct IlluminateApp: App {
             NativeSettingsView()
                 .modelContainer(modelContainer)
         }
+
+        Window("Welcome to Illuminate", id: OnboardingView.windowID) {
+            OnboardingView()
+        }
+        .defaultSize(width: 520, height: 430)
+        .windowResizability(.contentSize)
     }
 }

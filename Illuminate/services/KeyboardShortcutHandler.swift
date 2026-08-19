@@ -24,6 +24,7 @@ final class KeyboardShortcutHandler {
         static let rightArrow: UInt16 = 124
         static let downArrow:  UInt16 = 125
         static let upArrow:    UInt16 = 126
+        static let tab:        UInt16 = 48
     }
 
     private let shortcuts: [Shortcut]
@@ -51,7 +52,9 @@ final class KeyboardShortcutHandler {
             Shortcut(modifiers: .command, trigger: .keyCode(KeyCode.rightArrow), action: .goForward),
             Shortcut(modifiers: .command, trigger: .keyCode(KeyCode.downArrow), action: .nextTab),
             Shortcut(modifiers: .command, trigger: .keyCode(KeyCode.upArrow), action: .previousTab),
+            Shortcut(modifiers: .control, trigger: .keyCode(KeyCode.tab), action: .switchToMostRecentTab),
             Shortcut(modifiers: [.command, .shift], trigger: .character("i"), action: .openDevTools),
+            Shortcut(modifiers: [.command, .shift], trigger: .character("c"), action: .copyCurrentURL),
             Shortcut(modifiers: [.command, .shift], trigger: .character("t"), action: .reopenTab),
             Shortcut(modifiers: [.command, .shift], trigger: .character("w"), action: .closeAllTabs),
             Shortcut(modifiers: [.command, .shift], trigger: .character("f"), action: .toggleFullScreen),
@@ -67,11 +70,13 @@ final class KeyboardShortcutHandler {
     func closeAllTabs() { post(.closeAllTabs) }
     func reopenTab() { post(.reopenTab) }
     func focusURLBar() { post(.focusURLBar) }
+    func copyCurrentURL() { post(.copyCurrentURL) }
     func reloadActiveTab() { post(.reloadActiveTab) }
     func goBack() { post(.goBack) }
     func goForward() { post(.goForward) }
     func nextTab() { post(.nextTab) }
     func previousTab() { post(.previousTab) }
+    func switchToMostRecentTab() { post(.switchToMostRecentTab) }
     func findInPage() { post(.findInPage) }
     func openDevTools() { post(.openDevTools) }
     func toggleFullScreen() { post(.toggleFullScreen) }
@@ -123,9 +128,6 @@ final class RuntimeSecurityMonitor {
     }
 
     func startMonitoring() {
-        // This observer exists as a placeholder for future integrity/policy checks.
-        // In release builds, emitting a security log on every new-tab creation
-        // adds a NotificationCenter observer + os_log call with no security value.
         #if DEBUG
         observe(.newTab) { AppLog.security("Runtime check passed for New Tab action") }
         #endif
