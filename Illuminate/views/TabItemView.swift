@@ -147,6 +147,11 @@ struct TabItemView: View {
                 .aspectRatio(contentMode: .fit)
                 .frame(width: 16, height: 16)
                 .clipShape(RoundedRectangle(cornerRadius: 3, style: .continuous))
+        } else if let url = tab.url, let page = IlluminatePage(url: url) {
+            Image(systemName: page.icon)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(isActive ? themeColor : Color.textSecondary)
+                .frame(width: 16, height: 16)
         } else {
             Image(systemName: "globe")
                 .font(.system(size: 11, weight: .medium))

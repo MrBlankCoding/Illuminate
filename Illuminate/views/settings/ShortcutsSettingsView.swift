@@ -46,6 +46,7 @@ struct ShortcutsSettingsView: View {
         ]),
         ShortcutGroup(title: "Page", shortcuts: [
             ("Find in Page",         "⌘F"),
+            ("Print Page",           "⌘P"),
             ("Zoom In",              "⌘+"),
             ("Zoom Out",             "⌘−"),
             ("Reset Zoom",           "⌘0"),

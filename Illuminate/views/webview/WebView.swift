@@ -9,29 +9,6 @@ import AppKit
 import SwiftUI
 import WebKit
 
-enum IlluminatePage: String, CaseIterable, Equatable {
-    case passwords
-    case cookies
-    case protection
-    case downloads
-    case history
-    case permissions
-
-    static let urlScheme = "illuminate"
-    init?(url: URL) {
-        guard
-            url.scheme?.localizedCaseInsensitiveCompare(Self.urlScheme) == .orderedSame,
-            let host = url.host?.lowercased(),
-            let page = IlluminatePage(rawValue: host)
-        else { return nil }
-        self = page
-    }
-
-    var url: URL {
-        URL(string: "\(Self.urlScheme)://\(rawValue)")!
-    }
-}
-
 struct WebView: View {
     @ObservedObject var tab: Tab
 
@@ -79,6 +56,9 @@ struct WebView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         case .permissions:
             PermissionsPageView()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        case .info:
+            InfoPageView()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         case nil:
             WebViewRepresentable(

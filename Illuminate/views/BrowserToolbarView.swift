@@ -101,16 +101,14 @@ struct BrowserToolbarView: View {
     }
 
     var body: some View {
-        TopHostView(tabFrames: tabFrames) {
-            topContent
-        }
-        .frame(maxWidth: .infinity)
-        .frame(height: ToolbarMetrics.totalHeight)
-        .background(toolbarBackground)
-        .ignoresSafeArea(edges: .top)
-        .onPreferenceChange(TabFramesKey.self) { frames in
-            tabFrames = frames
-        }
+        topContent
+            .frame(maxWidth: .infinity)
+            .frame(height: ToolbarMetrics.totalHeight)
+            .background(toolbarBackground)
+            .ignoresSafeArea(edges: .top)
+            .onPreferenceChange(TabFramesKey.self) { frames in
+                tabFrames = frames
+            }
     }
     private var topContent: some View {
         VStack(spacing: 0) {
@@ -129,16 +127,19 @@ struct BrowserToolbarView: View {
     }
 
     private var tabStripRow: some View {
-        HStack(spacing: 0) {
-            Color.clear
-                .frame(width: tabManager.isFullScreen
-                       ? 8
-                       : ToolbarMetrics.trafficLightWidth)
+        TopHostView(tabFrames: tabFrames) {
+            HStack(spacing: 0) {
+                Color.clear
+                    .frame(width: tabManager.isFullScreen
+                           ? 8
+                           : ToolbarMetrics.trafficLightWidth)
 
-            TabBarView()
-                .frame(maxWidth: .infinity)
-            Color.clear
-                .frame(width: ToolbarMetrics.trailingPad - 8)
+                TabBarView()
+                    .frame(maxWidth: .infinity)
+                Color.clear
+                    .frame(width: ToolbarMetrics.trailingPad - 8)
+            }
+            .frame(height: ToolbarMetrics.tabRowHeight)
         }
         .frame(height: ToolbarMetrics.tabRowHeight)
     }

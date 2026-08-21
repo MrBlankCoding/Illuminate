@@ -118,7 +118,14 @@ final class Tab: ObservableObject, Identifiable {
     let id: UUID
 
     @Published var url: URL? {
-        didSet { if oldValue != url { saveMetadata() } }
+        didSet {
+            if oldValue != url {
+                if let url, let page = IlluminatePage(url: url) {
+                    self.title = page.tabTitle
+                }
+                saveMetadata()
+            }
+        }
     }
     @Published var title: String {
         didSet { if oldValue != title { saveMetadata() } }
@@ -182,7 +189,11 @@ final class Tab: ObservableObject, Identifiable {
     ) {
         self.id = id
         self.url = url
-        self.title = title
+        if let url, let page = IlluminatePage(url: url), title == "New Tab" {
+            self.title = page.tabTitle
+        } else {
+            self.title = title
+        }
         self.favicon = favicon
         self.themeColor = themeColor
         self.isLoading = isLoading
@@ -312,7 +323,10 @@ final class Tab: ObservableObject, Identifiable {
 
     func load(url: URL) {
         self.url = url
-        guard url.scheme != "illuminate" else { return }
+        if let page = IlluminatePage(url: url) {
+            self.title = page.tabTitle
+            return
+        }
         webView?.load(URLRequest(url: url))
     }
 
@@ -407,6 +421,16 @@ final class Tab: ObservableObject, Identifiable {
             object: nil,
             userInfo: [Self.zoomLevelKey: zoomLevel]
         )
+    }
+
+    func printPage() {
+        guard let webView, let window = webView.window else { return }
+        let printInfo = NSPrintInfo.shared
+        printInfo.horizontalPagination = .fit
+        printInfo.verticalPagination = .automatic
+        let operation = webView.printOperation(with: printInfo)
+        operation.view?.frame = webView.bounds
+        operation.runModal(for: window, delegate: nil, didRun: nil, contextInfo: nil)
     }
 
     func openDevTools() {

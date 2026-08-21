@@ -21,4 +21,11 @@ struct InternalPageTests {
         _ = FaviconView(image: nil).body
         _ = FaviconView(image: NSImage(size: NSSize(width: 8, height: 8))).body
     }
+
+    @Test func illuminateInfoPageRoutesCorrectly() {
+        let url = URL(string: "illuminate://info")!
+        let page = IlluminatePage(url: url)
+        #expect(page == .info)
+        #expect(page?.url == url)
+    }
 }

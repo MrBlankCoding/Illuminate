@@ -17,8 +17,10 @@ struct URLBar: View {
 
     @EnvironmentObject private var viewModel: ContentViewModel
     @EnvironmentObject private var urlSynchronizer: URLSynchronizer
+    @EnvironmentObject private var tabManager: TabManager
     @Environment(\.colorScheme) private var colorScheme
     @FocusState private var isFocused: Bool
+    @State private var isHoveringSuggestions = false
     @State private var didCopyURL = false
     @State private var isCopyHovered = false
     @Namespace private var glassNamespace
@@ -29,7 +31,11 @@ struct URLBar: View {
     }
 
     private var showSuggestions: Bool {
-        isFocused && (!viewModel.historySuggestions.isEmpty || !viewModel.webSuggestions.isEmpty)
+        (isFocused || isHoveringSuggestions) && (
+            !viewModel.illuminatePageSuggestions.isEmpty ||
+            !viewModel.historySuggestions.isEmpty ||
+            !viewModel.webSuggestions.isEmpty
+        )
     }
 
     var body: some View {
@@ -40,12 +46,15 @@ struct URLBar: View {
                         .offset(y: MacDesign.Size.urlBarHeight + 5)
                 }
             }
+        .zIndex(100)
         .onReceive(NotificationCenter.default.publisher(for: .focusURLBar)) { _ in
             isFocused = true
         }
         .onChange(of: isFocused) { _, focused in
             viewModel.setAddressBarEditing(focused)
-            if !focused { viewModel.cancelSuggestions() }
+            if !focused && !isHoveringSuggestions {
+                viewModel.cancelSuggestions()
+            }
         }
     }
 
@@ -68,8 +77,10 @@ struct URLBar: View {
                 .accessibilityIdentifier("browser.urlBar.textField")
                 .onSubmit {
                     isFocused = false
-                    onNavigate()
+                    isHoveringSuggestions = false
                     viewModel.setAddressBarEditing(false)
+                    viewModel.cancelSuggestions()
+                    onNavigate()
                 }
                 .onChange(of: addressText) { _, newValue in
                     if isFocused {
@@ -129,21 +140,21 @@ struct URLBar: View {
 
     private var suggestionsDropdown: some View {
         VStack(alignment: .leading, spacing: 2) {
+            ForEach(viewModel.illuminatePageSuggestions) { suggestion in
+                IlluminatePageSuggestionRowView(suggestion: suggestion, accentColor: themeColor) {
+                    selectIlluminatePageSuggestion(suggestion)
+                }
+            }
+
             ForEach(viewModel.historySuggestions) { suggestion in
                 SuggestionRowView(suggestion: suggestion) {
-                    addressText = suggestion.urlString
-                    viewModel.cancelSuggestions()
-                    isFocused = false
-                    onNavigate()
+                    selectHistorySuggestion(suggestion)
                 }
             }
 
             ForEach(viewModel.webSuggestions, id: \.self) { suggestion in
                 WebSuggestionRowView(text: suggestion, accentColor: themeColor) {
-                    addressText = suggestion
-                    viewModel.cancelSuggestions()
-                    isFocused = false
-                    onNavigate()
+                    selectWebSuggestion(suggestion)
                 }
             }
         }
@@ -152,6 +163,41 @@ struct URLBar: View {
         .floatingGlassPanel(cornerRadius: MacDesign.Radius.medium)
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityLabel("Search suggestions")
+        .onHover { hovering in
+            isHoveringSuggestions = hovering
+        }
+    }
+
+    private func selectIlluminatePageSuggestion(_ suggestion: IlluminatePageSuggestion) {
+        isHoveringSuggestions = false
+        isFocused = false
+        viewModel.setAddressBarEditing(false)
+        viewModel.cancelSuggestions()
+
+        if suggestion.isCurrentlyOpenTab, let tabID = suggestion.openTabID {
+            tabManager.switchTo(tabID)
+        } else {
+            addressText = suggestion.urlString
+            onNavigate()
+        }
+    }
+
+    private func selectHistorySuggestion(_ suggestion: HistorySuggestion) {
+        addressText = suggestion.urlString
+        isHoveringSuggestions = false
+        isFocused = false
+        viewModel.setAddressBarEditing(false)
+        viewModel.cancelSuggestions()
+        onNavigate()
+    }
+
+    private func selectWebSuggestion(_ suggestion: String) {
+        addressText = suggestion
+        isHoveringSuggestions = false
+        isFocused = false
+        viewModel.setAddressBarEditing(false)
+        viewModel.cancelSuggestions()
+        onNavigate()
     }
 
     private var statusIcon: String {
@@ -214,6 +260,75 @@ private struct SuggestionRowView: View {
         .onHover { hovering in
             withAnimation(MacDesign.fastAnimation) { isHovered = hovering }
         }
+    }
+}
+
+private struct IlluminatePageSuggestionRowView: View {
+    let suggestion: IlluminatePageSuggestion
+    let accentColor: Color
+    let onSelect: () -> Void
+
+    @State private var isHovered = false
+
+    var body: some View {
+        Button(action: onSelect) {
+            HStack(spacing: 8) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 4, style: .continuous)
+                        .fill(accentColor.opacity(0.14))
+                        .frame(width: 18, height: 18)
+                    Image(systemName: suggestion.icon)
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(accentColor)
+                }
+
+                VStack(alignment: .leading, spacing: 1) {
+                    HStack(spacing: 6) {
+                        Text(suggestion.title)
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(Color.textPrimary)
+                            .lineLimit(1)
+
+                        if suggestion.isCurrentlyOpenTab {
+                            Text("OPEN TAB")
+                                .font(.system(size: 8, weight: .bold))
+                                .foregroundStyle(accentColor)
+                                .padding(.horizontal, 4)
+                                .padding(.vertical, 1)
+                                .background(accentColor.opacity(0.12), in: RoundedRectangle(cornerRadius: 3))
+                        }
+                    }
+
+                    Text(suggestion.subtitle)
+                        .font(.system(size: 10))
+                        .foregroundStyle(Color.textSecondary)
+                        .lineLimit(1)
+                }
+
+                Spacer(minLength: 8)
+
+                if suggestion.isCurrentlyOpenTab {
+                    Text("Switch to tab")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(accentColor)
+                } else {
+                    Text("Illuminate Page")
+                        .font(.system(size: 10))
+                        .foregroundStyle(Color.textSecondary.opacity(0.7))
+                }
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background {
+                RoundedRectangle(cornerRadius: MacDesign.Radius.small, style: .continuous)
+                    .fill(isHovered ? Color.primary.opacity(0.07) : Color.clear)
+            }
+            .contentShape(RoundedRectangle(cornerRadius: MacDesign.Radius.small, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .padding(.horizontal, 4)
+        .hoverCursor(.pointingHand)
+        .onHover { isHovered = $0 }
     }
 }
 

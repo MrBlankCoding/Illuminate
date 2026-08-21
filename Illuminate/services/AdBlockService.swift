@@ -10,7 +10,7 @@ import Combine
 import WebKit
 
 final class AdBlockService: ObservableObject {
-    private static let staticRuleListIdentifier = "IlluminateStaticAdBlockRules-v5"
+    private static let staticRuleListIdentifier = "IlluminateStaticAdBlockRules-v6"
     private static let sharedRuleListIdentifier = "IlluminateDynamicAdBlockRules"
     private static let debounceInterval: TimeInterval = 0.25
     private static let easyListURL = URL(string: "https://easylist.to/easylist/easylist.txt")!
@@ -434,6 +434,12 @@ final class AdBlockService: ObservableObject {
         rulesArray.append(Self.genericAdCosmeticRule)
         rulesArray.append(Self.adBlockTestCosmeticRule)
 
+        // CAPTCHA providers frequently run in third-party frames. These rules must
+        // follow filter rules so `ignore-previous-rules` can restore their resources.
+        for domain in CaptchaCompatibility.providerDomains {
+            rulesArray.append(Self.allowRule(for: domain))
+        }
+
         let json = Self.serialize(rulesArray)
         if includeEasyList {
             cachedStaticRulesJSON = json
@@ -477,6 +483,16 @@ final class AdBlockService: ObservableObject {
         let escaped = NSRegularExpression.escapedPattern(for: host.lowercased())
         // Simplified pattern to avoid unsupported regex features in some WebKit versions
         return ".*\(escaped).*"
+    }
+
+    private static func allowRule(for domain: String) -> [String: Any] {
+        [
+            "trigger": [
+                "url-filter": domainAnchoredPattern(for: domain),
+                "url-filter-is-case-sensitive": false
+            ],
+            "action": ["type": "ignore-previous-rules"]
+        ]
     }
 
     private static func blockRule(urlFilter: String, thirdPartyOnly: Bool = false) -> [String: Any] {
@@ -700,7 +716,7 @@ final class AdBlockService: ObservableObject {
 
 
     private func loadDefaultRules() {
-        allowlistedHosts = ["browserbench.org"]
+        allowlistedHosts = Set(["browserbench.org"]).union(CaptchaCompatibility.providerDomains)
     }
 
     private func scopedKey(_ key: String) -> String {

@@ -266,7 +266,7 @@ final class WebScriptBridge {
         return WKUserScript(
             source: source,
             injectionTime: .atDocumentStart,
-            forMainFrameOnly: false
+            forMainFrameOnly: true
         )
     }
 
@@ -367,12 +367,18 @@ final class WebScriptBridge {
         (() => {
             'use strict';
             if (window.__illuminateCanvasProtectionInstalled) return;
+            const captchaDomains = [
+                'arkoselabs.com', 'captcha.com', 'cloudflare.com', 'friendlycaptcha.com',
+                'funcaptcha.com', 'google.com', 'hcaptcha.com', 'recaptcha.net'
+            ];
+            const host = String(location.hostname || '').toLowerCase();
+            if (captchaDomains.some(domain => host === domain || host.endsWith('.' + domain))) return;
             window.__illuminateCanvasProtectionInstalled = true;
 
             let seed = 0;
-            const host = String(location.hostname || location.origin || 'illuminate');
-            for (let index = 0; index < host.length; index++) {
-                seed = ((seed << 5) - seed + host.charCodeAt(index)) | 0;
+            const fingerprintSeed = String(location.hostname || location.origin || 'illuminate');
+            for (let index = 0; index < fingerprintSeed.length; index++) {
+                seed = ((seed << 5) - seed + fingerprintSeed.charCodeAt(index)) | 0;
             }
             const offset = (Math.abs(seed) % 3) + 1;
 

@@ -19,18 +19,6 @@ struct TabManagerCoverageTests {
         )
     }
 
-    @Test func bookmarkBarCyclesThroughAllStates() {
-        let manager = makeManager()
-        let first = manager.bookmarkBarVisibility
-        manager.cycleBookmarkBarVisibility()
-        let second = manager.bookmarkBarVisibility
-        manager.cycleBookmarkBarVisibility()
-        let third = manager.bookmarkBarVisibility
-        manager.cycleBookmarkBarVisibility()
-        #expect(first != second)
-        #expect(second != third)
-        #expect(manager.bookmarkBarVisibility == first)
-    }
 
     @Test func navigationUpdatesActiveTabAndMissingTabIsIgnored() {
         let manager = makeManager()

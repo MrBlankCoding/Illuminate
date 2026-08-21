@@ -68,6 +68,13 @@ struct AdBlockServiceUnitTests {
         #expect(jsonContainsHost(adBlock.debug_lastGeneratedStaticJSON ?? "", "doubleclick.net"), "Static JSON should include supplementary domain doubleclick.net")
     }
 
+    @Test func testCaptchaProviderIsAllowlistedForContentRules() {
+        let adBlock = AdBlockService(userDefaults: createTestUserDefaults())
+
+        #expect(adBlock.isHostAllowlisted("www.google.com"))
+        #expect(adBlock.isHostAllowlisted("challenges.cloudflare.com"))
+    }
+
     @Test func testTrackerBlockedHostsAreMarkedThirdParty() async throws {
         let userDefaults = createTestUserDefaults()
         let adBlock = AdBlockService(userDefaults: userDefaults)

@@ -653,6 +653,7 @@ final class TabManager: ObservableObject {
             (.zoomIn,          { [weak self] in self?.activeTab?.zoomIn() }),
             (.zoomOut,         { [weak self] in self?.activeTab?.zoomOut() }),
             (.resetZoom,       { [weak self] in self?.activeTab?.resetZoom() }),
+            (.printPage,       { [weak self] in self?.activeTab?.printPage() }),
             (.toggleFullScreen, { NSApp.keyWindow?.toggleFullScreen(nil) }),
             (.showHistory,     { [weak self] in self?.navigateActiveTab(to: URL(string: "illuminate://history")!) }),
             (Notification.Name.closeActiveTab, { [weak self] in self?.closeActiveTab() }),

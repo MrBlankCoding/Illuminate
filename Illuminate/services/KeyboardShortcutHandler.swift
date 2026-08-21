@@ -48,6 +48,7 @@ final class KeyboardShortcutHandler {
             Shortcut(modifiers: .command, trigger: .character("="), action: .zoomIn),
             Shortcut(modifiers: .command, trigger: .character("-"), action: .zoomOut),
             Shortcut(modifiers: .command, trigger: .character("0"), action: .resetZoom),
+            Shortcut(modifiers: .command, trigger: .character("p"), action: .printPage),
             Shortcut(modifiers: .command, trigger: .keyCode(KeyCode.leftArrow), action: .goBack),
             Shortcut(modifiers: .command, trigger: .keyCode(KeyCode.rightArrow), action: .goForward),
             Shortcut(modifiers: .command, trigger: .keyCode(KeyCode.downArrow), action: .nextTab),
@@ -83,6 +84,7 @@ final class KeyboardShortcutHandler {
     func zoomIn() { post(.zoomIn) }
     func zoomOut() { post(.zoomOut) }
     func resetZoom() { post(.resetZoom) }
+    func printPage() { post(.printPage) }
 
     nonisolated func lookupShortcutBy(character: String, modifiers: NSEvent.ModifierFlags) -> Notification.Name? {
         let key = character.lowercased()

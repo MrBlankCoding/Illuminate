@@ -82,6 +82,7 @@ final class TrackerBlockingService: ObservableObject {
     func record(thirdPartyDomain: String, seenOn firstPartyDomain: String) {
         guard isEnabled else { return }
         guard !thirdPartyDomain.isEmpty, !firstPartyDomain.isEmpty else { return }
+        guard !CaptchaCompatibility.isProviderHost(thirdPartyDomain) else { return }
         guard thirdPartyDomain != firstPartyDomain else { return } // same origin, prob not anything? 
 
         let normalized = thirdPartyDomain.lowercased()

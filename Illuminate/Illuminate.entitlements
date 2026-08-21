@@ -8,22 +8,24 @@
 	<true/>
 	<key>com.apple.security.device.camera</key>
 	<true/>
-	<key>com.apple.security.personal-information.location</key>
-	<true/>
 	<key>com.apple.security.files.downloads.read-write</key>
+	<true/>
+	<key>com.apple.security.files.user-selected.read-write</key>
 	<true/>
 	<key>com.apple.security.get-task-allow</key>
 	<true/>
 	<key>com.apple.security.network.client</key>
 	<true/>
+	<key>com.apple.security.personal-information.location</key>
+	<true/>
+	<key>com.apple.security.temporary-exception.files.absolute-path.read-only</key>
+	<array>
+		<string>/Library/Preferences/com.apple.networkd.plist</string>
+	</array>
 	<key>com.apple.security.temporary-exception.mach-lookup.global-name</key>
 	<array>
 		<string>com.apple.linkd.application-service</string>
 		<string>com.apple.linkd.autoShortcut</string>
-	</array>
-	<key>com.apple.security.temporary-exception.files.absolute-path.read-only</key>
-	<array>
-		<string>/Library/Preferences/com.apple.networkd.plist</string>
 	</array>
 </dict>
 </plist>

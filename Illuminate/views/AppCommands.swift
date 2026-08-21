@@ -86,6 +86,10 @@ struct AppCommands: Commands {
             BrowserCommand("Developer Tools", shortcut: "i", modifiers: [.command, .shift]) { .openDevTools }
         }
 
+        CommandGroup(replacing: .printItem) {
+            BrowserCommand("Print Page", shortcut: "p") { .printPage }
+        }
+
         CommandGroup(replacing: .sidebar) {}
     }
 }

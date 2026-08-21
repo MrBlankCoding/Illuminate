@@ -36,6 +36,28 @@ final class WebKitManager: ObservableObject {
     private let isPersistenceEnabled: Bool
     private var cachedUserAgent: String?
 
+    var currentUserAgent: String? {
+        cachedUserAgent
+    }
+
+    func fetchUserAgent() async -> String {
+        if let cached = cachedUserAgent {
+            return cached
+        }
+        let webView = WKWebView(frame: .zero, configuration: makeConfiguration())
+        return await withCheckedContinuation { continuation in
+            webView.evaluateJavaScript("navigator.userAgent") { result, _ in
+                let defaultUA = (result as? String) ?? "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15"
+                Task { @MainActor [weak self] in
+                    let chromeVersion = await ChromeVersionFetcher.fetchLatestStableVersion()
+                    let enhancedUA = "\(defaultUA) Chrome/\(chromeVersion)"
+                    self?.cachedUserAgent = enhancedUA
+                    continuation.resume(returning: enhancedUA)
+                }
+            }
+        }
+    }
+
     init(profileID: UUID? = nil, userDefaults: UserDefaults = .standard, isPersistenceEnabled: Bool = true) {
         self.userDefaults = userDefaults
         self.activeProfileID = profileID

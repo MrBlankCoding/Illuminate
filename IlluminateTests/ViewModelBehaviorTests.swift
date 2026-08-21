@@ -80,4 +80,36 @@ struct ViewModelBehaviorTests {
 
         #expect(viewModel.isPresented == false)
     }
+
+    @Test func loadingIlluminateURLUpdatesTabTitle() {
+        let tab = Tab(url: URL(string: "illuminate://info")!)
+        #expect(tab.title == "Browser Info")
+
+        tab.load(url: URL(string: "illuminate://passwords")!)
+        #expect(tab.title == "Passwords")
+
+        tab.load(url: URL(string: "illuminate://protection")!)
+        #expect(tab.title == "Protection")
+    }
+
+    @Test func updateSuggestionsIncludesIlluminatePageSuggestions() {
+        let synchronizer = URLSynchronizer()
+        let tabManager = TabManager(urlSynchronizer: synchronizer, isPersistenceEnabled: false)
+        let viewModel = ContentViewModel(tabManager: tabManager, urlSynchronizer: synchronizer)
+
+        viewModel.updateSuggestions(for: "info")
+        #expect(viewModel.illuminatePageSuggestions.contains(where: { $0.page == .info }))
+
+        viewModel.updateSuggestions(for: "illuminate://")
+        #expect(viewModel.illuminatePageSuggestions.count == IlluminatePage.allCases.count)
+
+        // Open an illuminate tab and check if suggestion recognizes it as an open tab
+        let infoURL = URL(string: "illuminate://info")!
+        let openTab = tabManager.createTab(url: infoURL)
+        viewModel.updateSuggestions(for: "info")
+
+        let infoSuggestion = viewModel.illuminatePageSuggestions.first(where: { $0.page == .info })
+        #expect(infoSuggestion?.isCurrentlyOpenTab == true)
+        #expect(infoSuggestion?.openTabID == openTab.id)
+    }
 }

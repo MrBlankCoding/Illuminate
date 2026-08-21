@@ -8,10 +8,22 @@
 import SwiftUI
 import Combine
 
+struct IlluminatePageSuggestion: Identifiable, Equatable {
+    var id: String { urlString }
+    let page: IlluminatePage
+    let title: String
+    let subtitle: String
+    let icon: String
+    let urlString: String
+    let isCurrentlyOpenTab: Bool
+    let openTabID: UUID?
+}
+
 @MainActor
 final class ContentViewModel: ObservableObject {
     @Published var addressBarText = ""
 
+    @Published private(set) var illuminatePageSuggestions: [IlluminatePageSuggestion] = []
     @Published private(set) var historySuggestions: [HistorySuggestion] = []
     @Published private(set) var webSuggestions: [String] = []
 
@@ -69,9 +81,9 @@ final class ContentViewModel: ObservableObject {
     func setAddressBarEditing(_ isEditing: Bool) {
         isEditingAddressBar = isEditing
         if !isEditing {
-            cancelSuggestions()
             DispatchQueue.main.async { [weak self] in
-                self?.syncAddressBarFromActiveTab(force: true)
+                guard let self, !self.isEditingAddressBar else { return }
+                self.syncAddressBarFromActiveTab()
             }
         }
     }
@@ -106,20 +118,75 @@ final class ContentViewModel: ObservableObject {
 
     func updateSuggestions(for query: String) {
         webSuggestionTask?.cancel()
-        let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        let q = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
 
-        guard q.count >= 2 else {
+        guard q.count >= 2 || q.starts(with: "illuminate:") else {
+            illuminatePageSuggestions = []
             historySuggestions = []
             webSuggestions = []
             return
         }
 
+        // 1. Illuminate internal page / tab suggestions
+        var matchingPages: [IlluminatePage] = []
+        if q.starts(with: "illuminate://") {
+            let filter = q.replacingOccurrences(of: "illuminate://", with: "")
+            if filter.isEmpty {
+                matchingPages = IlluminatePage.allCases
+            } else {
+                matchingPages = IlluminatePage.allCases.filter { page in
+                    page.rawValue.contains(filter) ||
+                    page.tabTitle.lowercased().contains(filter) ||
+                    page.title.lowercased().contains(filter) ||
+                    page.keywords.contains(where: { $0.contains(filter) })
+                }
+            }
+        } else if q.starts(with: "illuminate:") {
+            let filter = q.replacingOccurrences(of: "illuminate:", with: "")
+            if filter.isEmpty {
+                matchingPages = IlluminatePage.allCases
+            } else {
+                matchingPages = IlluminatePage.allCases.filter { page in
+                    page.rawValue.contains(filter) ||
+                    page.tabTitle.lowercased().contains(filter) ||
+                    page.title.lowercased().contains(filter) ||
+                    page.keywords.contains(where: { $0.contains(filter) })
+                }
+            }
+        } else {
+            matchingPages = IlluminatePage.allCases.filter { page in
+                page.rawValue.contains(q) ||
+                page.tabTitle.lowercased().contains(q) ||
+                page.title.lowercased().contains(q) ||
+                page.keywords.contains(where: { $0.contains(q) })
+            }
+        }
+
+        let openTabs = tabManager.tabs
+        let newIlluminateSuggestions = matchingPages.map { page -> IlluminatePageSuggestion in
+            let openTab = openTabs.first { $0.url == page.url }
+            return IlluminatePageSuggestion(
+                page: page,
+                title: page.title,
+                subtitle: page.url.absoluteString,
+                icon: page.icon,
+                urlString: page.url.absoluteString,
+                isCurrentlyOpenTab: openTab != nil,
+                openTabID: openTab?.id
+            )
+        }
+
+        if illuminatePageSuggestions != newIlluminateSuggestions {
+            illuminatePageSuggestions = newIlluminateSuggestions
+        }
+
+        // 2. History suggestions
         let historyResults = historyManager?.suggestions(for: q, limit: 3) ?? []
         if historySuggestions != historyResults {
             historySuggestions = historyResults
         }
 
-        guard !isLikelyURL(q) else {
+        guard !isLikelyURL(q), !q.starts(with: "illuminate:") else {
             webSuggestions = []
             return
         }
@@ -145,6 +212,7 @@ final class ContentViewModel: ObservableObject {
 
     func cancelSuggestions() {
         webSuggestionTask?.cancel()
+        illuminatePageSuggestions = []
         historySuggestions = []
         webSuggestions = []
     }
