@@ -96,6 +96,11 @@ struct EasyListParserTests {
         #expect(regex[0]["trigger"]?["url-filter"] as? String == "[A-Za-z0-9_]+[0-9]+[ \t\r\n\u{000C}]")
     }
 
+    @Test func testParseRepetitions() throws {
+        let regex = try decodedRules(from: EasyListParser.parse(content: "/[A-Za-z0-9_]{30,}\\.me\\/[A-Za-z0-9_]{30,}/"))
+        #expect(regex[0]["trigger"]?["url-filter"] as? String == "[A-Za-z0-9_]+\\.me\\/[A-Za-z0-9_]+")
+    }
+
     @Test func testParseElementHidingDomainAllowAndDenyLists() throws {
         let content = " Example.COM, ~Ads.Example.com ## .sponsored "
         let rules = try decodedRules(from: EasyListParser.parse(content: content))

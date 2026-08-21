@@ -226,6 +226,8 @@ final class EasyListParser {
             regex = regex.replacingOccurrences(of: "\\w", with: "[A-Za-z0-9_]")
             regex = regex.replacingOccurrences(of: "\\d", with: "[0-9]")
             regex = regex.replacingOccurrences(of: "\\s", with: "[ \t\r\n\u{000C}]")
+            regex = regex.replacingOccurrences(of: "\\{\\d+,\\d*\\}", with: "+", options: .regularExpression)
+            regex = regex.replacingOccurrences(of: "\\{\\d+\\}", with: "+", options: .regularExpression)
 
             return regex
         }

@@ -34,7 +34,6 @@ struct AdBlockServiceUnitTests {
         let host = "doubleclick.net"
         adBlock.updateBlockedHosts([host])
 
-        // wait for dynamic JSON to be generated
         var attempts = 0
         while (adBlock.debug_lastGeneratedDynamicJSON ?? "").isEmpty && attempts < 10 {
             try await Task.sleep(nanoseconds: 200_000_000)

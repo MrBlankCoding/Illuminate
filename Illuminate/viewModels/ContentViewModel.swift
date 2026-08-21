@@ -127,43 +127,73 @@ final class ContentViewModel: ObservableObject {
             return
         }
 
-        // 1. Illuminate internal page / tab suggestions
+        webSuggestionTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 50_000_000) // 50ms
+            guard !Task.isCancelled, let self else { return }
+
+            let newIlluminateSuggestions = await self.fetchIlluminateSuggestions(for: q)
+            let historyResults = self.historyManager?.suggestions(for: q, limit: 3) ?? []
+            await MainActor.run {
+                if self.illuminatePageSuggestions != newIlluminateSuggestions {
+                    self.illuminatePageSuggestions = newIlluminateSuggestions
+                }
+                if self.historySuggestions != historyResults {
+                    self.historySuggestions = historyResults
+                }
+            }
+
+            guard !isLikelyURL(q), !q.starts(with: "illuminate:") else {
+                await MainActor.run { self.webSuggestions = [] }
+                return
+            }
+
+            if let cachedResults = webSuggestionCache[q] {
+                await MainActor.run {
+                    if self.webSuggestions != cachedResults {
+                        self.webSuggestions = cachedResults
+                    }
+                }
+                return
+            }
+
+            try? await Task.sleep(nanoseconds: 150_000_000) // 150ms additional
+            guard !Task.isCancelled else { return }
+
+            let results = await Self.fetchWebSuggestions(for: q)
+            guard !Task.isCancelled else { return }
+            
+            await MainActor.run {
+                if self.webSuggestionCache.count >= 50 {
+                    self.webSuggestionCache.removeAll(keepingCapacity: true)
+                }
+                self.webSuggestionCache[q] = results
+                if self.webSuggestions != results {
+                    self.webSuggestions = results
+                }
+            }
+        }
+    }
+
+    private func fetchIlluminateSuggestions(for q: String) async -> [IlluminatePageSuggestion] {
         var matchingPages: [IlluminatePage] = []
         if q.starts(with: "illuminate://") {
             let filter = q.replacingOccurrences(of: "illuminate://", with: "")
-            if filter.isEmpty {
-                matchingPages = IlluminatePage.allCases
-            } else {
-                matchingPages = IlluminatePage.allCases.filter { page in
-                    page.rawValue.contains(filter) ||
-                    page.tabTitle.lowercased().contains(filter) ||
-                    page.title.lowercased().contains(filter) ||
-                    page.keywords.contains(where: { $0.contains(filter) })
-                }
+            matchingPages = filter.isEmpty ? IlluminatePage.allCases : IlluminatePage.allCases.filter { page in
+                page.rawValue.contains(filter) || page.tabTitle.lowercased().contains(filter)
             }
         } else if q.starts(with: "illuminate:") {
             let filter = q.replacingOccurrences(of: "illuminate:", with: "")
-            if filter.isEmpty {
-                matchingPages = IlluminatePage.allCases
-            } else {
-                matchingPages = IlluminatePage.allCases.filter { page in
-                    page.rawValue.contains(filter) ||
-                    page.tabTitle.lowercased().contains(filter) ||
-                    page.title.lowercased().contains(filter) ||
-                    page.keywords.contains(where: { $0.contains(filter) })
-                }
+            matchingPages = filter.isEmpty ? IlluminatePage.allCases : IlluminatePage.allCases.filter { page in
+                page.rawValue.contains(filter) || page.tabTitle.lowercased().contains(filter)
             }
         } else {
             matchingPages = IlluminatePage.allCases.filter { page in
-                page.rawValue.contains(q) ||
-                page.tabTitle.lowercased().contains(q) ||
-                page.title.lowercased().contains(q) ||
-                page.keywords.contains(where: { $0.contains(q) })
+                page.rawValue.contains(q) || page.tabTitle.lowercased().contains(q)
             }
         }
 
         let openTabs = tabManager.tabs
-        let newIlluminateSuggestions = matchingPages.map { page -> IlluminatePageSuggestion in
+        return matchingPages.map { page -> IlluminatePageSuggestion in
             let openTab = openTabs.first { $0.url == page.url }
             return IlluminatePageSuggestion(
                 page: page,
@@ -174,39 +204,6 @@ final class ContentViewModel: ObservableObject {
                 isCurrentlyOpenTab: openTab != nil,
                 openTabID: openTab?.id
             )
-        }
-
-        if illuminatePageSuggestions != newIlluminateSuggestions {
-            illuminatePageSuggestions = newIlluminateSuggestions
-        }
-
-        // 2. History suggestions
-        let historyResults = historyManager?.suggestions(for: q, limit: 3) ?? []
-        if historySuggestions != historyResults {
-            historySuggestions = historyResults
-        }
-
-        guard !isLikelyURL(q), !q.starts(with: "illuminate:") else {
-            webSuggestions = []
-            return
-        }
-
-        if let cachedResults = webSuggestionCache[q] {
-            if webSuggestions != cachedResults {
-                webSuggestions = cachedResults
-            }
-            return
-        }
-
-        webSuggestionTask = Task { [weak self] in
-            let results = await Self.fetchWebSuggestions(for: q)
-            guard !Task.isCancelled, let self else { return }
-            if self.webSuggestionCache.count >= 50 {
-                self.webSuggestionCache.removeAll(keepingCapacity: true)
-            }
-            self.webSuggestionCache[q] = results
-            guard self.webSuggestions != results else { return }
-            self.webSuggestions = results
         }
     }
 

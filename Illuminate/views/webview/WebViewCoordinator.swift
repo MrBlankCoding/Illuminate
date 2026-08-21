@@ -33,6 +33,10 @@ extension WebViewRepresentable {
         private var contextMenuDownloadURL: URL?
         var hasInstalledDownloadHandler = false
         var lastLoadedURL: URL?
+        
+        // Performance: Tracking script state
+        var lastAppliedScheme: String?
+        var lastFingerprintingEnabled: Bool?
 
         static func resolvedScheme(for style: TabManager.UIStyle) -> String {
             switch style {
@@ -307,7 +311,6 @@ extension WebViewRepresentable {
             tab.isLoading = false
             tab.title = webView.title?.nilIfEmpty ?? tab.title
             tab.hasMixedContentWarning = !webView.hasOnlySecureContent
-            tab.refreshSnapshot()
 
             circuitBreaker.reset()
 

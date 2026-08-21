@@ -18,6 +18,8 @@ struct HistoryPageView: View {
     @State private var searchText = ""
     @State private var showClearSheet = false
     @State private var hostToDelete: String? = nil
+    @State private var searchResults: [HistoryEntry] = []
+    @State private var searchTask: Task<Void, Never>?
 
     private var theme: BrowserTheme {
         BrowserTheme(accent: tabManager.windowThemeColor, colorScheme: colorScheme)
@@ -25,7 +27,7 @@ struct HistoryPageView: View {
 
     private var displayedEntries: [HistoryEntry] {
         let q = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        return q.isEmpty ? historyManager.recentEntries : historyManager.search(query: q)
+        return q.isEmpty ? historyManager.recentEntries : searchResults
     }
 
     private func groupedEntries(for displayedEntries: [HistoryEntry]) -> [(label: String, entries: [HistoryEntry])] {
@@ -94,6 +96,27 @@ struct HistoryPageView: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("This cannot be undone.")
+        }
+        .onChange(of: searchText) { oldValue, newValue in
+            performSearch(query: newValue)
+        }
+    }
+
+    private func performSearch(query: String) {
+        searchTask?.cancel()
+        let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !q.isEmpty else {
+            searchResults = []
+            return
+        }
+
+        searchTask = Task {
+            let results = await historyManager.search(query: q)
+            if !Task.isCancelled {
+                await MainActor.run {
+                    self.searchResults = results
+                }
+            }
         }
     }
 

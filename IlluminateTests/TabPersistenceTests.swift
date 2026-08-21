@@ -74,7 +74,7 @@ struct TabPersistenceTests {
         let base = paths[0].appendingPathComponent("Illuminate/TabAssets", isDirectory: true)
         let tabFolder = base.appendingPathComponent(tabID.uuidString, isDirectory: true)
         try FileManager.default.createDirectory(at: tabFolder, withIntermediateDirectories: true)
-        let dummyAsset = tabFolder.appendingPathComponent("snapshot.png")
+        let dummyAsset = tabFolder.appendingPathComponent("favicon.png")
         try "dummy".data(using: .utf8)?.write(to: dummyAsset)
 
         #expect(FileManager.default.fileExists(atPath: tabFolder.path))

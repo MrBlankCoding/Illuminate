@@ -113,8 +113,6 @@ final class Tab: ObservableObject, Identifiable {
         static let `default`: CGFloat = 1.0
     }
 
-    private static let snapshotMinInterval: TimeInterval = 10
-
     let id: UUID
 
     @Published var url: URL? {
@@ -130,7 +128,9 @@ final class Tab: ObservableObject, Identifiable {
     @Published var title: String {
         didSet { if oldValue != title { saveMetadata() } }
     }
-    @Published var favicon: NSImage?
+    @Published var favicon: NSImage? {
+        didSet { if oldValue != favicon { saveFavicon() } }
+    }
     @Published var themeColor: Color?
     @Published var isLoading: Bool
     @Published var isHibernated: Bool
@@ -154,12 +154,10 @@ final class Tab: ObservableObject, Identifiable {
     @Published var canGoForward: Bool = false
     @Published var estimatedProgress: Double = 0
     @Published var zoomLevel: Double = 1.0
-    @Published var snapshot: NSImage?
     @Published var hasPiPCandidate: Bool = false
     @Published var isMuted: Bool = false
 
     private(set) var webView: WKWebView?
-    private var lastSnapshotAt: Date = .distantPast
     private var isFetchingAssets = false
 
     private(set) var lastActivatedAt: Date
@@ -262,7 +260,10 @@ final class Tab: ObservableObject, Identifiable {
             .OBJC_ASSOCIATION_RETAIN_NONATOMIC
         )
         webView = newWebView
-        isHibernated = false
+        
+        DispatchQueue.main.async {
+            self.isHibernated = false
+        }
         setupWebViewObservers(newWebView)
     }
 
@@ -279,16 +280,20 @@ final class Tab: ObservableObject, Identifiable {
         )
         candidate.pageZoom = zoomLevel
         webView = candidate
-        isHibernated = false
+        DispatchQueue.main.async {
+            self.isHibernated = false
+        }
         setupWebViewObservers(candidate)
     }
 
     func detachWebView() {
         cancellables.removeAll()
         webView = nil
-        isLoading = false
-        estimatedProgress = 0
-        hasPiPCandidate = false
+        DispatchQueue.main.async {
+            self.isLoading = false
+            self.estimatedProgress = 0
+            self.hasPiPCandidate = false
+        }
     }
 
     func close() {
@@ -317,7 +322,6 @@ final class Tab: ObservableObject, Identifiable {
         webView.navigationDelegate = nil
         webView.uiDelegate = nil
         webView.removeFromSuperview()
-        hasPiPCandidate = false
         detachWebView()
     }
 
@@ -338,23 +342,11 @@ final class Tab: ObservableObject, Identifiable {
         }
     }
 
-    func refreshSnapshot() {
-        guard let webView else { return }
-
-        let now = Date()
-        guard now.timeIntervalSince(lastSnapshotAt) > Self.snapshotMinInterval else { return }
-        lastSnapshotAt = now
-
-        let config = WKSnapshotConfiguration()
-        webView.takeSnapshot(with: config) { [weak self] image, _ in
-            guard let image else { return }
-            Task { @MainActor [weak self] in
-                guard let self else { return }
-                let downsampled = image.downsampled(toWidth: 400)
-                self.saveAssets(snapshot: downsampled, favicon: self.favicon)
-                self.snapshot = downsampled
-            }
-        }
+    func hibernate() {
+        guard webView != nil, !isLoading, !isHibernated else { return }
+        AppLog.info("Hibernating tab: \(title)")
+        self.detachWebView()
+        self.isHibernated = true
     }
 
     func togglePictureInPicture() {
@@ -450,18 +442,14 @@ final class Tab: ObservableObject, Identifiable {
         _ = inspector.perform(showSelector)
     }
 
-    private func saveAssets(snapshot: NSImage?, favicon: NSImage?) {
+    private func saveFavicon() {
         let folder = assetsURLWithoutCreating
         let faviconData = favicon?.pngData()
-        let snapshotData = snapshot?.jpegData(compressionQuality: 0.7)
 
         Task.detached(priority: .background) {
             try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
             if let data = faviconData {
                 try? data.write(to: folder.appendingPathComponent("favicon.png"))
-            }
-            if let data = snapshotData {
-                try? data.write(to: folder.appendingPathComponent("snapshot.jpg"))
             }
         }
     }
@@ -479,23 +467,17 @@ final class Tab: ObservableObject, Identifiable {
     }
 
     func loadAssets() {
-        guard (favicon == nil || snapshot == nil), !isFetchingAssets else { return }
+        guard favicon == nil, !isFetchingAssets else { return }
         isFetchingAssets = true
         let folder = assetsURLWithoutCreating
 
         Task.detached(priority: .utility) { [weak self] in
-            let snapshotJPG = folder.appendingPathComponent("snapshot.jpg")
-            let snapshotPNG = folder.appendingPathComponent("snapshot.png")
-
             let faviconData  = try? Data(contentsOf: folder.appendingPathComponent("favicon.png"))
-            let snapshotData = (try? Data(contentsOf: snapshotJPG))
-                            ?? (try? Data(contentsOf: snapshotPNG))
 
             await MainActor.run { [weak self] in
                 guard let self else { return }
                 self.isFetchingAssets = false
                 if let data = faviconData  { self.favicon   = NSImage(data: data) }
-                if let data = snapshotData { self.snapshot  = NSImage(data: data) }
             }
         }
     }

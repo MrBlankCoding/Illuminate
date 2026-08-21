@@ -38,7 +38,6 @@ struct AppRootView: View {
                         registerDockMenuRoutes()
                     }
                     .task {
-                        // History is useful on the new-tab page, but must not delay the first frame.
                         await Task.yield()
                         guard !Task.isCancelled else { return }
                         env.historyManager.loadInitialData()
@@ -54,7 +53,6 @@ struct AppRootView: View {
             }
         }
         .task(id: profileManager.profiles) {
-            // Let the profile chooser render before restoring the most likely browser session.
             await Task.yield()
             guard !Task.isCancelled else { return }
             profileManager.prewarmLastUsedProfileEnvironment(container: modelContainer)

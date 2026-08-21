@@ -35,6 +35,9 @@ final class WebKitManager: ObservableObject {
     private var isLoadingProfile = false
     private let isPersistenceEnabled: Bool
     private var cachedUserAgent: String?
+    
+    private var sharedWebsiteDataStore: WKWebsiteDataStore?
+    private var sharedConfiguration: WKWebViewConfiguration?
 
     var currentUserAgent: String? {
         cachedUserAgent
@@ -44,6 +47,7 @@ final class WebKitManager: ObservableObject {
         if let cached = cachedUserAgent {
             return cached
         }
+        // Optimization: Use a shared hidden webview or just a default if evaluation fails
         let webView = WKWebView(frame: .zero, configuration: makeConfiguration())
         return await withCheckedContinuation { continuation in
             webView.evaluateJavaScript("navigator.userAgent") { result, _ in
@@ -52,6 +56,8 @@ final class WebKitManager: ObservableObject {
                     let chromeVersion = await ChromeVersionFetcher.fetchLatestStableVersion()
                     let enhancedUA = "\(defaultUA) Chrome/\(chromeVersion)"
                     self?.cachedUserAgent = enhancedUA
+                    // Pre-apply to the shared configuration if it exists
+                    self?.sharedConfiguration?.applicationNameForUserAgent = "Chrome/\(chromeVersion)"
                     continuation.resume(returning: enhancedUA)
                 }
             }
@@ -84,15 +90,20 @@ final class WebKitManager: ObservableObject {
 
     func prepareForRemoval() {
         AppLog.info("WebKitManager: Tearing down (profile: \(activeProfileID?.uuidString ?? "guest"))")
-        // In the future, if we manage a shared WKProcessPool per profile, we would null it here.
+        sharedWebsiteDataStore = nil
+        sharedConfiguration = nil
     }
 
     func makeConfiguration() -> WKWebViewConfiguration {
-        let configuration = WKWebViewConfiguration()
+        // Optimization: Reuse configuration where possible
+        if let existing = sharedConfiguration {
+            return existing
+        }
 
+        let configuration = WKWebViewConfiguration()
         configuration.mediaTypesRequiringUserActionForPlayback = []
         
-        configuration.websiteDataStore = makeWebsiteDataStore()
+        configuration.websiteDataStore = activeWebsiteDataStore()
         configuration.defaultWebpagePreferences.allowsContentJavaScript = true
         configuration.defaultWebpagePreferences.preferredContentMode = .desktop
 
@@ -104,6 +115,12 @@ final class WebKitManager: ObservableObject {
         configuration.userContentController = WKUserContentController()
         configuration.preferences.setValue(true, forKey: "developerExtrasEnabled")
 
+        // Performance: Avoid repeated UA evaluation by setting applicationNameForUserAgent
+        if let ua = cachedUserAgent, let chromeVersion = ua.components(separatedBy: " Chrome/").last {
+             configuration.applicationNameForUserAgent = "Chrome/\(chromeVersion)"
+        }
+
+        sharedConfiguration = configuration
         return configuration
     }
 
@@ -135,6 +152,9 @@ final class WebKitManager: ObservableObject {
                 
                 self.cachedUserAgent = enhancedUA
                 webView.customUserAgent = enhancedUA
+                
+                // Update shared config for future webviews
+                self.sharedConfiguration?.applicationNameForUserAgent = "Chrome/\(chromeVersion)"
 
                 AppLog.info("Set and cached enhanced UA: \(enhancedUA)")
             }
@@ -142,7 +162,13 @@ final class WebKitManager: ObservableObject {
     }
 
     func activeWebsiteDataStore() -> WKWebsiteDataStore {
-        makeWebsiteDataStore()
+        if let existing = sharedWebsiteDataStore {
+            return existing
+        }
+        
+        let store = makeWebsiteDataStore()
+        sharedWebsiteDataStore = store
+        return store
     }
 
     private func makeWebsiteDataStore() -> WKWebsiteDataStore {

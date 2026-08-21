@@ -36,8 +36,6 @@ struct IlluminateApp: App {
             AppLog.info("Failed to create ModelContainer: \(error)")
             fatalError("Failed to create ModelContainer: \(error)")
         }
-        runtimeSecurityMonitor.startMonitoring()
-        backgroundResourceManager.start()
     }
 
     var body: some Scene {
@@ -48,6 +46,13 @@ struct IlluminateApp: App {
                     maxWidth:  Self.profileWindowSize.width,
                     maxHeight: Self.profileWindowSize.height
                 )
+                .onAppear {
+                    // Performance: Defer monitoring until the first view appears
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                        runtimeSecurityMonitor.startMonitoring()
+                        backgroundResourceManager.start()
+                    }
+                }
         }
         .windowStyle(.hiddenTitleBar)
         .modelContainer(modelContainer)

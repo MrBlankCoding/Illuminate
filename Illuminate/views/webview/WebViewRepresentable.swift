@@ -75,18 +75,27 @@ struct WebViewRepresentable: NSViewRepresentable {
     }
 
     func updateNSView(_ nsView: WKWebView, context: Context) {
-        let wasGesturesEnabled = nsView.allowsBackForwardNavigationGestures
         let shouldEnableGestures = tab.id == tabManager.activeTabID
-        if wasGesturesEnabled != shouldEnableGestures {
+        if nsView.allowsBackForwardNavigationGestures != shouldEnableGestures {
             nsView.allowsBackForwardNavigationGestures = shouldEnableGestures
         }
 
-        WebScriptBridge.shared.installScripts(
-            on: nsView.configuration.userContentController,
-            handler: context.coordinator,
-            colorScheme: Coordinator.resolvedScheme(for: userInterfaceStyle),
-            canvasFingerprintingProtectionEnabled: canvasFingerprintingService.isEnabled
-        )
+        let resolvedScheme = Coordinator.resolvedScheme(for: userInterfaceStyle)
+        let fingerprintingEnabled = canvasFingerprintingService.isEnabled
+
+        if context.coordinator.lastAppliedScheme != resolvedScheme ||
+           context.coordinator.lastFingerprintingEnabled != fingerprintingEnabled {
+            
+            context.coordinator.lastAppliedScheme = resolvedScheme
+            context.coordinator.lastFingerprintingEnabled = fingerprintingEnabled
+            
+            WebScriptBridge.shared.installScripts(
+                on: nsView.configuration.userContentController,
+                handler: context.coordinator,
+                colorScheme: resolvedScheme,
+                canvasFingerprintingProtectionEnabled: fingerprintingEnabled
+            )
+        }
 
         if let illuminateWebView = nsView as? IlluminateWebView,
            !context.coordinator.hasInstalledDownloadHandler {
@@ -97,7 +106,7 @@ struct WebViewRepresentable: NSViewRepresentable {
             }
         }
 
-        let _ = context.coordinator.applyContentRules(
+        context.coordinator.applyContentRules(
             to: nsView,
             ruleLists: adBlockService.effectiveRuleLists(for: tab.url?.host)
         )

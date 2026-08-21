@@ -18,13 +18,15 @@ struct ContentView: View {
     @StateObject private var findViewModel = FindViewModel()
     @StateObject private var zoomViewModel = ZoomViewModel()
 
-    private var theme: BrowserTheme {
-        BrowserTheme(accent: tabManager.windowThemeColor, colorScheme: colorScheme)
-    }
-
     var body: some View {
         ZStack {
-            backgroundLayer
+            BackgroundLayer(
+                isResizing: tabManager.isResizing,
+                backgroundImageURL: tabManager.backgroundImageURL,
+                windowThemeColor: tabManager.windowThemeColor,
+                colorScheme: colorScheme
+            )
+            
             VStack(spacing: 0) {
                 if environment.isGuestSession {
                     PrivateBrowsingBanner()
@@ -37,9 +39,15 @@ struct ContentView: View {
                 )
                 .zIndex(3)
 
-                browserContent
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .zIndex(1)
+                BrowserContentView(
+                    activeTab: tabManager.activeTab,
+                    windowThemeColor: tabManager.windowThemeColor,
+                    colorScheme: colorScheme,
+                    findViewModel: findViewModel,
+                    zoomViewModel: zoomViewModel
+                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .zIndex(1)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .ignoresSafeArea(edges: .top)
@@ -56,7 +64,6 @@ struct ContentView: View {
             findViewModel.setWebView(tabManager.activeTab?.webView)
             findViewModel.isPresented.toggle()
         }
-
         .onReceive(NotificationCenter.default.publisher(for: .zoomChanged)) { notification in
             if let level = notification.userInfo?["level"] as? Double {
                 zoomViewModel.updateZoom(level)
@@ -72,24 +79,37 @@ struct ContentView: View {
             }
         }
     }
+}
 
-    private var backgroundLayer: some View {
+struct BackgroundLayer: View {
+    let isResizing: Bool
+    let backgroundImageURL: String
+    let windowThemeColor: Color
+    let colorScheme: ColorScheme
+    
+    private var theme: BrowserTheme {
+        BrowserTheme(accent: windowThemeColor, colorScheme: colorScheme)
+    }
+
+    var body: some View {
         ZStack {
             theme.windowBase
                 .ignoresSafeArea()
 
-            if !tabManager.isResizing,
-               !tabManager.backgroundImageURL.isEmpty,
-               let imageURL = URL(string: tabManager.backgroundImageURL) {
+            if !isResizing,
+               !backgroundImageURL.isEmpty,
+               let imageURL = URL(string: backgroundImageURL) {
                 CachedBackgroundImageView(url: imageURL)
                     .ignoresSafeArea()
             } else {
-                defaultBackgroundImage
+                DefaultBackgroundView()
             }
         }
     }
+}
 
-    private var defaultBackgroundImage: some View {
+struct DefaultBackgroundView: View {
+    var body: some View {
         GeometryReader { geometry in
             Image("DefaultBackground")
                 .resizable()
@@ -99,13 +119,25 @@ struct ContentView: View {
                 .ignoresSafeArea()
         }
     }
+}
 
-    @ViewBuilder
-    private var browserContent: some View {
+struct BrowserContentView: View {
+    let activeTab: Tab?
+    let windowThemeColor: Color
+    let colorScheme: ColorScheme
+    @ObservedObject var findViewModel: FindViewModel
+    @ObservedObject var zoomViewModel: ZoomViewModel
+    @EnvironmentObject private var viewModel: ContentViewModel
+
+    private var theme: BrowserTheme {
+        BrowserTheme(accent: windowThemeColor, colorScheme: colorScheme)
+    }
+
+    var body: some View {
         ZStack(alignment: .top) {
             ZStack {
                 Group {
-                    if tabManager.activeTab?.url == nil {
+                    if activeTab?.url == nil {
                         Color.clear
                     } else {
                         Rectangle()
@@ -117,20 +149,20 @@ struct ContentView: View {
                 Rectangle()
                     .strokeBorder(theme.separator, lineWidth: 1)
                     .padding(.top, -1)
-                    .opacity(tabManager.activeTab?.url == nil ? 0.3 : 1.0)
+                    .opacity(activeTab?.url == nil ? 0.3 : 1.0)
                     .ignoresSafeArea()
             }
 
             VStack(spacing: 0) {
                 ZStack {
-                    if let activeTab = tabManager.activeTab {
+                    if let activeTab = activeTab {
                         WebView(tab: activeTab)
                             .id(activeTab.id)
                             .environmentObject(viewModel)
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                     }
 
-                    if let activeTab = tabManager.activeTab,
+                    if let activeTab = activeTab,
                        let error = activeTab.networkError {
                         BrowserErrorPageView(error: error)
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -139,6 +171,7 @@ struct ContentView: View {
                 }
             }
             .ignoresSafeArea(edges: .top)
+            
             if zoomViewModel.isPresented {
                 VStack {
                     HStack {
@@ -163,6 +196,5 @@ struct ContentView: View {
                 }
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 }

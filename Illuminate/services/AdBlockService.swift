@@ -348,7 +348,6 @@ final class AdBlockService: ObservableObject {
         )
 
 #if DEBUG
-        // Expose generated JSON immediately so tests don't depend on debounced compilation finishing.
         debug_lastGeneratedDynamicJSON = generateDynamicRulesJSON(snapshot: snapshot)
 #endif
 
@@ -434,8 +433,6 @@ final class AdBlockService: ObservableObject {
         rulesArray.append(Self.genericAdCosmeticRule)
         rulesArray.append(Self.adBlockTestCosmeticRule)
 
-        // CAPTCHA providers frequently run in third-party frames. These rules must
-        // follow filter rules so `ignore-previous-rules` can restore their resources.
         for domain in CaptchaCompatibility.providerDomains {
             rulesArray.append(Self.allowRule(for: domain))
         }
@@ -481,7 +478,6 @@ final class AdBlockService: ObservableObject {
 
     private static func domainAnchoredPattern(for host: String) -> String {
         let escaped = NSRegularExpression.escapedPattern(for: host.lowercased())
-        // Simplified pattern to avoid unsupported regex features in some WebKit versions
         return ".*\(escaped).*"
     }
 

@@ -91,8 +91,6 @@ final class ProfileEnvironment: ObservableObject {
         guard !isTornDown else { return }
         isTornDown = true
         AppLog.info("Tearing down environment (profile: \(self.profile.id.uuidString), guest: \(self.isGuestSession))")
-        
-        // Invoke explicit teardown APIs for services
         adBlockService.prepareForRemoval()
         webKitManager.prepareForRemoval()
         tabManager.prepareForRemoval()

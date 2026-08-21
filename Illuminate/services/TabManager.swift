@@ -259,7 +259,20 @@ final class TabManager: ObservableObject {
     }
 
     private func hydrateRestoredTabs() {
-        tabs.forEach { hydrateVisualState(for: $0) }
+        if let activeID = activeTabID, let activeTab = tabIndex[activeID] {
+            hydrateVisualState(for: activeTab)
+        }
+        
+        let otherTabs = tabs.filter { $0.id != activeTabID }
+        Task.detached(priority: .utility) {
+            for tab in otherTabs {
+                await MainActor.run {
+                    self.hydrateVisualState(for: tab)
+                }
+
+                await Task.yield()
+            }
+        }
     }
 
     private func scheduleSave() {
@@ -363,7 +376,7 @@ final class TabManager: ObservableObject {
             }
         }
 
-        if url == nil, !inBackground {
+        if !inBackground {
             pendingFocusTask?.cancel()
             pendingFocusTask = Task { [weak self, notificationCenter] in
                 try? await Task.sleep(nanoseconds: UInt64(Defaults.tabCreationDelay * 1_000_000_000))
@@ -467,6 +480,15 @@ final class TabManager: ObservableObject {
 
     func switchTo(_ id: UUID) {
         guard activeTabID != id else { return }
+        if let oldID = activeTabID, let oldTab = tabIndex[oldID] {
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 5_000_000_000) // 5 seconds grace period
+                if self.activeTabID != oldID {
+                    oldTab.hibernate()
+                }
+            }
+        }
+
         lastSwitchTime = Date()
         setActiveTab(id)
     }

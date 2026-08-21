@@ -34,12 +34,9 @@ struct IlluminateTests {
         try? FileManager.default.createDirectory(at: tabFolder, withIntermediateDirectories: true)
 
         let faviconURL = tabFolder.appendingPathComponent("favicon.png")
-        let snapshotURL = tabFolder.appendingPathComponent("snapshot.jpg")
         try image.pngData()?.write(to: faviconURL)
-        try image.jpegData(compressionQuality: 0.7)?.write(to: snapshotURL)
 
         #expect(FileManager.default.fileExists(atPath: tabFolder.appendingPathComponent("favicon.png").path))
-        #expect(FileManager.default.fileExists(atPath: tabFolder.appendingPathComponent("snapshot.jpg").path))
         
         let restoredTab = await MainActor.run {
             Tab(id: tabID, url: URL(string: "https://google.com"), title: "Google")
@@ -54,7 +51,6 @@ struct IlluminateTests {
         await MainActor.run {
             #expect(didLoadAssets)
             #expect(restoredTab.favicon != nil)
-            #expect(restoredTab.snapshot != nil)
         }
         
         // Cleanup
@@ -66,7 +62,7 @@ struct IlluminateTests {
 
         while ContinuousClock.now < deadline {
             let hasAssets = await MainActor.run {
-                tab.favicon != nil && tab.snapshot != nil
+                tab.favicon != nil
             }
 
             if hasAssets {
@@ -77,7 +73,7 @@ struct IlluminateTests {
         }
 
         return await MainActor.run {
-            tab.favicon != nil && tab.snapshot != nil
+            tab.favicon != nil
         }
     }
 }

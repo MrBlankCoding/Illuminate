@@ -56,7 +56,7 @@ final class HistoryManager: ObservableObject {
         didSet { persist(showHistorySuggestions, forKey: settingsKey("historyShowSuggestions")) }
     }
 
-    private let modelContext: ModelContext
+    private let modelContainer: ModelContainer
     private let profileID: UUID?
     private let isGuestSession: Bool
     private let userDefaults: UserDefaults
@@ -65,6 +65,7 @@ final class HistoryManager: ObservableObject {
     private static let refreshDebounceNs: UInt64 = 300_000_000 // 300 ms
 
     private static let searchFetchLimit = 1000
+    private let actor: HistoryModelActor
 
     init(
         modelContainer: ModelContainer,
@@ -72,21 +73,20 @@ final class HistoryManager: ObservableObject {
         isGuestSession: Bool = false,
         userDefaults: UserDefaults = .standard
     ) {
+        self.modelContainer = modelContainer
         self.profileID = profileID
         self.isGuestSession = isGuestSession
         self.userDefaults = userDefaults
-        self.modelContext = ModelContext(modelContainer)
-        self.modelContext.autosaveEnabled = true
+        self.actor = HistoryModelActor(modelContainer: modelContainer)
+        
         self.isSavingEnabled    = isGuestSession ? false : userDefaults.bool(forKey: Self.scopedKey("historySavingEnabled",  profileID: profileID), default: true)
         self.showTopSites       = userDefaults.bool(forKey: Self.scopedKey("historyShowTopSites",     profileID: profileID), default: true)
         self.showHistorySuggestions = userDefaults.bool(forKey: Self.scopedKey("historyShowSuggestions", profileID: profileID), default: true)
-
     }
 
     func loadInitialData() {
         guard !isGuestSession else { return }
-        refreshRecentEntries()
-        refreshTopSites()
+        scheduleDebouncedRefresh()
     }
 
     func prepareForRemoval() {
@@ -104,95 +104,56 @@ final class HistoryManager: ObservableObject {
 
         let finalTitle = title.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty ?? url.host ?? urlString
         let faviconString = faviconURL?.absoluteString
-        let fetchDescriptor = FetchDescriptor<HistoryEntry>(
-            predicate: #Predicate { $0.urlString == urlString }
-        )
-
-        do {
-            let existing = try modelContext.fetch(fetchDescriptor)
-            if let entry = existing.first {
-                entry.title = finalTitle
-                entry.lastVisited = Date()
-                entry.visitCount += 1
-                if let fs = faviconString { entry.faviconURLString = fs }
-            } else {
-                let entry = HistoryEntry(
-                    urlString: urlString,
-                    title: finalTitle,
-                    faviconURLString: faviconString
-                )
-                modelContext.insert(entry)
+        
+        Task.detached(priority: .background) { [actor] in
+            await actor.record(urlString: urlString, title: finalTitle, faviconURLString: faviconString)
+            await MainActor.run { [weak self] in
+                self?.scheduleDebouncedRefresh()
             }
-            try modelContext.save()
-        } catch {
-            AppLog.error("HistoryManager record failed", error: error)
         }
-
-        scheduleDebouncedRefresh()
     }
 
     func updateMetadata(for url: URL, title: String, faviconURL: URL? = nil) {
         guard !isGuestSession, isSavingEnabled else { return }
         let urlString = url.absoluteString
         let finalTitle = title.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty ?? url.host ?? urlString
-
-        let fetch = FetchDescriptor<HistoryEntry>(
-            predicate: #Predicate { $0.urlString == urlString }
-        )
+        let faviconString = faviconURL?.absoluteString
         
-        do {
-            guard let entry = try modelContext.fetch(fetch).first else { return }
-            entry.title = finalTitle
-            if let fs = faviconURL?.absoluteString { entry.faviconURLString = fs }
-            try modelContext.save()
-            scheduleDebouncedRefresh()
-        } catch {
-            AppLog.error("HistoryManager update metadata failed for \(url.host ?? urlString)", error: error)
+        Task.detached(priority: .background) { [actor] in
+            await actor.updateMetadata(urlString: urlString, title: finalTitle, faviconURLString: faviconString)
+            await MainActor.run { [weak self] in
+                self?.scheduleDebouncedRefresh()
+            }
         }
     }
 
     func delete(id: UUID) {
-        let fetch = FetchDescriptor<HistoryEntry>(
-            predicate: #Predicate { $0.id == id }
-        )
-        do {
-            guard let entry = try modelContext.fetch(fetch).first else { return }
-            modelContext.delete(entry)
-            try modelContext.save()
-            refreshRecentEntries()
-            refreshTopSites()
-        } catch {
-            AppLog.error("HistoryManager delete failed for id=\(id.uuidString)", error: error)
+        Task.detached(priority: .userInitiated) { [actor] in
+            await actor.delete(id: id)
+            await MainActor.run { [weak self] in
+                self?.refreshRecentEntries()
+                self?.refreshTopSites()
+            }
         }
     }
 
     func deleteAll(forHost host: String) {
-        let fetch = FetchDescriptor<HistoryEntry>()
-        do {
-            let all = try modelContext.fetch(fetch)
-            let matching = all.filter { $0.url?.host == host }
-            matching.forEach { modelContext.delete($0) }
-            try modelContext.save()
-            refreshRecentEntries()
-            refreshTopSites()
-        } catch {
-            AppLog.error("HistoryManager delete all failed for host=\(host)", error: error)
+        Task.detached(priority: .userInitiated) { [actor] in
+            await actor.deleteAll(forHost: host)
+            await MainActor.run { [weak self] in
+                self?.refreshRecentEntries()
+                self?.refreshTopSites()
+            }
         }
     }
 
     func clearHistory(since date: Date) {
-        let fetch = FetchDescriptor<HistoryEntry>(
-            predicate: #Predicate { $0.lastVisited >= date }
-        )
-        do {
-            let entries = try modelContext.fetch(fetch)
-            entries.forEach { modelContext.delete($0) }
-            try modelContext.save()
-            refreshRecentEntries()
-            refreshTopSites()
-            AppLog.info("HistoryManager cleared \(entries.count) entries since \(date)")
-        } catch {
-            AppLog.error("HistoryManager clear history failed since \(date)", error: error)
+        Task.detached(priority: .userInitiated) { [actor] in
+            await actor.clearHistory(since: date)
+            await MainActor.run { [weak self] in
+                self?.refreshRecentEntries()
+                self?.refreshTopSites()
+            }
         }
     }
 
@@ -202,41 +163,25 @@ final class HistoryManager: ObservableObject {
     }
 
     func clearAll() {
-        let fetch = FetchDescriptor<HistoryEntry>()
-        do {
-            let all = try modelContext.fetch(fetch)
-            all.forEach { modelContext.delete($0) }
-            try modelContext.save()
-            recentEntries = []
-            topSites = []
-            lastRecordedURL.removeAll()
-            AppLog.info("HistoryManager cleared all history (\(all.count) entries)")
-        } catch {
-            AppLog.error("HistoryManager clear all history failed", error: error)
+        Task.detached(priority: .userInitiated) { [actor] in
+            await actor.clearAll()
+            await MainActor.run { [weak self] in
+                guard let self else { return }
+                self.recentEntries = []
+                self.topSites = []
+                self.lastRecordedURL.removeAll()
+            }
         }
     }
 
-    func allEntries() -> [HistoryEntry] {
-        var fetch = FetchDescriptor<HistoryEntry>(
-            sortBy: [SortDescriptor(\.lastVisited, order: .reverse)]
-        )
-        fetch.fetchLimit = 2000
-        return (try? modelContext.fetch(fetch)) ?? []
+    func allEntries() async -> [HistoryEntry] {
+        return await actor.fetchRecentEntries(limit: 2000)
     }
 
-    func search(query: String, limit: Int = 100) -> [HistoryEntry] {
+    func search(query: String, limit: Int = 100) async -> [HistoryEntry] {
         let q = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        guard !q.isEmpty else { return allEntries() }
-
-        var fetch = FetchDescriptor<HistoryEntry>(
-            sortBy: [SortDescriptor(\.lastVisited, order: .reverse)]
-        )
-        fetch.fetchLimit = Self.searchFetchLimit
-        let candidates = (try? modelContext.fetch(fetch)) ?? []
-        return candidates
-            .filter { $0.title.lowercased().contains(q) || $0.urlString.lowercased().contains(q) }
-            .prefix(limit)
-            .map { $0 }
+        guard !q.isEmpty else { return await allEntries() }
+        return await actor.search(query: q, limit: limit)
     }
 
     func suggestions(for query: String, limit: Int = 6) -> [HistorySuggestion] {
@@ -244,8 +189,6 @@ final class HistoryManager: ObservableObject {
         let q = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         guard !q.isEmpty else { return [] }
 
-        // `recentEntries` is refreshed after history writes and already capped for UI use.
-        // Filtering it keeps address-bar suggestions synchronous without querying SwiftData per keystroke.
         let candidates = recentEntries
         let now = Date()
         let daySeconds: Double = 86_400
@@ -281,49 +224,33 @@ final class HistoryManager: ObservableObject {
         pendingRefreshTask?.cancel()
         pendingRefreshTask = Task { [weak self] in
             try? await Task.sleep(nanoseconds: Self.refreshDebounceNs)
-            guard !Task.isCancelled else { return }
-            guard let self else { return }
+            guard !Task.isCancelled, let self else { return }
+            
+            let recent = await self.actor.fetchRecentEntries(limit: 500)
+            let top = self.showTopSites ? await self.actor.fetchTopSites(limit: 8) : []
+            
             await MainActor.run {
-                self.refreshRecentEntries()
-                self.refreshTopSites()
+                self.recentEntries = recent
+                self.topSites = top
             }
         }
     }
 
     private func refreshRecentEntries() {
-        var fetch = FetchDescriptor<HistoryEntry>(
-            sortBy: [SortDescriptor(\.lastVisited, order: .reverse)]
-        )
-        fetch.fetchLimit = 500
-        recentEntries = (try? modelContext.fetch(fetch)) ?? []
+        Task { [weak self] in
+            guard let self else { return }
+            let recent = await self.actor.fetchRecentEntries(limit: 500)
+            await MainActor.run { self.recentEntries = recent }
+        }
     }
 
     private func refreshTopSites() {
         guard showTopSites else { topSites = []; return }
-
-        var fetch = FetchDescriptor<HistoryEntry>(
-            sortBy: [SortDescriptor(\.visitCount, order: .reverse)]
-        )
-        fetch.fetchLimit = 200
-        let candidates = (try? modelContext.fetch(fetch)) ?? []
-        let now = Date()
-        let daySeconds: Double = 86_400
-
-        var seen = Set<String>()
-        topSites = candidates
-            .compactMap { entry -> (HistoryEntry, Double)? in
-                guard let host = entry.url?.host else { return nil }
-                let key = entry.url?.eTLDPlusOne ?? host
-                guard !seen.contains(key) else { return nil }
-                seen.insert(key)
-                let ageDays = now.timeIntervalSince(entry.lastVisited) / daySeconds
-                let recency = max(0, 1.0 - ageDays / 30.0)
-                let score = Double(entry.visitCount) * (1.0 + recency)
-                return (entry, score)
-            }
-            .sorted { $0.1 > $1.1 }
-            .prefix(8)
-            .map { $0.0 }
+        Task { [weak self] in
+            guard let self else { return }
+            let top = await self.actor.fetchTopSites(limit: 8)
+            await MainActor.run { self.topSites = top }
+        }
     }
 
     private func shouldRecord(url: URL) -> Bool {
@@ -346,6 +273,145 @@ final class HistoryManager: ObservableObject {
 
     private func persist(_ value: Bool, forKey key: String) {
         userDefaults.set(value, forKey: key)
+    }
+}
+
+@available(macOS 14, iOS 17, *)
+actor HistoryModelActor: ModelActor {
+    let modelContainer: ModelContainer
+    let modelExecutor: any ModelExecutor
+
+    init(modelContainer: ModelContainer) {
+        self.modelContainer = modelContainer
+        let context = ModelContext(modelContainer)
+        context.autosaveEnabled = false
+        self.modelExecutor = DefaultSerialModelExecutor(modelContext: context)
+    }
+
+    func record(urlString: String, title: String, faviconURLString: String?) {
+        let fetchDescriptor = FetchDescriptor<HistoryEntry>(
+            predicate: #Predicate { $0.urlString == urlString }
+        )
+        
+        do {
+            let existing = try modelContext.fetch(fetchDescriptor)
+            if let entry = existing.first {
+                entry.title = title
+                entry.lastVisited = Date()
+                entry.visitCount += 1
+                if let fs = faviconURLString { entry.faviconURLString = fs }
+            } else {
+                let entry = HistoryEntry(
+                    urlString: urlString,
+                    title: title,
+                    faviconURLString: faviconURLString
+                )
+                modelContext.insert(entry)
+            }
+            try modelContext.save()
+        } catch {
+            AppLog.error("HistoryModelActor record failed", error: error)
+        }
+    }
+
+    func updateMetadata(urlString: String, title: String, faviconURLString: String?) {
+        let fetch = FetchDescriptor<HistoryEntry>(
+            predicate: #Predicate { $0.urlString == urlString }
+        )
+        do {
+            guard let entry = try modelContext.fetch(fetch).first else { return }
+            entry.title = title
+            if let fs = faviconURLString { entry.faviconURLString = fs }
+            try modelContext.save()
+        } catch {
+            AppLog.error("HistoryModelActor update metadata failed", error: error)
+        }
+    }
+
+    func delete(id: UUID) {
+        let fetch = FetchDescriptor<HistoryEntry>(
+            predicate: #Predicate { $0.id == id }
+        )
+        do {
+            let entries = try modelContext.fetch(fetch)
+            for entry in entries { modelContext.delete(entry) }
+            try modelContext.save()
+        } catch {
+            AppLog.error("HistoryModelActor delete failed", error: error)
+        }
+    }
+
+    func deleteAll(forHost host: String) {
+        let fetch = FetchDescriptor<HistoryEntry>()
+        do {
+            let all = try modelContext.fetch(fetch)
+            let matching = all.filter { $0.url?.host == host }
+            for entry in matching { modelContext.delete(entry) }
+            try modelContext.save()
+        } catch {
+            AppLog.error("HistoryModelActor delete all for host failed", error: error)
+        }
+    }
+
+    func clearHistory(since date: Date) {
+        let fetch = FetchDescriptor<HistoryEntry>(
+            predicate: #Predicate { $0.lastVisited >= date }
+        )
+        do {
+            let entries = try modelContext.fetch(fetch)
+            for entry in entries { modelContext.delete(entry) }
+            try modelContext.save()
+        } catch {
+            AppLog.error("HistoryModelActor clear history failed", error: error)
+        }
+    }
+
+    func clearAll() {
+        let fetch = FetchDescriptor<HistoryEntry>()
+        do {
+            let entries = try modelContext.fetch(fetch)
+            for entry in entries { modelContext.delete(entry) }
+            try modelContext.save()
+        } catch {
+            AppLog.error("HistoryModelActor clear all failed", error: error)
+        }
+    }
+
+    func fetchRecentEntries(limit: Int) -> [HistoryEntry] {
+        var fetch = FetchDescriptor<HistoryEntry>(
+            sortBy: [SortDescriptor(\.lastVisited, order: .reverse)]
+        )
+        fetch.fetchLimit = limit
+        return (try? modelContext.fetch(fetch)) ?? []
+    }
+
+    func fetchTopSites(limit: Int) -> [HistoryEntry] {
+        var fetch = FetchDescriptor<HistoryEntry>(
+            sortBy: [SortDescriptor(\.visitCount, order: .reverse)]
+        )
+        fetch.fetchLimit = 200 // Fetch a larger candidate set to filter unique hosts
+        let candidates = (try? modelContext.fetch(fetch)) ?? []
+        
+        var seen = Set<String>()
+        return candidates.compactMap { entry -> HistoryEntry? in
+            guard let host = entry.url?.host else { return nil }
+            let key = entry.url?.eTLDPlusOne ?? host
+            guard !seen.contains(key) else { return nil }
+            seen.insert(key)
+            return entry
+        }.prefix(limit).map { $0 }
+    }
+
+    func search(query: String, limit: Int) -> [HistoryEntry] {
+        var fetch = FetchDescriptor<HistoryEntry>(
+            sortBy: [SortDescriptor(\.lastVisited, order: .reverse)]
+        )
+        fetch.fetchLimit = 1000
+        let candidates = (try? modelContext.fetch(fetch)) ?? []
+        return candidates
+            .filter { $0.title.lowercased().contains(query) || $0.urlString.lowercased().contains(query) }
+            .prefix(limit)
+            .map { $0 }
     }
 }
 
