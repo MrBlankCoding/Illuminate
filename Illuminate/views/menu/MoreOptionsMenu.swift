@@ -94,6 +94,12 @@ struct MoreOptionsMenu: View {
                 }
 
                 Button {
+                    openInternalPage("illuminate://extensions")
+                } label: {
+                    Label("Extensions", systemImage: "puzzlepiece.fill")
+                }
+
+                Button {
                     openInternalPage("illuminate://passwords")
                 } label: {
                     Label("Passwords", systemImage: "key.fill")

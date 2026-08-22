@@ -51,6 +51,14 @@ struct ContentView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .ignoresSafeArea(edges: .top)
+            
+            if let request = environment.extensionManager.activePermissionRequest {
+                Color.black.opacity(0.3)
+                    .ignoresSafeArea()
+                
+                PermissionRequestView(request: request)
+                    .zIndex(10)
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(WindowConfigurator())

@@ -28,6 +28,7 @@ final class ProfileEnvironment: ObservableObject {
     let urlSynchronizer: URLSynchronizer
     let viewModel: ContentViewModel
     let historyManager: HistoryManager
+    let extensionManager: ExtensionManager
 
     let modelContainer: ModelContainer
 
@@ -44,14 +45,25 @@ final class ProfileEnvironment: ObservableObject {
         self.sessionIdentifier = sessionIdentifier
         self.modelContainer = modelContainer
         self.urlSynchronizer = URLSynchronizer()
+        self.historyManager = HistoryManager(
+            modelContainer: modelContainer,
+            profileID: isGuestSession ? nil : profile.id,
+            isGuestSession: isGuestSession
+        )
+        self.extensionManager = ExtensionManager(
+            profileID: isGuestSession ? nil : profile.id,
+            isGuestSession: isGuestSession
+        )
         self.tabManager = TabManager(
             profileID: isGuestSession ? nil : profile.id,
             urlSynchronizer: self.urlSynchronizer,
-            isPersistenceEnabled: !isGuestSession
+            isPersistenceEnabled: !isGuestSession,
+            extensionManager: self.extensionManager
         )
         self.webKitManager = WebKitManager(
             profileID: isGuestSession ? nil : profile.id,
-            isPersistenceEnabled: !isGuestSession
+            isPersistenceEnabled: !isGuestSession,
+            extensionManager: self.extensionManager
         )
         self.passwordService = PasswordService(
             profileID: isGuestSession ? nil : profile.id,
@@ -74,11 +86,6 @@ final class ProfileEnvironment: ObservableObject {
         self.canvasFingerprintingService = CanvasFingerprintingService(
             profileID: isGuestSession ? nil : profile.id,
             persists: !isGuestSession
-        )
-        self.historyManager = HistoryManager(
-            modelContainer: modelContainer,
-            profileID: isGuestSession ? nil : profile.id,
-            isGuestSession: isGuestSession
         )
         self.viewModel = ContentViewModel(
             tabManager: self.tabManager,

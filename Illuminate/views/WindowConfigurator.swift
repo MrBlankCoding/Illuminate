@@ -7,11 +7,13 @@
 
 import SwiftUI
 import AppKit
+import WebKit
 
 struct WindowConfigurator: NSViewRepresentable {
     @EnvironmentObject var tabManager: TabManager
+    @EnvironmentObject var profileEnvironment: ProfileEnvironment
 
-    func makeCoordinator() -> Coordinator { Coordinator(tabManager: tabManager) }
+    func makeCoordinator() -> Coordinator { Coordinator(tabManager: tabManager, extensionManager: profileEnvironment.extensionManager) }
 
     func makeNSView(context: Context) -> NSView {
         let view = NSView()
@@ -20,6 +22,7 @@ struct WindowConfigurator: NSViewRepresentable {
                   !context.coordinator.didConfigure else { return }
             context.coordinator.didConfigure = true
             context.coordinator.window = window
+            tabManager.window = window
             configure(window: window)
             update(window: window)
         }
@@ -31,6 +34,7 @@ struct WindowConfigurator: NSViewRepresentable {
             guard let window = nsView?.window else { return }
             if context.coordinator.window !== window {
                 context.coordinator.window = window
+                tabManager.window = window
                 if !context.coordinator.didConfigure {
                     context.coordinator.didConfigure = true
                     configure(window: window)
@@ -64,14 +68,16 @@ struct WindowConfigurator: NSViewRepresentable {
     class Coordinator: NSObject, NSWindowDelegate {
         var didConfigure = false
         weak var tabManager: TabManager?
+        weak var extensionManager: ExtensionManager?
         weak var window: NSWindow? {
             didSet {
                 window?.delegate = self
             }
         }
 
-        init(tabManager: TabManager) {
+        init(tabManager: TabManager, extensionManager: ExtensionManager) {
             self.tabManager = tabManager
+            self.extensionManager = extensionManager
         }
 
         func windowWillStartLiveResize(_ notification: Notification) {
@@ -88,6 +94,17 @@ struct WindowConfigurator: NSViewRepresentable {
 
         func windowDidExitFullScreen(_ notification: Notification) {
             tabManager?.isFullScreen = false
+        }
+
+        func windowDidBecomeKey(_ notification: Notification) {
+            guard let tabManager, let extensionManager else { return }
+            extensionManager.controller.didFocusWindow(tabManager)
+        }
+
+        func windowDidResignKey(_ notification: Notification) {
+            // careful around this...
+            guard let tabManager, let extensionManager else { return }
+            extensionManager.controller.didBlurWindow(tabManager)
         }
     }
 }

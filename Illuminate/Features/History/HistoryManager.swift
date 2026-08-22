@@ -105,7 +105,7 @@ final class HistoryManager: ObservableObject {
         let finalTitle = title.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty ?? url.host ?? urlString
         let faviconString = faviconURL?.absoluteString
         
-        Task.detached(priority: .background) { [actor] in
+        Task.detached(priority: .utility) { [actor] in
             await actor.record(urlString: urlString, title: finalTitle, faviconURLString: faviconString)
             await MainActor.run { [weak self] in
                 self?.scheduleDebouncedRefresh()
@@ -119,7 +119,7 @@ final class HistoryManager: ObservableObject {
         let finalTitle = title.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty ?? url.host ?? urlString
         let faviconString = faviconURL?.absoluteString
         
-        Task.detached(priority: .background) { [actor] in
+        Task.detached(priority: .utility) { [actor] in
             await actor.updateMetadata(urlString: urlString, title: finalTitle, faviconURLString: faviconString)
             await MainActor.run { [weak self] in
                 self?.scheduleDebouncedRefresh()

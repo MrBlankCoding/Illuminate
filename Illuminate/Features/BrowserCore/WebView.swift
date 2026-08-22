@@ -60,6 +60,9 @@ struct WebView: View {
         case .info:
             InfoPageView()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+        case .extensions:
+            ExtensionSettingsView()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
         case nil:
             WebViewRepresentable(
                 tab: tab,

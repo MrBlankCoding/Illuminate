@@ -49,6 +49,19 @@ struct URLBar: View {
         .zIndex(100)
         .onReceive(NotificationCenter.default.publisher(for: .focusURLBar)) { _ in
             isFocused = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.01) {
+                if let window = NSApp.keyWindow,
+                   let firstResponder = window.firstResponder as? NSText {
+                    firstResponder.selectAll(nil)
+                }
+            }
+        }
+        .onChange(of: activeTab?.id) { oldID, newID in
+            if newID != nil && activeTab?.url == nil {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    isFocused = true
+                }
+            }
         }
         .onChange(of: isFocused) { _, focused in
             viewModel.setAddressBarEditing(focused)

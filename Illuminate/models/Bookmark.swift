@@ -10,7 +10,7 @@ import Foundation
 import SwiftData
 
 @Model
-final class Bookmark {
+final class Bookmark: Identifiable {
     @Attribute(.unique) var id: UUID
     var profileID: UUID
     var title: String

@@ -16,6 +16,7 @@ enum IlluminatePage: String, CaseIterable, Equatable {
     case history
     case permissions
     case info
+    case extensions
 
     static let urlScheme = "illuminate"
 
@@ -41,6 +42,7 @@ enum IlluminatePage: String, CaseIterable, Equatable {
         case .history: return "History"
         case .permissions: return "Permissions"
         case .info: return "Browser Info & Diagnostics"
+        case .extensions: return "Extensions"
         }
     }
 
@@ -53,6 +55,7 @@ enum IlluminatePage: String, CaseIterable, Equatable {
         case .history: return "History"
         case .permissions: return "Permissions"
         case .info: return "Browser Info"
+        case .extensions: return "Extensions"
         }
     }
 
@@ -65,6 +68,7 @@ enum IlluminatePage: String, CaseIterable, Equatable {
         case .history: return "clock.arrow.circlepath"
         case .permissions: return "hand.raised.fill"
         case .info: return "info.circle.fill"
+        case .extensions: return "puzzlepiece.fill"
         }
     }
 
@@ -77,6 +81,7 @@ enum IlluminatePage: String, CaseIterable, Equatable {
         case .history: return ["history", "recent", "visited", "sites", "logs"]
         case .permissions: return ["permissions", "camera", "microphone", "location", "notifications", "sites"]
         case .info: return ["info", "about", "diagnostics", "user agent", "profile", "debug", "version", "system"]
+        case .extensions: return ["extensions", "plugins", "addons", "webextensions", "gallery", "store"]
         }
     }
 }

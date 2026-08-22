@@ -174,6 +174,7 @@ struct BrowserToolbarView: View {
 
     private var actionsCluster: some View {
         HStack(spacing: 2) {
+            ExtensionToolbarItems()
             DownloadsToolbarButton()
             profileMenu
             MoreOptionsMenu()

@@ -9,7 +9,7 @@ import Foundation
 import SwiftData
 
 @Model
-final class HistoryEntry {
+final class HistoryEntry: Identifiable {
     @Attribute(.unique) var id: UUID
 
     var urlString: String

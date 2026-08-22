@@ -24,7 +24,6 @@ struct NativeSettingsView: View {
                 .tabItem {
                     Label("Shortcuts", systemImage: "command")
                 }
-
         }
         .frame(minWidth: 520, minHeight: 440)
         .environmentObject(tabManager)

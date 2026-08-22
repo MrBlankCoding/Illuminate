@@ -30,6 +30,8 @@ A lightweight browser built for MacOS that uses webkit and includes not arbitrar
 - [ ] Bug fixes
 - [ ] Redirect blocker
 - [ ] Test Coverage < 75%
+- [ ] Performance optimizations
+- [ ] Extension support (WIP)
 
 
 ---

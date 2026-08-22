@@ -35,6 +35,7 @@ final class WebKitManager: ObservableObject {
     private var isLoadingProfile = false
     private let isPersistenceEnabled: Bool
     private var cachedUserAgent: String?
+    private let extensionManager: ExtensionManager
     
     private var sharedWebsiteDataStore: WKWebsiteDataStore?
     private var sharedConfiguration: WKWebViewConfiguration?
@@ -47,7 +48,6 @@ final class WebKitManager: ObservableObject {
         if let cached = cachedUserAgent {
             return cached
         }
-        // Optimization: Use a shared hidden webview or just a default if evaluation fails
         let webView = WKWebView(frame: .zero, configuration: makeConfiguration())
         return await withCheckedContinuation { continuation in
             webView.evaluateJavaScript("navigator.userAgent") { result, _ in
@@ -56,7 +56,6 @@ final class WebKitManager: ObservableObject {
                     let chromeVersion = await ChromeVersionFetcher.fetchLatestStableVersion()
                     let enhancedUA = "\(defaultUA) Chrome/\(chromeVersion)"
                     self?.cachedUserAgent = enhancedUA
-                    // Pre-apply to the shared configuration if it exists
                     self?.sharedConfiguration?.applicationNameForUserAgent = "Chrome/\(chromeVersion)"
                     continuation.resume(returning: enhancedUA)
                 }
@@ -64,10 +63,11 @@ final class WebKitManager: ObservableObject {
         }
     }
 
-    init(profileID: UUID? = nil, userDefaults: UserDefaults = .standard, isPersistenceEnabled: Bool = true) {
+    init(profileID: UUID? = nil, userDefaults: UserDefaults = .standard, isPersistenceEnabled: Bool = true, extensionManager: ExtensionManager) {
         self.userDefaults = userDefaults
         self.activeProfileID = profileID
         self.isPersistenceEnabled = isPersistenceEnabled
+        self.extensionManager = extensionManager
         
         if !Self.hasConfiguredGlobalCache {
             Self.hasConfiguredGlobalCache = true
@@ -84,8 +84,8 @@ final class WebKitManager: ObservableObject {
         self.isLoadingProfile = false
     }
 
-    convenience init(profile: BrowserProfile, userDefaults: UserDefaults = .standard, isPersistenceEnabled: Bool = true) {
-        self.init(profileID: profile.id, userDefaults: userDefaults, isPersistenceEnabled: isPersistenceEnabled)
+    convenience init(profile: BrowserProfile, userDefaults: UserDefaults = .standard, isPersistenceEnabled: Bool = true, extensionManager: ExtensionManager) {
+        self.init(profileID: profile.id, userDefaults: userDefaults, isPersistenceEnabled: isPersistenceEnabled, extensionManager: extensionManager)
     }
 
     func prepareForRemoval() {
@@ -95,7 +95,6 @@ final class WebKitManager: ObservableObject {
     }
 
     func makeConfiguration() -> WKWebViewConfiguration {
-        // Optimization: Reuse configuration where possible
         if let existing = sharedConfiguration {
             return existing
         }
@@ -114,8 +113,8 @@ final class WebKitManager: ObservableObject {
         configuration.preferences = preferences
         configuration.userContentController = WKUserContentController()
         configuration.preferences.setValue(true, forKey: "developerExtrasEnabled")
-
-        // Performance: Avoid repeated UA evaluation by setting applicationNameForUserAgent
+        configuration.webExtensionController = extensionManager.controller
+        
         if let ua = cachedUserAgent, let chromeVersion = ua.components(separatedBy: " Chrome/").last {
              configuration.applicationNameForUserAgent = "Chrome/\(chromeVersion)"
         }
@@ -152,8 +151,6 @@ final class WebKitManager: ObservableObject {
                 
                 self.cachedUserAgent = enhancedUA
                 webView.customUserAgent = enhancedUA
-                
-                // Update shared config for future webviews
                 self.sharedConfiguration?.applicationNameForUserAgent = "Chrome/\(chromeVersion)"
 
                 AppLog.info("Set and cached enhanced UA: \(enhancedUA)")

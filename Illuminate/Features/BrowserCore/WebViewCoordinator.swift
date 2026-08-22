@@ -33,8 +33,6 @@ extension WebViewRepresentable {
         private var contextMenuDownloadURL: URL?
         var hasInstalledDownloadHandler = false
         var lastLoadedURL: URL?
-        
-        // Performance: Tracking script state
         var lastAppliedScheme: String?
         var lastFingerprintingEnabled: Bool?
 

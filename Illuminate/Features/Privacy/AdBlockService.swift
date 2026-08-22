@@ -61,7 +61,6 @@ final class AdBlockService: ObservableObject {
     private let easyListDownloadQueue = DispatchQueue(label: "com.illuminate.adblock.easylist", qos: .utility)
     private var cachedStaticRulesJSON: String?
     #if DEBUG
-    // Test hooks
     var debug_lastGeneratedStaticJSON: String?
     var debug_lastGeneratedDynamicJSON: String?
     #endif
@@ -309,6 +308,10 @@ final class AdBlockService: ObservableObject {
         let bundles = [Bundle(for: AdBlockService.self), Bundle.main]
 
         for bundle in bundles {
+            if let resourceURL = bundle.url(forResource: "EasyList", withExtension: "txt", subdirectory: "Features/Privacy") {
+                return resourceURL
+            }
+
             if let resourceURL = bundle.url(forResource: "EasyList", withExtension: "txt", subdirectory: "Resources") {
                 return resourceURL
             }

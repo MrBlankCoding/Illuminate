@@ -102,7 +102,73 @@ final class IlluminateWebView: WKWebView {
 }
 
 @MainActor
-final class Tab: ObservableObject, Identifiable {
+final class Tab: NSObject, ObservableObject, Identifiable, WKWebExtensionTab {
+    weak var tabManager: TabManager?
+    
+    var window: (any WKWebExtensionWindow)? {
+        tabManager
+    }
+    
+    var index: Int {
+        tabManager?.indexOfTab(withID: id) ?? 0
+    }
+    
+    @Published var parentTab: (any WKWebExtensionTab)?
+    
+    var isSelected: Bool {
+        tabManager?.activeTabID == id
+    }
+    
+    @Published var isPinned: Bool = false {
+        didSet {
+            if oldValue != isPinned {
+                notifyExtensions(properties: .pinned)
+            }
+        }
+    }
+    
+    var isAudible: Bool {
+        false // webView?.isAudible is missing in this environment
+    }
+
+    func close(completionHandler: @escaping ((any Error)?) -> Void) {
+        tabManager?.closeTab(id: id)
+        completionHandler(nil)
+    }
+
+    func reload(completionHandler: @escaping ((any Error)?) -> Void) {
+        self.reload()
+        completionHandler(nil)
+    }
+
+    func activate(completionHandler: @escaping ((any Error)?) -> Void) {
+        tabManager?.switchTo(id)
+        completionHandler(nil)
+    }
+
+    func select(completionHandler: @escaping ((any Error)?) -> Void) {
+        tabManager?.setActiveTab(id)
+        completionHandler(nil)
+    }
+
+    func setMuted(_ isMuted: Bool, completionHandler: @escaping ((any Error)?) -> Void) {
+        self.isMuted = isMuted
+        guard let webView else {
+            completionHandler(nil)
+            return
+        }
+        let script = """
+        (() => {
+            for (const media of document.querySelectorAll('audio, video')) {
+                media.muted = \(isMuted ? "true" : "false");
+            }
+        })();
+        """
+        webView.evaluateJavaScript(script) { _, error in
+            completionHandler(error)
+        }
+    }
+
     static let zoomChangedNotification = NSNotification.Name("app.zoomChanged")
     static let zoomLevelKey = "level"
 
@@ -122,17 +188,33 @@ final class Tab: ObservableObject, Identifiable {
                     self.title = page.tabTitle
                 }
                 saveMetadata()
+                // notifyExtensions(properties: .url) // .url seems to be missing in this SDK
             }
         }
     }
     @Published var title: String {
-        didSet { if oldValue != title { saveMetadata() } }
+        didSet { 
+            if oldValue != title { 
+                saveMetadata()
+                notifyExtensions(properties: .title)
+            } 
+        }
     }
     @Published var favicon: NSImage? {
-        didSet { if oldValue != favicon { saveFavicon() } }
+        didSet { 
+            if oldValue != favicon { 
+                saveFavicon()
+            } 
+        }
     }
     @Published var themeColor: Color?
-    @Published var isLoading: Bool
+    @Published var isLoading: Bool {
+        didSet {
+            if oldValue != isLoading {
+                notifyExtensions(properties: .loading)
+            }
+        }
+    }
     @Published var isHibernated: Bool
     @Published var hasMixedContentWarning: Bool
     @Published var networkError: NetworkErrorKind?
@@ -155,7 +237,17 @@ final class Tab: ObservableObject, Identifiable {
     @Published var estimatedProgress: Double = 0
     @Published var zoomLevel: Double = 1.0
     @Published var hasPiPCandidate: Bool = false
-    @Published var isMuted: Bool = false
+    @Published var isMuted: Bool = false {
+        didSet {
+            if oldValue != isMuted {
+                notifyExtensions(properties: .muted)
+            }
+        }
+    }
+
+    private func notifyExtensions(properties: WKWebExtension.TabChangedProperties) {
+        tabManager?.extensionManager.controller.didChangeTabProperties(properties, for: self)
+    }
 
     private(set) var webView: WKWebView?
     private var isFetchingAssets = false
@@ -203,6 +295,7 @@ final class Tab: ObservableObject, Identifiable {
         self.ownershipToken = id.uuidString
         self.lastActivatedAt = Date()
         self.lastAccessed = Date()
+        super.init()
     }
 
     convenience init(id: UUID, assetsBaseURL: URL? = nil) {
@@ -488,6 +581,16 @@ final class Tab: ObservableObject, Identifiable {
 
     private func setupWebViewObservers(_ webView: WKWebView) {
         cancellables.removeAll()
+
+        /*
+        webView.publisher(for: \.isAudible)
+            .removeDuplicates()
+            .receive(on: RunLoop.main)
+            .sink { [weak self] v in
+                self?.notifyExtensions(properties: .playingAudio)
+            }
+            .store(in: &cancellables)
+        */
 
         webView.publisher(for: \.canGoBack)
             .removeDuplicates()

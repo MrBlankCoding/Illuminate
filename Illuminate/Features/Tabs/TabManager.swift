@@ -33,13 +33,39 @@ private actor SessionWriter {
 
 
 @MainActor
-final class TabManager: ObservableObject {
+final class TabManager: NSObject, ObservableObject, WKWebExtensionWindow {
+    
+    var windowState: WKWebExtension.WindowState {
+        if isFullScreen { return .fullscreen }
+        return .normal
+    }
+    
+    var windowType: WKWebExtension.WindowType {
+        .normal
+    }
+    
+    var isPrivate: Bool {
+        activeProfileID == nil // Assuming nil profile ID means guest/private
+    }
+    
+    weak var window: NSWindow?
+    
+    var isFocused: Bool {
+        window?.isKeyWindow ?? false
+    }
+    
+    func focus(completionHandler: @escaping ((any Error)?) -> Void) {
+        window?.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+        completionHandler(nil)
+    }
+
     private enum Defaults {
         static let themeColor        = "89BBFF"
         static let maxRecentlyClosed = 25
         static let saveDebounceNs: UInt64 = 500_000_000
-        static let tabCreationDelay: TimeInterval = 0.1
-        static let rapidSwitchDebounceNs: UInt64 = 1_000_000_000 // 1 second for rapid switching
+        static let tabCreationDelay: TimeInterval = 0.25
+        static let rapidSwitchDebounceNs: UInt64 = 1_000_000_000
     }
 
     @Published private(set) var tabs: [Tab] = []
@@ -92,6 +118,8 @@ final class TabManager: ObservableObject {
     private let sessionURL: URL
     private let faviconCache: FaviconCache
     private let sessionWriter = SessionWriter()
+    // not private ahh!
+    let extensionManager: ExtensionManager
 
     private var activeProfileID: UUID?
     var tabIndex: [UUID: Tab] = [:]
@@ -125,8 +153,10 @@ final class TabManager: ObservableObject {
         urlSynchronizer: URLSynchronizer,
         userDefaults: UserDefaults = .standard,
         isPersistenceEnabled: Bool = true,
-        faviconCache: FaviconCache? = nil
+        faviconCache: FaviconCache? = nil,
+        extensionManager: ExtensionManager? = nil
     ) {
+        let resolvedExtensionManager = extensionManager ?? ExtensionManager(profileID: profileID)
         self.activeProfileID    = profileID
         self.notificationCenter = notificationCenter
         self.urlSynchronizer    = urlSynchronizer
@@ -135,6 +165,7 @@ final class TabManager: ObservableObject {
         self.faviconCache       = faviconCache ?? .shared
         self.sessionURL         = Self.makeSessionURL(profileID: profileID)
         self.tabGroupManager    = TabGroupManager(profileID: profileID, isPersistenceEnabled: isPersistenceEnabled)
+        self.extensionManager   = resolvedExtensionManager
 
         let savedHex = isPersistenceEnabled
             ? (userDefaults.string(forKey: Self.scopedKey("windowThemeColor", profileID: profileID)) ?? Defaults.themeColor)
@@ -158,6 +189,7 @@ final class TabManager: ObservableObject {
             : "dark"
         self.userInterfaceStyle = UIStyle(rawValue: savedStyle) ?? .dark
 
+        super.init()
 
         if isPersistenceEnabled {
             restoreSession()
@@ -170,6 +202,8 @@ final class TabManager: ObservableObject {
         if tabs.isEmpty {
             createTab()
         }
+
+        resolvedExtensionManager.registerTabManager(self)
 
         Task { @MainActor [weak self] in
             self?.isInitializing = false
@@ -204,6 +238,11 @@ final class TabManager: ObservableObject {
     }
 
     deinit {
+        let identifier = ObjectIdentifier(self)
+        let em = extensionManager
+        DispatchQueue.main.async {
+            em.unregisterTabManager(withIdentifier: identifier)
+        }
         observerTokens.forEach { notificationCenter.removeObserver($0) }
         pendingSaveTask?.cancel()
         backgroundThemeTask?.cancel()
@@ -228,9 +267,17 @@ final class TabManager: ObservableObject {
         case .success(let state):
             activeTabID = state.activeTabID
             if let ids = state.tabIDs {
-                tabs = ids.map { Tab(id: $0, assetsBaseURL: tabAssetsBaseURL) }
+                tabs = ids.map { 
+                    let tab = Tab(id: $0, assetsBaseURL: tabAssetsBaseURL)
+                    tab.tabManager = self
+                    return tab
+                }
             } else if let payloads = state.tabs {
-                tabs = payloads.map { makeTab(from: $0) }
+                tabs = payloads.map { 
+                    let tab = makeTab(from: $0)
+                    tab.tabManager = self
+                    return tab
+                }
             }
             rebuildTabIndex()
         case .failure(let error):
@@ -340,6 +387,14 @@ final class TabManager: ObservableObject {
         clearAllTabs()
     }
 
+    func tabs(for context: WKWebExtensionContext) -> [any WKWebExtensionTab] {
+        tabs
+    }
+    
+    func activeTab(for context: WKWebExtensionContext) -> (any WKWebExtensionTab)? {
+        activeTab
+    }
+
     func tab(forID id: UUID) -> Tab? { tabIndex[id] }
     func indexOfTab(withID id: UUID) -> Int? { tabPositionIndex[id] }
 
@@ -364,11 +419,14 @@ final class TabManager: ObservableObject {
     @discardableResult
     func createTab(url: URL? = nil, inBackground: Bool = false) -> Tab {
         let tab = Tab(url: url, assetsBaseURL: tabAssetsBaseURL)
+        tab.tabManager = self
 
         tabs.append(tab)
         tabIndex[tab.id] = tab
         tabPositionIndex[tab.id] = tabs.count - 1
         hydrateVisualState(for: tab)
+        
+        extensionManager.controller.didOpenTab(tab)
 
         if !inBackground {
             withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
@@ -398,6 +456,9 @@ final class TabManager: ObservableObject {
         tab.close()
         pushRecentlyClosed(payload)
         tabGroupManager.handleTabClosed(id)
+        
+        // Notify extensions
+        extensionManager.controller.didCloseTab(tab, windowIsClosing: false)
 
         tabs.remove(at: index)
         deindexTab(id: id)
@@ -443,6 +504,7 @@ final class TabManager: ObservableObject {
     func reopenLastClosedTab() -> Tab? {
         guard let snapshot = recentlyClosed.popLast() else { return nil }
         let tab = makeTab(from: snapshot.payload)
+        tab.tabManager = self
 
         tabs.append(tab)
         tabIndex[tab.id] = tab
@@ -494,10 +556,13 @@ final class TabManager: ObservableObject {
     }
 
     func setActiveTab(_ id: UUID?) {
+        let oldTab = activeTab
         activeTabID = id
         if let id, let tab = tabIndex[id] {
             tab.markActivated()
             tab.markAccessed()
+            
+            extensionManager.controller.didActivateTab(tab, previousActiveTab: oldTab)
         }
         syncActiveTabURL()
         guard isPersistenceEnabled, !isInitializing else { return }

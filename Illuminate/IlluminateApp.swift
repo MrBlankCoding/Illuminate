@@ -47,7 +47,6 @@ struct IlluminateApp: App {
                     maxHeight: Self.profileWindowSize.height
                 )
                 .onAppear {
-                    // Performance: Defer monitoring until the first view appears
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                         runtimeSecurityMonitor.startMonitoring()
                         backgroundResourceManager.start()

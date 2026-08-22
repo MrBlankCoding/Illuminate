@@ -31,6 +31,7 @@ struct AppRootView: View {
                     .environmentObject(env.websitePermissionService)
                     .environmentObject(env.canvasFingerprintingService)
                     .environmentObject(env.historyManager)
+                    .environmentObject(env.extensionManager)
                     .focusedSceneValue(\.activeEnvironment, env)
                     .id(route)
                     .onAppear {
