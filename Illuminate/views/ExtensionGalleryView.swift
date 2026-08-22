@@ -8,69 +8,47 @@
 import SwiftUI
 import WebKit
 
-struct ExtensionGalleryItem: Identifiable, Codable {
+struct ExtensionGalleryItem: Identifiable {
     let id: String
     let name: String
     let description: String
-    let iconURL: String
-    let downloadURL: String
-    let version: String
+    let iconURL: URL?
+    let source: ExtensionPackageSource
+}
+
+enum ExtensionGalleryCatalog {
+    static let items: [ExtensionGalleryItem] = [
+        ExtensionGalleryItem(
+            id: "ublock-origin-lite",
+            name: "uBlock Origin Lite",
+            description: "An efficient Manifest V3 content blocker that uses declarative rules to hide ads and trackers.",
+            iconURL: URL(string: "https://raw.githubusercontent.com/gorhill/uBlock/master/src/img/icon_128.png"),
+            source: .githubRelease(repository: "uBlockOrigin/uBOL-home", assetNameContains: "chromium.zip")
+        ),
+        ExtensionGalleryItem(
+            id: "dark-reader",
+            name: "Dark Reader",
+            description: "Dark mode for every website. Take care of your eyes.",
+            iconURL: URL(string: "https://raw.githubusercontent.com/darkreader/darkreader/main/src/ui/assets/images/darkreader-icon-128px.png"),
+            source: .githubRelease(repository: "darkreader/darkreader", assetNameContains: "chrome-mv3.zip")
+        )
+    ]
 }
 
 struct ExtensionGalleryView: View {
-    @State private var extensions: [ExtensionGalleryItem] = []
-    @State private var isLoading = true
     @EnvironmentObject var profileEnvironment: ProfileEnvironment
 
     var body: some View {
-        VStack {
-            if isLoading {
-                ProgressView("Loading Extension Gallery...")
-            } else {
-                ScrollView {
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 300))], spacing: 20) {
-                        ForEach(extensions) { item in
-                            ExtensionGalleryCard(item: item)
-                                .environmentObject(profileEnvironment)
-                        }
-                    }
-                    .padding()
+        ScrollView {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 300))], spacing: 20) {
+                ForEach(ExtensionGalleryCatalog.items) { item in
+                    ExtensionGalleryCard(item: item)
+                        .environmentObject(profileEnvironment)
                 }
             }
+            .padding()
         }
         .navigationTitle("Extension Gallery")
-        .onAppear(perform: loadCatalog)
-    }
-
-    private func loadCatalog() {
-        // Mocking a JSON catalog load
-        let mockData = """
-        [
-            {
-                "id": "com.illuminate.adblock",
-                "name": "uBlock Lite",
-                "description": "A lightweight content blocker for the modern web.",
-                "iconURL": "https://example.com/icon1.png",
-                "downloadURL": "https://example.com/ublock.appex",
-                "version": "1.0.0"
-            },
-            {
-                "id": "com.illuminate.darkmode",
-                "name": "Dark Reader",
-                "description": "Dark mode for every website. Take care of your eyes.",
-                "iconURL": "https://example.com/icon2.png",
-                "downloadURL": "https://example.com/darkreader.appex",
-                "version": "4.9.5"
-            }
-        ]
-        """.data(using: .utf8)!
-        
-        do {
-            self.extensions = try JSONDecoder().decode([ExtensionGalleryItem].self, from: mockData)
-            self.isLoading = false
-        } catch {
-            print("Failed to load gallery: \(error)")
-        }
     }
 }
 
@@ -78,49 +56,42 @@ struct ExtensionGalleryCard: View {
     let item: ExtensionGalleryItem
     @EnvironmentObject var profileEnvironment: ProfileEnvironment
     @State private var isInstalling = false
-
-    var isInstalled: Bool {
-        profileEnvironment.extensionManager.installedExtensions.contains { context in
-            // Stable identifier check
-            if let displayName = context.webExtension.displayName {
-                return displayName == item.name
-            }
-            return false
-        }
-    }
-
     @State private var errorMessage: String?
     @State private var showError = false
 
+    var isInstalled: Bool {
+        profileEnvironment.extensionManager.installedExtensions.contains { context in
+            profileEnvironment.extensionManager.matchesGalleryItem(item, context: context)
+        }
+    }
+
     var body: some View {
         HStack(alignment: .top, spacing: 15) {
-            AsyncImage(url: URL(string: item.iconURL)) { image in
+            AsyncImage(url: item.iconURL) { image in
                 image.resizable()
             } placeholder: {
                 Image(systemName: "puzzlepiece.fill")
-                    .foregroundColor(.secondary)
+                    .foregroundStyle(.secondary)
             }
             .frame(width: 60, height: 60)
-            .cornerRadius(12)
-            
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+
             VStack(alignment: .leading, spacing: 5) {
                 Text(item.name)
                     .font(.headline)
                 Text(item.description)
                     .font(.subheadline)
-                    .foregroundColor(.secondary)
+                    .foregroundStyle(.secondary)
                     .lineLimit(2)
-                
+
                 Spacer()
-                
+
                 if isInstalled {
-                    Text("Installed")
-                        .font(.caption)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(Color.green.opacity(0.2))
-                        .foregroundColor(.green)
-                        .cornerRadius(5)
+                    Button(action: uninstall) {
+                        Text("Uninstall")
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
                 } else {
                     Button(action: install) {
                         if isInstalling {
@@ -136,7 +107,7 @@ struct ExtensionGalleryCard: View {
         }
         .padding()
         .background(Color(NSColor.windowBackgroundColor))
-        .cornerRadius(12)
+        .clipShape(RoundedRectangle(cornerRadius: 12))
         .overlay(
             RoundedRectangle(cornerRadius: 12)
                 .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
@@ -152,12 +123,11 @@ struct ExtensionGalleryCard: View {
         isInstalling = true
         Task {
             do {
-                // In a real app, we would download the file from item.downloadURL.
-                // For this implementation, we'll simulate the download process.
-                let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(item.id)
-                // (Simulated download logic here - for now we assume it exists or fail)
-                
-                try await profileEnvironment.extensionManager.installExtension(from: tempURL)
+                let packageURL = try await ExtensionPackageDownloader.downloadUnpackedPackage(from: item.source)
+                try await profileEnvironment.extensionManager.installExtension(
+                    from: packageURL,
+                    preferredIdentifier: item.id
+                )
                 await MainActor.run {
                     isInstalling = false
                 }
@@ -170,5 +140,14 @@ struct ExtensionGalleryCard: View {
                 }
             }
         }
+    }
+
+    private func uninstall() {
+        guard let context = profileEnvironment.extensionManager.installedExtensions.first(where: { context in
+            profileEnvironment.extensionManager.matchesGalleryItem(item, context: context)
+        }) else {
+            return
+        }
+        profileEnvironment.extensionManager.uninstallExtension(context)
     }
 }

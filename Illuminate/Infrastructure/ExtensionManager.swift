@@ -18,7 +18,6 @@ final class ExtensionManager: NSObject, ObservableObject {
     let profileID: UUID?
     let isGuestSession: Bool
     
-    private var extensionStates: [String: Bool] = [:] // bundleID or uniqueID: isEnabled
     private let userDefaults = UserDefaults.standard
     
     private var statesKey: String {
@@ -29,6 +28,8 @@ final class ExtensionManager: NSObject, ObservableObject {
     private var extensionResourceURLs: [WKWebExtension: URL] = [:]
     
     private var tabManagers: Set<TabManager> = []
+    
+    private var extensionContextForURL: [URL: WKWebExtensionContext] = [:]
     
     var activeTabManager: TabManager? {
         tabManagers.first { $0.isFocused } ?? tabManagers.first
@@ -47,15 +48,25 @@ final class ExtensionManager: NSObject, ObservableObject {
     init(profileID: UUID?, isGuestSession: Bool = false) {
         self.profileID = profileID
         self.isGuestSession = isGuestSession
-        
-        let identifier = profileID.map { "illuminate.extensions.\($0.uuidString)" } ?? "illuminate.extensions.global"
-        let config = WKWebExtensionController.Configuration.default()
+
+        let config: WKWebExtensionController.Configuration
+        if isGuestSession {
+            config = .nonPersistent()
+            config.defaultWebsiteDataStore = .nonPersistent()
+        } else if let profileID {
+            config = .init(identifier: profileID)
+            config.defaultWebsiteDataStore = WKWebsiteDataStore(forIdentifier: profileID)
+        } else {
+            config = .default()
+        }
         self.controller = WKWebExtensionController(configuration: config)
         
         super.init()
         
         self.controller.delegate = self
-        loadPersistedExtensions()
+        if !isGuestSession {
+            loadPersistedExtensions()
+        }
         loadBundledExtensions()
     }
 
@@ -65,10 +76,15 @@ final class ExtensionManager: NSObject, ObservableObject {
             return
         }
         
-        for (_, record) in records {
+        for (identifier, record) in records {
             Task {
                 do {
-                    try await self.installExtension(from: record.resourceURL, initiallyEnabled: record.isEnabled, persist: false)
+                    try await self.installExtension(
+                        from: record.resourceURL,
+                        preferredIdentifier: identifier,
+                        initiallyEnabled: record.isEnabled,
+                        persist: false
+                    )
                 } catch {
                     AppLog.error("Failed to restore extension from \(record.resourceURL): \(error.localizedDescription)")
                 }
@@ -77,11 +93,12 @@ final class ExtensionManager: NSObject, ObservableObject {
     }
 
     private func saveInstalledExtensions() {
+        guard !isGuestSession else { return }
+
         var records: [String: ExtensionRecord] = [:]
         
         for context in installedExtensions {
-            guard let identifier = identifier(for: context) else { continue }
-            
+            let identifier = identifier(for: context)
             let isBundled = context.webExtension.manifest["__bundled__"] as? Bool ?? false
             
             if !isBundled {
@@ -97,28 +114,29 @@ final class ExtensionManager: NSObject, ObservableObject {
         
         var states: [String: Bool] = [:]
         for context in installedExtensions {
-            if let id = identifier(for: context) {
-                states[id] = isEnabled(context)
-            }
+            states[identifier(for: context)] = isEnabled(context)
         }
         userDefaults.set(states, forKey: statesKey)
     }
 
-    private func identifier(for context: WKWebExtensionContext) -> String? {
-        if let manifestID = context.webExtension.manifest["id"] as? String {
-            return manifestID
+    func identifier(for context: WKWebExtensionContext) -> String {
+        context.uniqueIdentifier
+    }
+
+    func matchesGalleryItem(_ item: ExtensionGalleryItem, context: WKWebExtensionContext) -> Bool {
+        if identifier(for: context) == item.id {
+            return true
         }
-        
-        if let displayName = context.webExtension.displayName {
-            let version = context.webExtension.version ?? "1.0"
-            let safeName = displayName.lowercased().replacingOccurrences(of: " ", with: ".")
-            return "\(safeName)-\(version)"
-        }
-        return nil
+        let names = [context.webExtension.displayName, context.webExtension.displayShortName]
+            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+        return names.contains { $0.caseInsensitiveCompare(item.name) == .orderedSame }
     }
 
     private func loadBundledExtensions() {
-        guard let pluginsURL = Bundle.main.builtInPlugInsURL else { return }
+        guard let pluginsURL = Bundle.main.builtInPlugInsURL,
+              FileManager.default.fileExists(atPath: pluginsURL.path) else {
+            return
+        }
         
         do {
             let pluginURLs = try FileManager.default.contentsOfDirectory(at: pluginsURL, includingPropertiesForKeys: nil)
@@ -152,7 +170,7 @@ final class ExtensionManager: NSObject, ObservableObject {
     }
 
     func isEnabled(_ context: WKWebExtensionContext) -> Bool {
-        guard let identifier = identifier(for: context) else { return true }
+        let identifier = identifier(for: context)
         if let states = userDefaults.dictionary(forKey: statesKey) as? [String: Bool] {
             return states[identifier] ?? true
         }
@@ -160,7 +178,7 @@ final class ExtensionManager: NSObject, ObservableObject {
     }
 
     func setEnabled(_ context: WKWebExtensionContext, enabled: Bool) {
-        guard let identifier = identifier(for: context) else { return }
+        let identifier = identifier(for: context)
         
         var states = userDefaults.dictionary(forKey: statesKey) as? [String: Bool] ?? [:]
         states[identifier] = enabled
@@ -185,26 +203,40 @@ final class ExtensionManager: NSObject, ObservableObject {
         return FileManager.default.illuminateAppSupportDirectory().appendingPathComponent(dirName, isDirectory: true)
     }
 
-    func installExtension(from url: URL, initiallyEnabled: Bool = true, persist: Bool = true) async throws {
-        let extensionRepresentation = try await WKWebExtension(resourceBaseURL: url)
-        let context = WKWebExtensionContext(for: extensionRepresentation)
-        
-        guard let newID = self.identifier(for: context) else {
-            throw NSError(domain: "ExtensionManager", code: 3, userInfo: [NSLocalizedDescriptionKey: "Invalid extension identifier"])
-        }
-        
-        let targetURL = extensionsDirectory.appendingPathComponent(newID, isDirectory: true)
-        
-        var finalURL = url
-        if persist {
-            try? FileManager.default.createDirectory(at: extensionsDirectory, withIntermediateDirectories: true)
-            if FileManager.default.fileExists(atPath: targetURL.path) {
-                try FileManager.default.removeItem(at: targetURL)
-            }
-            try FileManager.default.copyItem(at: url, to: targetURL)
-            finalURL = targetURL
+    func installExtension(
+        from url: URL,
+        preferredIdentifier: String? = nil,
+        initiallyEnabled: Bool = true,
+        persist: Bool = true
+    ) async throws {
+        let shouldPersist = persist && !isGuestSession
+        let stagingIdentifier = preferredIdentifier ?? UUID().uuidString
+        let packageURL: URL
+        if shouldPersist {
+            packageURL = try persistPackage(from: url, identifier: stagingIdentifier)
+        } else {
+            packageURL = url
         }
 
+        let extensionRepresentation = try await WKWebExtension(resourceBaseURL: packageURL)
+        if !extensionRepresentation.errors.isEmpty {
+            let details = extensionRepresentation.errors.map(\.localizedDescription).joined(separator: "; ")
+            AppLog.error("Extension reported parse issues: \(details)")
+        }
+
+        let context = WKWebExtensionContext(for: extensionRepresentation)
+        let newID = preferredIdentifier
+            ?? extensionRepresentation.displayName?
+                .lowercased()
+                .replacingOccurrences(of: " ", with: "-")
+            ?? context.uniqueIdentifier
+        context.uniqueIdentifier = newID
+        grantRequiredPermissions(for: context)
+        prepareRuntimeStorageDirectory(for: newID)
+
+        let finalURL = packageURL
+
+        var loadError: Error?
         await MainActor.run {
             self.extensionResourceURLs[extensionRepresentation] = finalURL
             
@@ -214,7 +246,7 @@ final class ExtensionManager: NSObject, ObservableObject {
             }
             
             self.installedExtensions.append(context)
-            if persist {
+            if shouldPersist {
                 var states = self.userDefaults.dictionary(forKey: self.statesKey) as? [String: Bool] ?? [:]
                 states[newID] = initiallyEnabled
                 self.userDefaults.set(states, forKey: self.statesKey)
@@ -224,26 +256,88 @@ final class ExtensionManager: NSObject, ObservableObject {
                 do {
                     try self.controller.load(context)
                 } catch {
+                    loadError = error
                     AppLog.error("Failed to load installed extension: \(error.localizedDescription)")
                 }
             }
             
-            if persist {
+            if shouldPersist {
                 self.saveInstalledExtensions()
             }
         }
+
+        if let loadError {
+            throw NSError(
+                domain: "ExtensionManager",
+                code: 5,
+                userInfo: [NSLocalizedDescriptionKey: "The extension was copied but could not be loaded: \(loadError.localizedDescription)"]
+            )
+        }
+    }
+
+    private func grantRequiredPermissions(for context: WKWebExtensionContext) {
+        let neverExpires = Date.distantFuture
+        var permissions: [WKWebExtension.Permission: Date] = [:]
+        for permission in context.webExtension.requestedPermissions {
+            permissions[permission] = neverExpires
+        }
+        context.grantedPermissions = permissions
+
+        var patterns: [WKWebExtension.MatchPattern: Date] = [:]
+        for pattern in context.webExtension.requestedPermissionMatchPatterns {
+            patterns[pattern] = neverExpires
+        }
+        for pattern in context.webExtension.allRequestedMatchPatterns {
+            patterns[pattern] = neverExpires
+        }
+        context.grantedPermissionMatchPatterns = patterns
+        context.hasAccessToPrivateData = isGuestSession
+    }
+
+    private func persistPackage(from url: URL, identifier: String) throws -> URL {
+        try FileManager.default.createDirectory(at: extensionsDirectory, withIntermediateDirectories: true)
+        let isDirectory = (try? url.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) ?? url.hasDirectoryPath
+        let targetURL: URL
+        if isDirectory == true {
+            targetURL = extensionsDirectory.appendingPathComponent(identifier, isDirectory: true)
+        } else {
+            let ext = url.pathExtension.isEmpty ? "zip" : url.pathExtension
+            targetURL = extensionsDirectory.appendingPathComponent("\(identifier).\(ext)")
+        }
+        if FileManager.default.fileExists(atPath: targetURL.path) {
+            try FileManager.default.removeItem(at: targetURL)
+        }
+        try FileManager.default.copyItem(at: url, to: targetURL)
+        return targetURL
+    }
+
+    private func prepareRuntimeStorageDirectory(for uniqueIdentifier: String) {
+        guard !isGuestSession else { return }
+        guard let library = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first else { return }
+
+        var directory = library
+            .appendingPathComponent("WebKit", isDirectory: true)
+            .appendingPathComponent("WebExtensions", isDirectory: true)
+        if let profileID {
+            directory = directory.appendingPathComponent(profileID.uuidString, isDirectory: true)
+        }
+        directory = directory.appendingPathComponent(uniqueIdentifier, isDirectory: true)
+        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
     }
     
     func uninstallExtension(_ context: WKWebExtensionContext) {
         try? controller.unload(context)
         
-        if let id = identifier(for: context) {
-            var states = userDefaults.dictionary(forKey: statesKey) as? [String: Bool] ?? [:]
-            states.removeValue(forKey: id)
-            userDefaults.set(states, forKey: statesKey)
-            
-            let targetURL = extensionsDirectory.appendingPathComponent(id, isDirectory: true)
-            try? FileManager.default.removeItem(at: targetURL)
+        let id = identifier(for: context)
+        var states = userDefaults.dictionary(forKey: statesKey) as? [String: Bool] ?? [:]
+        states.removeValue(forKey: id)
+        userDefaults.set(states, forKey: statesKey)
+        
+        let targetURL = extensionsDirectory.appendingPathComponent(id, isDirectory: true)
+        try? FileManager.default.removeItem(at: targetURL)
+        if let url = extensionResourceURLs[context.webExtension] {
+            try? FileManager.default.removeItem(at: url)
+            extensionResourceURLs.removeValue(forKey: context.webExtension)
         }
         
         installedExtensions.removeAll { $0 === context }
@@ -279,11 +373,20 @@ final class ExtensionManager: NSObject, ObservableObject {
         let context: WKWebExtensionContext
         let permissions: Set<WKWebExtension.Permission>?
         let matchPatterns: Set<WKWebExtension.MatchPattern>?
+        let urls: Set<URL>?
         let completion: (Bool) -> Void
     }
 }
 
 extension ExtensionManager: WKWebExtensionControllerDelegate {
+    func webExtensionController(_ controller: WKWebExtensionController, openWindowsFor context: WKWebExtensionContext) -> [any WKWebExtensionWindow] {
+        var windows = Array(tabManagers)
+        if let active = activeTabManager, let index = windows.firstIndex(where: { $0 === active }) {
+            windows.move(fromOffsets: IndexSet(integer: index), toOffset: 0)
+        }
+        return windows
+    }
+
     func webExtensionController(_ controller: WKWebExtensionController, openNewTabUsing configuration: WKWebExtension.TabConfiguration, for context: WKWebExtensionContext, completionHandler: @escaping ((any WKWebExtensionTab)?, (any Error)?) -> Void) {
         let targetTabManager: TabManager?
         
@@ -296,6 +399,11 @@ extension ExtensionManager: WKWebExtensionControllerDelegate {
         guard let tabManager = targetTabManager else {
             completionHandler(nil, NSError(domain: "ExtensionManager", code: 1, userInfo: [NSLocalizedDescriptionKey: "No active window found"]))
             return
+        }
+        
+        // Store the extension context for this URL so it can be used when the tab is created
+        if let url = configuration.url {
+            extensionContextForURL[url] = context
         }
         
         let tab = tabManager.createTab(url: configuration.url, inBackground: !configuration.shouldBeActive)
@@ -330,33 +438,55 @@ extension ExtensionManager: WKWebExtensionControllerDelegate {
             return
         }
         
+        // Store the extension context for this URL so we can use it when the tab is created
+        // This is a workaround for the extension URL loading issue
+        extensionContextForURL[url] = context
+        
         NotificationCenter.default.post(name: .openURL, object: url)
         completionHandler(nil)
     }
     
-    func webExtensionController(_ controller: WKWebExtensionController, promptForPermissions permissions: Set<WKWebExtension.Permission>, in tab: (any WKWebExtensionTab)?, for context: WKWebExtensionContext, completionHandler: @escaping (Set<WKWebExtension.Permission>) -> Void) {
+    func getExtensionContext(for url: URL) -> WKWebExtensionContext? {
+        return extensionContextForURL[url]
+    }
+    
+    func webExtensionController(_ controller: WKWebExtensionController, promptForPermissions permissions: Set<WKWebExtension.Permission>, in tab: (any WKWebExtensionTab)?, for context: WKWebExtensionContext, completionHandler: @escaping (Set<WKWebExtension.Permission>, Date?) -> Void) {
         activePermissionRequest = PermissionRequest(
             context: context,
             permissions: permissions,
             matchPatterns: nil,
+            urls: nil,
             completion: { granted in
-                completionHandler(granted ? permissions : [])
+                completionHandler(granted ? permissions : [], nil)
             }
         )
     }
     
-    func webExtensionController(_ controller: WKWebExtensionController, promptForPermissionMatchPatterns matchPatterns: Set<WKWebExtension.MatchPattern>, in tab: (any WKWebExtensionTab)?, for context: WKWebExtensionContext, completionHandler: @escaping (Set<WKWebExtension.MatchPattern>) -> Void) {
+    func webExtensionController(_ controller: WKWebExtensionController, promptForPermissionMatchPatterns matchPatterns: Set<WKWebExtension.MatchPattern>, in tab: (any WKWebExtensionTab)?, for context: WKWebExtensionContext, completionHandler: @escaping (Set<WKWebExtension.MatchPattern>, Date?) -> Void) {
         activePermissionRequest = PermissionRequest(
             context: context,
             permissions: nil,
             matchPatterns: matchPatterns,
+            urls: nil,
             completion: { granted in
-                completionHandler(granted ? matchPatterns : [])
+                completionHandler(granted ? matchPatterns : [], nil)
+            }
+        )
+    }
+
+    func webExtensionController(_ controller: WKWebExtensionController, promptForPermissionToAccess urls: Set<URL>, in tab: (any WKWebExtensionTab)?, for context: WKWebExtensionContext, completionHandler: @escaping (Set<URL>, Date?) -> Void) {
+        activePermissionRequest = PermissionRequest(
+            context: context,
+            permissions: nil,
+            matchPatterns: nil,
+            urls: urls,
+            completion: { granted in
+                completionHandler(granted ? urls : [], nil)
             }
         )
     }
     
-    func webExtensionController(_ controller: WKWebExtensionController, didChange action: WKWebExtension.Action, for context: WKWebExtensionContext, in tab: (any WKWebExtensionTab)?) {
-        actionChanges.send((context, tab))
+    func webExtensionController(_ controller: WKWebExtensionController, didUpdate action: WKWebExtension.Action, forExtensionContext context: WKWebExtensionContext) {
+        actionChanges.send((context, action.associatedTab))
     }
 }

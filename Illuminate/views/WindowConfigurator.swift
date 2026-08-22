@@ -103,8 +103,8 @@ struct WindowConfigurator: NSViewRepresentable {
 
         func windowDidResignKey(_ notification: Notification) {
             // careful around this...
-            guard let tabManager, let extensionManager else { return }
-            extensionManager.controller.didBlurWindow(tabManager)
+            // hi
+            // idk what to put here
         }
     }
 }

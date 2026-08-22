@@ -258,6 +258,7 @@ final class Tab: NSObject, ObservableObject, Identifiable, WKWebExtensionTab {
     private let assetsBaseURL: URL
     private let ownershipToken: String
     private var cancellables = Set<AnyCancellable>()
+    private var customWebViewConfiguration: WKWebViewConfiguration?
 
     private var assetsURLWithoutCreating: URL {
         assetsBaseURL
@@ -275,7 +276,8 @@ final class Tab: NSObject, ObservableObject, Identifiable, WKWebExtensionTab {
         hasMixedContentWarning: Bool = false,
         networkError: NetworkErrorKind? = nil,
         hoveredLinkURLString: String? = nil,
-        assetsBaseURL: URL? = nil
+        assetsBaseURL: URL? = nil,
+        webViewConfiguration: WKWebViewConfiguration? = nil
     ) {
         self.id = id
         self.url = url
@@ -295,10 +297,11 @@ final class Tab: NSObject, ObservableObject, Identifiable, WKWebExtensionTab {
         self.ownershipToken = id.uuidString
         self.lastActivatedAt = Date()
         self.lastAccessed = Date()
+        self.customWebViewConfiguration = webViewConfiguration
         super.init()
     }
 
-    convenience init(id: UUID, assetsBaseURL: URL? = nil) {
+    convenience init(id: UUID, assetsBaseURL: URL? = nil, webViewConfiguration: WKWebViewConfiguration? = nil) {
         let folder = (assetsBaseURL ?? FileManager.default.illuminateAppSupportDirectory())
             .appendingPathComponent("TabAssets", isDirectory: true)
             .appendingPathComponent(id.uuidString, isDirectory: true)
@@ -317,7 +320,8 @@ final class Tab: NSObject, ObservableObject, Identifiable, WKWebExtensionTab {
             id: id,
             url: url,
             title: title,
-            assetsBaseURL: assetsBaseURL
+            assetsBaseURL: assetsBaseURL,
+            webViewConfiguration: webViewConfiguration
         )
     }
 
@@ -341,7 +345,10 @@ final class Tab: NSObject, ObservableObject, Identifiable, WKWebExtensionTab {
     func createWebViewIfNeeded(configuration: WKWebViewConfiguration, webKitManager: WebKitManager) {
         guard webView == nil else { return }
 
-        let newWebView = IlluminateWebView(frame: .zero, configuration: configuration)
+        // Use custom configuration if provided (e.g., for extension pages)
+        let finalConfiguration = customWebViewConfiguration ?? configuration
+
+        let newWebView = IlluminateWebView(frame: .zero, configuration: finalConfiguration)
         newWebView.isInspectable = true
         newWebView.wantsLayer = true
         newWebView.pageZoom = zoomLevel

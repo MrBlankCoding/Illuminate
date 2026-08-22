@@ -417,8 +417,17 @@ final class TabManager: NSObject, ObservableObject, WKWebExtensionWindow {
     }
 
     @discardableResult
-    func createTab(url: URL? = nil, inBackground: Bool = false) -> Tab {
-        let tab = Tab(url: url, assetsBaseURL: tabAssetsBaseURL)
+    func createTab(url: URL? = nil, inBackground: Bool = false, configuration: WKWebViewConfiguration? = nil) -> Tab {
+        var finalConfiguration = configuration
+        
+        // Check if this is an extension URL and we need to use extension-specific configuration
+        if let url = url, url.scheme == "webkit-extension", configuration == nil {
+            if let extensionContext = extensionManager.getExtensionContext(for: url) {
+                finalConfiguration = extensionContext.webViewConfiguration
+            }
+        }
+        
+        let tab = Tab(url: url, assetsBaseURL: tabAssetsBaseURL, webViewConfiguration: finalConfiguration)
         tab.tabManager = self
 
         tabs.append(tab)

@@ -39,6 +39,12 @@ struct PermissionRequestView: View {
                             Text("• Access to \(pattern.description)")
                         }
                     }
+
+                    if let urls = request.urls {
+                        ForEach(Array(urls), id: \.absoluteString) { url in
+                            Text("• Access to \(url.absoluteString)")
+                        }
+                    }
                 }
                 .padding()
                 .frame(maxWidth: .infinity, alignment: .leading)
