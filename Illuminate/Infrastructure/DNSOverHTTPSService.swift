@@ -17,6 +17,6 @@ final class DNSOverHTTPSService {
     // I know shit about DNS
     func shouldAllowRequest(for url: URL) -> Bool {
         let scheme = url.scheme?.lowercased()
-        return scheme == "http" || scheme == "https" || scheme == "about"
+        return scheme == "http" || scheme == "https" || scheme == "about" || scheme == "webkit-extension"
     }
 }

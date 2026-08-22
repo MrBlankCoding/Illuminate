@@ -5,7 +5,7 @@
 
 import Foundation
 
-enum ExtensionPackageSource: Hashable {
+enum ExtensionPackageSource: Hashable, Codable {
     case githubRelease(repository: String, assetNameContains: String)
 }
 
@@ -16,6 +16,35 @@ enum ExtensionPackageDownloader {
             let downloadURL = try await latestGitHubAssetURL(repository: repository, assetNameContains: assetNameContains)
             return try await downloadAndUnpack(from: downloadURL)
         }
+    }
+
+    /// Returns the latest release tag (e.g. "1.2.3") without downloading the package.
+    /// The leading "v" is stripped so the result can be compared directly with
+    /// `WKWebExtension.version` (which comes from manifest.json and has no "v" prefix).
+    static func latestReleaseVersion(for source: ExtensionPackageSource) async throws -> String {
+        switch source {
+        case .githubRelease(let repository, _):
+            return try await latestGitHubReleaseTag(repository: repository)
+        }
+    }
+
+    // MARK: - Private helpers
+
+    private static func latestGitHubReleaseTag(repository: String) async throws -> String {
+        guard let apiURL = URL(string: "https://api.github.com/repos/\(repository)/releases/latest") else {
+            throw packageError("Invalid GitHub repository: \(repository)")
+        }
+
+        var request = URLRequest(url: apiURL)
+        request.setValue("Illuminate", forHTTPHeaderField: "User-Agent")
+        request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        try validateHTTPResponse(response, fallback: "Could not look up the latest release.")
+
+        let release = try JSONDecoder().decode(GitHubReleaseTag.self, from: data)
+        let tag = release.tagName
+        return tag.hasPrefix("v") ? String(tag.dropFirst()) : tag
     }
 
     private static func latestGitHubAssetURL(repository: String, assetNameContains: String) async throws -> URL {
@@ -33,7 +62,7 @@ enum ExtensionPackageDownloader {
         let release = try JSONDecoder().decode(GitHubRelease.self, from: data)
         let needle = assetNameContains.lowercased()
         guard let asset = release.assets.first(where: { $0.name.lowercased().contains(needle) }) else {
-            throw packageError("No downloadable package matching “\(assetNameContains)” was found for \(repository).")
+            throw packageError("No downloadable package matching \"\(assetNameContains)\" was found for \(repository).")
         }
         return asset.browserDownloadURL
     }
@@ -118,8 +147,24 @@ enum ExtensionPackageDownloader {
     }
 }
 
+// MARK: - GitHub API models
+
+private struct GitHubReleaseTag: Decodable {
+    let tagName: String
+
+    enum CodingKeys: String, CodingKey {
+        case tagName = "tag_name"
+    }
+}
+
 private struct GitHubRelease: Decodable {
+    let tagName: String
     let assets: [GitHubAsset]
+
+    enum CodingKeys: String, CodingKey {
+        case tagName = "tag_name"
+        case assets
+    }
 }
 
 private struct GitHubAsset: Decodable {

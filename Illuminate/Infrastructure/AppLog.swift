@@ -41,6 +41,10 @@ enum AppLog {
         securityLogger.info("\(message, privacy: .public)")
     }
 
+    nonisolated static func warning(_ message: String) {
+        infoLogger.warning("\(message, privacy: .public)")
+    }
+
     nonisolated static func error(_ message: String, error: Error? = nil) {
         if let error = error {
             errorLogger.error("\(message, privacy: .public): \(error.localizedDescription, privacy: .public)")

@@ -258,7 +258,7 @@ final class Tab: NSObject, ObservableObject, Identifiable, WKWebExtensionTab {
     private let assetsBaseURL: URL
     private let ownershipToken: String
     private var cancellables = Set<AnyCancellable>()
-    private var customWebViewConfiguration: WKWebViewConfiguration?
+    var customWebViewConfiguration: WKWebViewConfiguration?
 
     private var assetsURLWithoutCreating: URL {
         assetsBaseURL
@@ -432,6 +432,11 @@ final class Tab: NSObject, ObservableObject, Identifiable, WKWebExtensionTab {
             return
         }
         webView?.load(URLRequest(url: url))
+    }
+    
+    func updateWebViewConfiguration(_ newConfiguration: WKWebViewConfiguration) {
+        self.customWebViewConfiguration = newConfiguration
+        detachWebView()
     }
 
     func reload() {

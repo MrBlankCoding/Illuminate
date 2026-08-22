@@ -16,7 +16,6 @@ extension WebViewRepresentable {
         private weak var tab: Tab?
         private let tabManager: TabManager
         private let webScriptBridge: WebScriptBridge
-        private let adBlockService: AdBlockService
         private let trackerBlockingService: TrackerBlockingService
         private let dohService: DNSOverHTTPSService
         private let faviconCache: FaviconCache
@@ -28,7 +27,6 @@ extension WebViewRepresentable {
         private let preconnectManager = NavigationPreconnectManager.shared
 
         private let circuitBreaker = WebProcessCircuitBreaker()
-        private var lastAppliedContentRuleListIDs: [ObjectIdentifier] = []
         private var lastAppliedFaviconURL: URL?
         private var contextMenuDownloadURL: URL?
         var hasInstalledDownloadHandler = false
@@ -87,7 +85,6 @@ extension WebViewRepresentable {
             tab: Tab,
             tabManager: TabManager,
             webScriptBridge: WebScriptBridge,
-            adBlockService: AdBlockService,
             trackerBlockingService: TrackerBlockingService,
             dohService: DNSOverHTTPSService,
             faviconCache: FaviconCache,
@@ -99,7 +96,6 @@ extension WebViewRepresentable {
             self.tab = tab
             self.tabManager = tabManager
             self.webScriptBridge = webScriptBridge
-            self.adBlockService = adBlockService
             self.trackerBlockingService = trackerBlockingService
             self.dohService = dohService
             self.faviconCache = faviconCache
@@ -654,19 +650,6 @@ extension WebViewRepresentable {
             return nil
         }
 
-        @discardableResult
-        func applyContentRules(to webView: WKWebView, ruleLists: [WKContentRuleList]) -> Bool {
-            let newIDs = ruleLists.map(ObjectIdentifier.init)
-            guard newIDs != lastAppliedContentRuleListIDs else { return false }
-
-            let didActivateRuleLists = lastAppliedContentRuleListIDs.isEmpty && !newIDs.isEmpty
-            let ucc = webView.configuration.userContentController
-            ucc.removeAllContentRuleLists()
-            ruleLists.forEach { ucc.add($0) }
-            lastAppliedContentRuleListIDs = newIDs
-            return didActivateRuleLists
-        }
-
         private func resolveFaviconURL(from rawValue: String, pageURL: URL?) -> URL? {
             let trimmed = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !trimmed.isEmpty else { return nil }
@@ -680,7 +663,7 @@ extension WebViewRepresentable {
             }
             guard let resolvedURL else { return nil }
             switch resolvedURL.scheme?.lowercased() {
-            case "http", "https", "data": return resolvedURL
+            case "http", "https", "data", "webkit-extension": return resolvedURL
             default: return nil
             }
         }
@@ -701,7 +684,7 @@ extension WebViewRepresentable {
                 let pageURL,
                 let scheme = pageURL.scheme?.lowercased(),
                 let host = pageURL.host,
-                scheme == "http" || scheme == "https"
+                (scheme == "http" || scheme == "https" || scheme == "webkit-extension")
             else { return nil }
             var components = URLComponents()
             components.scheme = scheme
@@ -711,7 +694,7 @@ extension WebViewRepresentable {
         }
 
         private func shouldHandleDownloadOutsideWebKit(for url: URL) -> Bool {
-            ["http", "https"].contains(url.scheme?.lowercased() ?? "")
+            ["http", "https", "webkit-extension"].contains(url.scheme?.lowercased() ?? "")
         }
 
         private func loadFavicon(from url: URL, for tab: Tab) async {

@@ -23,36 +23,9 @@ struct ProtectionPageView: View {
             accentColor: tabManager.windowThemeColor
         ) {
             VStack(alignment: .leading, spacing: 24) {
-                adBlockerSection
                 httpsSection
                 trackerBlockingSection
                 PrivacySettingsView(isEmbedded: true)
-            }
-        }
-    }
-
-    private var adBlockerSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            sectionHeader("Ad Blocker")
-            InternalPageRow {
-                HStack {
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text("Block ads and trackers")
-                            .font(.system(size: 14, weight: .medium))
-                        Text("Uses EasyList filter rules to block known advertising and tracking resources.")
-                            .font(.system(size: 12))
-                            .foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    Toggle("", isOn: Binding(
-                        get: { environment.adBlockService.isEnabled },
-                        set: { environment.adBlockService.isEnabled = $0 }
-                    ))
-                    .labelsHidden()
-                    .toggleStyle(.switch)
-                    .accessibilityLabel("Block ads and trackers")
-                    .accessibilityIdentifier("browser.protection.adBlockerToggle")
-                }
             }
         }
     }

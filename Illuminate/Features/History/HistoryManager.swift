@@ -259,6 +259,7 @@ final class HistoryManager: ObservableObject {
         let absolute = url.absoluteString
         if absolute == "about:blank" || absolute == "about:newtab" { return false }
         if scheme == "illuminate" { return false }
+        if scheme == "webkit-extension" { return false }
         return true
     }
 

@@ -402,9 +402,21 @@ final class TabManager: NSObject, ObservableObject, WKWebExtensionWindow {
         let tab = Tab(payload: payload, assetsBaseURL: tabAssetsBaseURL)
         return tab
     }
-
+    
+    // over engineered
+    // TODO:
     func navigateActiveTab(to url: URL) {
         if let tab = activeTab {
+            if url.scheme == "webkit-extension" {
+                if let extensionContext = extensionManager.getExtensionContext(for: url),
+                   let requiredConfig = extensionContext.webViewConfiguration {
+                    let currentConfig = tab.webView?.configuration
+                    
+                    if currentConfig !== requiredConfig {
+                        tab.updateWebViewConfiguration(requiredConfig)
+                    }
+                }
+            }
             tab.load(url: url)
         } else {
             createTab(url: url)
@@ -648,7 +660,7 @@ final class TabManager: NSObject, ObservableObject, WKWebExtensionWindow {
             let pageURL,
             let scheme = pageURL.scheme?.lowercased(),
             let host   = pageURL.host,
-            scheme == "http" || scheme == "https"
+            scheme == "http" || scheme == "https" || scheme == "webkit-extension"
         else { return nil }
 
         var components    = URLComponents()

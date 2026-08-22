@@ -21,7 +21,6 @@ final class ProfileEnvironment: ObservableObject {
     let tabManager: TabManager
     let webKitManager: WebKitManager
     let passwordService: PasswordService
-    let adBlockService: AdBlockService
     let trackerBlockingService: TrackerBlockingService
     let websitePermissionService: WebsitePermissionService
     let canvasFingerprintingService: CanvasFingerprintingService
@@ -54,6 +53,9 @@ final class ProfileEnvironment: ObservableObject {
             profileID: isGuestSession ? nil : profile.id,
             isGuestSession: isGuestSession
         )
+        // Start the recurring auto-update cycle. The first check fires after a short
+        // delay so the app finishes launching before hitting the network.
+        self.extensionManager.scheduleAutoUpdates()
         self.tabManager = TabManager(
             profileID: isGuestSession ? nil : profile.id,
             urlSynchronizer: self.urlSynchronizer,
@@ -69,15 +71,9 @@ final class ProfileEnvironment: ObservableObject {
             profileID: isGuestSession ? nil : profile.id,
             container: modelContainer
         )
-        self.adBlockService = AdBlockService(
-            profileID: isGuestSession ? nil : profile.id,
-            isPersistenceEnabled: !isGuestSession,
-            ruleListIdentifier: "IlluminateAdBlockRules-\((sessionIdentifier ?? profile.id).uuidString)"
-        )
         self.trackerBlockingService = TrackerBlockingService(
             profileID: isGuestSession ? nil : profile.id,
-            isPersistenceEnabled: !isGuestSession,
-            adBlockService: self.adBlockService
+            isPersistenceEnabled: !isGuestSession
         )
         self.websitePermissionService = WebsitePermissionService(
             profileID: isGuestSession ? nil : profile.id,
@@ -98,7 +94,7 @@ final class ProfileEnvironment: ObservableObject {
         guard !isTornDown else { return }
         isTornDown = true
         AppLog.info("Tearing down environment (profile: \(self.profile.id.uuidString), guest: \(self.isGuestSession))")
-        adBlockService.prepareForRemoval()
+        extensionManager.prepareForRemoval()
         webKitManager.prepareForRemoval()
         tabManager.prepareForRemoval()
         historyManager.prepareForRemoval()

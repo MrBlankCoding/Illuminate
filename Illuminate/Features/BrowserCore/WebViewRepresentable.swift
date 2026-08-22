@@ -11,7 +11,6 @@ import WebKit
 
 struct WebViewRepresentable: NSViewRepresentable {
     @ObservedObject var tab: Tab
-    @ObservedObject var adBlockService: AdBlockService
     let webKitManager: WebKitManager
     let passwordService: PasswordService
     let tabManager: TabManager
@@ -26,7 +25,6 @@ struct WebViewRepresentable: NSViewRepresentable {
             tab: tab,
             tabManager: tabManager,
             webScriptBridge: WebScriptBridge.shared,
-            adBlockService: adBlockService,
             trackerBlockingService: trackerBlockingService,
             dohService: DNSOverHTTPSService.shared,
             faviconCache: FaviconCache.shared,
@@ -39,12 +37,12 @@ struct WebViewRepresentable: NSViewRepresentable {
 
     func makeNSView(context: Context) -> WKWebView {
         tab.createWebViewIfNeeded(configuration: webKitManager.makeConfiguration(), webKitManager: webKitManager)
-        
+
         guard let webView = tab.webView else {
             let fallback = webKitManager.makeWebView()
             return fallback
         }
-        
+
         webView.navigationDelegate = context.coordinator
         webView.uiDelegate = context.coordinator
         webView.allowsLinkPreview = true
@@ -60,11 +58,6 @@ struct WebViewRepresentable: NSViewRepresentable {
             handler: context.coordinator,
             colorScheme: Coordinator.resolvedScheme(for: userInterfaceStyle),
             canvasFingerprintingProtectionEnabled: canvasFingerprintingService.isEnabled
-        )
-        
-        context.coordinator.applyContentRules(
-            to: webView,
-            ruleLists: adBlockService.effectiveRuleLists(for: tab.url?.host)
         )
 
         if let url = tab.url, webView.url == nil {
@@ -85,10 +78,10 @@ struct WebViewRepresentable: NSViewRepresentable {
 
         if context.coordinator.lastAppliedScheme != resolvedScheme ||
            context.coordinator.lastFingerprintingEnabled != fingerprintingEnabled {
-            
+
             context.coordinator.lastAppliedScheme = resolvedScheme
             context.coordinator.lastFingerprintingEnabled = fingerprintingEnabled
-            
+
             WebScriptBridge.shared.installScripts(
                 on: nsView.configuration.userContentController,
                 handler: context.coordinator,
@@ -105,11 +98,6 @@ struct WebViewRepresentable: NSViewRepresentable {
                 triggerIlluminateDownload(for: tab, in: nsView, event: event)
             }
         }
-
-        context.coordinator.applyContentRules(
-            to: nsView,
-            ruleLists: adBlockService.effectiveRuleLists(for: tab.url?.host)
-        )
     }
 
     private func triggerIlluminateDownload(for tab: Tab, in webView: WKWebView, event: NSEvent) {
@@ -152,5 +140,4 @@ struct WebViewRepresentable: NSViewRepresentable {
         request.cachePolicy = .useProtocolCachePolicy
         return request
     }
-
 }

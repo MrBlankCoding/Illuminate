@@ -76,7 +76,7 @@ enum IlluminatePage: String, CaseIterable, Equatable {
         switch self {
         case .passwords: return ["passwords", "credentials", "logins", "keys", "accounts", "autofill"]
         case .cookies: return ["cookies", "cache", "data", "storage", "website data"]
-        case .protection: return ["protection", "privacy", "adblock", "tracker", "security", "https", "shield"]
+        case .protection: return ["protection", "privacy", "tracker", "security", "https", "shield"]
         case .downloads: return ["downloads", "files", "transfers"]
         case .history: return ["history", "recent", "visited", "sites", "logs"]
         case .permissions: return ["permissions", "camera", "microphone", "location", "notifications", "sites"]

@@ -13,7 +13,6 @@ struct WebView: View {
     @ObservedObject var tab: Tab
 
     @EnvironmentObject private var tabManager: TabManager
-    @EnvironmentObject private var adBlockService: AdBlockService
     @EnvironmentObject private var webKitManager: WebKitManager
     @EnvironmentObject private var passwordService: PasswordService
     @EnvironmentObject private var trackerBlockingService: TrackerBlockingService
@@ -66,7 +65,6 @@ struct WebView: View {
         case nil:
             WebViewRepresentable(
                 tab: tab,
-                adBlockService: adBlockService,
                 webKitManager: webKitManager,
                 passwordService: passwordService,
                 tabManager: tabManager,

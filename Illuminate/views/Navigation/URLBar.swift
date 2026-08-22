@@ -217,6 +217,9 @@ struct URLBar: View {
         if activeTab?.url?.scheme?.localizedCaseInsensitiveCompare("illuminate") == .orderedSame {
             return "gearshape.fill"
         }
+        if activeTab?.url?.scheme?.localizedCaseInsensitiveCompare("webkit-extension") == .orderedSame {
+            return "puzzlepiece.fill"
+        }
         if activeTab?.url?.scheme == "https" { return "lock.fill" }
         if activeTab?.url != nil { return "globe" }
         return "magnifyingglass"

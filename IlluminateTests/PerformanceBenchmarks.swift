@@ -92,26 +92,6 @@ final class PerformanceBenchmarks: XCTestCase {
         }
     }
 
-    func testEasyListParserParseLineAllocation() throws {
-        var corpus = ""
-        for i in 0..<10_000 {
-            switch i % 7 {
-            case 0: corpus += "||tracker\(i).com^\n"
-            case 1: corpus += "! this is a comment line \(i)\n"
-            case 2: corpus += "site\(i).com##.banner-ad\n"
-            case 3: corpus += "@@||allowed\(i).com^\n"
-            case 4: corpus += "||ads\(i).cdn.net/pixel*.png\n"
-            case 5: corpus += "[Adblock Plus]\n"
-            default: corpus += "||tracking\(i).pixel$image,third-party\n"
-            }
-        }
-
-        bench("EasyListParser.parse 10K lines", iterations: 50) {
-            _ = EasyListParser.parse(content: corpus)
-        }
-    }
-
-
     func testKeyboardShortcutLookup() throws {
         let handler = KeyboardShortcutHandler(notificationCenter: .default)
 

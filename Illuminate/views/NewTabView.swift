@@ -322,7 +322,7 @@ private struct NewTabBookmarkCard: View {
     private func loadFavicon() async {
         guard let pageURL = URL(string: bookmark.url),
               let scheme = pageURL.scheme?.lowercased(),
-              (scheme == "http" || scheme == "https"),
+              (scheme == "http" || scheme == "https" || scheme == "webkit-extension"),
               let host = pageURL.host
         else { return }
 

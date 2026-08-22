@@ -15,7 +15,6 @@ struct InfoPageView: View {
     @EnvironmentObject private var tabManager: TabManager
     @EnvironmentObject private var environment: ProfileEnvironment
     @EnvironmentObject private var webKitManager: WebKitManager
-    @EnvironmentObject private var adBlockService: AdBlockService
     @EnvironmentObject private var trackerBlockingService: TrackerBlockingService
     @EnvironmentObject private var websitePermissionService: WebsitePermissionService
     @EnvironmentObject private var canvasFingerprintingService: CanvasFingerprintingService
@@ -183,11 +182,6 @@ struct InfoPageView: View {
 
             InternalPageRow {
                 VStack(spacing: 8) {
-                    infoKeyValueRow(
-                        title: "Ad Blocker",
-                        value: environment.adBlockService.isEnabled ? "Enabled (\(environment.adBlockService.contentRuleLists.count) active rule lists)" : "Disabled"
-                    )
-                    Divider()
                     let blockedTrackers = environment.trackerBlockingService.domainStats.filter(\.isBlocked).count
                     let totalTrackers = environment.trackerBlockingService.domainStats.count
                     infoKeyValueRow(
@@ -329,8 +323,6 @@ struct InfoPageView: View {
                 "isFullScreen": tabManager.isFullScreen
             ],
             "protection": [
-                "adBlockEnabled": environment.adBlockService.isEnabled,
-                "adBlockRuleListsCount": environment.adBlockService.contentRuleLists.count,
                 "trackerBlockingEnabled": environment.trackerBlockingService.isEnabled,
                 "trackerLearnThreshold": environment.trackerBlockingService.learnThreshold,
                 "trackerDomainsCount": environment.trackerBlockingService.domainStats.count,

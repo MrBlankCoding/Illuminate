@@ -54,18 +54,14 @@ final class TrackerBlockingService: ObservableObject {
     private var thresholdKey: String { scopedKey("trackerBlockingThreshold") }
     private var seenOnKey:    String { scopedKey("trackerBlockingSeenOn") }
     private var overridesKey: String { scopedKey("trackerBlockingOverrides") }
-    private weak var adBlockService: AdBlockService?
-
     init(
         profileID: UUID? = nil,
         isPersistenceEnabled: Bool = true,
-        userDefaults: UserDefaults = .standard,
-        adBlockService: AdBlockService? = nil
+        userDefaults: UserDefaults = .standard
     ) {
         self.profileID = profileID
         self.isPersistenceEnabled = isPersistenceEnabled
         self.userDefaults = userDefaults
-        self.adBlockService = adBlockService
 
         loadPersistedData()
         refreshStats()
@@ -121,11 +117,6 @@ final class TrackerBlockingService: ObservableObject {
         scheduleUpdate()
     }
 
-    func setAdBlockService(_ service: AdBlockService) {
-        adBlockService = service
-        scheduleUpdate()
-    }
-
     func flushPendingUpdates() {
         pendingUpdateTask?.cancel()
         pendingUpdateTask = nil
@@ -157,33 +148,8 @@ final class TrackerBlockingService: ObservableObject {
     }
 
     private func rebuildBlockList() {
-        guard let adBlockService else { return }
-
-        guard isEnabled else {
-            adBlockService.updateTrackerBlockedHosts([])
-            return
-        }
-
-        var toBlock = Set<String>()
-
-        for (domain, sites) in seenOn {
-            switch overrides[domain] {
-            case .allowed:
-                continue // user says keep it
-            case .blocked:
-                toBlock.insert(domain)
-            case .none:
-                if sites.count >= learnThreshold {
-                    toBlock.insert(domain)
-                }
-            }
-        }
-
-        for (domain, policy) in overrides where policy == .blocked {
-            toBlock.insert(domain)
-        }
-
-        adBlockService.updateTrackerBlockedHosts(toBlock)
+        // Tracker blocking data is maintained for display purposes.
+        // Actual network-level blocking is handled by the uBlock Origin extension.
     }
 
     private func refreshStats() {

@@ -81,6 +81,10 @@ final class FaviconCache: @unchecked Sendable {
                 case "http", "https":
                     let (data, _) = try await URLSession.shared.data(from: url)
                     return data
+                // this is our icon
+                // dont cache
+                case "webkit-extension":
+                    throw FaviconFetchError.unsupportedScheme(url.scheme)
                 default:
                     throw FaviconFetchError.unsupportedScheme(url.scheme)
                 }
