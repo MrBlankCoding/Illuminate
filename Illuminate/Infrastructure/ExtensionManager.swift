@@ -70,9 +70,7 @@ final class ExtensionManager: NSObject, ObservableObject {
     @Published private(set) var isLoadingExtensions: Bool = false
     @Published private(set) var loadingErrors: [ExtensionLoadingError] = []
     @Published private(set) var enabledStateVersion: Int = 0
-    /// Number of gallery extensions that have an update ready to install.
     @Published private(set) var pendingUpdateCount: Int = 0
-    /// True while an update check or silent update is in progress.
     @Published private(set) var isCheckingForUpdates: Bool = false
 
     @Published var activePermissionRequest: PermissionRequest?
@@ -95,10 +93,8 @@ final class ExtensionManager: NSObject, ObservableObject {
     private var tabManagers: Set<TabManager> = []
     private var extensionContextCache = LRUCache<URL, WKWebExtensionContext>(capacity: 128)
     private var loadingTask: Task<Void, Never>?
-    /// Maps extension identifier → the gallery source it was installed from.
     private var extensionSources: [String: ExtensionPackageSource] = [:]
     private var autoUpdateTask: Task<Void, Never>?
-    /// How often to re-check for updates (24 hours).
     private static let autoUpdateInterval: TimeInterval = 86_400
     private struct PendingWindow {
         let id: UUID
@@ -121,9 +117,7 @@ final class ExtensionManager: NSObject, ObservableObject {
     struct ExtensionRecord: Codable {
         let resourceURL: URL
         let isEnabled: Bool
-        /// The gallery source this extension was installed from, used for update checks.
         var source: ExtensionPackageSource?
-        /// The manifest version string at the time of installation.
         var installedVersion: String?
     }
 
@@ -229,7 +223,6 @@ final class ExtensionManager: NSObject, ObservableObject {
                 }
             }
 
-            // Restore gallery sources so update checks know where each extension came from.
             for (id, record) in records {
                 if let source = record.source {
                     extensionSources[id] = source
@@ -690,7 +683,15 @@ final class ExtensionManager: NSObject, ObservableObject {
             .appendingPathComponent("WebExtensions", isDirectory: true)
         if let profileID { dir = dir.appendingPathComponent(profileID.uuidString, isDirectory: true) }
         dir = dir.appendingPathComponent(uniqueIdentifier, isDirectory: true)
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        do {
+            try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+            guard FileManager.default.fileExists(atPath: dir.path) else {
+                AppLog.error("Runtime storage directory was not created for extension \(uniqueIdentifier)")
+                return
+            }
+        } catch {
+            AppLog.error("Failed to create runtime storage directory for extension \(uniqueIdentifier): \(error)")
+        }
     }
 
     private func removeRuntimeStorageDirectory(for uniqueIdentifier: String) {

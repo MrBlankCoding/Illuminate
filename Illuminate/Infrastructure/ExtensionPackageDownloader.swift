@@ -18,17 +18,12 @@ enum ExtensionPackageDownloader {
         }
     }
 
-    /// Returns the latest release tag (e.g. "1.2.3") without downloading the package.
-    /// The leading "v" is stripped so the result can be compared directly with
-    /// `WKWebExtension.version` (which comes from manifest.json and has no "v" prefix).
     static func latestReleaseVersion(for source: ExtensionPackageSource) async throws -> String {
         switch source {
         case .githubRelease(let repository, _):
             return try await latestGitHubReleaseTag(repository: repository)
         }
     }
-
-    // MARK: - Private helpers
 
     private static func latestGitHubReleaseTag(repository: String) async throws -> String {
         guard let apiURL = URL(string: "https://api.github.com/repos/\(repository)/releases/latest") else {

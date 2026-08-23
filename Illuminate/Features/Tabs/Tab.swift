@@ -438,12 +438,6 @@ final class Tab: NSObject, ObservableObject, Identifiable, WKWebExtensionTab {
         }
     }
 
-    func hibernate() {
-        guard webView != nil, !isLoading else { return }
-        AppLog.info("Hibernating tab: \(title)")
-        self.detachWebView()
-    }
-
     func togglePictureInPicture() {
         guard let webView else { return }
 

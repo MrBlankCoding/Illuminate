@@ -1,21 +1,17 @@
 //
+//
 //  TabManager.swift
 //  Illuminate
 //
-// Created by MrBlankCoding on 4/8/26.
+//
+//  Created by MrBlankCoding on 4/8/26.
 //
 
 import AppKit
 import Combine
 import Foundation
-import OSLog
 import SwiftUI
 import WebKit
-
-
-struct ClosedTabSnapshot {
-    let payload: TabTransferPayload
-}
 
 private actor SessionWriter {
     private var latestVersion: UInt64 = 0
@@ -34,26 +30,26 @@ private actor SessionWriter {
 
 @MainActor
 final class TabManager: NSObject, ObservableObject, WKWebExtensionWindow {
-    
+
     var windowState: WKWebExtension.WindowState {
         if isFullScreen { return .fullscreen }
         return .normal
     }
-    
+
     var windowType: WKWebExtension.WindowType {
         .normal
     }
-    
+
     var isPrivate: Bool {
         activeProfileID == nil // Assuming nil profile ID means guest/private
     }
-    
+
     weak var window: NSWindow?
-    
+
     var isFocused: Bool {
         window?.isKeyWindow ?? false
     }
-    
+
     func focus(completionHandler: @escaping ((any Error)?) -> Void) {
         window?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
@@ -64,7 +60,7 @@ final class TabManager: NSObject, ObservableObject, WKWebExtensionWindow {
         static let themeColor        = "89BBFF"
         static let maxRecentlyClosed = 25
         static let saveDebounceNs: UInt64 = 500_000_000
-        static let tabCreationDelay: TimeInterval = 0.25
+        static let tabCreationDelay: TimeInterval = 0.05
         static let rapidSwitchDebounceNs: UInt64 = 1_000_000_000
     }
 
@@ -125,6 +121,10 @@ final class TabManager: NSObject, ObservableObject, WKWebExtensionWindow {
     var tabIndex: [UUID: Tab] = [:]
     private var tabPositionIndex: [UUID: Int] = [:]
 
+    private struct ClosedTabSnapshot {
+        let payload: TabTransferPayload
+    }
+
     private var recentlyClosed: [ClosedTabSnapshot] = []
     private var isInitializing = true
     private var pendingSaveTask: Task<Void, Never>?
@@ -132,6 +132,7 @@ final class TabManager: NSObject, ObservableObject, WKWebExtensionWindow {
     private var pendingFocusTask: Task<Void, Never>?
     private var saveVersion: UInt64 = 0
     private var observerTokens: [NSObjectProtocol] = []
+    private var extensionObserverCancellable: AnyCancellable?
     private var lastSwitchTime: Date?
 
     enum UIStyle: String, CaseIterable {
@@ -191,6 +192,11 @@ final class TabManager: NSObject, ObservableObject, WKWebExtensionWindow {
 
         super.init()
 
+        // Ensure WebExtensions directory exists for extension storage
+        if isPersistenceEnabled {
+            ensureWebExtensionsDirectoryExists()
+        }
+
         if isPersistenceEnabled {
             restoreSession()
         }
@@ -244,6 +250,7 @@ final class TabManager: NSObject, ObservableObject, WKWebExtensionWindow {
             em.unregisterTabManager(withIdentifier: identifier)
         }
         observerTokens.forEach { notificationCenter.removeObserver($0) }
+        extensionObserverCancellable?.cancel()
         pendingSaveTask?.cancel()
         backgroundThemeTask?.cancel()
         pendingFocusTask?.cancel()
@@ -267,13 +274,13 @@ final class TabManager: NSObject, ObservableObject, WKWebExtensionWindow {
         case .success(let state):
             activeTabID = state.activeTabID
             if let ids = state.tabIDs {
-                tabs = ids.map { 
+                tabs = ids.map {
                     let tab = Tab(id: $0, assetsBaseURL: tabAssetsBaseURL)
                     tab.tabManager = self
                     return tab
                 }
             } else if let payloads = state.tabs {
-                tabs = payloads.map { 
+                tabs = payloads.map {
                     let tab = makeTab(from: $0)
                     tab.tabManager = self
                     return tab
@@ -309,7 +316,7 @@ final class TabManager: NSObject, ObservableObject, WKWebExtensionWindow {
         if let activeID = activeTabID, let activeTab = tabIndex[activeID] {
             hydrateVisualState(for: activeTab)
         }
-        
+
         let otherTabs = tabs.filter { $0.id != activeTabID }
         Task.detached(priority: .utility) {
             for tab in otherTabs {
@@ -390,11 +397,12 @@ final class TabManager: NSObject, ObservableObject, WKWebExtensionWindow {
     func tabs(for context: WKWebExtensionContext) -> [any WKWebExtensionTab] {
         tabs
     }
-    
+
     func activeTab(for context: WKWebExtensionContext) -> (any WKWebExtensionTab)? {
         activeTab
     }
 
+    // okay im pulling my hair out
     func tab(forID id: UUID) -> Tab? { tabIndex[id] }
     func indexOfTab(withID id: UUID) -> Int? { tabPositionIndex[id] }
 
@@ -402,21 +410,17 @@ final class TabManager: NSObject, ObservableObject, WKWebExtensionWindow {
         let tab = Tab(payload: payload, assetsBaseURL: tabAssetsBaseURL)
         return tab
     }
-    
+
     // over engineered
     // TODO:
     func navigateActiveTab(to url: URL) {
+        // Always open webkit-extension URLs in new tabs
+        if url.scheme == "webkit-extension" {
+            createTab(url: url)
+            return
+        }
+
         if let tab = activeTab {
-            if url.scheme == "webkit-extension" {
-                if let extensionContext = extensionManager.getExtensionContext(for: url),
-                   let requiredConfig = extensionContext.webViewConfiguration {
-                    let currentConfig = tab.webView?.configuration
-                    
-                    if currentConfig !== requiredConfig {
-                        tab.updateWebViewConfiguration(requiredConfig)
-                    }
-                }
-            }
             tab.load(url: url)
         } else {
             createTab(url: url)
@@ -431,14 +435,13 @@ final class TabManager: NSObject, ObservableObject, WKWebExtensionWindow {
     @discardableResult
     func createTab(url: URL? = nil, inBackground: Bool = false, configuration: WKWebViewConfiguration? = nil) -> Tab {
         var finalConfiguration = configuration
-        
-        // Check if this is an extension URL and we need to use extension-specific configuration
+
         if let url = url, url.scheme == "webkit-extension", configuration == nil {
             if let extensionContext = extensionManager.getExtensionContext(for: url) {
                 finalConfiguration = extensionContext.webViewConfiguration
             }
         }
-        
+
         let tab = Tab(url: url, assetsBaseURL: tabAssetsBaseURL, webViewConfiguration: finalConfiguration)
         tab.tabManager = self
 
@@ -446,7 +449,7 @@ final class TabManager: NSObject, ObservableObject, WKWebExtensionWindow {
         tabIndex[tab.id] = tab
         tabPositionIndex[tab.id] = tabs.count - 1
         hydrateVisualState(for: tab)
-        
+
         extensionManager.controller.didOpenTab(tab)
 
         if !inBackground {
@@ -477,8 +480,6 @@ final class TabManager: NSObject, ObservableObject, WKWebExtensionWindow {
         tab.close()
         pushRecentlyClosed(payload)
         tabGroupManager.handleTabClosed(id)
-        
-        // Notify extensions
         extensionManager.controller.didCloseTab(tab, windowIsClosing: false)
 
         tabs.remove(at: index)
@@ -519,7 +520,6 @@ final class TabManager: NSObject, ObservableObject, WKWebExtensionWindow {
         syncActiveTabURL()
         scheduleSave()
     }
-
 
     @discardableResult
     func reopenLastClosedTab() -> Tab? {
@@ -574,7 +574,7 @@ final class TabManager: NSObject, ObservableObject, WKWebExtensionWindow {
         if let id, let tab = tabIndex[id] {
             tab.markActivated()
             tab.markAccessed()
-            
+
             extensionManager.controller.didActivateTab(tab, previousActiveTab: oldTab)
         }
         syncActiveTabURL()
@@ -800,7 +800,25 @@ final class TabManager: NSObject, ObservableObject, WKWebExtensionWindow {
             }
         }
         tokens.append(openURLToken)
+
+        let extensionObserver = extensionManager.$installedExtensions
+            .sink { [weak self] _ in
+                Task { @MainActor [weak self] in
+                    self?.handleExtensionListChanged()
+                }
+            }
+        tokens.append(extensionObserver as AnyObject as! NSObjectProtocol)
+
         observerTokens = tokens
+    }
+
+    private func handleExtensionListChanged() {
+        AppLog.debug("[TabManager] Extension list changed - installed extensions count: \(extensionManager.installedExtensions.count)")
+        for tab in tabs {
+            if let url = tab.url {
+                tab.reload()
+            }
+        }
     }
 
     private func copyCurrentURL() {
@@ -843,7 +861,22 @@ final class TabManager: NSObject, ObservableObject, WKWebExtensionWindow {
             }
         }
     }
+
+    private func ensureWebExtensionsDirectoryExists() {
+        let bundleID = Bundle.main.bundleIdentifier ?? "com.MrBlankCoding.Illuminate"
+        let containerLibraryURL = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/Containers/\(bundleID)/Data/Library")
+        let webExtensionsURL = containerLibraryURL.appendingPathComponent("WebKit/WebExtensions")
+
+        do {
+            try FileManager.default.createDirectory(at: webExtensionsURL, withIntermediateDirectories: true, attributes: nil)
+            AppLog.debug("[TabManager] WebExtensions directory ensured at: \(webExtensionsURL.path)")
+        } catch {
+            AppLog.error("[TabManager] Failed to create WebExtensions directory", error: error)
+        }
+    }
 }
+
 
 private extension Collection {
     subscript(safe index: Index) -> Element? {
@@ -851,11 +884,13 @@ private extension Collection {
     }
 }
 
+
 private extension UserDefaults {
     func bool(forKey key: String, default defaultValue: Bool) -> Bool {
         object(forKey: key) as? Bool ?? defaultValue
     }
 }
+
 
 protocol UserDefaultsStorable {}
 extension String: UserDefaultsStorable {}

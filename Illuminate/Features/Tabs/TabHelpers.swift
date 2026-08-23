@@ -9,7 +9,7 @@ import AppKit
 import Foundation
 import SwiftUI
 
-struct TabTransferPayload: Codable, Sendable {
+public struct TabTransferPayload: Codable, Sendable {
     var id: UUID
     var url: URL?
     var title: String?

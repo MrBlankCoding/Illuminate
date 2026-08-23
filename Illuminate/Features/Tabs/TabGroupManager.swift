@@ -7,11 +7,10 @@
 
 import Combine
 import Foundation
-import OSLog
 import SwiftUI
 
 @MainActor
-final class TabGroupManager: ObservableObject {
+public final class TabGroupManager: ObservableObject {
     private enum Defaults {
         static let maxClosedGroups = 10
         static let groupSaveDebounceNs: UInt64 = 500_000_000
@@ -22,7 +21,6 @@ final class TabGroupManager: ObservableObject {
 
     private let isPersistenceEnabled: Bool
     private let groupsURL: URL
-    private let logger = Logger(subsystem: "com.illuminate", category: "TabGroupManager")
     private var pendingSaveTask: Task<Void, Never>?
     private var saveVersion: UInt64 = 0
     private var tabGroupIndex: [UUID: UUID] = [:]
@@ -329,7 +327,6 @@ final class TabGroupManager: ObservableObject {
 
             let payloads = self.groups.map { $0.toPayload() }
             let url = self.groupsURL
-            let log = self.logger
 
             Task.detached(priority: .background) {
                 do {
@@ -341,7 +338,7 @@ final class TabGroupManager: ObservableObject {
                     let data = try JSONEncoder().encode(payloads)
                     try data.write(to: url, options: .atomic)
                 } catch {
-                    log.error("[TabGroupManager] Group save failed: \(error.localizedDescription, privacy: .public)")
+                    AppLog.error("[TabGroupManager] Group save failed: \(error.localizedDescription)")
                 }
             }
         }
@@ -371,7 +368,7 @@ final class TabGroupManager: ObservableObject {
             let nsError = error as NSError
             let isMissing = nsError.domain == NSCocoaErrorDomain && nsError.code == NSFileReadNoSuchFileError
             if !isMissing {
-                logger.error("[TabGroupManager] Group restore failed: \(error.localizedDescription, privacy: .public)")
+                AppLog.error("[TabGroupManager] Group restore failed: \(error.localizedDescription)")
             }
         }
     }
