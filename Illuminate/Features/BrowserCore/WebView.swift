@@ -29,7 +29,6 @@ struct WebView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .ignoresSafeArea(.container, edges: .bottom)
         .contextMenu {
             contextMenuContent(for: tab.url)
         }
@@ -74,6 +73,7 @@ struct WebView: View {
                 canvasFingerprintingService: canvasFingerprintingService,
                 userInterfaceStyle: tabManager.userInterfaceStyle
             )
+            .ignoresSafeArea(.container, edges: .bottom)
         }
     }
 

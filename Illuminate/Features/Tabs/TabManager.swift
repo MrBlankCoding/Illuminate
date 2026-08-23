@@ -563,14 +563,6 @@ final class TabManager: NSObject, ObservableObject, WKWebExtensionWindow {
 
     func switchTo(_ id: UUID) {
         guard activeTabID != id else { return }
-        if let oldID = activeTabID, let oldTab = tabIndex[oldID] {
-            Task { @MainActor in
-                try? await Task.sleep(nanoseconds: 5_000_000_000) // 5 seconds grace period
-                if self.activeTabID != oldID {
-                    oldTab.hibernate()
-                }
-            }
-        }
 
         lastSwitchTime = Date()
         setActiveTab(id)

@@ -215,7 +215,6 @@ final class Tab: NSObject, ObservableObject, Identifiable, WKWebExtensionTab {
             }
         }
     }
-    @Published var isHibernated: Bool
     @Published var hasMixedContentWarning: Bool
     @Published var networkError: NetworkErrorKind?
     @Published var hoveredLinkURLString: String?
@@ -289,7 +288,6 @@ final class Tab: NSObject, ObservableObject, Identifiable, WKWebExtensionTab {
         self.favicon = favicon
         self.themeColor = themeColor
         self.isLoading = isLoading
-        self.isHibernated = false
         self.hasMixedContentWarning = hasMixedContentWarning
         self.networkError = networkError
         self.hoveredLinkURLString = hoveredLinkURLString
@@ -360,10 +358,6 @@ final class Tab: NSObject, ObservableObject, Identifiable, WKWebExtensionTab {
             .OBJC_ASSOCIATION_RETAIN_NONATOMIC
         )
         webView = newWebView
-        
-        DispatchQueue.main.async {
-            self.isHibernated = false
-        }
         setupWebViewObservers(newWebView)
     }
 
@@ -380,9 +374,6 @@ final class Tab: NSObject, ObservableObject, Identifiable, WKWebExtensionTab {
         )
         candidate.pageZoom = zoomLevel
         webView = candidate
-        DispatchQueue.main.async {
-            self.isHibernated = false
-        }
         setupWebViewObservers(candidate)
     }
 
@@ -448,10 +439,9 @@ final class Tab: NSObject, ObservableObject, Identifiable, WKWebExtensionTab {
     }
 
     func hibernate() {
-        guard webView != nil, !isLoading, !isHibernated else { return }
+        guard webView != nil, !isLoading else { return }
         AppLog.info("Hibernating tab: \(title)")
         self.detachWebView()
-        self.isHibernated = true
     }
 
     func togglePictureInPicture() {

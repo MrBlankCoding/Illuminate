@@ -2,7 +2,14 @@
 //  ExtensionGalleryView.swift
 //  Illuminate
 //
+//  Created by MrBlankCoding on 3/8/26.
+//
 
+// TODO
+// way to overcomplicated
+// Need to simplify
+
+import Combine
 import SwiftUI
 import WebKit
 
@@ -12,80 +19,160 @@ struct ExtensionGalleryItem: Identifiable {
     let description: String
     let iconURL: URL?
     let source: ExtensionPackageSource
+    let fallbackAssetNameCandidates: [String]
+    let externalInfoURL: URL?
+
+    init(
+        id: String,
+        name: String,
+        description: String,
+        iconURL: URL?,
+        source: ExtensionPackageSource,
+        fallbackAssetNameCandidates: [String] = [],
+        externalInfoURL: URL? = nil
+    ) {
+        self.id = id
+        self.name = name
+        self.description = description
+        self.iconURL = iconURL
+        self.source = source
+        self.fallbackAssetNameCandidates = fallbackAssetNameCandidates
+        self.externalInfoURL = externalInfoURL
+    }
 }
 
-enum ExtensionGalleryCatalog {
-    static let items: [ExtensionGalleryItem] = [
-        ExtensionGalleryItem(
-            id: "ublock-origin-lite",
-            name: "uBlock Origin Lite",
-            description: "An efficient Manifest V3 content blocker that uses declarative rules to eliminate ads and trackers — with no background permissions needed.",
-            iconURL: URL(string: "https://raw.githubusercontent.com/gorhill/uBlock/master/src/img/icon_128.png"),
-            source: .githubRelease(repository: "uBlockOrigin/uBOL-home", assetNameContains: "chromium.zip")
-        ),
-        ExtensionGalleryItem(
-            id: "dark-reader",
-            name: "Dark Reader",
-            description: "Applies a gentle dark mode to every website. Adjustable brightness, contrast, and sepia filters — your eyes will thank you.",
-            iconURL: URL(string: "https://raw.githubusercontent.com/darkreader/darkreader/main/src/ui/assets/images/darkreader-icon-128px.png"),
-            source: .githubRelease(repository: "darkreader/darkreader", assetNameContains: "chrome-mv3.zip")
-        ),
+@MainActor
+final class RemoteGalleryCatalog: ObservableObject {
+    private static let remoteCatalogURL: URL? = nil
+    static let ublock = ExtensionGalleryItem(
+        id: "ublock-origin-lite",
+        name: "uBlock Origin Lite",
+        description: "An efficient Manifest V3 content blocker that eliminates ads and trackers using declarative rules — with no background permissions needed.",
+        iconURL: URL(string: "https://raw.githubusercontent.com/gorhill/uBlock/master/src/img/icon_128.png"),
+        source: .githubRelease(repository: "uBlockOrigin/uBOL-home", assetNameContains: "safari.zip"),
+        fallbackAssetNameCandidates: ["webkit.zip", "chromium.mv3.zip"],
+        externalInfoURL: URL(string: "https://apps.apple.com/us/app/ublock-origin-lite/id6745342698")
+    )
+    private static let hardcodedItems: [ExtensionGalleryItem] = [
+        ublock,
     ]
+
+    enum FetchState { case idle, loading, done, failed }
+
+    @Published private(set) var items: [ExtensionGalleryItem] = hardcodedItems
+    @Published private(set) var fetchState: FetchState = .idle
+
+    func load() {
+        guard case .idle = fetchState else { return }
+        guard let url = Self.remoteCatalogURL else {
+            fetchState = .done   // no remote URL configured — hardcoded list is final
+            return
+        }
+        fetchState = .loading
+        Task { await fetch(from: url) }
+    }
+
+    private func fetch(from url: URL) async {
+        do {
+            var request = URLRequest(url: url)
+            request.setValue("Illuminate", forHTTPHeaderField: "User-Agent")
+            request.timeoutInterval = 10
+
+            let (data, response) = try await URLSession.shared.data(for: request)
+            if let http = response as? HTTPURLResponse, !(200...299).contains(http.statusCode) {
+                throw URLError(.badServerResponse)
+            }
+
+            let decoded = try JSONDecoder().decode([RemoteGalleryEntry].self, from: data)
+            let remoteItems = decoded.compactMap(\.galleryItem)
+            var seen = Set(Self.hardcodedItems.map(\.id))
+            var merged = Self.hardcodedItems
+            for item in remoteItems where !seen.contains(item.id) {
+                seen.insert(item.id)
+                merged.append(item)
+            }
+            items = merged
+            fetchState = .done
+        } catch {
+            fetchState = .failed
+            AppLog.warning("Remote extension catalog fetch failed: \(error.localizedDescription)")
+        }
+    }
+}
+
+private struct RemoteGalleryEntry: Decodable {
+    let id: String
+    let name: String
+    let description: String
+    let iconURL: String?
+    let githubRepository: String
+    let assetNameContains: String
+    let fallbackAssetNameCandidates: [String]?
+    let externalInfoURL: String?
+
+    var galleryItem: ExtensionGalleryItem? {
+        ExtensionGalleryItem(
+            id: id,
+            name: name,
+            description: description,
+            iconURL: iconURL.flatMap { URL(string: $0) },
+            source: .githubRelease(
+                repository: githubRepository,
+                assetNameContains: assetNameContains
+            ),
+            fallbackAssetNameCandidates: fallbackAssetNameCandidates ?? [],
+            externalInfoURL: externalInfoURL.flatMap { URL(string: $0) }
+        )
+    }
 }
 
 struct ExtensionGalleryView: View {
     @EnvironmentObject var profileEnvironment: ProfileEnvironment
+    @StateObject private var catalog = RemoteGalleryCatalog()
 
     var body: some View {
-        Group {
-            if profileEnvironment.extensionManager.isLoadingExtensions {
-                loadingState
-            } else {
-                galleryGrid
-            }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .navigationTitle("Extension Gallery")
-        .toolbar {
-            ToolbarItem(placement: .cancellationAction) {
-                EmptyView()
-            }
-        }
-    }
-
-    private var loadingState: some View {
-        VStack(spacing: 14) {
-            ProgressView()
-                .scaleEffect(1.3)
-            Text("Loading Extensions…")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        galleryGrid
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .onAppear { catalog.load() }
     }
 
     private var galleryGrid: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                // Subtitle / count line
-                Text("\(ExtensionGalleryCatalog.items.count) extensions available")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                HStack(spacing: 8) {
+                    Text("\(catalog.items.count) extension\(catalog.items.count == 1 ? "" : "s") available")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+
+                    if case .loading = catalog.fetchState {
+                        ProgressView().controlSize(.mini)
+                    }
+                }
 
                 LazyVGrid(
                     columns: [GridItem(.adaptive(minimum: 300, maximum: 440), spacing: 16)],
                     spacing: 16
                 ) {
-                    ForEach(ExtensionGalleryCatalog.items) { item in
+                    ForEach(catalog.items) { item in
                         ExtensionGalleryCard(item: item)
                             .environmentObject(profileEnvironment)
                     }
+                }
+
+                if case .failed = catalog.fetchState {
+                    Label("Couldn't load more extensions. Showing essentials only.", systemImage: "wifi.slash")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .padding(.top, 4)
                 }
             }
             .padding(24)
             .frame(maxWidth: 960)
             .frame(maxWidth: .infinity)
         }
+
+        .clipped()
     }
 }
 
@@ -99,14 +186,13 @@ struct ExtensionGalleryCard: View {
     @State private var errorMessage: String?
 
     private enum InstallState: Equatable {
-        case idle, installing, installed, failed
+        case idle, installing, installed, failed, unavailable
     }
 
     private var isInstalled: Bool { installedContext != nil }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Top: icon + name / description
             HStack(alignment: .top, spacing: 14) {
                 iconView
                     .frame(width: 56, height: 56)
@@ -139,7 +225,6 @@ struct ExtensionGalleryCard: View {
             .padding(.horizontal, 18)
             .padding(.vertical, 12)
         }
-
         .frame(height: 190)
         .background(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
@@ -155,9 +240,7 @@ struct ExtensionGalleryCard: View {
         .shadow(color: .black.opacity(0.06), radius: 6, x: 0, y: 2)
         .alert("Installation Failed", isPresented: $showError, presenting: errorMessage) { _ in
             Button("OK") { errorMessage = nil }
-        } message: { msg in
-            Text(msg)
-        }
+        } message: { msg in Text(msg) }
         .onAppear(perform: syncInstalledState)
         .onReceive(profileEnvironment.extensionManager.$installedExtensions) { _ in
             syncInstalledState()
@@ -209,6 +292,11 @@ struct ExtensionGalleryCard: View {
                 .font(.caption)
                 .fontWeight(.medium)
                 .foregroundStyle(.red)
+        } else if installState == .unavailable {
+            Label("Not available for direct install", systemImage: "info.circle")
+                .font(.caption)
+                .fontWeight(.medium)
+                .foregroundStyle(.secondary)
         }
     }
 
@@ -218,6 +306,17 @@ struct ExtensionGalleryCard: View {
             Button(role: .destructive, action: uninstall) {
                 Label("Uninstall", systemImage: "trash")
                     .font(.subheadline)
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.regular)
+            .transition(.opacity)
+        } else if installState == .unavailable, let url = item.externalInfoURL {
+            Button {
+                NSWorkspace.shared.open(url)
+            } label: {
+                Label("View in App Store", systemImage: "arrow.up.forward.square")
+                    .font(.subheadline)
+                    .fontWeight(.medium)
             }
             .buttonStyle(.bordered)
             .controlSize(.regular)
@@ -245,31 +344,61 @@ struct ExtensionGalleryCard: View {
     }
 
     private func syncInstalledState() {
-        installedContext = profileEnvironment.extensionManager.installedExtensions.first {
+        let matchedContext = profileEnvironment.extensionManager.installedExtensions.first {
             profileEnvironment.extensionManager.matchesGalleryItem(item, context: $0)
         }
-        if installedContext != nil, installState != .idle {
-            withAnimation { installState = .installed }
+        let wasInstalled = installedContext != nil
+        installedContext = matchedContext
+
+        if matchedContext != nil {
+            if installState != .installed {
+                withAnimation { installState = .installed }
+            }
+        } else if wasInstalled {
+            withAnimation { installState = .idle }
         }
+    }
+
+    private var candidateSources: [ExtensionPackageSource] {
+        guard
+            case .githubRelease(let repository, _) = item.source,
+            !item.fallbackAssetNameCandidates.isEmpty
+        else {
+            return [item.source]
+        }
+        let fallbacks = item.fallbackAssetNameCandidates.map {
+            ExtensionPackageSource.githubRelease(repository: repository, assetNameContains: $0)
+        }
+        return [item.source] + fallbacks
     }
 
     private func install() {
         guard installState != .installing else { return }
         withAnimation { installState = .installing }
-
         Task {
-            do {
-                let packageURL = try await ExtensionPackageDownloader.downloadUnpackedPackage(from: item.source)
-                _ = try await profileEnvironment.extensionManager.installExtension(
-                    from: packageURL,
-                    preferredIdentifier: item.id,
-                    source: item.source
-                )
-                withAnimation { installState = .installed }
-            } catch {
-                AppLog.error("Gallery install failed for '\(item.id)': \(error.localizedDescription)")
+            var lastError: Error?
+            for candidate in candidateSources {
+                do {
+                    let packageURL = try await ExtensionPackageDownloader.downloadUnpackedPackage(from: candidate)
+                    _ = try await profileEnvironment.extensionManager.installExtension(
+                        from: packageURL,
+                        preferredIdentifier: item.id,
+                        source: candidate
+                    )
+                    withAnimation { installState = .installed }
+                    return
+                } catch {
+                    lastError = error
+                    continue // try the next candidate asset name, if any
+                }
+            }
+
+            AppLog.error("Gallery install failed for '\(item.id)': \(lastError?.localizedDescription ?? "no matching release asset")")
+            if item.externalInfoURL != nil {
+                withAnimation { installState = .unavailable }
+            } else {
                 withAnimation { installState = .failed }
-                errorMessage = error.localizedDescription
+                errorMessage = lastError?.localizedDescription ?? "No compatible download was found for this extension."
                 showError = true
             }
         }

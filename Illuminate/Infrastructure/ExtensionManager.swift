@@ -494,20 +494,17 @@ final class ExtensionManager: NSObject, ObservableObject {
         }
         extensionResourceURLs.removeValue(forKey: context.webExtension)
         extensionContextCache.removeAll(where: { $0 === context })
+        removeRuntimeStorageDirectory(for: id)
 
         installedExtensions.removeAll { $0 === context }
         saveInstalledExtensions()
+        enabledStateVersion += 1
     }
 
-    // MARK: - Auto-update
-
-    /// Schedules a recurring update check: fires once after `initialDelay` seconds,
-    /// then repeats every `autoUpdateInterval` seconds.
     func scheduleAutoUpdates(initialDelay: TimeInterval = 10) {
         guard !isGuestSession else { return }
         autoUpdateTask?.cancel()
         autoUpdateTask = Task { [weak self] in
-            // Short initial delay so the app finishes launching before hitting the network.
             try? await Task.sleep(nanoseconds: UInt64(initialDelay * 1_000_000_000))
             guard !Task.isCancelled else { return }
             await self?.checkAndUpdateExtensions()
@@ -520,14 +517,11 @@ final class ExtensionManager: NSObject, ObservableObject {
         }
     }
 
-    /// Checks all gallery-sourced extensions for newer versions and silently reinstalls any
-    /// that are out of date.  Safe to call manually (e.g. from a "Check for Updates" button).
     func checkAndUpdateExtensions() async {
         guard !isGuestSession, !isCheckingForUpdates else { return }
         isCheckingForUpdates = true
         defer { isCheckingForUpdates = false }
 
-        // Snapshot the current list so we don't race with installs/uninstalls mid-check.
         let snapshot = installedExtensions
         var updatedCount = 0
 
@@ -569,12 +563,10 @@ final class ExtensionManager: NSObject, ObservableObject {
         if updatedCount > 0 {
             AppLog.info("Auto-update: \(updatedCount) extension(s) updated.")
         }
-        // pendingUpdateCount stays 0 — updates are applied silently in the background.
+
         pendingUpdateCount = 0
     }
 
-    /// Returns true when `candidate` is strictly newer than `installed` using
-    /// dot-separated integer component comparison (e.g. "1.10.0" > "1.9.0").
     nonisolated private static func isNewer(_ candidate: String, than installed: String) -> Bool {
         guard !candidate.isEmpty, !installed.isEmpty else { return false }
         let lhs = candidate.split(separator: ".").compactMap { Int($0) }
@@ -699,6 +691,23 @@ final class ExtensionManager: NSObject, ObservableObject {
         if let profileID { dir = dir.appendingPathComponent(profileID.uuidString, isDirectory: true) }
         dir = dir.appendingPathComponent(uniqueIdentifier, isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+    }
+
+    private func removeRuntimeStorageDirectory(for uniqueIdentifier: String) {
+        guard !isGuestSession,
+              let library = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first
+        else { return }
+        var dir = library
+            .appendingPathComponent("WebKit", isDirectory: true)
+            .appendingPathComponent("WebExtensions", isDirectory: true)
+        if let profileID { dir = dir.appendingPathComponent(profileID.uuidString, isDirectory: true) }
+        dir = dir.appendingPathComponent(uniqueIdentifier, isDirectory: true)
+        guard FileManager.default.fileExists(atPath: dir.path) else { return }
+        do {
+            try FileManager.default.removeItem(at: dir)
+        } catch {
+            AppLog.warning("Could not remove runtime storage for '\(uniqueIdentifier)': \(error.localizedDescription)")
+        }
     }
 
     enum ExtensionError: LocalizedError {

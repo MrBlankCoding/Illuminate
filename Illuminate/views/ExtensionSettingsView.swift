@@ -11,46 +11,94 @@ import WebKit
 struct ExtensionSettingsView: View {
     @EnvironmentObject var profileEnvironment: ProfileEnvironment
     @State private var selectedExtension: IdentifiableContext?
-    @State private var navigateToGallery = false
+    @State private var showGallery = false
 
     private var manager: ExtensionManager { profileEnvironment.extensionManager }
 
     var body: some View {
-        NavigationStack {
-            Group {
-                if manager.isLoadingExtensions {
-                    loadingState
-                } else if manager.installedExtensions.isEmpty {
-                    emptyState
+        VStack(spacing: 0) {
+            HStack(spacing: 8) {
+                if showGallery {
+                    Button {
+                        withAnimation(.spring(response: 0.28, dampingFraction: 0.8)) {
+                            showGallery = false
+                        }
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "chevron.left")
+                                .font(.system(size: 12, weight: .semibold))
+                            Text("Extensions")
+                                .font(.subheadline)
+                        }
+                        .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .transition(.opacity.combined(with: .move(edge: .leading)))
                 } else {
-                    extensionList
+                    Text("Extensions")
+                        .font(.headline)
+                        .transition(.opacity)
                 }
-            }
-            .navigationTitle("Extensions")
-            .toolbar {
-                ToolbarItem(placement: .primaryAction) {
+
+                Spacer()
+
+                if !showGallery {
                     Button {
                         Task { await manager.checkAndUpdateExtensions() }
                     } label: {
-                        if manager.isCheckingForUpdates {
-                            ProgressView()
-                                .controlSize(.small)
-                                .help("Checking for updates…")
-                        } else {
-                            Image(systemName: "arrow.trianglehead.2.clockwise.rotate.90")
-                                .help("Check for Updates")
+                        Group {
+                            if manager.isCheckingForUpdates {
+                                ProgressView().controlSize(.small)
+                            } else {
+                                Image(systemName: "arrow.trianglehead.2.clockwise.rotate.90")
+                            }
                         }
+                        .frame(width: 20, height: 20)
                     }
+                    .buttonStyle(.plain)
                     .disabled(manager.isCheckingForUpdates || manager.isLoadingExtensions)
+                    .help(manager.isCheckingForUpdates ? "Checking for updates…" : "Check for Updates")
+                    .transition(.opacity)
                 }
             }
-            .navigationDestination(isPresented: $navigateToGallery) {
-                ExtensionGalleryView()
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .background(.bar)
+
+            Divider()
+            Group {
+                if showGallery {
+                    ExtensionGalleryView()
+                        .transition(.asymmetric(
+                            insertion:  .move(edge: .trailing),
+                            removal:    .move(edge: .trailing)
+                        ))
+                } else {
+                    extensionBody
+                        .transition(.asymmetric(
+                            insertion:  .move(edge: .leading),
+                            removal:    .move(edge: .leading)
+                        ))
+                }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color(NSColor.windowBackgroundColor))
         .sheet(item: $selectedExtension) { wrapper in
             ExtensionDetailView(context: wrapper.context)
                 .environmentObject(profileEnvironment)
+        }
+    }
+
+    @ViewBuilder
+    private var extensionBody: some View {
+        if manager.isLoadingExtensions {
+            loadingState
+        } else if manager.installedExtensions.isEmpty {
+            emptyState
+        } else {
+            extensionList
         }
     }
 
@@ -84,7 +132,9 @@ struct ExtensionSettingsView: View {
             }
 
             Button {
-                navigateToGallery = true
+                withAnimation(.spring(response: 0.28, dampingFraction: 0.8)) {
+                    showGallery = true
+                }
             } label: {
                 Label("Browse Extension Gallery", systemImage: "square.grid.2x2")
             }
@@ -133,9 +183,15 @@ struct ExtensionSettingsView: View {
             }
 
             Section {
-                NavigationLink(destination: ExtensionGalleryView()) {
+                Button {
+                    withAnimation(.spring(response: 0.28, dampingFraction: 0.8)) {
+                        showGallery = true
+                    }
+                } label: {
                     Label("Browse Extension Gallery", systemImage: "square.grid.2x2")
                 }
+                .buttonStyle(.plain)
+                .foregroundStyle(Color.accentColor)
             }
         }
         .listStyle(.inset)

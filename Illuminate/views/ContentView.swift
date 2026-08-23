@@ -17,8 +17,10 @@ struct ContentView: View {
     @Environment(\.colorScheme) private var colorScheme
     @StateObject private var findViewModel = FindViewModel()
     @StateObject private var zoomViewModel = ZoomViewModel()
+    @StateObject private var popupCoordinator = ExtensionPopupCoordinator()
 
     var body: some View {
+        GeometryReader { windowGeo in
         ZStack {
             BackgroundLayer(
                 isResizing: tabManager.isResizing,
@@ -26,7 +28,7 @@ struct ContentView: View {
                 windowThemeColor: tabManager.windowThemeColor,
                 colorScheme: colorScheme
             )
-            
+
             VStack(spacing: 0) {
                 if environment.isGuestSession {
                     PrivateBrowsingBanner()
@@ -39,6 +41,9 @@ struct ContentView: View {
                 )
                 .zIndex(3)
 
+                // BrowserContentView is the anchor: it starts exactly where the
+                // toolbar ends, so an overlay(alignment: .top) on it pins the
+                // popup panel flush at the toolbar bottom edge.
                 BrowserContentView(
                     activeTab: tabManager.activeTab,
                     windowThemeColor: tabManager.windowThemeColor,
@@ -47,22 +52,37 @@ struct ContentView: View {
                     zoomViewModel: zoomViewModel
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .overlay(alignment: .top) {
+                    if let payload = popupCoordinator.activePopup {
+                        ExtensionPopupPanel(
+                            payload: payload,
+                            windowWidth: windowGeo.size.width
+                        )
+                        .environmentObject(tabManager)
+                        .environmentObject(environment)
+                        .environmentObject(popupCoordinator)
+                        .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
+                    }
+                }
                 .zIndex(1)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .ignoresSafeArea(edges: .top)
-            
+
             if let request = environment.extensionManager.activePermissionRequest {
                 Color.black.opacity(0.3)
                     .ignoresSafeArea()
-                
+
                 PermissionRequestView(request: request)
                     .zIndex(10)
             }
         }
+        .coordinateSpace(name: "browserWindow")
+        } // GeometryReader
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(WindowConfigurator())
         .preferredColorScheme(tabManager.userInterfaceStyle.colorScheme)
+        .environmentObject(popupCoordinator)
         .onAppear {
             DispatchQueue.main.async {
                 viewModel.updateAddressBarFromActiveTab()
@@ -80,6 +100,7 @@ struct ContentView: View {
         .onChange(of: tabManager.activeTabID) { _, _ in
             findViewModel.setWebView(tabManager.activeTab?.webView)
             zoomViewModel.hide()
+            popupCoordinator.close()
         }
         .sheet(item: $permissionService.pendingRequest) { request in
             WebsitePermissionPromptView(request: request) { decision in

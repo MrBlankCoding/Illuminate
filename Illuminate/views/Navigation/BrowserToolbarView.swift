@@ -18,6 +18,8 @@ struct TabFramesKey: PreferenceKey {
     }
 }
 
+
+
 final class TopContainerNSView: NSView {
     var tabFrames: [UUID: CGRect] = [:]
     override var isFlipped: Bool { true }
