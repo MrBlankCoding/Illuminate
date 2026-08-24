@@ -40,24 +40,31 @@ struct WebView: View {
         case .passwords:
             PasswordsPageView()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .ignoresSafeArea(.container, edges: .bottom)
         case .protection:
             ProtectionPageView()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .ignoresSafeArea(.container, edges: .bottom)
         case .downloads:
             DownloadsPageView()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .ignoresSafeArea(.container, edges: .bottom)
         case .history:
             HistoryPageView()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .ignoresSafeArea(.container, edges: .bottom)
         case .permissions:
             PermissionsPageView()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .ignoresSafeArea(.container, edges: .bottom)
         case .info:
             InfoPageView()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .ignoresSafeArea(.container, edges: .bottom)
         case .extensions:
             ExtensionSettingsView()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .ignoresSafeArea(.container, edges: .bottom)
         case nil:
             WebViewRepresentable(
                 tab: tab,

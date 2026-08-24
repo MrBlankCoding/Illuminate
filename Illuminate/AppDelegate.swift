@@ -30,7 +30,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private func isRunningUITests() -> Bool {
         let args = ProcessInfo.processInfo.arguments
         let env  = ProcessInfo.processInfo.environment
-        return args.contains("-UITest")
+        return args.contains(where: { $0.caseInsensitiveCompare("-uiTesting") == .orderedSame })
             || env["XCTestConfigurationFilePath"] != nil
     }
 

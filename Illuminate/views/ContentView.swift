@@ -23,7 +23,6 @@ struct ContentView: View {
         GeometryReader { windowGeo in
         ZStack {
             BackgroundLayer(
-                isResizing: tabManager.isResizing,
                 backgroundImageURL: tabManager.backgroundImageURL,
                 windowThemeColor: tabManager.windowThemeColor,
                 colorScheme: colorScheme
@@ -107,11 +106,10 @@ struct ContentView: View {
 }
 
 struct BackgroundLayer: View {
-    let isResizing: Bool
     let backgroundImageURL: String
     let windowThemeColor: Color
     let colorScheme: ColorScheme
-    
+
     private var theme: BrowserTheme {
         BrowserTheme(accent: windowThemeColor, colorScheme: colorScheme)
     }
@@ -121,13 +119,13 @@ struct BackgroundLayer: View {
             theme.windowBase
                 .ignoresSafeArea()
 
-            if !isResizing,
-               !backgroundImageURL.isEmpty,
+            if !backgroundImageURL.isEmpty,
                let imageURL = URL(string: backgroundImageURL) {
                 CachedBackgroundImageView(url: imageURL)
                     .ignoresSafeArea()
             } else {
                 DefaultBackgroundView()
+                    .ignoresSafeArea()
             }
         }
     }
@@ -183,6 +181,7 @@ struct BrowserContentView: View {
                     if let activeTab = activeTab {
                         WebView(tab: activeTab)
                             .id(activeTab.id)
+                            .transaction { $0.animation = nil }
                             .environmentObject(viewModel)
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                     }

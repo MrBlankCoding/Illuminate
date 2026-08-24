@@ -31,7 +31,6 @@ struct CachedBackgroundImageView: View {
             }
         }
         .onChange(of: url) { _, newURL in
-            image = nil
             Task {
                 await loadImage(for: newURL)
             }

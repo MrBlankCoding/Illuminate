@@ -69,7 +69,7 @@ struct AppRootView: View {
 
     private func presentOnboardingIfNeeded() {
         guard isStandalone, !hasCompletedOnboarding, !hasRequestedOnboarding else { return }
-        guard !ProcessInfo.processInfo.arguments.contains("-UITest") else { return }
+        guard !ProcessInfo.processInfo.arguments.contains(where: { $0.caseInsensitiveCompare("-uiTesting") == .orderedSame }) else { return }
         hasRequestedOnboarding = true
         openWindow(id: OnboardingView.windowID)
     }

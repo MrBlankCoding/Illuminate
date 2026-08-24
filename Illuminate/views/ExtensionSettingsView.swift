@@ -85,7 +85,6 @@ struct ExtensionSettingsView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(NSColor.windowBackgroundColor))
         .sheet(item: $selectedExtension) { wrapper in
             ExtensionDetailView(context: wrapper.context)
                 .environmentObject(profileEnvironment)
@@ -156,55 +155,75 @@ struct ExtensionSettingsView: View {
     }
 
     private var extensionList: some View {
-        List {
-            if manager.isCheckingForUpdates {
-                Section {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 20) {
+                if manager.isCheckingForUpdates {
                     HStack(spacing: 8) {
                         ProgressView().controlSize(.small)
                         Text("Checking for updates…")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }
-                    .listRowBackground(Color.accentColor.opacity(0.06))
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
-            }
 
-            Section {
-                ForEach(installedExtensions, id: \.self) { context in
-                    ExtensionSettingsRow(context: context)
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            selectedExtension = IdentifiableContext(context: context)
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Installed — \(installedExtensions.count)")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(.tertiary)
+                        .textCase(.uppercase)
+                        .padding(.horizontal, 4)
+
+                    LazyVStack(spacing: 1) {
+                        ForEach(installedExtensions, id: \.self) { context in
+                            ExtensionSettingsRow(context: context)
+                                .contentShape(Rectangle())
+                                .onTapGesture {
+                                    selectedExtension = IdentifiableContext(context: context)
+                                }
                         }
-                }
-            } header: {
-                Text("Installed — \(installedExtensions.count)")
-            }
-
-            if !manager.loadingErrors.isEmpty {
-                Section {
-                    ForEach(manager.loadingErrors) { error in
-                        ExtensionErrorRow(error: error)
                     }
-                } header: {
-                    Label("Loading Errors", systemImage: "exclamationmark.triangle.fill")
-                        .foregroundStyle(.orange)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
-            }
 
-            Section {
-                Button {
-                    withAnimation(.spring(response: 0.28, dampingFraction: 0.8)) {
-                        showGallery = true
+                if !manager.loadingErrors.isEmpty {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Label("Loading Errors", systemImage: "exclamationmark.triangle.fill")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(.orange)
+                            .textCase(.uppercase)
+                            .padding(.horizontal, 4)
+
+                        LazyVStack(spacing: 1) {
+                            ForEach(manager.loadingErrors) { error in
+                                ExtensionErrorRow(error: error)
+                            }
+                        }
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                     }
-                } label: {
-                    Label("Browse Extension Gallery", systemImage: "square.grid.2x2")
                 }
-                .buttonStyle(.plain)
-                .foregroundStyle(Color.accentColor)
+
+                HStack(spacing: 10) {
+                    Button {
+                        withAnimation(.spring(response: 0.28, dampingFraction: 0.8)) {
+                            showGallery = true
+                        }
+                    } label: {
+                        Label("Browse Extension Gallery", systemImage: "square.grid.2x2")
+                    }
+                    .buttonStyle(InternalPageChipButtonStyle(color: Color.accentColor))
+
+                    Spacer()
+                }
             }
+            .padding(24)
+            .frame(maxWidth: 720, alignment: .leading)
+            .frame(maxWidth: .infinity, alignment: .center)
         }
-        .listStyle(.inset)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 }
 
@@ -279,7 +298,9 @@ struct ExtensionSettingsRow: View {
                 .labelsHidden()
             }
         }
+        .padding(.horizontal, 14)
         .padding(.vertical, 4)
+        .background(.regularMaterial)
         .opacity(isEnabled ? 1.0 : 0.65)
         .animation(.easeInOut(duration: 0.15), value: isEnabled)
         .accessibilityElement(children: .combine)

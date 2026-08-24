@@ -9,49 +9,61 @@
 import SwiftUI
 import AppKit
 
-struct TabFramesKey: PreferenceKey {
-    typealias Value = [UUID: CGRect]
-    static var defaultValue: Value { [:] }
+final class WindowDragNSView: NSView {
+    override var isFlipped: Bool { true }
 
-    static func reduce(value: inout Value, nextValue: () -> Value) {
-        value.merge(nextValue()) { _, new in new }
+    override func mouseDown(with event: NSEvent) {
+        guard let window else { return }
+        let wasMovable = window.isMovable
+        window.isMovable = true
+        window.performDrag(with: event)
+        window.isMovable = wasMovable
     }
 }
 
+struct WindowDragArea: NSViewRepresentable {
+    func makeNSView(context: Context) -> WindowDragNSView {
+        WindowDragNSView()
+    }
 
+    func updateNSView(_ nsView: WindowDragNSView, context: Context) {}
+}
 
-final class TopContainerNSView: NSView {
-    var tabFrames: [UUID: CGRect] = [:]
+final class TabStripContainerNSView: NSView {
     override var isFlipped: Bool { true }
-
-    override var mouseDownCanMoveWindow: Bool { false }
 
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 
-    override func mouseDown(with event: NSEvent) {
-        let localPoint = convert(event.locationInWindow, from: nil)
-        let hitTab = tabFrames.values.contains { $0.contains(localPoint) }
-        if hitTab {
-            super.mouseDown(with: event)
-        } else {
-            window?.performDrag(with: event)
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        for area in trackingAreas where area.owner === self {
+            removeTrackingArea(area)
         }
+        addTrackingArea(NSTrackingArea(
+            rect: bounds,
+            options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect],
+            owner: self
+        ))
+    }
+
+    override func mouseEntered(with event: NSEvent) {
+        window?.isMovable = false
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        window?.isMovable = true
     }
 }
 
-struct TopHostView<Content: View>: NSViewRepresentable {
-
+struct TabStripContainer<Content: View>: NSViewRepresentable {
     let content: Content
-    let tabFrames: [UUID: CGRect]
 
-    init(tabFrames: [UUID: CGRect], @ViewBuilder content: () -> Content) {
-        self.tabFrames = tabFrames
+    init(@ViewBuilder content: () -> Content) {
         self.content = content()
     }
 
-    func makeNSView(context: Context) -> TopContainerNSView {
-        let container = TopContainerNSView()
-        container.wantsLayer = true
+    func makeNSView(context: Context) -> TabStripContainerNSView {
+        let container = TabStripContainerNSView()
 
         let hosting = NSHostingView(rootView: content)
         hosting.translatesAutoresizingMaskIntoConstraints = true
@@ -62,8 +74,7 @@ struct TopHostView<Content: View>: NSViewRepresentable {
         return container
     }
 
-    func updateNSView(_ container: TopContainerNSView, context: Context) {
-        container.tabFrames = tabFrames
+    func updateNSView(_ container: TabStripContainerNSView, context: Context) {
         guard let hosting = container.subviews.first as? NSHostingView<Content> else { return }
         hosting.rootView = content
     }
@@ -87,8 +98,15 @@ struct BrowserToolbarView: View {
     @Binding var addressBarText: String
     let onNavigate: () -> Void
 
-    @State private var tabFrames: [UUID: CGRect] = [:]
     @State private var isProfileHovered = false
+
+    var body: some View {
+        topContent
+            .frame(maxWidth: .infinity)
+            .frame(height: ToolbarMetrics.totalHeight)
+            .background(toolbarBackground)
+            .ignoresSafeArea(edges: .top)
+    }
 
     // gonna need to work on the spacing here
     private var theme: BrowserTheme {
@@ -102,16 +120,6 @@ struct BrowserToolbarView: View {
         profileEnvironment.isGuestSession ? Color(hex: "7B52CC") : tabManager.windowThemeColor
     }
 
-    var body: some View {
-        topContent
-            .frame(maxWidth: .infinity)
-            .frame(height: ToolbarMetrics.totalHeight)
-            .background(toolbarBackground)
-            .ignoresSafeArea(edges: .top)
-            .onPreferenceChange(TabFramesKey.self) { frames in
-                tabFrames = frames
-            }
-    }
     private var topContent: some View {
         VStack(spacing: 0) {
             tabStripRow
@@ -125,23 +133,21 @@ struct BrowserToolbarView: View {
                 .fill(theme.separator)
                 .frame(height: 1)
         }
-        .coordinateSpace(name: "top")
     }
 
     private var tabStripRow: some View {
-        TopHostView(tabFrames: tabFrames) {
-            HStack(spacing: 0) {
-                Color.clear
-                    .frame(width: tabManager.isFullScreen
-                           ? 8
-                           : ToolbarMetrics.trafficLightWidth)
+        HStack(spacing: 0) {
+            WindowDragArea()
+                .frame(width: tabManager.isFullScreen
+                       ? 8
+                       : ToolbarMetrics.trafficLightWidth)
 
+            TabStripContainer {
                 TabBarView()
-                    .frame(maxWidth: .infinity)
-                Color.clear
-                    .frame(width: ToolbarMetrics.trailingPad - 8)
             }
-            .frame(height: ToolbarMetrics.tabRowHeight)
+            .frame(maxWidth: .infinity)
+            WindowDragArea()
+                .frame(width: ToolbarMetrics.trailingPad - 8)
         }
         .frame(height: ToolbarMetrics.tabRowHeight)
     }

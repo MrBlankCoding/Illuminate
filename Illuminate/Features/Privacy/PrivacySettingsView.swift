@@ -16,8 +16,6 @@ struct PrivacySettingsView: View {
     @EnvironmentObject private var webKitManager: WebKitManager
     @Environment(\.colorScheme) private var colorScheme
 
-    @State private var showClearSheet = false
-    @State private var clearRange: ClearRange = .allTime
     @State private var showClearCookiesConfirmation = false
 
     init(isEmbedded: Bool = false) {
@@ -35,18 +33,6 @@ struct PrivacySettingsView: View {
             } else {
                 ScrollView { settingsContent.padding(24) }
             }
-        }
-        .confirmationDialog(
-            "Clear Browsing Data",
-            isPresented: $showClearSheet,
-            titleVisibility: .visible
-        ) {
-            Button("Clear \(clearRange.label)", role: .destructive) {
-                performClear()
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("This will remove your browsing history\(clearRange == .allTime ? " and cannot be undone" : "").")
         }
         .confirmationDialog(
             "Clear all cookies and website data?",
@@ -139,28 +125,6 @@ struct PrivacySettingsView: View {
                     }
                 }
 
-                settingsSection(title: "Clear Browsing Data") {
-                    VStack(alignment: .leading, spacing: 14) {
-                        Picker("Time range", selection: $clearRange) {
-                            ForEach(ClearRange.allCases) { range in
-                                Text(range.label).tag(range)
-                            }
-                        }
-                        .pickerStyle(.segmented)
-
-                        Text("Clears history for the selected time period. Cookies and cache are cleared regardless of range.")
-                            .font(.system(size: 12))
-                            .foregroundStyle(.secondary)
-
-                        Button("Clear Browsing Data…") {
-                            showClearSheet = true
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .tint(.red)
-                        .controlSize(.regular)
-                    }
-                }
-
                 settingsSection(title: "Fingerprinting") {
                     toggleRow(
                         icon: "hand.raised.shield.fill",
@@ -223,34 +187,4 @@ struct PrivacySettingsView: View {
         .background(.regularMaterial)
     }
 
-    private func performClear() {
-        switch clearRange {
-        case .lastHour:
-            historyManager.clearHistory(since: Date().addingTimeInterval(-3600))
-        case .today:
-            historyManager.clearToday()
-        case .lastWeek:
-            historyManager.clearHistory(since: Date().addingTimeInterval(-7 * 86400))
-        case .allTime:
-            historyManager.clearAll()
-        }
-    }
-}
-
-private enum ClearRange: String, CaseIterable, Identifiable {
-    case lastHour = "lastHour"
-    case today    = "today"
-    case lastWeek = "lastWeek"
-    case allTime  = "allTime"
-
-    var id: String { rawValue }
-
-    var label: String {
-        switch self {
-        case .lastHour: return "Last Hour"
-        case .today:    return "Today"
-        case .lastWeek: return "Last Week"
-        case .allTime:  return "All Time"
-        }
-    }
 }

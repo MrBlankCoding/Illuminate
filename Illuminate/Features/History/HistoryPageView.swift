@@ -17,6 +17,7 @@ struct HistoryPageView: View {
 
     @State private var searchText = ""
     @State private var showClearSheet = false
+    @State private var clearRange: ClearRange = .allTime
     @State private var hostToDelete: String? = nil
     @State private var searchResults: [HistoryEntry] = []
     @State private var searchTask: Task<Void, Never>?
@@ -68,6 +69,10 @@ struct HistoryPageView: View {
             accentColor: tabManager.windowThemeColor
         ) {
             VStack(alignment: .leading, spacing: 20) {
+                if !entries.isEmpty {
+                    clearDataSection
+                }
+
                 searchBar
 
                 if entries.isEmpty {
@@ -81,21 +86,16 @@ struct HistoryPageView: View {
                     ForEach(groups, id: \.label) { group in
                         sectionView(label: group.label, entries: group.entries)
                     }
-
-                    bottomControls
                 }
             }
         }
-        .confirmationDialog("Clear History", isPresented: $showClearSheet, titleVisibility: .visible) {
-            Button("Clear Today's History", role: .destructive) {
-                historyManager.clearToday()
-            }
-            Button("Clear All History", role: .destructive) {
-                historyManager.clearAll()
+        .confirmationDialog("Clear Browsing Data", isPresented: $showClearSheet, titleVisibility: .visible) {
+            Button("Clear \(clearRange.label)", role: .destructive) {
+                performClear()
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("This cannot be undone.")
+            Text("This will remove your browsing history\(clearRange == .allTime ? " and cannot be undone" : "").")
         }
         .onChange(of: searchText) { oldValue, newValue in
             performSearch(query: newValue)
@@ -167,21 +167,55 @@ struct HistoryPageView: View {
         }
     }
 
-    private var bottomControls: some View {
-        HStack(spacing: 10) {
-            Button("Clear Today") {
-                historyManager.clearToday()
-            }
-            .buttonStyle(InternalPageChipButtonStyle(color: tabManager.windowThemeColor))
+    private var clearDataSection: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Clear Browsing Data")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(.tertiary)
+                .textCase(.uppercase)
+                .padding(.horizontal, 4)
 
-            Button("Clear All History…") {
-                showClearSheet = true
-            }
-            .buttonStyle(InternalPageChipButtonStyle(color: .red))
+            VStack(alignment: .leading, spacing: 14) {
+                Picker("Time range", selection: $clearRange) {
+                    ForEach(ClearRange.allCases) { range in
+                        Text(range.label).tag(range)
+                    }
+                }
+                .pickerStyle(.segmented)
 
-            Spacer()
+                Text("Removes your browsing history for the selected time period.")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+
+                HStack(spacing: 10) {
+                    Button("Clear Browsing Data…") {
+                        showClearSheet = true
+                    }
+                    .buttonStyle(InternalPageChipButtonStyle(color: .red))
+
+                    Spacer()
+                }
+            }
+            .padding(14)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(Color.primary.opacity(0.08), lineWidth: 0.5)
+            }
         }
-        .padding(.top, 8)
+    }
+
+    private func performClear() {
+        switch clearRange {
+        case .lastHour:
+            historyManager.clearHistory(since: Date().addingTimeInterval(-3600))
+        case .today:
+            historyManager.clearToday()
+        case .lastWeek:
+            historyManager.clearHistory(since: Date().addingTimeInterval(-7 * 86400))
+        case .allTime:
+            historyManager.clearAll()
+        }
     }
 
     private func handleRowAction(_ action: HistoryRowAction, entry: HistoryEntry) {
@@ -210,6 +244,24 @@ enum HistoryRowAction {
     case open
     case delete
     case deleteAllFromSite
+}
+
+enum ClearRange: String, CaseIterable, Identifiable {
+    case lastHour = "lastHour"
+    case today    = "today"
+    case lastWeek = "lastWeek"
+    case allTime  = "allTime"
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .lastHour: return "Last Hour"
+        case .today:    return "Today"
+        case .lastWeek: return "Last Week"
+        case .allTime:  return "All Time"
+        }
+    }
 }
 
 private struct HistoryRowView: View {

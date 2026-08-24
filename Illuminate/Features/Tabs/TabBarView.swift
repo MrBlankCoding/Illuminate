@@ -81,6 +81,8 @@ struct TabBarView: View {
             HStack(spacing: 0) {
                 tabStrip(availableWidth: geo.size.width)
                 newTabButton
+                WindowDragArea()
+                    .frame(maxWidth: .infinity)
             }
         }
         .frame(height: TabBarMetrics.rowHeight)
@@ -228,14 +230,6 @@ struct TabBarView: View {
             )
             .id(tab.id)
             .simultaneousGesture(tabDragGesture(for: tab, tabWidth: tabWidth))
-            .background(
-                GeometryReader { geo in
-                    Color.clear.preference(
-                        key: TabFramesKey.self,
-                        value: [tab.id: geo.frame(in: .named("top"))]
-                    )
-                }
-            )
         }
     }
 

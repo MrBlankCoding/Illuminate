@@ -557,9 +557,7 @@ final class TabManager: NSObject, ObservableObject, WKWebExtensionWindow {
             .max(by: { $0.lastActivatedAt < $1.lastActivatedAt })
         else { return }
 
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.78)) {
-            switchTo(mostRecentTab.id)
-        }
+        switchTo(mostRecentTab.id)
     }
 
     func switchTo(_ id: UUID) {
@@ -605,9 +603,7 @@ final class TabManager: NSObject, ObservableObject, WKWebExtensionWindow {
 
         let nextIndex = (index + delta + tabs.count) % tabs.count
         lastSwitchTime = Date()
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.78)) {
-            switchTo(tabs[nextIndex].id)
-        }
+        switchTo(tabs[nextIndex].id)
     }
 
     private func ensureValidActiveTabSelection(persist: Bool = true) {
