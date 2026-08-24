@@ -10,10 +10,10 @@ import WebKit
 
 struct ExtensionToolbarItems: View {
     @EnvironmentObject var profileEnvironment: ProfileEnvironment
+    @State private var enabledExtensions: [WKWebExtensionContext] = []
 
-    private var enabledExtensions: [WKWebExtensionContext] {
-        let _ = profileEnvironment.extensionManager.enabledStateVersion
-        return profileEnvironment.extensionManager.installedExtensions.filter {
+    private var filteredExtensions: [WKWebExtensionContext] {
+        profileEnvironment.extensionManager.installedExtensions.filter {
             profileEnvironment.extensionManager.isEnabled($0)
         }
     }
@@ -36,6 +36,15 @@ struct ExtensionToolbarItems: View {
                    value: enabledExtensions.map(\.uniqueIdentifier))
         .animation(.easeInOut(duration: 0.15),
                    value: profileEnvironment.extensionManager.isLoadingExtensions)
+        .onReceive(profileEnvironment.extensionManager.$installedExtensions) { _ in
+            enabledExtensions = filteredExtensions
+        }
+        .onReceive(profileEnvironment.extensionManager.$enabledStateVersion) { _ in
+            enabledExtensions = filteredExtensions
+        }
+        .onAppear {
+            enabledExtensions = filteredExtensions
+        }
     }
 }
 

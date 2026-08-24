@@ -12,6 +12,7 @@ struct ExtensionSettingsView: View {
     @EnvironmentObject var profileEnvironment: ProfileEnvironment
     @State private var selectedExtension: IdentifiableContext?
     @State private var showGallery = false
+    @State private var installedExtensions: [WKWebExtensionContext] = []
 
     private var manager: ExtensionManager { profileEnvironment.extensionManager }
 
@@ -89,13 +90,22 @@ struct ExtensionSettingsView: View {
             ExtensionDetailView(context: wrapper.context)
                 .environmentObject(profileEnvironment)
         }
+        .onReceive(manager.$installedExtensions) { extensions in
+            installedExtensions = extensions
+        }
+        .onReceive(manager.$enabledStateVersion) { _ in
+            installedExtensions = manager.installedExtensions
+        }
+        .onAppear {
+            installedExtensions = manager.installedExtensions
+        }
     }
 
     @ViewBuilder
     private var extensionBody: some View {
         if manager.isLoadingExtensions {
             loadingState
-        } else if manager.installedExtensions.isEmpty {
+        } else if installedExtensions.isEmpty {
             emptyState
         } else {
             extensionList
@@ -160,7 +170,7 @@ struct ExtensionSettingsView: View {
             }
 
             Section {
-                ForEach(manager.installedExtensions, id: \.self) { context in
+                ForEach(installedExtensions, id: \.self) { context in
                     ExtensionSettingsRow(context: context)
                         .contentShape(Rectangle())
                         .onTapGesture {
@@ -168,7 +178,7 @@ struct ExtensionSettingsView: View {
                         }
                 }
             } header: {
-                Text("Installed — \(manager.installedExtensions.count)")
+                Text("Installed — \(installedExtensions.count)")
             }
 
             if !manager.loadingErrors.isEmpty {
@@ -201,10 +211,10 @@ struct ExtensionSettingsView: View {
 struct ExtensionSettingsRow: View {
     let context: WKWebExtensionContext
     @EnvironmentObject var profileEnvironment: ProfileEnvironment
+    @State private var isEnabled: Bool = false
 
-    private var isEnabled: Bool {
-        let _ = profileEnvironment.extensionManager.enabledStateVersion
-        return profileEnvironment.extensionManager.isEnabled(context)
+    private var currentEnabledState: Bool {
+        profileEnvironment.extensionManager.isEnabled(context)
     }
 
     var body: some View {
@@ -256,6 +266,12 @@ struct ExtensionSettingsRow: View {
         .animation(.easeInOut(duration: 0.15), value: isEnabled)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(context.webExtension.displayName ?? "Extension"), \(isEnabled ? "enabled" : "disabled")")
+        .onReceive(profileEnvironment.extensionManager.$enabledStateVersion) { _ in
+            isEnabled = currentEnabledState
+        }
+        .onAppear {
+            isEnabled = currentEnabledState
+        }
     }
 
     @ViewBuilder

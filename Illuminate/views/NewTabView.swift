@@ -66,6 +66,7 @@ struct NewTabView: View {
 
     private var header: some View {
         VStack(spacing: 8) {
+            // should change the font or remove entierly
             Text("Illuminate")
                 .font(.system(size: 40, weight: .semibold, design: .rounded))
                 .tracking(1)
@@ -98,7 +99,11 @@ struct NewTabView: View {
                                     accentColor: tabManager.windowThemeColor,
                                     onOpen: { open(bookmark, inNewTab: false) },
                                     onOpenInNewTab: { open(bookmark, inNewTab: true) },
-                                    onDelete: { modelContext.delete(bookmark) }
+                                    onDelete: { modelContext.delete(bookmark) },
+                                    onRename: { newTitle in
+                                        bookmark.title = newTitle
+                                        try? modelContext.save()
+                                    }
                                 )
                             }
                         }
@@ -242,27 +247,20 @@ private struct NewTabBookmarkCard: View {
     let onOpen: () -> Void
     let onOpenInNewTab: () -> Void
     let onDelete: () -> Void
+    let onRename: (String) -> Void
 
     @State private var faviconImage: NSImage?
     @State private var isHovered = false
+    @State private var isRenaming = false
+    @State private var editText: String = ""
 
     var body: some View {
-        Button(action: onOpen) {
-            VStack(spacing: 8) {
-                faviconTile
-                    .frame(width: NewTabLayout.iconSize, height: NewTabLayout.iconSize)
-                    .glassEffect(.regular.interactive(), in: .rect(cornerRadius: 14))
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .stroke(Color.white.opacity(0.12), lineWidth: 0.5)
-                    }
-                    .shadow(color: .black.opacity(0.18), radius: 4, y: 2)
-
-                Text(displayTitle)
+        VStack(spacing: 8) {
+            if isRenaming {
+                TextField("Edit bookmark title", text: $editText)
+                    .textFieldStyle(.plain)
                     .font(.system(size: 11, weight: .regular))
                     .foregroundStyle(.white.opacity(0.85))
-                    .lineLimit(1)
-                    .truncationMode(.tail)
                     .padding(.horizontal, 7)
                     .padding(.vertical, 3)
                     .background(
@@ -273,25 +271,71 @@ private struct NewTabBookmarkCard: View {
                             )
                     )
                     .frame(maxWidth: NewTabLayout.tileWidth)
+                    .onSubmit {
+                        if !editText.isEmpty {
+                            bookmark.title = editText
+                            onRename(editText)
+                            isRenaming = false
+                        }
+                    }
+                    .onAppear {
+                        NSApp.keyWindow?.makeFirstResponder(nil)
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                            NSApp.keyWindow?.makeFirstResponder(NSApp.keyWindow?.firstResponder)
+                        }
+                    }
+            } else {
+                Button(action: onOpen) {
+                    VStack(spacing: 8) {
+                        faviconTile
+                            .frame(width: NewTabLayout.iconSize, height: NewTabLayout.iconSize)
+                            .glassEffect(.regular.interactive(), in: .rect(cornerRadius: 14))
+                            .overlay {
+                                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                    .stroke(Color.white.opacity(0.12), lineWidth: 0.5)
+                            }
+                            .shadow(color: .black.opacity(0.18), radius: 4, y: 2)
+
+                        Text(displayTitle)
+                            .font(.system(size: 11, weight: .regular))
+                            .foregroundStyle(.white.opacity(0.85))
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                            .padding(.horizontal, 7)
+                            .padding(.vertical, 3)
+                            .background(
+                                Capsule()
+                                    .fill(Color.black.opacity(0.22))
+                                    .overlay(
+                                        Capsule().stroke(Color.white.opacity(0.08), lineWidth: 0.5)
+                                    )
+                            )
+                            .frame(maxWidth: NewTabLayout.tileWidth)
+                    }
+                }
+                .buttonStyle(.plain)
+                .frame(width: NewTabLayout.tileWidth)
+                .opacity(isHovered ? 0.65 : 1)
+                .animation(.easeInOut(duration: 0.12), value: isHovered)
+                .onHover { isHovered = $0 }
+                .contextMenu {
+                    Button("Open") { onOpen() }
+                    Button("Open in New Tab") { onOpenInNewTab() }
+                    Divider()
+                    Button("Rename…") {
+                        editText = bookmark.title
+                        isRenaming = true
+                    }
+                    Button("Delete Bookmark", role: .destructive) { onDelete() }
+                }
+                .task(id: bookmark.url) {
+                    await loadFavicon()
+                }
+                .accessibilityLabel(displayTitle)
+                .accessibilityHint("Opens \(bookmark.url)")
+                .help(bookmark.url)
             }
         }
-        .buttonStyle(.plain)
-        .frame(width: NewTabLayout.tileWidth)
-        .opacity(isHovered ? 0.65 : 1)
-        .animation(.easeInOut(duration: 0.12), value: isHovered)
-        .onHover { isHovered = $0 }
-        .contextMenu {
-            Button("Open") { onOpen() }
-            Button("Open in New Tab") { onOpenInNewTab() }
-            Divider()
-            Button("Delete Bookmark", role: .destructive) { onDelete() }
-        }
-        .task(id: bookmark.url) {
-            await loadFavicon()
-        }
-        .accessibilityLabel(displayTitle)
-        .accessibilityHint("Opens \(bookmark.url)")
-        .help(bookmark.url)
     }
 
     @ViewBuilder

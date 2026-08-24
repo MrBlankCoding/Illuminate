@@ -341,7 +341,7 @@ final class ExtensionManager: NSObject, ObservableObject {
         context.uniqueIdentifier = newID
 
         grantRequiredPermissions(for: context)
-        prepareRuntimeStorageDirectory(for: newID)
+        prepareRuntimeStorageDirectory(for: newID, extensionName: extensionRepresentation.displayName)
 
         extensionResourceURLs[extensionRepresentation] = url
         if extensionStatesCache[newID] == nil {
@@ -377,7 +377,7 @@ final class ExtensionManager: NSObject, ObservableObject {
         bundledExtensionIdentifiers.insert(id)
 
         grantRequiredPermissions(for: context)
-        prepareRuntimeStorageDirectory(for: id)
+        prepareRuntimeStorageDirectory(for: id, extensionName: extensionRepresentation.displayName)
 
         if isEnabled(context) {
             try? controller.load(context)
@@ -408,7 +408,12 @@ final class ExtensionManager: NSObject, ObservableObject {
             do {
                 try controller.load(context)
             } catch {
-                AppLog.error("Failed to load extension context '\(id)': \(error.localizedDescription)")
+                // Ignore "Extension context is already loaded" error - it's already in the desired state
+                if error.localizedDescription.contains("already loaded") {
+                    AppLog.debug("Extension context '\(id)' is already loaded")
+                } else {
+                    AppLog.error("Failed to load extension context '\(id)': \(error.localizedDescription)")
+                }
             }
         } else {
             try? controller.unload(context)
@@ -437,7 +442,7 @@ final class ExtensionManager: NSObject, ObservableObject {
         let packageURL = shouldPersist ? try persistPackage(from: url, identifier: stagingID) : url
         if let existing = installedExtensions.first(where: { identifier(for: $0) == stagingID }) {
             try? controller.unload(existing)
-            installedExtensions.removeAll { identifier(for: $0) == stagingID }
+            installedExtensions = installedExtensions.filter { identifier(for: $0) != stagingID }
         }
 
         let context = try await buildExtensionContext(
@@ -451,10 +456,17 @@ final class ExtensionManager: NSObject, ObservableObject {
             extensionSources[stagingID] = source
         }
 
-        installedExtensions.append(context)
+        installedExtensions = installedExtensions + [context]
 
         if shouldPersist {
             saveInstalledExtensions()
+        }
+
+        // The extension is already loaded by buildExtensionContext if initiallyEnabled is true,
+        // so we don't need to call setEnabled again. Just increment the version to trigger UI updates.
+        if initiallyEnabled {
+            enabledStateVersion += 1
+            objectWillChange.send()
         }
 
         return context
@@ -466,7 +478,6 @@ final class ExtensionManager: NSObject, ObservableObject {
         try? controller.unload(context)
 
         extensionStatesCache.removeValue(forKey: id)
-        bundledExtensionIdentifiers.remove(id)
         extensionSources.removeValue(forKey: id)
 
         var states = (userDefaults.dictionary(forKey: statesKey) as? [String: Bool]) ?? [:]
@@ -487,11 +498,12 @@ final class ExtensionManager: NSObject, ObservableObject {
         }
         extensionResourceURLs.removeValue(forKey: context.webExtension)
         extensionContextCache.removeAll(where: { $0 === context })
-        removeRuntimeStorageDirectory(for: id)
+        removeRuntimeStorageDirectory(for: id, extensionName: context.webExtension.displayName)
 
-        installedExtensions.removeAll { $0 === context }
+        installedExtensions = installedExtensions.filter { $0 !== context }
         saveInstalledExtensions()
         enabledStateVersion += 1
+        objectWillChange.send()
     }
 
     func scheduleAutoUpdates(initialDelay: TimeInterval = 10) {
@@ -674,7 +686,7 @@ final class ExtensionManager: NSObject, ObservableObject {
         return targetURL
     }
 
-    private func prepareRuntimeStorageDirectory(for uniqueIdentifier: String) {
+    private func prepareRuntimeStorageDirectory(for uniqueIdentifier: String, extensionName: String? = nil) {
         guard !isGuestSession,
               let library = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first
         else { return }
@@ -683,6 +695,12 @@ final class ExtensionManager: NSObject, ObservableObject {
             .appendingPathComponent("WebExtensions", isDirectory: true)
         if let profileID { dir = dir.appendingPathComponent(profileID.uuidString, isDirectory: true) }
         dir = dir.appendingPathComponent(uniqueIdentifier, isDirectory: true)
+
+        // If extension name is provided, create the extension-specific subdirectory
+        if let extensionName = extensionName {
+            dir = dir.appendingPathComponent(extensionName, isDirectory: true)
+        }
+
         do {
             try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
             guard FileManager.default.fileExists(atPath: dir.path) else {
@@ -694,7 +712,7 @@ final class ExtensionManager: NSObject, ObservableObject {
         }
     }
 
-    private func removeRuntimeStorageDirectory(for uniqueIdentifier: String) {
+    private func removeRuntimeStorageDirectory(for uniqueIdentifier: String, extensionName: String? = nil) {
         guard !isGuestSession,
               let library = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first
         else { return }
@@ -703,6 +721,12 @@ final class ExtensionManager: NSObject, ObservableObject {
             .appendingPathComponent("WebExtensions", isDirectory: true)
         if let profileID { dir = dir.appendingPathComponent(profileID.uuidString, isDirectory: true) }
         dir = dir.appendingPathComponent(uniqueIdentifier, isDirectory: true)
+
+        // If extension name is provided, remove the extension-specific subdirectory
+        if let extensionName = extensionName {
+            dir = dir.appendingPathComponent(extensionName, isDirectory: true)
+        }
+
         guard FileManager.default.fileExists(atPath: dir.path) else { return }
         do {
             try FileManager.default.removeItem(at: dir)

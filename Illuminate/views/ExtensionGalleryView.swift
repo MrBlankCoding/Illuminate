@@ -53,8 +53,18 @@ final class RemoteGalleryCatalog: ObservableObject {
         fallbackAssetNameCandidates: ["webkit.zip", "chromium.mv3.zip"],
         externalInfoURL: URL(string: "https://apps.apple.com/us/app/ublock-origin-lite/id6745342698")
     )
+    static let darkreader = ExtensionGalleryItem(
+        id: "darkreader",
+        name: "Dark Reader",
+        description: "Dark mode for every website. Care for your eyes, use dark theme for night and daily browsing.",
+        iconURL: URL(string: "https://raw.githubusercontent.com/darkreader/darkreader/master/src/icons/icon_128.png"),
+        source: .githubRelease(repository: "darkreader/darkreader", assetNameContains: "chrome-mv3"),
+        fallbackAssetNameCandidates: ["chrome", "firefox-mv3", "firefox"],
+        externalInfoURL: URL(string: "https://darkreader.org/")
+    )
     private static let hardcodedItems: [ExtensionGalleryItem] = [
         ublock,
+        darkreader,
     ]
 
     enum FetchState { case idle, loading, done, failed }
