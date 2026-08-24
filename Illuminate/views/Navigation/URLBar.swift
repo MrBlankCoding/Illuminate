@@ -88,6 +88,7 @@ struct URLBar: View {
                 .layoutPriority(1)
                 .focused($isFocused)
                 .accessibilityIdentifier("browser.urlBar.textField")
+                .accessibilityLabel("Address bar")
                 .onSubmit {
                     isFocused = false
                     isHoveringSuggestions = false

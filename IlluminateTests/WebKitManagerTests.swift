@@ -13,7 +13,8 @@ struct WebKitManagerTests {
 
     @Test func makeConfigurationCreatesDistinctConfigurations() async throws {
         await MainActor.run {
-            let manager = WebKitManager(profile: BrowserProfile(name: "Test Profile"))
+            let extensionManager = ExtensionManager(profileID: UUID())
+            let manager = WebKitManager(profile: BrowserProfile(name: "Test Profile"), extensionManager: extensionManager)
 
             let first = manager.makeConfiguration()
             let second = manager.makeConfiguration()
@@ -25,7 +26,8 @@ struct WebKitManagerTests {
 
     @Test func makeConfigurationRespectsCookieSetting() async throws {
         await MainActor.run {
-            let manager = WebKitManager(profile: BrowserProfile(name: "Test Profile"))
+            let extensionManager = ExtensionManager(profileID: UUID())
+            let manager = WebKitManager(profile: BrowserProfile(name: "Test Profile"), extensionManager: extensionManager)
             let originalValue = manager.cookiesEnabled
             defer { manager.cookiesEnabled = originalValue }
 
@@ -42,7 +44,8 @@ struct WebKitManagerTests {
 
     @Test func guestConfigurationAlwaysUsesNonPersistentStore() async throws {
         await MainActor.run {
-            let manager = WebKitManager(profileID: nil, isPersistenceEnabled: false)
+            let extensionManager = ExtensionManager(profileID: nil, isGuestSession: true)
+            let manager = WebKitManager(profileID: nil, isPersistenceEnabled: false, extensionManager: extensionManager)
             let configuration = manager.makeConfiguration()
 
             #expect(configuration.websiteDataStore.isPersistent == false)
@@ -51,7 +54,8 @@ struct WebKitManagerTests {
 
     @Test func makeConfigurationEnablesExpectedPlaybackAndContentDefaults() async throws {
         await MainActor.run {
-            let manager = WebKitManager(profile: BrowserProfile(name: "Test Profile"))
+            let extensionManager = ExtensionManager(profileID: UUID())
+            let manager = WebKitManager(profile: BrowserProfile(name: "Test Profile"), extensionManager: extensionManager)
             let configuration = manager.makeConfiguration()
 
             #expect(configuration.mediaTypesRequiringUserActionForPlayback.isEmpty)

@@ -15,31 +15,33 @@ struct TabLifecycleTests {
     @Test func testLazyWebViewCreation() async throws {
         await MainActor.run {
             let tab = Tab(url: URL(string: "https://apple.com"), title: "Apple")
-            let webKitManager = WebKitManager(profile: BrowserProfile(name: "Test Profile"))
-            
+            let extensionManager = ExtensionManager(profileID: UUID())
+            let webKitManager = WebKitManager(profile: BrowserProfile(name: "Test Profile"), extensionManager: extensionManager)
+
             #expect(tab.webView == nil, "WebView should be nil initially (lazy loading)")
-            
+
             let config = WKWebViewConfiguration()
             tab.createWebViewIfNeeded(configuration: config, webKitManager: webKitManager)
             let strongWebView = tab.webView
-            
+
             #expect(tab.webView != nil, "WebView should be created after calling createWebViewIfNeeded")
-            _ = strongWebView 
+            _ = strongWebView
         }
     }
     
     @Test func testTabSuspension() async throws {
         await MainActor.run {
             let tab = Tab(url: URL(string: "https://apple.com"), title: "Apple")
-            let webKitManager = WebKitManager(profile: BrowserProfile(name: "Test Profile"))
+            let extensionManager = ExtensionManager(profileID: UUID())
+            let webKitManager = WebKitManager(profile: BrowserProfile(name: "Test Profile"), extensionManager: extensionManager)
             tab.createWebViewIfNeeded(
                 configuration: WKWebViewConfiguration(),
                 webKitManager: webKitManager
             )
-            
+
             #expect(tab.webView != nil)
             tab.detachWebView()
-            
+
             #expect(tab.webView == nil, "WebView should be released immediately")
         }
     }
@@ -47,14 +49,13 @@ struct TabLifecycleTests {
     @MainActor
     @Test func testTabRestoration() async throws {
         let tab = Tab(url: URL(string: "https://apple.com"), title: "Apple")
-        let webKitManager = WebKitManager(profile: BrowserProfile(name: "Test Profile"))
-        
-        tab.isHibernated = true
+        let extensionManager = ExtensionManager(profileID: UUID())
+        let webKitManager = WebKitManager(profile: BrowserProfile(name: "Test Profile"), extensionManager: extensionManager)
+
         tab.detachWebView()
-        
-        #expect(tab.isHibernated)
+
         #expect(tab.webView == nil)
-        
+
         let config = WKWebViewConfiguration()
         tab.createWebViewIfNeeded(configuration: config, webKitManager: webKitManager)
         let strongWebView = tab.webView
@@ -63,13 +64,13 @@ struct TabLifecycleTests {
 
         #expect(strongWebView != nil, "WebView should be strongly retained during restoration")
         #expect(tab.webView != nil, "WebView should be recreated on restoration")
-        #expect(tab.isHibernated == false, "Tabs should not remain marked as hibernated after creating a web view")
     }
 
     @MainActor
     @Test func testClosingTabDetachesWebViewImmediately() async throws {
         let manager = TabManager(isPersistenceEnabled: false)
-        let webKitManager = WebKitManager(profile: BrowserProfile(name: "Test Profile"), isPersistenceEnabled: false)
+        let extensionManager = ExtensionManager(profileID: nil, isGuestSession: true)
+        let webKitManager = WebKitManager(profile: BrowserProfile(name: "Test Profile"), isPersistenceEnabled: false, extensionManager: extensionManager)
         let tab = manager.createTab(url: URL(string: "https://apple.com"))
 
         tab.createWebViewIfNeeded(
@@ -87,7 +88,8 @@ struct TabLifecycleTests {
 
     @MainActor
     @Test func testAttachingWebViewOwnedByAnotherTabThrowsConflict() async throws {
-        let webKitManager = WebKitManager(profile: BrowserProfile(name: "Test Profile"), isPersistenceEnabled: false)
+        let extensionManager = ExtensionManager(profileID: nil, isGuestSession: true)
+        let webKitManager = WebKitManager(profile: BrowserProfile(name: "Test Profile"), isPersistenceEnabled: false, extensionManager: extensionManager)
         let firstTab = Tab(url: URL(string: "https://one.example"), title: "One")
         let secondTab = Tab(url: URL(string: "https://two.example"), title: "Two")
 

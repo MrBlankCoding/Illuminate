@@ -64,7 +64,9 @@ final class ChromeVersionFetcher {
         }
 
         do {
-            let (data, response) = try await URLSession.shared.data(from: url)
+            let (data, response) = try await Task.detached(priority: .utility) {
+                try await URLSession.shared.data(from: url)
+            }.value
 
             guard let http = response as? HTTPURLResponse,
                   http.statusCode == 200 else {

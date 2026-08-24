@@ -127,54 +127,45 @@ final class ContentViewModel: ObservableObject {
             return
         }
 
-        webSuggestionTask = Task { [weak self] in
-            try? await Task.sleep(nanoseconds: 50_000_000) // 50ms
+        let newIlluminateSuggestions = fetchIlluminateSuggestions(for: q)
+        if illuminatePageSuggestions != newIlluminateSuggestions {
+            illuminatePageSuggestions = newIlluminateSuggestions
+        }
+        let historyResults = historyManager?.suggestions(for: q, limit: 3) ?? []
+        if historySuggestions != historyResults {
+            historySuggestions = historyResults
+        }
+
+        guard !isLikelyURL(q), !q.starts(with: "illuminate:") else {
+            webSuggestions = []
+            return
+        }
+
+        if let cachedResults = webSuggestionCache[q] {
+            if webSuggestions != cachedResults {
+                webSuggestions = cachedResults
+            }
+            return
+        }
+
+        webSuggestionTask = Task(priority: .utility) { [weak self] in
+            try? await Task.sleep(nanoseconds: 150_000_000) // 150ms
             guard !Task.isCancelled, let self else { return }
-
-            let newIlluminateSuggestions = await self.fetchIlluminateSuggestions(for: q)
-            let historyResults = self.historyManager?.suggestions(for: q, limit: 3) ?? []
-            await MainActor.run {
-                if self.illuminatePageSuggestions != newIlluminateSuggestions {
-                    self.illuminatePageSuggestions = newIlluminateSuggestions
-                }
-                if self.historySuggestions != historyResults {
-                    self.historySuggestions = historyResults
-                }
-            }
-
-            guard !isLikelyURL(q), !q.starts(with: "illuminate:") else {
-                await MainActor.run { self.webSuggestions = [] }
-                return
-            }
-
-            if let cachedResults = webSuggestionCache[q] {
-                await MainActor.run {
-                    if self.webSuggestions != cachedResults {
-                        self.webSuggestions = cachedResults
-                    }
-                }
-                return
-            }
-
-            try? await Task.sleep(nanoseconds: 150_000_000) // 150ms additional
-            guard !Task.isCancelled else { return }
 
             let results = await Self.fetchWebSuggestions(for: q)
             guard !Task.isCancelled else { return }
-            
-            await MainActor.run {
-                if self.webSuggestionCache.count >= 50 {
-                    self.webSuggestionCache.removeAll(keepingCapacity: true)
-                }
-                self.webSuggestionCache[q] = results
-                if self.webSuggestions != results {
-                    self.webSuggestions = results
-                }
+
+            if self.webSuggestionCache.count >= 50 {
+                self.webSuggestionCache.removeAll(keepingCapacity: true)
+            }
+            self.webSuggestionCache[q] = results
+            if self.webSuggestions != results {
+                self.webSuggestions = results
             }
         }
     }
 
-    private func fetchIlluminateSuggestions(for q: String) async -> [IlluminatePageSuggestion] {
+    private func fetchIlluminateSuggestions(for q: String) -> [IlluminatePageSuggestion] {
         var matchingPages: [IlluminatePage] = []
         if q.starts(with: "illuminate://") {
             let filter = q.replacingOccurrences(of: "illuminate://", with: "")

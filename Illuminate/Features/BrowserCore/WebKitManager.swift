@@ -16,6 +16,9 @@ final class WebKitManager: ObservableObject {
     
     @Published var cookiesEnabled: Bool = true {
         didSet {
+            guard oldValue != cookiesEnabled else { return }
+            sharedWebsiteDataStore = nil
+            sharedConfiguration = nil
             guard !isLoadingProfile, isPersistenceEnabled else { return }
             AppLog.info("WebKitManager: Setting changed cookiesEnabled=\(cookiesEnabled)")
             userDefaults.set(cookiesEnabled, forKey: scopedKey("cookiesEnabled"))
@@ -95,13 +98,9 @@ final class WebKitManager: ObservableObject {
     }
 
     func makeConfiguration() -> WKWebViewConfiguration {
-        if let existing = sharedConfiguration {
-            return existing
-        }
-
         let configuration = WKWebViewConfiguration()
         configuration.mediaTypesRequiringUserActionForPlayback = []
-        
+
         configuration.websiteDataStore = activeWebsiteDataStore()
         configuration.defaultWebpagePreferences.allowsContentJavaScript = true
         configuration.defaultWebpagePreferences.preferredContentMode = .desktop
@@ -109,17 +108,16 @@ final class WebKitManager: ObservableObject {
         let preferences = WKPreferences()
         preferences.isTextInteractionEnabled = true
         preferences.isElementFullscreenEnabled = true
-        
+
         configuration.preferences = preferences
         configuration.userContentController = WKUserContentController()
         configuration.preferences.setValue(true, forKey: "developerExtrasEnabled")
         configuration.webExtensionController = extensionManager.controller
-        
+
         if let ua = cachedUserAgent, let chromeVersion = ua.components(separatedBy: " Chrome/").last {
              configuration.applicationNameForUserAgent = "Chrome/\(chromeVersion)"
         }
 
-        sharedConfiguration = configuration
         return configuration
     }
 
@@ -178,7 +176,7 @@ final class WebKitManager: ObservableObject {
         }
 
         guard let activeProfileID else {
-            return .default()
+            return .nonPersistent()
         }
 
         return WKWebsiteDataStore(forIdentifier: activeProfileID)

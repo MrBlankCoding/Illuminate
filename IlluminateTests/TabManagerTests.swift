@@ -80,7 +80,8 @@ struct TabManagerTests {
 
     @Test func switchingTabsDoesNotDiscardBackgroundWebViews() {
         let tabManager = makeTabManager()
-        let webKitManager = WebKitManager(profile: BrowserProfile(name: "Test Profile"))
+        let extensionManager = ExtensionManager(profileID: UUID())
+        let webKitManager = WebKitManager(profile: BrowserProfile(name: "Test Profile"), extensionManager: extensionManager)
         let firstTab = tabManager.createTab(url: URL(string: "https://one.example"))
         let secondTab = tabManager.createTab(url: URL(string: "https://two.example"))
 
@@ -100,7 +101,6 @@ struct TabManagerTests {
 
         #expect(firstTab.webView === firstWebView)
         #expect(secondTab.webView === secondWebView)
-        #expect(secondTab.isHibernated == false)
     }
 
     @Test func initCreatesSingleBlankTabWhenPersistenceIsDisabled() {

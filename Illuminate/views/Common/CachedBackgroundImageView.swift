@@ -68,7 +68,9 @@ struct CachedBackgroundImageView: View {
             if targetURL.isFileURL {
                 data = try Data(contentsOf: targetURL)
             } else {
-                let (remoteData, response) = try await URLSession.shared.data(from: targetURL)
+                let (remoteData, response) = try await Task.detached(priority: .utility) {
+                    try await URLSession.shared.data(from: targetURL)
+                }.value
                 guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else { return }
                 data = remoteData
             }

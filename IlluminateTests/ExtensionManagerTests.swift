@@ -307,8 +307,6 @@ struct ExtensionManagerPersistenceTests {
         let manager = ExtensionManager(profileID: profileID, isGuestSession: true)
 
         try await waitUntil(timeout: .seconds(2)) { !manager.isLoadingExtensions }
-        let persistenceURL = FileManager.default.illuminateAppSupportDirectory()
-            .appendingPathComponent("extensions-\(profileID.uuidString).json")
         #expect(manager.installedExtensions.isEmpty || manager.isGuestSession)
     }
 

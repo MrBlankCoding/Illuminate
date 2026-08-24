@@ -19,11 +19,11 @@ struct NavigationControls: View {
 
     var body: some View {
         HStack(spacing: 1) {
-            navButton(systemName: "chevron.left", identifier: "browser.navigation.backButton", isEnabled: tab.canGoBack, help: "Go Back") {
+            navButton(systemName: "chevron.left", identifier: "browser.navigation.backButton", isEnabled: tab.canGoBack, help: "Go Back", accessibilityLabel: "Back") {
                 tab.webView?.goBack()
             }
 
-            navButton(systemName: "chevron.right", identifier: "browser.navigation.forwardButton", isEnabled: tab.canGoForward, help: "Go Forward") {
+            navButton(systemName: "chevron.right", identifier: "browser.navigation.forwardButton", isEnabled: tab.canGoForward, help: "Go Forward", accessibilityLabel: "Forward") {
                 tab.webView?.goForward()
             }
 
@@ -33,7 +33,8 @@ struct NavigationControls: View {
                 identifier: "browser.navigation.reloadButton",
                 isEnabled: true,
                 isGreyedOut: !isActualPage,
-                help: tab.isLoading ? "Stop Loading" : "Reload Page"
+                help: tab.isLoading ? "Stop Loading" : "Reload Page",
+                accessibilityLabel: tab.isLoading ? "Stop" : "Reload"
             ) {
                 if tab.isLoading {
                     tab.webView?.stopLoading()
@@ -45,7 +46,7 @@ struct NavigationControls: View {
         .navClusterBackground()
     }
 
-    private func navButton(systemName: String, identifier: String, isEnabled: Bool, isGreyedOut: Bool = false, help: String = "", action: @escaping () -> Void) -> some View {
+    private func navButton(systemName: String, identifier: String, isEnabled: Bool, isGreyedOut: Bool = false, help: String = "", accessibilityLabel: String = "", action: @escaping () -> Void) -> some View {
         NavigationControlButton(
             systemName: systemName,
             identifier: identifier,
@@ -53,6 +54,7 @@ struct NavigationControls: View {
             isEnabled: isEnabled,
             isGreyedOut: isGreyedOut,
             helpText: help,
+            accessibilityLabel: accessibilityLabel.isEmpty ? help : accessibilityLabel,
             action: action
         )
     }
@@ -65,6 +67,7 @@ private struct NavigationControlButton: View {
     let isEnabled: Bool
     var isGreyedOut: Bool = false
     var helpText: String = ""
+    var accessibilityLabel: String = ""
     let action: () -> Void
     @State private var isHovered = false
 
@@ -86,6 +89,7 @@ private struct NavigationControlButton: View {
         .hoverCursor(isGreyedOut ? .arrow : .pointingHand)
         .help(helpText)
         .accessibilityIdentifier(identifier)
+        .accessibilityLabel(accessibilityLabel.isEmpty ? helpText : accessibilityLabel)
     }
 
     private var symbolColor: Color {

@@ -92,23 +92,39 @@ struct ViewModelBehaviorTests {
         #expect(tab.title == "Protection")
     }
 
-    @Test func updateSuggestionsIncludesIlluminatePageSuggestions() {
+    @Test
+    func updateSuggestionsIncludesIlluminatePageSuggestions() async throws {
         let synchronizer = URLSynchronizer()
-        let tabManager = TabManager(urlSynchronizer: synchronizer, isPersistenceEnabled: false)
-        let viewModel = ContentViewModel(tabManager: tabManager, urlSynchronizer: synchronizer)
+        let tabManager = TabManager(
+            urlSynchronizer: synchronizer,
+            isPersistenceEnabled: false
+        )
+        let viewModel = ContentViewModel(
+            tabManager: tabManager,
+            urlSynchronizer: synchronizer
+        )
 
         viewModel.updateSuggestions(for: "info")
-        #expect(viewModel.illuminatePageSuggestions.contains(where: { $0.page == .info }))
+        try await Task.sleep(nanoseconds: 100_000_000)
+
+        #expect(viewModel.illuminatePageSuggestions.contains { $0.page == .info })
 
         viewModel.updateSuggestions(for: "illuminate://")
-        #expect(viewModel.illuminatePageSuggestions.count == IlluminatePage.allCases.count)
+        try await Task.sleep(nanoseconds: 100_000_000)
 
-        // Open an illuminate tab and check if suggestion recognizes it as an open tab
+        #expect(
+            viewModel.illuminatePageSuggestions.count == IlluminatePage.allCases.count
+        )
+
         let infoURL = URL(string: "illuminate://info")!
         let openTab = tabManager.createTab(url: infoURL)
-        viewModel.updateSuggestions(for: "info")
 
-        let infoSuggestion = viewModel.illuminatePageSuggestions.first(where: { $0.page == .info })
+        viewModel.updateSuggestions(for: "info")
+        try await Task.sleep(nanoseconds: 100_000_000)
+
+        let infoSuggestion = viewModel.illuminatePageSuggestions
+            .first { $0.page == .info }
+
         #expect(infoSuggestion?.isCurrentlyOpenTab == true)
         #expect(infoSuggestion?.openTabID == openTab.id)
     }

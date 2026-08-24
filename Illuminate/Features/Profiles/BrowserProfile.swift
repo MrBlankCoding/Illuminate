@@ -7,8 +7,8 @@
 
 import Foundation
 
-struct BrowserProfile: Identifiable, Codable, Hashable {
-    struct DownloadPreferences: Codable, Hashable {
+nonisolated struct BrowserProfile: Identifiable, Codable, Hashable, Sendable {
+    nonisolated struct DownloadPreferences: Codable, Hashable, Sendable {
         var safeDownloadsOnly: Bool
         var revealInFinderWhenFinished: Bool
 

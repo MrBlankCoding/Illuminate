@@ -185,6 +185,7 @@ struct NewTabView: View {
         .buttonStyle(.plain)
         .accessibilityLabel(isCustomizePanelShown ? "Close customize panel" : "Customize new tab page")
         .accessibilityIdentifier("browser.newTab.customizeButton")
+        .accessibilityHint(isCustomizePanelShown ? "Closes the customize panel" : "Opens the customize panel")
         .help(isCustomizePanelShown ? "Close" : "Customize")
     }
 

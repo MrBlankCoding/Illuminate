@@ -815,7 +815,7 @@ final class TabManager: NSObject, ObservableObject, WKWebExtensionWindow {
     private func handleExtensionListChanged() {
         AppLog.debug("[TabManager] Extension list changed - installed extensions count: \(extensionManager.installedExtensions.count)")
         for tab in tabs {
-            if let url = tab.url {
+            if tab.url != nil {
                 tab.reload()
             }
         }

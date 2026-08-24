@@ -172,14 +172,13 @@ final class ExtensionManager: NSObject, ObservableObject {
 
     private func triggerLoad() {
         guard loadingTask == nil || loadingTask?.isCancelled == true else { return }
+        isLoadingExtensions = true
         loadingTask = Task { [weak self] in
             await self?.loadAllExtensions()
         }
     }
 
     private func loadAllExtensions() async {
-        guard !isLoadingExtensions else { return }
-        isLoadingExtensions = true
         loadingErrors = []
 
         defer {

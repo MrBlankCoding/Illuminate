@@ -79,7 +79,9 @@ final class FaviconCache: @unchecked Sendable {
 
                 switch url.scheme?.lowercased() {
                 case "http", "https":
-                    let (data, _) = try await URLSession.shared.data(from: url)
+                    let (data, _) = try await Task.detached(priority: .utility) {
+                        try await URLSession.shared.data(from: url)
+                    }.value
                     return data
                 // this is our icon
                 // dont cache

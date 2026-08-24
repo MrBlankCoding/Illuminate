@@ -20,7 +20,9 @@ final class ImageColorExtractor {
             if url.isFileURL {
                 data = try Data(contentsOf: url)
             } else {
-                let (remoteData, _) = try await URLSession.shared.data(from: url)
+                let (remoteData, _) = try await Task.detached(priority: .utility) {
+                    try await URLSession.shared.data(from: url)
+                }.value
                 data = remoteData
             }
             guard let image = NSImage(data: data) else { return [] }
