@@ -255,6 +255,9 @@ struct ExtensionGalleryCard: View {
         .onReceive(profileEnvironment.extensionManager.$installedExtensions) { _ in
             syncInstalledState()
         }
+        .onReceive(profileEnvironment.extensionManager.$pinnedExtensions) { _ in
+            syncInstalledState()
+        }
     }
 
     private var iconView: some View {
@@ -390,11 +393,13 @@ struct ExtensionGalleryCard: View {
             for candidate in candidateSources {
                 do {
                     let packageURL = try await ExtensionPackageDownloader.downloadUnpackedPackage(from: candidate)
-                    _ = try await profileEnvironment.extensionManager.installExtension(
+                    let context = try await profileEnvironment.extensionManager.installExtension(
                         from: packageURL,
                         preferredIdentifier: item.id,
                         source: candidate
                     )
+                    // Auto-pin newly installed extensions
+                    profileEnvironment.extensionManager.setPinned(context, pinned: true)
                     withAnimation { installState = .installed }
                     return
                 } catch {

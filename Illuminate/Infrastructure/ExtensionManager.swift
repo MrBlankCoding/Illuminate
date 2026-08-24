@@ -72,6 +72,7 @@ final class ExtensionManager: NSObject, ObservableObject {
     @Published private(set) var enabledStateVersion: Int = 0
     @Published private(set) var pendingUpdateCount: Int = 0
     @Published private(set) var isCheckingForUpdates: Bool = false
+    @Published private(set) var pinnedExtensions: Set<String> = []
 
     @Published var activePermissionRequest: PermissionRequest?
 
@@ -87,6 +88,11 @@ final class ExtensionManager: NSObject, ObservableObject {
     private var statesKey: String {
         if let id = profileID { return "illuminate.extension.states.\(id.uuidString)" }
         return "illuminate.extension.states.global"
+    }
+
+    private var pinnedExtensionsKey: String {
+        if let id = profileID { return "illuminate.extension.pinned.\(id.uuidString)" }
+        return "illuminate.extension.pinned.global"
     }
 
     private var extensionResourceURLs: [WKWebExtension: URL] = [:]
@@ -160,6 +166,7 @@ final class ExtensionManager: NSObject, ObservableObject {
         self.controller.delegate = self
 
         loadExtensionStatesCache()
+        loadPinnedExtensions()
         triggerLoad()
     }
 
@@ -319,6 +326,15 @@ final class ExtensionManager: NSObject, ObservableObject {
         extensionStatesCache = (userDefaults.dictionary(forKey: statesKey) as? [String: Bool]) ?? [:]
     }
 
+    private func loadPinnedExtensions() {
+        pinnedExtensions = Set(userDefaults.stringArray(forKey: pinnedExtensionsKey) ?? [])
+    }
+
+    private func persistPinnedExtensions() {
+        guard !isGuestSession else { return }
+        userDefaults.set(Array(pinnedExtensions), forKey: pinnedExtensionsKey)
+    }
+
     private func buildExtensionContext(
         from url: URL,
         identifier preferredIdentifier: String?,
@@ -423,6 +439,21 @@ final class ExtensionManager: NSObject, ObservableObject {
         enabledStateVersion += 1
     }
 
+    func isPinned(_ context: WKWebExtensionContext) -> Bool {
+        pinnedExtensions.contains(identifier(for: context))
+    }
+
+    func setPinned(_ context: WKWebExtensionContext, pinned: Bool) {
+        let id = identifier(for: context)
+        if pinned {
+            pinnedExtensions.insert(id)
+        } else {
+            pinnedExtensions.remove(id)
+        }
+        persistPinnedExtensions()
+        objectWillChange.send()
+    }
+
     func matchesGalleryItem(_ item: ExtensionGalleryItem, context: WKWebExtensionContext) -> Bool {
         if identifier(for: context) == item.id { return true }
         let names = [context.webExtension.displayName, context.webExtension.displayShortName]
@@ -479,6 +510,7 @@ final class ExtensionManager: NSObject, ObservableObject {
 
         extensionStatesCache.removeValue(forKey: id)
         extensionSources.removeValue(forKey: id)
+        pinnedExtensions.remove(id)
 
         var states = (userDefaults.dictionary(forKey: statesKey) as? [String: Bool]) ?? [:]
         states.removeValue(forKey: id)

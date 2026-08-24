@@ -212,9 +212,14 @@ struct ExtensionSettingsRow: View {
     let context: WKWebExtensionContext
     @EnvironmentObject var profileEnvironment: ProfileEnvironment
     @State private var isEnabled: Bool = false
+    @State private var isPinned: Bool = false
 
     private var currentEnabledState: Bool {
         profileEnvironment.extensionManager.isEnabled(context)
+    }
+
+    private var currentPinnedState: Bool {
+        profileEnvironment.extensionManager.isPinned(context)
     }
 
     var body: some View {
@@ -252,14 +257,27 @@ struct ExtensionSettingsRow: View {
                     .foregroundStyle(.tertiary)
             }
 
-            Toggle("", isOn: Binding(
-                get: { isEnabled },
-                set: { newValue in
-                    profileEnvironment.extensionManager.setEnabled(context, enabled: newValue)
+            HStack(spacing: 8) {
+                Button {
+                    isPinned.toggle()
+                    profileEnvironment.extensionManager.setPinned(context, pinned: isPinned)
+                } label: {
+                    Image(systemName: isPinned ? "pin.fill" : "pin")
+                        .font(.system(size: 13))
+                        .foregroundStyle(isPinned ? Color.accentColor : Color.secondary)
                 }
-            ))
-            .toggleStyle(.switch)
-            .labelsHidden()
+                .buttonStyle(.plain)
+                .help(isPinned ? "Unpin from toolbar" : "Pin to toolbar")
+
+                Toggle("", isOn: Binding(
+                    get: { isEnabled },
+                    set: { newValue in
+                        profileEnvironment.extensionManager.setEnabled(context, enabled: newValue)
+                    }
+                ))
+                .toggleStyle(.switch)
+                .labelsHidden()
+            }
         }
         .padding(.vertical, 4)
         .opacity(isEnabled ? 1.0 : 0.65)
@@ -269,8 +287,12 @@ struct ExtensionSettingsRow: View {
         .onReceive(profileEnvironment.extensionManager.$enabledStateVersion) { _ in
             isEnabled = currentEnabledState
         }
+        .onReceive(profileEnvironment.extensionManager.$pinnedExtensions) { _ in
+            isPinned = currentPinnedState
+        }
         .onAppear {
             isEnabled = currentEnabledState
+            isPinned = currentPinnedState
         }
     }
 

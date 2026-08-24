@@ -10,11 +10,12 @@ import WebKit
 
 struct ExtensionToolbarItems: View {
     @EnvironmentObject var profileEnvironment: ProfileEnvironment
-    @State private var enabledExtensions: [WKWebExtensionContext] = []
+    @State private var pinnedExtensions: [WKWebExtensionContext] = []
 
     private var filteredExtensions: [WKWebExtensionContext] {
-        profileEnvironment.extensionManager.installedExtensions.filter {
-            profileEnvironment.extensionManager.isEnabled($0)
+        profileEnvironment.extensionManager.installedExtensions.filter { context in
+            profileEnvironment.extensionManager.isEnabled(context) &&
+            profileEnvironment.extensionManager.isPinned(context)
         }
     }
 
@@ -26,24 +27,27 @@ struct ExtensionToolbarItems: View {
                     .frame(width: 16, height: 16)
                     .transition(.opacity)
             } else {
-                ForEach(enabledExtensions, id: \.self) { context in
+                ForEach(pinnedExtensions, id: \.self) { context in
                     ExtensionToolbarItemView(context: context)
                         .transition(AnyTransition.scale(scale: 0.7).combined(with: .opacity))
                 }
             }
         }
         .animation(.spring(response: 0.28, dampingFraction: 0.75),
-                   value: enabledExtensions.map(\.uniqueIdentifier))
+                   value: pinnedExtensions.map(\.uniqueIdentifier))
         .animation(.easeInOut(duration: 0.15),
                    value: profileEnvironment.extensionManager.isLoadingExtensions)
         .onReceive(profileEnvironment.extensionManager.$installedExtensions) { _ in
-            enabledExtensions = filteredExtensions
+            pinnedExtensions = filteredExtensions
         }
         .onReceive(profileEnvironment.extensionManager.$enabledStateVersion) { _ in
-            enabledExtensions = filteredExtensions
+            pinnedExtensions = filteredExtensions
+        }
+        .onReceive(profileEnvironment.extensionManager.$pinnedExtensions) { _ in
+            pinnedExtensions = filteredExtensions
         }
         .onAppear {
-            enabledExtensions = filteredExtensions
+            pinnedExtensions = filteredExtensions
         }
     }
 }
@@ -305,7 +309,7 @@ struct ExtensionPopupWebViewRepresentable: NSViewRepresentable {
         coordinator.host = host
         if popupWebView.configuration.userContentController
             .value(forKey: "userScripts") != nil || true {
-            try? popupWebView.configuration.userContentController
+            popupWebView.configuration.userContentController
                 .removeScriptMessageHandler(forName: "popupSize")
         }
         popupWebView.configuration.userContentController
