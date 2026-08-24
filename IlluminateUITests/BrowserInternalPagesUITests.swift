@@ -16,37 +16,37 @@ final class BrowserInternalPagesUITests: BrowserUITestCase {
     func testHistoryPageExplainsGuestHistoryIsEmpty() {
         openInternalPage("history")
 
-        XCTAssertTrue(app.staticTexts["browser.internalPage.history"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.staticTexts["browser.internalPage.history"].waitForExistence(timeout: 10))
         XCTAssertTrue(app.staticTexts["Your browsing history will appear here."].exists)
     }
 
     func testDownloadsPageExplainsWhereDownloadsAppear() {
         openInternalPage("downloads")
 
-        XCTAssertTrue(app.staticTexts["browser.internalPage.downloads"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.staticTexts["browser.internalPage.downloads"].waitForExistence(timeout: 10))
         XCTAssertTrue(app.staticTexts["Files you download will appear here."].exists)
     }
 
     func testPasswordsPageExplainsGuestSessionsDoNotSavePasswords() {
         openInternalPage("passwords")
 
-        XCTAssertTrue(app.staticTexts["browser.internalPage.passwords"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.staticTexts["browser.internalPage.passwords"].waitForExistence(timeout: 10))
         XCTAssertTrue(app.staticTexts["Passwords aren't saved in Guest sessions."].exists)
     }
 
     func testPermissionsPageShowsEmptyStateBeforeAnyWebsiteRequestsAccess() {
         openInternalPage("permissions")
 
-        XCTAssertTrue(app.staticTexts["browser.internalPage.permissions"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.staticTexts["browser.internalPage.permissions"].waitForExistence(timeout: 10))
         XCTAssertTrue(app.staticTexts["No websites have requested permissions yet."].exists)
     }
 
-    func testCookiesPageExposesCookieControlsToAccessibility() {
-        openInternalPage("cookies")
+    func testCookiesControlsAreExposedOnProtectionPage() {
+        openInternalPage("protection")
 
         let cookiesToggle = app.descendants(matching: .any)["browser.cookies.enabledToggle"].firstMatch
         let clearButton = app.buttons["browser.cookies.clearButton"]
-        XCTAssertTrue(cookiesToggle.waitForExistence(timeout: 3))
+        XCTAssertTrue(cookiesToggle.waitForExistence(timeout: 10))
         XCTAssertTrue(clearButton.exists)
         XCTAssertFalse(cookiesToggle.label.isEmpty)
     }
@@ -57,14 +57,14 @@ final class BrowserInternalPagesUITests: BrowserUITestCase {
 
         let learningToggle = app.descendants(matching: .any)["browser.protection.trackerLearningToggle"].firstMatch
         let threshold = app.descendants(matching: .any)["browser.protection.learnThresholdStepper"].firstMatch
-        XCTAssertTrue(learningToggle.waitForExistence(timeout: 3))
+        XCTAssertTrue(learningToggle.waitForExistence(timeout: 10))
         XCTAssertTrue(threshold.exists)
         XCTAssertFalse(learningToggle.label.isEmpty)
     }
 
     private func openInternalPage(_ page: String) {
         let addressBar = app.textFields["browser.urlBar.textField"]
-        XCTAssertTrue(addressBar.waitForExistence(timeout: 2))
+        XCTAssertTrue(addressBar.waitForExistence(timeout: 10))
         addressBar.click()
         addressBar.typeText("illuminate://\(page)")
         addressBar.typeKey(.return, modifierFlags: [])

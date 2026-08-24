@@ -12,10 +12,13 @@ struct PrivacySettingsView: View {
     @EnvironmentObject private var historyManager: HistoryManager
     @EnvironmentObject private var tabManager: TabManager
     @EnvironmentObject private var canvasFingerprintingService: CanvasFingerprintingService
+    @EnvironmentObject private var environment: ProfileEnvironment
+    @EnvironmentObject private var webKitManager: WebKitManager
     @Environment(\.colorScheme) private var colorScheme
 
     @State private var showClearSheet = false
     @State private var clearRange: ClearRange = .allTime
+    @State private var showClearCookiesConfirmation = false
 
     init(isEmbedded: Bool = false) {
         self.isEmbedded = isEmbedded
@@ -45,6 +48,18 @@ struct PrivacySettingsView: View {
         } message: {
             Text("This will remove your browsing history\(clearRange == .allTime ? " and cannot be undone" : "").")
         }
+        .confirmationDialog(
+            "Clear all cookies and website data?",
+            isPresented: $showClearCookiesConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Clear All", role: .destructive) {
+                CookieViewModel().clearAllCookies(with: environment.webKitManager)
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This will sign you out of all websites.")
+        }
     }
 
     private var settingsContent: some View {
@@ -71,6 +86,51 @@ struct PrivacySettingsView: View {
                             subtitle: "Previously visited pages appear in the address bar.",
                             isOn: $historyManager.showHistorySuggestions
                         )
+                    }
+                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .stroke(Color.primary.opacity(0.08), lineWidth: 0.5)
+                    }
+                }
+
+                settingsSection(title: "Cookies") {
+                    VStack(spacing: 0) {
+                        toggleRow(
+                            icon: "circle.hexagongrid.fill",
+                            title: "Enable cookies",
+                            subtitle: "Allow websites to store sign-in, preference, and session data.",
+                            isOn: $webKitManager.cookiesEnabled
+                        )
+                        .accessibilityIdentifier("browser.cookies.enabledToggle")
+                        Divider().padding(.leading, 48)
+                        HStack(spacing: 12) {
+                            Image(systemName: "xmark.circle")
+                                .font(.system(size: 15, weight: .medium))
+                                .foregroundStyle(tabManager.windowThemeColor)
+                                .frame(width: 28, height: 28)
+
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Clear all cookies and website data")
+                                    .font(.system(size: 13, weight: .medium))
+                                Text("Removes stored data for all sites. You'll be signed out everywhere.")
+                                    .font(.system(size: 11))
+                                    .foregroundStyle(.secondary)
+                            }
+
+                            Spacer()
+
+                            Button("Clear") {
+                                showClearCookiesConfirmation = true
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .tint(.red)
+                            .controlSize(.small)
+                            .accessibilityIdentifier("browser.cookies.clearButton")
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 12)
+                        .background(.regularMaterial)
                     }
                     .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                     .overlay {

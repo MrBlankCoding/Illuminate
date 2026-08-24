@@ -31,7 +31,7 @@ struct IlluminateApp: App {
         runtimeSecurityMonitor     = RuntimeSecurityMonitor(notificationCenter: center)
 
         do {
-            modelContainer = try ModelContainer(for: Bookmark.self, Password.self, HistoryEntry.self)
+            modelContainer = try ModelContainer(for: Bookmark.self, Password.self, HistoryEntry.self, DownloadRecord.self)
         } catch {
             AppLog.info("Failed to create ModelContainer: \(error)")
             fatalError("Failed to create ModelContainer: \(error)")

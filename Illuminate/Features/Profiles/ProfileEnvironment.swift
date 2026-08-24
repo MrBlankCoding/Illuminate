@@ -28,6 +28,7 @@ final class ProfileEnvironment: ObservableObject {
     let viewModel: ContentViewModel
     let historyManager: HistoryManager
     let extensionManager: ExtensionManager
+    let downloadHistoryStore: DownloadHistoryStore
 
     let modelContainer: ModelContainer
 
@@ -56,6 +57,12 @@ final class ProfileEnvironment: ObservableObject {
         // Start the recurring auto-update cycle. The first check fires after a short
         // delay so the app finishes launching before hitting the network.
         self.extensionManager.scheduleAutoUpdates()
+        self.downloadHistoryStore = DownloadHistoryStore(
+            profileID: isGuestSession ? nil : profile.id,
+            isGuestSession: isGuestSession,
+            modelContainer: modelContainer
+        )
+        DownloadHistoryRegistry.shared.register(self.downloadHistoryStore)
         self.tabManager = TabManager(
             profileID: isGuestSession ? nil : profile.id,
             urlSynchronizer: self.urlSynchronizer,
@@ -100,6 +107,7 @@ final class ProfileEnvironment: ObservableObject {
         historyManager.prepareForRemoval()
         trackerBlockingService.prepareForRemoval()
         websitePermissionService.prepareForRemoval()
+        DownloadHistoryRegistry.shared.unregister(downloadHistoryStore)
     }
 
     deinit {

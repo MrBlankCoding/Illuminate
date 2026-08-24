@@ -118,6 +118,7 @@ final class TabManager: NSObject, ObservableObject, WKWebExtensionWindow {
     let extensionManager: ExtensionManager
 
     private var activeProfileID: UUID?
+    var profileID: UUID? { activeProfileID }
     var tabIndex: [UUID: Tab] = [:]
     private var tabPositionIndex: [UUID: Int] = [:]
 
@@ -667,8 +668,6 @@ final class TabManager: NSObject, ObservableObject, WKWebExtensionWindow {
         switch pageURL?.host?.lowercased() {
         case "passwords":
             return NSImage(systemSymbolName: "key.fill", accessibilityDescription: "Passwords")
-        case "cookies":
-            return NSImage(systemSymbolName: "circle.hexagongrid.fill", accessibilityDescription: "Cookies")
         case "protection":
             return NSImage(systemSymbolName: "shield.fill", accessibilityDescription: "Protection")
         case "downloads":

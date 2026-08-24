@@ -424,7 +424,8 @@ extension WebViewRepresentable {
                 AppLog.download("Intercepted navigationAction download outside WebKit url=\(AppLog.sanitizedURL(url))")
                 DownloadManager.shared.startDownload(
                     using: navigationAction.request,
-                    suggestedFilename: url.lastPathComponent.nilIfEmpty
+                    suggestedFilename: url.lastPathComponent.nilIfEmpty,
+                    profileID: tabManager.profileID
                 )
                 decisionHandler(.cancel)
                 return
@@ -460,7 +461,8 @@ extension WebViewRepresentable {
                 AppLog.download("Intercepted navigationResponse download outside WebKit url=\(AppLog.sanitizedURL(url))")
                 DownloadManager.shared.startDownload(
                     using: URLRequest(url: url),
-                    suggestedFilename: navigationResponse.response.suggestedFilename
+                    suggestedFilename: navigationResponse.response.suggestedFilename,
+                    profileID: tabManager.profileID
                 )
                 decisionHandler(.cancel)
                 return
@@ -475,10 +477,10 @@ extension WebViewRepresentable {
                shouldHandleDownloadOutsideWebKit(for: url)
             {
                 download.cancel()
-                DownloadManager.shared.startDownload(using: request)
+                DownloadManager.shared.startDownload(using: request, profileID: tabManager.profileID)
                 return
             }
-            DownloadManager.shared.addDownload(download)
+            DownloadManager.shared.addDownload(download, profileID: tabManager.profileID)
         }
 
         func webView(_ webView: WKWebView, navigationResponse: WKNavigationResponse, didBecome download: WKDownload) {
@@ -489,11 +491,12 @@ extension WebViewRepresentable {
                 download.cancel()
                 DownloadManager.shared.startDownload(
                     using: request,
-                    suggestedFilename: navigationResponse.response.suggestedFilename
+                    suggestedFilename: navigationResponse.response.suggestedFilename,
+                    profileID: tabManager.profileID
                 )
                 return
             }
-            DownloadManager.shared.addDownload(download)
+            DownloadManager.shared.addDownload(download, profileID: tabManager.profileID)
         }
 
         func webView(
@@ -630,7 +633,7 @@ extension WebViewRepresentable {
         @objc private func triggerIlluminateDownload() {
             guard let url = contextMenuDownloadURL ?? tab?.url, url.scheme != "illuminate" else { return }
             let suggestedFilename = url.lastPathComponent.nilIfEmpty ?? "download"
-            DownloadManager.shared.startDownload(from: url, suggestedFilename: suggestedFilename)
+            DownloadManager.shared.startDownload(from: url, suggestedFilename: suggestedFilename, profileID: tabManager.profileID)
         }
 
         private func preferredDownloadURL(from elementInfo: Any) -> URL? {

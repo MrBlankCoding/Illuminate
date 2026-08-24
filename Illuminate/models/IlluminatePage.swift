@@ -10,7 +10,6 @@ import SwiftUI
 
 enum IlluminatePage: String, CaseIterable, Equatable {
     case passwords
-    case cookies
     case protection
     case downloads
     case history
@@ -36,7 +35,6 @@ enum IlluminatePage: String, CaseIterable, Equatable {
     var title: String {
         switch self {
         case .passwords: return "Passwords"
-        case .cookies: return "Cookies & Website Data"
         case .protection: return "Privacy & Protection"
         case .downloads: return "Downloads"
         case .history: return "History"
@@ -49,7 +47,6 @@ enum IlluminatePage: String, CaseIterable, Equatable {
     var tabTitle: String {
         switch self {
         case .passwords: return "Passwords"
-        case .cookies: return "Cookies"
         case .protection: return "Protection"
         case .downloads: return "Downloads"
         case .history: return "History"
@@ -62,7 +59,6 @@ enum IlluminatePage: String, CaseIterable, Equatable {
     var icon: String {
         switch self {
         case .passwords: return "key.fill"
-        case .cookies: return "circle.hexagongrid.fill"
         case .protection: return "shield.fill"
         case .downloads: return "arrow.down.circle.fill"
         case .history: return "clock.arrow.circlepath"
@@ -75,8 +71,7 @@ enum IlluminatePage: String, CaseIterable, Equatable {
     var keywords: [String] {
         switch self {
         case .passwords: return ["passwords", "credentials", "logins", "keys", "accounts", "autofill"]
-        case .cookies: return ["cookies", "cache", "data", "storage", "website data"]
-        case .protection: return ["protection", "privacy", "tracker", "security", "https", "shield"]
+        case .protection: return ["protection", "privacy", "tracker", "security", "https", "shield", "cookies", "cache", "data", "storage", "website data"]
         case .downloads: return ["downloads", "files", "transfers"]
         case .history: return ["history", "recent", "visited", "sites", "logs"]
         case .permissions: return ["permissions", "camera", "microphone", "location", "notifications", "sites"]

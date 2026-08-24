@@ -118,12 +118,6 @@ struct MoreOptionsMenu: View {
                 }
 
                 Button {
-                    openInternalPage("illuminate://cookies")
-                } label: {
-                    Label("Cookies", systemImage: "circle.hexagongrid.fill")
-                }
-
-                Button {
                     openInternalPage("illuminate://downloads")
                 } label: {
                     Label("Downloads", systemImage: "arrow.down.circle.fill")

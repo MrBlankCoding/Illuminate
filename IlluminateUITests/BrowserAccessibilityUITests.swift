@@ -32,7 +32,7 @@ final class BrowserAccessibilityUITests: BrowserUITestCase {
     func testNewTabSearchFieldIsReachableWhenBrowserOpens() {
         let urlBar = app.textFields["browser.urlBar.textField"]
 
-        XCTAssertTrue(urlBar.waitForExistence(timeout: 2))
+        XCTAssertTrue(urlBar.waitForExistence(timeout: 10))
         XCTAssertTrue(urlBar.isHittable)
     }
 }

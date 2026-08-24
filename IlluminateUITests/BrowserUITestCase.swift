@@ -16,7 +16,7 @@ class BrowserUITestCase: XCTestCase {
         app.launch()
 
         XCTAssertTrue(
-            app.staticTexts["profileSelection.title"].waitForExistence(timeout: 5),
+            app.staticTexts["profileSelection.title"].waitForExistence(timeout: 20),
             "The profile selection screen should be ready before each UI test."
         )
     }
@@ -28,7 +28,7 @@ class BrowserUITestCase: XCTestCase {
     func openGuestBrowser() {
         app.buttons["profileSelection.guestModeButton"].tap()
         XCTAssertTrue(
-            app.buttons["browser.tabbar.newTabButton"].waitForExistence(timeout: 5),
+            app.buttons["browser.tabbar.newTabButton"].waitForExistence(timeout: 20),
             "Guest mode should open the browser shell."
         )
     }

@@ -11,9 +11,9 @@ import UniformTypeIdentifiers
 import WebKit
 
 extension DownloadManager {
-    func startDownload(from url: URL, to destinationURL: URL) {
+    func startDownload(from url: URL, to destinationURL: URL, profileID: UUID? = nil) {
         if url.isFileURL {
-            startLocalFileDownload(from: url, explicitDestinationURL: destinationURL)
+            startLocalFileDownload(from: url, explicitDestinationURL: destinationURL, profileID: profileID)
             return
         }
 
@@ -25,6 +25,7 @@ extension DownloadManager {
             destinationURL: resolvedDestination
         )
 
+        taskProfileIDs[item.id] = profileID
         insertTask(item)
 
         let task = session.downloadTask(with: URLRequest(url: url))
@@ -33,9 +34,9 @@ extension DownloadManager {
         task.resume()
     }
 
-    func startDownload(from url: URL, suggestedFilename: String? = nil) {
+    func startDownload(from url: URL, suggestedFilename: String? = nil, profileID: UUID? = nil) {
         if url.isFileURL {
-            startLocalFileDownload(from: url, suggestedFilename: suggestedFilename)
+            startLocalFileDownload(from: url, suggestedFilename: suggestedFilename, profileID: profileID)
             return
         }
 
@@ -53,7 +54,7 @@ extension DownloadManager {
                 guard let self else { return }
                 if let chosenURL {
                     self.setLastPickedDirectory(chosenURL.deletingLastPathComponent())
-                    self.startDownload(from: url, to: chosenURL)
+                    self.startDownload(from: url, to: chosenURL, profileID: profileID)
                 }
             }
             return
@@ -66,6 +67,7 @@ extension DownloadManager {
             destinationURL: nil
         )
 
+        taskProfileIDs[item.id] = profileID
         insertTask(item)
 
         let task = session.downloadTask(with: URLRequest(url: url))
@@ -74,11 +76,11 @@ extension DownloadManager {
         task.resume()
     }
 
-    func startDownload(using request: URLRequest, suggestedFilename: String? = nil) {
+    func startDownload(using request: URLRequest, suggestedFilename: String? = nil, profileID: UUID? = nil) {
         guard let url = request.url else { return }
 
         if url.isFileURL {
-            startLocalFileDownload(from: url, suggestedFilename: suggestedFilename)
+            startLocalFileDownload(from: url, suggestedFilename: suggestedFilename, profileID: profileID)
             return
         }
 
@@ -94,6 +96,7 @@ extension DownloadManager {
             destinationURL: nil
         )
 
+        taskProfileIDs[item.id] = profileID
         insertTask(item)
 
         let task = session.downloadTask(with: request)
@@ -105,7 +108,8 @@ extension DownloadManager {
     private func startLocalFileDownload(
         from sourceURL: URL,
         suggestedFilename: String? = nil,
-        explicitDestinationURL: URL? = nil
+        explicitDestinationURL: URL? = nil,
+        profileID: UUID? = nil
     ) {
         let resolvedDestination: URL
         if let explicitDestinationURL {
@@ -131,6 +135,7 @@ extension DownloadManager {
             filename: resolvedDestination.lastPathComponent,
             destinationURL: resolvedDestination
         )
+        taskProfileIDs[item.id] = profileID
         insertTask(item)
 
         Task.detached(priority: .userInitiated) {
@@ -166,7 +171,7 @@ extension DownloadManager {
         return stagedURL
     }
 
-    func addDownload(_ download: WKDownload) {
+    func addDownload(_ download: WKDownload, profileID: UUID? = nil) {
         let url = download.originalRequest?.url ?? URL(string: "about:blank")!
         let filename = resolvedFilename(nil, fallbackURL: url, mimeType: nil)
         AppLog.download("Tracking WebKit-managed download source=\(AppLog.sanitizedURL(url)) resolvedFilename=\(filename)")
@@ -176,6 +181,7 @@ extension DownloadManager {
             destinationURL: nil
         )
 
+        taskProfileIDs[item.id] = profileID
         insertTask(item)
         webKitDownloadIDs[ObjectIdentifier(download)] = item.id
         webKitDownloadsByID[item.id] = download
@@ -186,7 +192,8 @@ extension DownloadManager {
         _ data: Data,
         from sourceURL: URL?,
         suggestedFilename: String? = nil,
-        mimeType: String? = nil
+        mimeType: String? = nil,
+        profileID: UUID? = nil
     ) {
         let destinationURL = uniqueDestinationURL(
             in: downloadDirectoryURL,
@@ -202,7 +209,8 @@ extension DownloadManager {
             from: sourceURL,
             to: destinationURL,
             suggestedFilename: suggestedFilename,
-            mimeType: mimeType
+            mimeType: mimeType,
+            profileID: profileID
         )
     }
 
@@ -211,7 +219,8 @@ extension DownloadManager {
         from sourceURL: URL?,
         to destinationURL: URL,
         suggestedFilename: String? = nil,
-        mimeType: String? = nil
+        mimeType: String? = nil,
+        profileID: UUID? = nil
     ) {
         let resolvedDestination = resolvedExplicitDestination(for: destinationURL)
         let filename = resolvedFilename(
@@ -225,6 +234,7 @@ extension DownloadManager {
             destinationURL: resolvedDestination
         )
 
+        taskProfileIDs[item.id] = profileID
         insertTask(item)
 
         Task.detached(priority: .userInitiated) {
@@ -255,6 +265,9 @@ extension DownloadManager {
             task.state = .cancelled
             task.finishedAt = Date()
             task.errorDescription = nil
+        }
+        if let updated = downloads.first(where: { $0.id == id }) {
+            recordInProfileHistory(updated)
         }
     }
 
@@ -511,6 +524,9 @@ extension DownloadManager: URLSessionDownloadDelegate, URLSessionTaskDelegate {
                     }
                     task.state = .cancelled
                     task.finishedAt = Date()
+                }
+                if let updated = self.downloads.first(where: { $0.id == id }) {
+                    self.recordInProfileHistory(updated)
                 }
                 return
             }

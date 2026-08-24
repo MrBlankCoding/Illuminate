@@ -30,10 +30,6 @@ struct ContentView: View {
             )
 
             VStack(spacing: 0) {
-                if environment.isGuestSession {
-                    PrivateBrowsingBanner()
-                        .zIndex(4)
-                }
 
                 BrowserToolbarView(
                     addressBarText: $viewModel.addressBarText,

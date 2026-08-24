@@ -40,9 +40,6 @@ struct WebView: View {
         case .passwords:
             PasswordsPageView()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-        case .cookies:
-            CookiesPageView()
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
         case .protection:
             ProtectionPageView()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -96,7 +93,7 @@ struct WebView: View {
             Divider()
             Button("[Illuminate] Download") {
                 let suggested = url.lastPathComponent.isEmpty ? "page.html" : url.lastPathComponent
-                DownloadManager.shared.startDownload(from: url, suggestedFilename: suggested)
+                DownloadManager.shared.startDownload(from: url, suggestedFilename: suggested, profileID: tabManager.profileID)
             }
         }
     }

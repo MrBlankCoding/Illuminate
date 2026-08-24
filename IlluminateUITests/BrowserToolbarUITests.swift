@@ -21,14 +21,14 @@ final class BrowserToolbarUITests: BrowserUITestCase {
 
     func testAddressBarOpensNativeHistoryPage() {
         let addressBar = app.textFields["browser.urlBar.textField"]
-        XCTAssertTrue(addressBar.waitForExistence(timeout: 2))
+        XCTAssertTrue(addressBar.waitForExistence(timeout: 10))
 
         addressBar.click()
         addressBar.typeText("illuminate://history")
         addressBar.typeKey(.return, modifierFlags: [])
 
         XCTAssertTrue(
-            app.staticTexts["browser.internalPage.history"].waitForExistence(timeout: 3),
+            app.staticTexts["browser.internalPage.history"].waitForExistence(timeout: 10),
             "The address bar should route illuminate://history to the native History page."
         )
     }

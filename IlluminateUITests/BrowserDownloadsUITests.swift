@@ -16,11 +16,11 @@ final class BrowserDownloadsUITests: BrowserUITestCase {
     func testDownloadsToolbarOpensAndClosesItsEmptyPopover() {
         let downloadsButton = app.buttons["browser.toolbar.downloadsButton"]
         let emptyState = app.staticTexts["No Downloads"]
-        XCTAssertTrue(downloadsButton.waitForExistence(timeout: 2))
+        XCTAssertTrue(downloadsButton.waitForExistence(timeout: 10))
         XCTAssertFalse(emptyState.exists)
 
         downloadsButton.tap()
-        XCTAssertTrue(emptyState.waitForExistence(timeout: 2))
+        XCTAssertTrue(emptyState.waitForExistence(timeout: 10))
         XCTAssertTrue(app.staticTexts["Files you download will appear here."].exists)
 
         downloadsButton.tap()

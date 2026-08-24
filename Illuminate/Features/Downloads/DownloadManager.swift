@@ -37,6 +37,7 @@ final class DownloadManager: NSObject, ObservableObject {
     var webKitDownloadIDs: [ObjectIdentifier: UUID] = [:]
     var webKitDownloadsByID: [UUID: WKDownload] = [:]
     var webKitStagingURLsByID: [UUID: URL] = [:]
+    var taskProfileIDs: [UUID: UUID] = [:]
     private var completionIndicatorResetTask: Task<Void, Never>?
 
     let preferencesKey = "download.preferences"
@@ -67,6 +68,12 @@ final class DownloadManager: NSObject, ObservableObject {
 
     func markSessionHasDownload() {
         hasSessionDownload = true
+    }
+
+    func recordInProfileHistory(_ task: DownloadTask) {
+        guard let profileID = taskProfileIDs[task.id],
+              let store = DownloadHistoryRegistry.shared.store(for: profileID) else { return }
+        store.record(task)
     }
 
     func noteCompletedDownload() {

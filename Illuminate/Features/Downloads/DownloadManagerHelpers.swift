@@ -11,6 +11,8 @@ import UniformTypeIdentifiers
 
 extension DownloadManager {
     func clearFinishedDownloads() {
+        let removed = downloads.filter { !$0.isActive }
+        removed.forEach { taskProfileIDs.removeValue(forKey: $0.id) }
         downloads.removeAll { !$0.isActive }
         rebuildIndexMap()
         notifyDownloadsDidChange(immediate: true)
@@ -19,6 +21,7 @@ extension DownloadManager {
     func clearDownloads() {
         downloads.removeAll()
         downloadIndexMap.removeAll()
+        taskProfileIDs.removeAll()
         notifyDownloadsDidChange(immediate: true)
     }
 
@@ -56,6 +59,7 @@ extension DownloadManager {
         downloads.insert(task, at: 0)
         rebuildIndexMap()
         AppLog.download("Inserted download item id=\(task.id.uuidString) source=\(task.url.absoluteString) filename=\(task.filename) state=\(task.state.rawValue)")
+        recordInProfileHistory(task)
         notifyDownloadsDidChange(immediate: true)
     }
 
@@ -63,6 +67,15 @@ extension DownloadManager {
         guard let index = downloadIndexMap[id] else { return }
         mutate(&downloads[index])
         notifyDownloadsDidChange(immediate: false)
+    }
+
+    func removeFromSession(id: UUID) {
+        downloads.removeAll { $0.id == id }
+        rebuildIndexMap()
+        taskProfileIDs.removeValue(forKey: id)
+        sessionTasksByID.removeValue(forKey: id)
+        webKitDownloadsByID.removeValue(forKey: id)
+        notifyDownloadsDidChange(immediate: true)
     }
 
     func finishDownload(id: UUID, destinationURL: URL) {
@@ -75,6 +88,9 @@ extension DownloadManager {
             task.finishedAt = Date()
             task.errorDescription = nil
             task.bytesWritten = task.totalBytesExpected ?? task.bytesWritten
+        }
+        if let updated = downloads.first(where: { $0.id == id }) {
+            recordInProfileHistory(updated)
         }
         noteCompletedDownload()
 
@@ -90,6 +106,9 @@ extension DownloadManager {
             task.state = .failed
             task.finishedAt = Date()
             task.errorDescription = error.localizedDescription
+        }
+        if let updated = downloads.first(where: { $0.id == id }) {
+            recordInProfileHistory(updated)
         }
     }
 

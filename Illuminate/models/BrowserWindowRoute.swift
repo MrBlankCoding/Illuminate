@@ -7,7 +7,7 @@
 
 import Foundation
 
-enum BrowserWindowRoute: Hashable, Codable {
+nonisolated enum BrowserWindowRoute: Hashable, Codable {
     case profile(UUID)
     case guest(UUID)
 
@@ -34,7 +34,7 @@ enum BrowserWindowRoute: Hashable, Codable {
     }
 }
 
-enum BrowserWindowOpenRequest: Equatable {
+nonisolated enum BrowserWindowOpenRequest: Equatable {
     case profileSelection
     case route(BrowserWindowRoute)
 

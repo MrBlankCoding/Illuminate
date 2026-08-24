@@ -17,7 +17,6 @@ struct InternalPageTests {
         let row = InternalPageRow { Text("row") }
         _ = row.body
         _ = InternalPageEmptyState(icon: "info", message: "Empty").body
-        _ = PrivateBrowsingBanner().body
         _ = FaviconView(image: nil).body
         _ = FaviconView(image: NSImage(size: NSSize(width: 8, height: 8))).body
     }

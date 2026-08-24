@@ -127,7 +127,7 @@ struct WebViewRepresentable: NSViewRepresentable {
 
             let suggestedFilename = resolvedURL.lastPathComponent.isEmpty ? "download" : resolvedURL.lastPathComponent
             AppLog.download("IlluminateWebView menu download triggered url=\(resolvedURL.absoluteString) suggestedFilename=\(suggestedFilename) clickPoint=\(pointInView.x),\(pointInView.y)")
-            DownloadManager.shared.startDownload(from: resolvedURL, suggestedFilename: suggestedFilename)
+            DownloadManager.shared.startDownload(from: resolvedURL, suggestedFilename: suggestedFilename, profileID: tabManager.profileID)
         }
     }
 

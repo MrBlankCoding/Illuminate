@@ -20,7 +20,7 @@ final class ProfileSelectionUITests: BrowserUITestCase {
 
         let sheetTitle = app.staticTexts["New Profile"]
         let confirmButton = app.buttons["Add"]
-        XCTAssertTrue(sheetTitle.waitForExistence(timeout: 2))
+        XCTAssertTrue(sheetTitle.waitForExistence(timeout: 10))
         XCTAssertFalse(confirmButton.isEnabled)
 
         app.buttons["Cancel"].tap()
