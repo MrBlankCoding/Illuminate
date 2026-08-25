@@ -21,6 +21,8 @@ final class DownloadRecord: Identifiable {
     var bytesWritten: Int64
     var totalBytesExpected: Int64?
     var errorDescription: String?
+    var resumeData: Data?
+    var resumeRequiresWebKit: Bool
 
     var sourceURL: URL? { URL(string: sourceURLString) }
     var destinationURL: URL? {
@@ -39,7 +41,9 @@ final class DownloadRecord: Identifiable {
         finishedAt: Date?,
         bytesWritten: Int64,
         totalBytesExpected: Int64?,
-        errorDescription: String?
+        errorDescription: String?,
+        resumeData: Data?,
+        resumeRequiresWebKit: Bool
     ) {
         self.id = id
         self.profileID = profileID
@@ -52,6 +56,8 @@ final class DownloadRecord: Identifiable {
         self.bytesWritten = bytesWritten
         self.totalBytesExpected = totalBytesExpected
         self.errorDescription = errorDescription
+        self.resumeData = resumeData
+        self.resumeRequiresWebKit = resumeRequiresWebKit
     }
 
     convenience init(task: DownloadTask, profileID: UUID?) {
@@ -66,7 +72,9 @@ final class DownloadRecord: Identifiable {
             finishedAt: task.finishedAt,
             bytesWritten: task.bytesWritten,
             totalBytesExpected: task.totalBytesExpected,
-            errorDescription: task.errorDescription
+            errorDescription: task.errorDescription,
+            resumeData: task.resumeData,
+            resumeRequiresWebKit: task.resumeRequiresWebKit
         )
     }
 
@@ -78,5 +86,7 @@ final class DownloadRecord: Identifiable {
         bytesWritten = task.bytesWritten
         totalBytesExpected = task.totalBytesExpected
         errorDescription = task.errorDescription
+        resumeData = task.resumeData
+        resumeRequiresWebKit = task.resumeRequiresWebKit
     }
 }

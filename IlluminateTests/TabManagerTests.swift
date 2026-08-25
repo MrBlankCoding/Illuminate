@@ -152,4 +152,30 @@ struct TabManagerTests {
         #expect(tabManager.tabs.isEmpty)
         #expect(tabManager.activeTabID == nil)
     }
+
+    @Test func restoreSessionRecoversFromCorruptJSON() throws {
+        let profile = BrowserProfile(name: "Corrupt Session")
+        let sessionURL = FileManager.default
+            .illuminateProfileDirectory(profileID: profile.id)
+            .appendingPathComponent("session.json")
+        try? FileManager.default.removeItem(at: sessionURL)
+
+        try Data("this is not valid json {{{".utf8).write(to: sessionURL)
+
+        let tabManager = TabManager(
+            profile: profile,
+            urlSynchronizer: URLSynchronizer(),
+            isPersistenceEnabled: true
+        )
+
+        #expect(tabManager.tabs.count == 1)
+        #expect(tabManager.activeTabID == tabManager.tabs.first?.id)
+        #expect(FileManager.default.fileExists(atPath: sessionURL.path) == false)
+        let backups = try FileManager.default.contentsOfDirectory(at: sessionURL.deletingLastPathComponent(), includingPropertiesForKeys: nil)
+            .filter { $0.lastPathComponent.hasPrefix("session.json.corrupt") }
+        #expect(backups.isEmpty == false)
+
+        for backup in backups { try? FileManager.default.removeItem(at: backup) }
+        try? FileManager.default.removeItem(at: sessionURL)
+    }
 }

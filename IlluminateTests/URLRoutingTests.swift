@@ -77,4 +77,65 @@ struct URLRoutingTests {
         
         #expect(tabURL == "https://apple.com")
     }
+
+    @Test func testExistingSchemeIsPreserved() async throws {
+        let (viewModel, tab) = await MainActor.run { makeViewModelAndTab() }
+
+        await MainActor.run {
+            viewModel.addressBarText = "http://example.com"
+            viewModel.navigateToAddressBarURL()
+        }
+
+        let tabURL = await MainActor.run { tab.url?.absoluteString }
+        #expect(tabURL == "http://example.com")
+    }
+
+    @Test func testPathAndQueryArePreservedWhenAddingHTTPS() async throws {
+        let (viewModel, tab) = await MainActor.run { makeViewModelAndTab() }
+
+        await MainActor.run {
+            viewModel.addressBarText = "example.com/path?q=1"
+            viewModel.navigateToAddressBarURL()
+        }
+
+        let tabURL = await MainActor.run { tab.url?.absoluteString }
+        #expect(tabURL == "https://example.com/path?q=1")
+    }
+
+    @Test func testSingleWordWithoutDotRoutesToSearch() async throws {
+        let (viewModel, tab) = await MainActor.run { makeViewModelAndTab() }
+
+        await MainActor.run {
+            viewModel.addressBarText = "foo"
+            viewModel.navigateToAddressBarURL()
+        }
+
+        let tabURL = await MainActor.run { tab.url?.absoluteString }
+        let tabHost = await MainActor.run { tab.url?.host }
+        #expect(tabHost == "www.google.com")
+        #expect(tabURL?.contains("q=foo") == true)
+    }
+
+    @Test func testWhitespaceRoutesToSearchWithEncodedQuery() async throws {
+        let (viewModel, tab) = await MainActor.run { makeViewModelAndTab() }
+
+        await MainActor.run {
+            viewModel.addressBarText = "a b"
+            viewModel.navigateToAddressBarURL()
+        }
+
+        let tabURL = await MainActor.run { tab.url?.absoluteString }
+        let tabHost = await MainActor.run { tab.url?.host }
+        #expect(tabHost == "www.google.com")
+        #expect(tabURL?.contains("q=a%20b") == true)
+    }
+
+    @MainActor
+    private func makeViewModelAndTab() -> (ContentViewModel, Tab) {
+        let tabManager = TabManager(isPersistenceEnabled: false)
+        let viewModel = ContentViewModel(tabManager: tabManager, urlSynchronizer: URLSynchronizer())
+        let tab = tabManager.createTab()
+        tabManager.switchTo(tab.id)
+        return (viewModel, tab)
+    }
 }

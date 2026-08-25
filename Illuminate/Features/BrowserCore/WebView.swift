@@ -65,6 +65,25 @@ struct WebView: View {
             ExtensionSettingsView()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .ignoresSafeArea(.container, edges: .bottom)
+        case .pdf:
+            if let sourceURL = IlluminatePage.pdf.pdfSourceFileURL(from: url) {
+                PdfViewerPageView(
+                    sourceURL: sourceURL,
+                    accentColor: tabManager.windowThemeColor
+                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .ignoresSafeArea(.container, edges: .bottom)
+            } else {
+                InternalPage(
+                    icon: IlluminatePage.pdf.icon,
+                    title: "PDF",
+                    accentColor: tabManager.windowThemeColor
+                ) {
+                    InternalPageEmptyState(icon: "exclamationmark.triangle", message: "This PDF could not be opened.")
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .ignoresSafeArea(.container, edges: .bottom)
+            }
         case nil:
             WebViewRepresentable(
                 tab: tab,

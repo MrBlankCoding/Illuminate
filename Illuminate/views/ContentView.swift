@@ -36,9 +36,6 @@ struct ContentView: View {
                 )
                 .zIndex(3)
 
-                // BrowserContentView is the anchor: it starts exactly where the
-                // toolbar ends, so an overlay(alignment: .top) on it pins the
-                // popup panel flush at the toolbar bottom edge.
                 BrowserContentView(
                     activeTab: tabManager.activeTab,
                     windowThemeColor: tabManager.windowThemeColor,
@@ -73,15 +70,23 @@ struct ContentView: View {
             }
         }
         .coordinateSpace(name: "browserWindow")
-        } // GeometryReader
+        } 
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(WindowConfigurator())
         .preferredColorScheme(tabManager.userInterfaceStyle.colorScheme)
         .environmentObject(popupCoordinator)
         .onAppear {
+            BrowserWindowRegistry.shared.register()
             DispatchQueue.main.async {
                 viewModel.updateAddressBarFromActiveTab()
+                AppFileOpening.shared.drain(into: tabManager)
             }
+        }
+        .onDisappear {
+            BrowserWindowRegistry.shared.unregister()
+        }
+        .onReceive(AppFileOpening.shared.$pendingURLs) { _ in
+            AppFileOpening.shared.drain(into: tabManager)
         }
         .onReceive(NotificationCenter.default.publisher(for: .findInPage)) { _ in
             findViewModel.setWebView(tabManager.activeTab?.webView)

@@ -33,8 +33,26 @@ struct IlluminateApp: App {
         do {
             modelContainer = try ModelContainer(for: Bookmark.self, Password.self, HistoryEntry.self, DownloadRecord.self)
         } catch {
-            AppLog.info("Failed to create ModelContainer: \(error)")
-            fatalError("Failed to create ModelContainer: \(error)")
+            AppLog.error("Failed to create ModelContainer — resetting store and retrying", error: error)
+            Self.resetStore()
+            do {
+                modelContainer = try ModelContainer(for: Bookmark.self, Password.self, HistoryEntry.self, DownloadRecord.self)
+            } catch {
+                fatalError("Failed to create ModelContainer after reset: \(error)")
+            }
+        }
+    }
+
+    private static func resetStore() {
+        let base = FileManager.default
+            .urls(for: .applicationSupportDirectory, in: .userDomainMask)
+            .first?
+            .appendingPathComponent("default.store")
+        guard let storeURL = base else { return }
+        let shm = storeURL.deletingPathExtension().appendingPathExtension("store-shm")
+        let wal = storeURL.deletingPathExtension().appendingPathExtension("store-wal")
+        for url in [storeURL, shm, wal] {
+            try? FileManager.default.removeItem(at: url)
         }
     }
 

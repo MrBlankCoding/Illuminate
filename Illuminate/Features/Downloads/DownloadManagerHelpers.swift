@@ -50,7 +50,9 @@ extension DownloadManager {
             bytesWritten: 0,
             totalBytesExpected: nil,
             createdAt: Date(),
-            finishedAt: nil
+            finishedAt: nil,
+            resumeData: nil,
+            resumeRequiresWebKit: false
         )
     }
 
@@ -75,6 +77,7 @@ extension DownloadManager {
         taskProfileIDs.removeValue(forKey: id)
         sessionTasksByID.removeValue(forKey: id)
         webKitDownloadsByID.removeValue(forKey: id)
+        webKitDownloadWebViews.removeValue(forKey: id)
         notifyDownloadsDidChange(immediate: true)
     }
 
@@ -87,6 +90,8 @@ extension DownloadManager {
             task.state = .completed
             task.finishedAt = Date()
             task.errorDescription = nil
+            task.resumeData = nil
+            task.resumeRequiresWebKit = false
             task.bytesWritten = task.totalBytesExpected ?? task.bytesWritten
         }
         if let updated = downloads.first(where: { $0.id == id }) {
@@ -100,12 +105,16 @@ extension DownloadManager {
         }
     }
 
-    func failDownload(id: UUID, error: Error) {
+    func failDownload(id: UUID, error: Error, resumeData: Data? = nil, resumeRequiresWebKit: Bool = false) {
         AppLog.error("Download failed id=\(id.uuidString)", error: error)
         updateTask(id) { task in
             task.state = .failed
             task.finishedAt = Date()
             task.errorDescription = error.localizedDescription
+            if let resumeData {
+                task.resumeData = resumeData
+                task.resumeRequiresWebKit = resumeRequiresWebKit
+            }
         }
         if let updated = downloads.first(where: { $0.id == id }) {
             recordInProfileHistory(updated)

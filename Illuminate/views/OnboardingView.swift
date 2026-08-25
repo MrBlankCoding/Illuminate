@@ -5,10 +5,12 @@
 //  Created by MrBlankCoding on 4/1/26.
 //
 
+import AppKit
 import SwiftUI
 
 struct OnboardingView: View {
     static let windowID = "onboarding-window"
+    private static let defaultBrowserStepID = 3
 
     private struct Step: Identifiable {
         let id: Int
@@ -63,6 +65,18 @@ struct OnboardingView: View {
                 Highlight(symbol: "questionmark.circle", title: "Find more shortcuts",
                           detail: "Open Settings → Shortcuts whenever you need a refresher.")
             ]
+        ),
+        Step(
+            id: 3,
+            symbol: "globe.badge.checkmark",
+            title: "Make Illuminate your default",
+            summary: "Set Illuminate as your default browser so every link you click opens here.",
+            highlights: [
+                Highlight(symbol: "arrow.triangle.branch", title: "Links open in Illuminate",
+                          detail: "Email, messages, and apps will open web links directly in Illuminate."),
+                Highlight(symbol: "gearshape", title: "You can change it later",
+                          detail: "Switch the default browser anytime in System Settings → Desktop & Dock.")
+            ]
         )
     ]
 
@@ -71,6 +85,7 @@ struct OnboardingView: View {
     @Namespace private var stepTransition
     @State private var currentStep = 0
     @State private var direction: Edge = .trailing
+    @State private var isDefaultBrowser = DefaultBrowserManager.isDefaultBrowser
 
     private var isLastStep: Bool {
         currentStep == Self.steps.count - 1
@@ -193,6 +208,26 @@ struct OnboardingView: View {
             .frame(maxWidth: 420, alignment: .leading)
             .padding(20)
             .background(.quaternary.opacity(0.4), in: RoundedRectangle(cornerRadius: 14))
+
+            if currentStep == Self.defaultBrowserStepID {
+                if isDefaultBrowser {
+                    Label("Illuminate is your default browser", systemImage: "checkmark.circle.fill")
+                        .font(.callout.weight(.medium))
+                        .foregroundStyle(.green)
+                } else {
+                    Button {
+                        setAsDefaultBrowser()
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "globe.badge.chevron.backward")
+                            Text("Set as Default Browser")
+                        }
+                        .frame(maxWidth: 240)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                }
+            }
         }
         .padding(.horizontal, 40)
         .padding(.top, 44)
@@ -202,6 +237,13 @@ struct OnboardingView: View {
     private func goTo(_ step: Int) {
         direction = step >= currentStep ? .trailing : .leading
         currentStep = step
+        isDefaultBrowser = DefaultBrowserManager.isDefaultBrowser
+    }
+
+    private func setAsDefaultBrowser() {
+        DefaultBrowserManager.setDefaultBrowser { isDefault in
+            isDefaultBrowser = isDefault
+        }
     }
 
     private func finish() {

@@ -71,7 +71,9 @@ struct AppCommands: Commands {
             BrowserCommand("Show All History", shortcut: "y") { .showHistory }
         }
 
-        CommandGroup(replacing: .newItem) {}
+        CommandGroup(replacing: .newItem) {
+            OpenFileCommand()
+        }
         CommandGroup(replacing: .saveItem) {
             CloseTabCommand()
         }
@@ -87,6 +89,7 @@ struct AppCommands: Commands {
         }
 
         CommandGroup(replacing: .printItem) {
+            BrowserCommand("Save Page as PDF", shortcut: "s", modifiers: [.command, .shift]) { .savePageAsPDF }
             BrowserCommand("Print Page", shortcut: "p") { .printPage }
         }
 
@@ -173,3 +176,31 @@ private struct RecentlyVisitedMenuContent: View {
 }
 
 // End of AppCommands helpers
+
+private struct OpenFileCommand: View {
+    @FocusedValue(\.activeEnvironment) private var environment
+
+    var body: some View {
+        Button("Open File…") { presentOpenPanel() }
+            .keyboardShortcut("o", modifiers: .command)
+    }
+
+    private func presentOpenPanel() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = true
+        panel.showsHiddenFiles = false
+        panel.message = "Open a file in Illuminate"
+        panel.prompt = "Open"
+
+        guard panel.runModal() == .OK else { return }
+        let urls = panel.urls
+
+        Task { @MainActor in
+            let needsWindow = BrowserWindowRegistry.shared.activeCount == 0
+            for url in urls { AppFileOpening.shared.enqueue(url) }
+            if needsWindow { AppFileOpening.shared.markNeedsBrowserWindow() }
+        }
+    }
+}

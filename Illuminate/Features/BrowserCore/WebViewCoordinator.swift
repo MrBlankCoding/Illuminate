@@ -381,7 +381,9 @@ extension WebViewRepresentable {
                 return
             }
 
-            guard dohService.shouldAllowRequest(for: url) else {
+            // Allow local files opened by the user (File > Open File…, Finder).
+            let isLocalMainFrameNavigation = url.isFileURL && (navigationAction.targetFrame?.isMainFrame ?? false)
+            guard isLocalMainFrameNavigation || dohService.shouldAllowRequest(for: url) else {
                 AppLog.security("Blocked non-HTTP(S) request: \(AppLog.sanitizedURL(url))")
                 decisionHandler(.cancel)
                 return
@@ -454,6 +456,23 @@ extension WebViewRepresentable {
             decidePolicyFor navigationResponse: WKNavigationResponse,
             decisionHandler: @escaping (WKNavigationResponsePolicy) -> Void
         ) {
+            // Render local PDFs in the built-in illuminate://pdf viewer page
+            // (WKWebView on macOS cannot render PDFs natively).
+            if navigationResponse.response.mimeType?.lowercased() == "application/pdf" {
+                if navigationResponse.isForMainFrame,
+                   let url = navigationResponse.response.url,
+                   let viewerURL = IlluminatePage.pdfViewerURL(for: url)
+                {
+                    decisionHandler(.cancel)
+                    DispatchQueue.main.async { [weak self] in
+                        self?.tab?.load(url: viewerURL)
+                    }
+                } else {
+                    decisionHandler(.allow)
+                }
+                return
+            }
+
             if !navigationResponse.canShowMIMEType,
                let url = navigationResponse.response.url,
                shouldHandleDownloadOutsideWebKit(for: url)
@@ -480,7 +499,7 @@ extension WebViewRepresentable {
                 DownloadManager.shared.startDownload(using: request, profileID: tabManager.profileID)
                 return
             }
-            DownloadManager.shared.addDownload(download, profileID: tabManager.profileID)
+            DownloadManager.shared.addDownload(download, from: webView, profileID: tabManager.profileID)
         }
 
         func webView(_ webView: WKWebView, navigationResponse: WKNavigationResponse, didBecome download: WKDownload) {
@@ -496,7 +515,7 @@ extension WebViewRepresentable {
                 )
                 return
             }
-            DownloadManager.shared.addDownload(download, profileID: tabManager.profileID)
+            DownloadManager.shared.addDownload(download, from: webView, profileID: tabManager.profileID)
         }
 
         func webView(

@@ -28,6 +28,7 @@ extension Notification.Name {
     static let zoomOut = Notification.Name("app.zoomOut")
     static let resetZoom = Notification.Name("app.resetZoom")
     static let printPage = Notification.Name("app.printPage")
+    static let savePageAsPDF = Notification.Name("app.savePageAsPDF")
     static let zoomChanged = Notification.Name("app.zoomChanged")
     static let toggleFullScreen = Notification.Name("app.toggleFullScreen")
     static let closeActiveTab = Notification.Name("app.closeActiveTab")

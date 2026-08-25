@@ -36,6 +36,7 @@ final class DownloadManager: NSObject, ObservableObject {
     var sessionTasksByID: [UUID: URLSessionDownloadTask] = [:]
     var webKitDownloadIDs: [ObjectIdentifier: UUID] = [:]
     var webKitDownloadsByID: [UUID: WKDownload] = [:]
+    var webKitDownloadWebViews: [UUID: WKWebView] = [:]
     var webKitStagingURLsByID: [UUID: URL] = [:]
     var taskProfileIDs: [UUID: UUID] = [:]
     private var completionIndicatorResetTask: Task<Void, Never>?

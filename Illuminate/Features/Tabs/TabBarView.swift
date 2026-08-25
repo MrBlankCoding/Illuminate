@@ -310,7 +310,6 @@ struct TabBarView: View {
         guard var session = dragSession, !session.isSettling else { return }
         session.isSettling = true
 
-        // A quick flick can carry the tab one extra slot past where the finger stopped.
         if abs(predictedEndTranslation - session.translation) > session.stride * 0.5 {
             let flickIndex = session.startIndex + Int((predictedEndTranslation / session.stride).rounded())
             if abs(flickIndex - session.currentIndex) == 1 {
@@ -322,8 +321,6 @@ struct TabBarView: View {
         }
 
         let snappedTranslation = CGFloat(session.currentIndex - session.startIndex) * session.stride
-
-        // Let the spring response scale with how far the tab has to travel.
         let distance = abs(snappedTranslation - session.translation)
         let response = min(0.34, max(0.18, distance / 1200))
         let settleAnimation = Animation.spring(response: response, dampingFraction: 0.9)

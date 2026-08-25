@@ -185,10 +185,9 @@ final class Tab: NSObject, ObservableObject, Identifiable, WKWebExtensionTab {
         didSet {
             if oldValue != url {
                 if let url, let page = IlluminatePage(url: url) {
-                    self.title = page.tabTitle
+                    self.title = page.displayTitle(for: url)
                 }
                 scheduleMetadataSave()
-                // notifyExtensions(properties: .url) // .url seems to be missing in this SDK
             }
         }
     }
@@ -285,7 +284,7 @@ final class Tab: NSObject, ObservableObject, Identifiable, WKWebExtensionTab {
         self.id = id
         self.url = url
         if let url, let page = IlluminatePage(url: url), title == "New Tab" {
-            self.title = page.tabTitle
+            self.title = page.displayTitle(for: url)
         } else {
             self.title = title
         }
@@ -317,9 +316,6 @@ final class Tab: NSObject, ObservableObject, Identifiable, WKWebExtensionTab {
         var title = "New Tab"
         var url: URL? = nil
 
-        // Only the tab that will be visible immediately reads its metadata from
-        // disk synchronously; every other restored tab hydrates asynchronously
-        // via loadAssets() to keep session restore off the main thread.
         if loadsMetadataSynchronously,
            let data = try? Data(contentsOf: metaURL),
            let payload = try? JSONDecoder().decode(TabMetadataPayload.self, from: data) {
@@ -356,7 +352,6 @@ final class Tab: NSObject, ObservableObject, Identifiable, WKWebExtensionTab {
     func createWebViewIfNeeded(configuration: WKWebViewConfiguration, webKitManager: WebKitManager) {
         guard webView == nil else { return }
 
-        // Use custom configuration if provided (e.g., for extension pages)
         let finalConfiguration = customWebViewConfiguration ?? configuration
 
         let newWebView = IlluminateWebView(frame: .zero, configuration: finalConfiguration)
@@ -433,10 +428,15 @@ final class Tab: NSObject, ObservableObject, Identifiable, WKWebExtensionTab {
     func load(url: URL) {
         self.url = url
         if let page = IlluminatePage(url: url) {
-            self.title = page.tabTitle
+            self.title = page.displayTitle(for: url)
             return
         }
-        webView?.load(URLRequest(url: url))
+        guard let webView else { return }
+        if url.isFileURL {
+            webView.loadFileURL(url, allowingReadAccessTo: url.deletingLastPathComponent())
+        } else {
+            webView.load(URLRequest(url: url))
+        }
     }
     
     func updateWebViewConfiguration(_ newConfiguration: WKWebViewConfiguration) {
@@ -558,9 +558,7 @@ final class Tab: NSObject, ObservableObject, Identifiable, WKWebExtensionTab {
         }
     }
 
-    // Coalesces url/title changes into a single debounced disk write. A normal
-    // page load previously produced 2+ writes (url didSet + title didSet);
-    // now they collapse into one.
+
     private func scheduleMetadataSave() {
         guard !isRestoringState else { return }
         pendingMetadataSaveTask?.cancel()

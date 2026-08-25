@@ -55,7 +55,7 @@ final class ContentViewModel: ObservableObject {
         tabManager.$activeTabID
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
-                self?.syncAddressBarFromActiveTab()
+                self?.syncAddressBarFromActiveTab(force: true)
                 self?.subscribeToActiveTabURL()
             }
             .store(in: &cancellables)
@@ -93,6 +93,13 @@ final class ContentViewModel: ObservableObject {
     func navigateToAddressBarURL() {
         let trimmed = addressBarText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
+
+        // Submitting the unchanged location (e.g. a PDF file path) is a no-op.
+        if trimmed == Self.addressBarDisplayText(for: tabManager.activeTab?.url) {
+            isEditingAddressBar = false
+            cancelSuggestions()
+            return
+        }
 
         let destination: URL?
         if let absolute = URL(string: trimmed), absolute.scheme != nil {
@@ -257,6 +264,14 @@ final class ContentViewModel: ObservableObject {
 
     private func syncAddressBarFromActiveTab(force: Bool = false) {
         guard force || !isEditingAddressBar else { return }
-        addressBarText = tabManager.activeTab?.url?.absoluteString ?? ""
+        addressBarText = Self.addressBarDisplayText(for: tabManager.activeTab?.url)
+    }
+
+    static func addressBarDisplayText(for url: URL?) -> String {
+        guard let url else { return "" }
+        if let page = IlluminatePage(url: url), let source = page.pdfSourceFileURL(from: url) {
+            return source.path
+        }
+        return url.absoluteString
     }
 }

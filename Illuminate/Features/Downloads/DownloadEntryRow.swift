@@ -19,6 +19,8 @@ struct DownloadHistoryItem: Identifiable {
     let bytesWritten: Int64
     let totalBytesExpected: Int64?
     let errorDescription: String?
+    let resumeData: Data?
+    let resumeRequiresWebKit: Bool
 
     init(record: DownloadRecord) {
         self.id = record.id
@@ -31,6 +33,8 @@ struct DownloadHistoryItem: Identifiable {
         self.bytesWritten = record.bytesWritten
         self.totalBytesExpected = record.totalBytesExpected
         self.errorDescription = record.errorDescription
+        self.resumeData = record.resumeData
+        self.resumeRequiresWebKit = record.resumeRequiresWebKit
     }
 
     init(record: DownloadRecord?, liveTask: DownloadTask?) {
@@ -56,10 +60,13 @@ struct DownloadHistoryItem: Identifiable {
         self.bytesWritten = task.bytesWritten
         self.totalBytesExpected = task.totalBytesExpected
         self.errorDescription = task.errorDescription
+        self.resumeData = task.resumeData
+        self.resumeRequiresWebKit = task.resumeRequiresWebKit
     }
 
     var isActive: Bool { state == .preparing || state == .downloading }
     var isCompleted: Bool { state == .completed }
+    var canResume: Bool { state == .failed && resumeData != nil }
 
     var progress: Double {
         liveTask?.progress ?? 1
@@ -83,10 +90,15 @@ struct DownloadEntryRow: View {
     var style: Style = .page
 
     @ObservedObject private var downloadManager = DownloadManager.shared
+    @State private var isHovering = false
 
     private var isCompact: Bool { style == .popover }
     private var isMissingFromDisk: Bool {
         item.isCompleted && !item.fileExistsOnDisk
+    }
+
+    private var isRowInteractive: Bool {
+        item.isCompleted && item.fileExistsOnDisk
     }
 
     var body: some View {
@@ -114,7 +126,9 @@ struct DownloadEntryRow: View {
 
                     Spacer(minLength: 0)
 
-                    stateBadge
+                    if let stateBadge {
+                        stateBadge
+                    }
 
                     removeButton
                 }
@@ -128,7 +142,17 @@ struct DownloadEntryRow: View {
 
                     Spacer(minLength: 0)
 
-                    actionButton
+                    if item.isActive {
+                        cancelButton
+                    } else if item.state == .failed {
+                        if item.canResume {
+                            resumeButton
+                        } else {
+                            retryButton
+                        }
+                    } else if isRowInteractive {
+                        revealHint
+                    }
                 }
 
                 if item.isActive {
@@ -139,10 +163,22 @@ struct DownloadEntryRow: View {
                 }
             }
         }
+        .padding(.horizontal, isRowInteractive ? 6 : 0)
+        .padding(.vertical, isRowInteractive ? 4 : 0)
+        .background(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(Color.primary.opacity(isHovering && isRowInteractive ? 0.05 : 0))
+        )
         .contentShape(Rectangle())
         .onTapGesture {
             revealInFinder()
         }
+        .onHover { hovering in
+            guard isRowInteractive else { return }
+            isHovering = hovering
+        }
+        .hoverCursor(isRowInteractive ? .pointingHand : .arrow)
+        .animation(.easeOut(duration: 0.12), value: isHovering)
     }
 
     private func revealInFinder() {
@@ -221,7 +257,18 @@ struct DownloadEntryRow: View {
         }
     }
 
-    private var stateBadge: some View {
+    private var stateBadge: AnyView? {
+        switch item.state {
+        case .preparing, .downloading, .cancelled:
+            return AnyView(badgeText)
+        case .completed:
+            return isMissingFromDisk ? AnyView(badgeText) : nil
+        case .failed:
+            return nil
+        }
+    }
+
+    private var badgeText: some View {
         Text(badgeLabel)
             .font(.system(size: isCompact ? 9 : 10, weight: .bold))
             .foregroundStyle(badgeTint)
@@ -235,7 +282,7 @@ struct DownloadEntryRow: View {
         switch item.state {
         case .preparing:   return "Preparing"
         case .downloading: return "Downloading"
-        case .completed:   return isMissingFromDisk ? "File Missing" : "Complete"
+        case .completed:   return "File Missing"
         case .failed:      return "Failed"
         case .cancelled:   return "Cancelled"
         }
@@ -244,24 +291,37 @@ struct DownloadEntryRow: View {
     private var badgeTint: Color {
         switch item.state {
         case .preparing, .downloading: return accentColor
-        case .completed:               return isMissingFromDisk ? .secondary : .green
+        case .completed:               return .secondary
         case .failed, .cancelled:      return .red
         }
     }
 
-    @ViewBuilder
-    private var actionButton: some View {
-        if item.isActive {
-            Button("Cancel") {
-                downloadManager.cancelDownload(id: item.id)
-            }
-            .buttonStyle(InternalPageChipButtonStyle(color: .red))
-        } else if item.isCompleted, item.fileExistsOnDisk {
-            Button("Show in Finder") {
-                revealInFinder()
-            }
-            .buttonStyle(InternalPageChipButtonStyle(color: accentColor))
+    private var cancelButton: some View {
+        Button("Cancel") {
+            downloadManager.cancelDownload(id: item.id)
         }
+        .buttonStyle(InternalPageChipButtonStyle(color: .red))
+    }
+
+    private var retryButton: some View {
+        Button("Retry") {
+            downloadManager.retryDownload(item: item)
+        }
+        .buttonStyle(InternalPageChipButtonStyle(color: accentColor))
+    }
+
+    private var resumeButton: some View {
+        Button("Resume") {
+            downloadManager.resumeDownload(item: item)
+        }
+        .buttonStyle(InternalPageChipButtonStyle(color: accentColor))
+    }
+
+    private var revealHint: some View {
+        Image(systemName: "chevron.right")
+            .font(.system(size: isCompact ? 9 : 10, weight: .semibold))
+            .foregroundStyle(.tertiary)
+            .opacity(isHovering ? 0.9 : 0.4)
     }
 
     private var removeButton: some View {

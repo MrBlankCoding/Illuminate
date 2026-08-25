@@ -95,6 +95,31 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         return true
     }
 
+    // OPEN FILES
+    // yo files are cool
+    // but what if its unsafe
+    // protection? 
+    // TODO
+
+    func application(_ sender: NSApplication, openFile filename: String) -> Bool {
+        handleOpenedFiles([URL(fileURLWithPath: filename)])
+        return true
+    }
+
+    func application(_ application: NSApplication, open urls: [URL]) {
+        handleOpenedFiles(urls)
+    }
+
+    private func handleOpenedFiles(_ urls: [URL]) {
+        let files = urls.filter { $0.isFileURL }
+        guard !files.isEmpty else { return }
+        Task { @MainActor in
+            let needsWindow = BrowserWindowRegistry.shared.activeCount == 0
+            for url in files { AppFileOpening.shared.enqueue(url) }
+            if needsWindow { AppFileOpening.shared.markNeedsBrowserWindow() }
+        }
+    }
+
     private func fetchProfiles() -> [BrowserProfile] {
         let catalogURL = FileManager.default.illuminateProfilesCatalogURL()
 

@@ -447,6 +447,8 @@
 				ENABLE_RESOURCE_ACCESS_USB = NO;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDocumentTypes = "{\n    CFBundleTypeIconSystemCode = \"PDF \";\n    CFBundleTypeName = \"PDF Document\";\n    CFBundleTypeRole = Viewer;\n    LSHandlerRank = Alternate;\n    LSItemContentTypes =     (\n        \"com.adobe.pdf\",\n        \"public.pdf\"\n    );\n}";
+				INFOPLIST_KEY_CFBundleURLTypes = "{\n    CFBundleURLName = \"com.MrBlankCoding.Illuminate\";\n    CFBundleURLSchemes =     (\n        https,\n        http\n    );\n}";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Illuminate uses the camera only when you allow a website to access it.";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Illuminate uses your location only when you allow a website to access it.";
@@ -496,6 +498,8 @@
 				ENABLE_RESOURCE_ACCESS_USB = NO;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDocumentTypes = "{\n    CFBundleTypeIconSystemCode = \"PDF \";\n    CFBundleTypeName = \"PDF Document\";\n    CFBundleTypeRole = Viewer;\n    LSHandlerRank = Alternate;\n    LSItemContentTypes =     (\n        \"com.adobe.pdf\",\n        \"public.pdf\"\n    );\n}";
+				INFOPLIST_KEY_CFBundleURLTypes = "{\n    CFBundleURLName = \"com.MrBlankCoding.Illuminate\";\n    CFBundleURLSchemes =     (\n        https,\n        http\n    );\n}";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Illuminate uses the camera only when you allow a website to access it.";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Illuminate uses your location only when you allow a website to access it.";

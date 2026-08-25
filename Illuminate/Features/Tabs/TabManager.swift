@@ -271,27 +271,22 @@ final class TabManager: NSObject, ObservableObject, WKWebExtensionWindow {
     }
 
     private func restoreSession() {
-        switch loadSessionState() {
-        case .success(let state):
-            activeTabID = state.activeTabID
-            if let ids = state.tabIDs {
-                tabs = ids.map {
-                    // Only the tab that is about to be visible reads its
-                    // metadata synchronously; the rest hydrate via loadAssets().
-                    let isActive = $0 == activeTabID
-                    let tab = Tab(id: $0, assetsBaseURL: tabAssetsBaseURL, loadsMetadataSynchronously: isActive)
-                    tab.tabManager = self
-                    return tab
-                }
-            } else if let payloads = state.tabs {
-                tabs = payloads.map {
-                    let tab = makeTab(from: $0)
-                    tab.tabManager = self
-                    return tab
-                }
-            }
-            rebuildTabIndex()
-        case .failure(let error):
+        let url = sessionURL
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            AppLog.info("[TabManager] No session file found — starting fresh.")
+            startFreshSession()
+            return
+        }
+
+        do {
+            let data = try Data(contentsOf: url)
+            let state = try JSONDecoder().decode(SessionState.self, from: data)
+            applySessionState(state)
+        } catch let error as DecodingError {
+            AppLog.error("[TabManager] Session file is corrupt — backing up and starting fresh", error: error)
+            backupCorruptSession(at: url)
+            startFreshSession()
+        } catch {
             let nsError = error as NSError
             let isMissingFile = nsError.domain == NSCocoaErrorDomain
                 && nsError.code == NSFileReadNoSuchFileError
@@ -300,26 +295,50 @@ final class TabManager: NSObject, ObservableObject, WKWebExtensionWindow {
             } else {
                 AppLog.error("[TabManager] Session restore failed", error: error)
             }
-            let fallback = Tab(assetsBaseURL: tabAssetsBaseURL)
-            tabs = [fallback]
-            rebuildTabIndex()
+            startFreshSession()
         }
     }
 
-    private func loadSessionState() -> Result<SessionState, Error> {
+    private func applySessionState(_ state: SessionState) {
+        activeTabID = state.activeTabID
+        if let ids = state.tabIDs {
+            tabs = ids.map {
+                let isActive = $0 == activeTabID
+                let tab = Tab(id: $0, assetsBaseURL: tabAssetsBaseURL, loadsMetadataSynchronously: isActive)
+                tab.tabManager = self
+                return tab
+            }
+        } else if let payloads = state.tabs {
+            tabs = payloads.map {
+                let tab = makeTab(from: $0)
+                tab.tabManager = self
+                return tab
+            }
+        }
+        rebuildTabIndex()
+    }
+
+    private func startFreshSession() {
+        tabs = [Tab(assetsBaseURL: tabAssetsBaseURL)]
+        rebuildTabIndex()
+    }
+
+    private func backupCorruptSession(at url: URL) {
+        let backupURL = url
+            .deletingPathExtension()
+            .appendingPathExtension("json.corrupt.\(Int(Date().timeIntervalSince1970))")
         do {
-            let data  = try Data(contentsOf: sessionURL)
-            let state = try JSONDecoder().decode(SessionState.self, from: data)
-            return .success(state)
+            try FileManager.default.copyItem(at: url, to: backupURL)
+            AppLog.info("[TabManager] Backed up corrupt session to \(backupURL.lastPathComponent)")
+            // Remove the corrupt original so it doesn't re-trigger recovery on
+            // every subsequent launch.
+            try FileManager.default.removeItem(at: url)
         } catch {
-            return .failure(error)
+            AppLog.error("[TabManager] Could not back up corrupt session file", error: error)
         }
     }
 
     private func hydrateRestoredTabs() {
-        // The active tab hydrates immediately so its favicon/URL are present
-        // for the first paint; background tabs hydrate one per main-queue
-        // turn so launch never blocks on N tabs of asset I/O.
         if let activeID = activeTabID, let activeTab = tabIndex[activeID] {
             hydrateVisualState(for: activeTab)
         }
@@ -752,7 +771,8 @@ final class TabManager: NSObject, ObservableObject, WKWebExtensionWindow {
             (.zoomIn,          { [weak self] in self?.activeTab?.zoomIn() }),
             (.zoomOut,         { [weak self] in self?.activeTab?.zoomOut() }),
             (.resetZoom,       { [weak self] in self?.activeTab?.resetZoom() }),
-            (.printPage,       { [weak self] in self?.activeTab?.printPage() }),
+            (.printPage,        { [weak self] in self?.activeTab?.printPage() }),
+            (.savePageAsPDF,    { [weak self] in self?.saveActiveTabAsPDF() }),
             (.toggleFullScreen, { NSApp.keyWindow?.toggleFullScreen(nil) }),
             (.showHistory,     { [weak self] in self?.navigateActiveTab(to: URL(string: "illuminate://history")!) }),
             (Notification.Name.closeActiveTab, { [weak self] in self?.closeActiveTab() }),
@@ -832,6 +852,37 @@ final class TabManager: NSObject, ObservableObject, WKWebExtensionWindow {
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
         pasteboard.setString(url.absoluteString, forType: .string)
+    }
+
+    func saveActiveTabAsPDF() {
+        guard
+            let webView = activeTab?.webView,
+            let sourceURL = activeTab?.url
+        else {
+            AppLog.info("[TabManager] Save as PDF requested with no active web view.")
+            return
+        }
+
+        let title = activeTab?.title ?? ""
+        let baseName = (!title.isEmpty ? title : (sourceURL.host ?? "page"))
+            .replacingOccurrences(of: "/", with: "-")
+        let filename = baseName.hasSuffix(".pdf") ? baseName : "\(baseName).pdf"
+
+        webView.createPDF { [weak self] result in
+            guard let self else { return }
+            switch result {
+            case .success(let data):
+                DownloadManager.shared.saveDownloadedData(
+                    data,
+                    from: sourceURL,
+                    suggestedFilename: filename,
+                    mimeType: "application/pdf",
+                    profileID: self.activeProfileID
+                )
+            case .failure(let error):
+                AppLog.error("[TabManager] PDF failed to create", error: error)
+            }
+        }
     }
 
     func moveActiveTabToAdjacentGroup(direction: Int) {

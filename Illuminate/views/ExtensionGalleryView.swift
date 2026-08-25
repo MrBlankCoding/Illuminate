@@ -75,7 +75,7 @@ final class RemoteGalleryCatalog: ObservableObject {
     func load() {
         guard case .idle = fetchState else { return }
         guard let url = Self.remoteCatalogURL else {
-            fetchState = .done   // no remote URL configured — hardcoded list is final
+            fetchState = .done  
             return
         }
         fetchState = .loading

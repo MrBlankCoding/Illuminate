@@ -46,10 +46,13 @@ struct DownloadTask: Identifiable, Sendable {
     var totalBytesExpected: Int64?
     let createdAt: Date
     var finishedAt: Date?
+    var resumeData: Data?
+    var resumeRequiresWebKit: Bool
 
     var isCompleted: Bool { state == .completed }
     var isFailed: Bool { state == .failed }
     var isActive: Bool { state == .preparing || state == .downloading }
+    var canResume: Bool { state == .failed && resumeData != nil }
 
     var statusDescription: String {
         switch state {

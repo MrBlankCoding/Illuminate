@@ -336,7 +336,9 @@ struct DownloadManagerTests {
             bytesWritten: 0,
             totalBytesExpected: nil,
             createdAt: Date(),
-            finishedAt: nil
+            finishedAt: nil,
+            resumeData: nil,
+            resumeRequiresWebKit: false
         )
 
         #expect(base.statusDescription == "Preparing")
@@ -398,5 +400,102 @@ struct DownloadManagerTests {
 
         NotificationCenter.default.removeObserver(observer)
         try? FileManager.default.removeItem(at: dest)
+    }
+
+    @Test func testFailDownloadCapturesURLSessionResumeData() {
+        let manager = DownloadManager()
+        manager.clearDownloads()
+
+        let task = manager.makeTask(
+            url: URL(string: "https://example.com/big.zip")!,
+            filename: "big.zip",
+            destinationURL: nil
+        )
+        manager.insertTask(task)
+
+        let resumeData = Data("resume-bytes".utf8)
+        manager.failDownload(
+            id: task.id,
+            error: NSError(domain: NSURLErrorDomain, code: NSURLErrorNetworkConnectionLost),
+            resumeData: resumeData,
+            resumeRequiresWebKit: false
+        )
+
+        let failed = try! #require(manager.downloads.first { $0.id == task.id })
+        #expect(failed.state == .failed)
+        #expect(failed.canResume == true)
+        #expect(failed.resumeData == resumeData)
+        #expect(failed.resumeRequiresWebKit == false)
+    }
+
+    @Test func testFailDownloadCapturesWebKitResumeData() {
+        let manager = DownloadManager()
+        manager.clearDownloads()
+
+        let task = manager.makeTask(
+            url: URL(string: "https://example.com/big.zip")!,
+            filename: "big.zip",
+            destinationURL: nil
+        )
+        manager.insertTask(task)
+
+        let resumeData = Data("webkit-resume".utf8)
+        manager.failDownload(
+            id: task.id,
+            error: NSError(domain: "WKDownloadErrorDomain", code: 1),
+            resumeData: resumeData,
+            resumeRequiresWebKit: true
+        )
+
+        let failed = try! #require(manager.downloads.first { $0.id == task.id })
+        #expect(failed.canResume == true)
+        #expect(failed.resumeData == resumeData)
+        #expect(failed.resumeRequiresWebKit == true)
+    }
+
+    @Test func testDownloadHistoryItemCarriesResumeData() {
+        var task = DownloadTask(
+            id: UUID(),
+            url: URL(string: "https://example.com/big.zip")!,
+            filename: "big.zip",
+            progress: 0,
+            state: .failed,
+            errorDescription: "Network error",
+            destinationURL: nil,
+            bytesWritten: 0,
+            totalBytesExpected: nil,
+            createdAt: Date(),
+            finishedAt: nil,
+            resumeData: Data("resume".utf8),
+            resumeRequiresWebKit: true
+        )
+
+        let item = DownloadHistoryItem(task: task)
+
+        #expect(item.canResume == true)
+        #expect(item.resumeRequiresWebKit == true)
+        #expect(item.state == .failed)
+    }
+
+    @Test func testDownloadHistoryItemWithoutResumeDataIsNotResumable() {
+        let task = DownloadTask(
+            id: UUID(),
+            url: URL(string: "https://example.com/big.zip")!,
+            filename: "big.zip",
+            progress: 0,
+            state: .failed,
+            errorDescription: "Network error",
+            destinationURL: nil,
+            bytesWritten: 0,
+            totalBytesExpected: nil,
+            createdAt: Date(),
+            finishedAt: nil,
+            resumeData: nil,
+            resumeRequiresWebKit: false
+        )
+
+        let item = DownloadHistoryItem(task: task)
+
+        #expect(item.canResume == false)
     }
 }

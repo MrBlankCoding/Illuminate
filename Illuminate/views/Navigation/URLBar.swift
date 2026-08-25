@@ -57,6 +57,11 @@ struct URLBar: View {
             }
         }
         .onChange(of: activeTab?.id) { oldID, newID in
+            guard newID != oldID else { return }
+            if isFocused {
+                isFocused = false
+                viewModel.setAddressBarEditing(false)
+            }
             if newID != nil && activeTab?.url == nil {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                     isFocused = true

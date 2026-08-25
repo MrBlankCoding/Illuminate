@@ -63,6 +63,12 @@ struct AppRootView: View {
         .onAppear {
             presentOnboardingIfNeeded()
         }
+        .onReceive(AppFileOpening.shared.$needsBrowserWindow) { needs in
+            openBrowserWindowForPendingFilesIfNeeded()
+        }
+        .onReceive(profileManager.$profiles) { _ in
+            openBrowserWindowForPendingFilesIfNeeded()
+        }
     }
 
     @Environment(\.openWindow) private var openWindow
@@ -72,6 +78,13 @@ struct AppRootView: View {
         guard !ProcessInfo.processInfo.arguments.contains(where: { $0.caseInsensitiveCompare("-uiTesting") == .orderedSame }) else { return }
         hasRequestedOnboarding = true
         openWindow(id: OnboardingView.windowID)
+    }
+
+    private func openBrowserWindowForPendingFilesIfNeeded() {
+        guard AppFileOpening.shared.needsBrowserWindow, route == nil else { return }
+        guard let profileID = profileManager.profiles.first?.id else { return }
+        AppFileOpening.shared.clearNeedsBrowserWindow()
+        openWindow(value: BrowserWindowRoute.profile(profileID))
     }
 
     private func registerDockMenuRoutes() {

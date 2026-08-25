@@ -61,7 +61,11 @@ struct WebViewRepresentable: NSViewRepresentable {
         )
 
         if let url = tab.url, webView.url == nil {
-            webView.load(makeRequest(for: url))
+            if url.isFileURL {
+                webView.loadFileURL(url, allowingReadAccessTo: url.deletingLastPathComponent())
+            } else {
+                webView.load(makeRequest(for: url))
+            }
         }
 
         return webView

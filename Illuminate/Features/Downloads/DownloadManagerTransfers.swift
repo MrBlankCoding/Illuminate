@@ -171,7 +171,7 @@ extension DownloadManager {
         return stagedURL
     }
 
-    func addDownload(_ download: WKDownload, profileID: UUID? = nil) {
+    func addDownload(_ download: WKDownload, from webView: WKWebView, profileID: UUID? = nil) {
         let url = download.originalRequest?.url ?? URL(string: "about:blank")!
         let filename = resolvedFilename(nil, fallbackURL: url, mimeType: nil)
         AppLog.download("Tracking WebKit-managed download source=\(AppLog.sanitizedURL(url)) resolvedFilename=\(filename)")
@@ -185,6 +185,7 @@ extension DownloadManager {
         insertTask(item)
         webKitDownloadIDs[ObjectIdentifier(download)] = item.id
         webKitDownloadsByID[item.id] = download
+        webKitDownloadWebViews[item.id] = webView
         download.delegate = self
     }
 
@@ -248,6 +249,103 @@ extension DownloadManager {
         }
     }
 
+    func retryDownload(item: DownloadHistoryItem) {
+        guard item.state == .failed else { return }
+
+        if let index = downloadIndexMap[item.id] {
+            let task = downloads[index]
+            let sourceURL = task.url
+            let profileID = taskProfileIDs[item.id]
+
+            removeFromSession(id: item.id)
+            if let profileID, let store = DownloadHistoryRegistry.shared.store(for: profileID) {
+                store.remove(id: item.id)
+            }
+
+            if let destinationURL = task.destinationURL {
+                startDownload(from: sourceURL, to: destinationURL, profileID: profileID)
+            } else {
+                startDownload(from: sourceURL, suggestedFilename: task.filename, profileID: profileID)
+            }
+        } else if let sourceURL = item.sourceURL {
+            if let destinationURL = item.destinationURL {
+                startDownload(from: sourceURL, to: destinationURL, profileID: nil)
+            } else {
+                startDownload(from: sourceURL, suggestedFilename: item.filename, profileID: nil)
+            }
+        }
+    }
+
+    func resumeDownload(item: DownloadHistoryItem) {
+        guard item.state == .failed, let resumeData = item.resumeData else { return }
+
+        guard let index = downloadIndexMap[item.id] else {
+            // The live task is gone (e.g. cleared from the session); fall back
+            // to a fresh download using the historical source URL.
+            retryDownload(item: item)
+            return
+        }
+
+        let task = downloads[index]
+        let profileID = taskProfileIDs[item.id]
+
+        if task.resumeRequiresWebKit {
+            resumeWebKitDownload(task: task, resumeData: resumeData, profileID: profileID)
+        } else {
+            resumeURLSessionDownload(task: task, resumeData: resumeData, profileID: profileID)
+        }
+    }
+
+    private func resumeURLSessionDownload(task: DownloadTask, resumeData: Data, profileID: UUID?) {
+        updateTask(task.id) { t in
+            t.state = .preparing
+            t.errorDescription = nil
+            t.resumeData = nil
+            t.resumeRequiresWebKit = false
+            t.bytesWritten = 0
+            t.totalBytesExpected = nil
+            t.progress = 0
+            t.finishedAt = nil
+        }
+
+        let newTask = session.downloadTask(withResumeData: resumeData)
+        sessionTaskIDs[newTask.taskIdentifier] = task.id
+        sessionTasksByID[task.id] = newTask
+        newTask.resume()
+        notifyDownloadsDidChange(immediate: true)
+    }
+
+    private func resumeWebKitDownload(task: DownloadTask, resumeData: Data, profileID: UUID?) {
+        guard let webView = webKitDownloadWebViews[task.id] else {
+            // No originating web view is available to resume a WebKit download,
+            // so fall back to a full re-download.
+            retryDownload(item: DownloadHistoryItem(task: task))
+            return
+        }
+
+        updateTask(task.id) { t in
+            t.state = .preparing
+            t.errorDescription = nil
+            t.resumeData = nil
+            t.resumeRequiresWebKit = false
+            t.bytesWritten = 0
+            t.totalBytesExpected = nil
+            t.progress = 0
+            t.finishedAt = nil
+        }
+
+        webView.resumeDownload(fromResumeData: resumeData) { [weak self] download in
+            guard let self else { return }
+            Task { @MainActor in
+                self.webKitDownloadIDs[ObjectIdentifier(download)] = task.id
+                self.webKitDownloadsByID[task.id] = download
+                self.webKitDownloadWebViews[task.id] = webView
+                download.delegate = self
+            }
+        }
+        notifyDownloadsDidChange(immediate: true)
+    }
+
     func cancelDownload(id: UUID) {
         if let task = sessionTasksByID.removeValue(forKey: id) {
             sessionTaskIDs.removeValue(forKey: task.taskIdentifier)
@@ -258,6 +356,7 @@ extension DownloadManager {
         if let webKitDownload = webKitDownloadsByID.removeValue(forKey: id) {
             webKitDownloadIDs.removeValue(forKey: ObjectIdentifier(webKitDownload))
             webKitDownload.cancel()
+            webKitDownloadWebViews.removeValue(forKey: id)
             AppLog.download("Cancelled WebKit download id=\(id.uuidString)")
         }
 
@@ -405,10 +504,11 @@ extension DownloadManager: WKDownloadDelegate {
     func download(_ download: WKDownload, didFailWithError error: Error, resumeData: Data?) {
         guard let id = webKitDownloadIDs.removeValue(forKey: ObjectIdentifier(download)) else { return }
         webKitDownloadsByID.removeValue(forKey: id)
+        webKitDownloadWebViews.removeValue(forKey: id)
         if let stagingURL = webKitStagingURLsByID.removeValue(forKey: id) {
             try? FileManager.default.removeItem(at: stagingURL)
         }
-        failDownload(id: id, error: error)
+        failDownload(id: id, error: error, resumeData: resumeData, resumeRequiresWebKit: true)
     }
 
     func download(
@@ -499,7 +599,8 @@ extension DownloadManager: URLSessionDownloadDelegate, URLSessionTaskDelegate {
                 if let stagingURL {
                     try? FileManager.default.removeItem(at: stagingURL)
                 }
-                self.failDownload(id: id, error: error)
+            let resumeData = (error as NSError).userInfo[NSURLSessionDownloadTaskResumeData] as? Data
+            self.failDownload(id: id, error: error, resumeData: resumeData, resumeRequiresWebKit: false)
             }
         }
     }

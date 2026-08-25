@@ -27,6 +27,29 @@ struct ViewModelBehaviorTests {
         #expect(synchronizer.currentURL == tab.url)
     }
 
+    @Test func switchingTabsUpdatesAddressBarTextEvenWhileEditing() async {
+        let synchronizer = URLSynchronizer()
+        let tabManager = TabManager(urlSynchronizer: synchronizer, isPersistenceEnabled: false)
+        let viewModel = ContentViewModel(tabManager: tabManager, urlSynchronizer: synchronizer)
+
+        let first = try! #require(tabManager.activeTab)
+        await MainActor.run { first.load(url: URL(string: "https://first.example.com")!) }
+
+        let second = await MainActor.run { tabManager.createTab(url: URL(string: "https://second.example.com")!) }
+
+        await MainActor.run { viewModel.updateAddressBarFromActiveTab() }
+        #expect(tabManager.activeTab?.id == second.id)
+        #expect(viewModel.addressBarText == "https://second.example.com")
+
+        await MainActor.run { viewModel.setAddressBarEditing(true) }
+        await MainActor.run { tabManager.switchTo(first.id) }
+        await MainActor.run { viewModel.updateAddressBarFromActiveTab() }
+
+        #expect(tabManager.activeTab?.id == first.id)
+        #expect(viewModel.addressBarText == "https://first.example.com")
+        #expect(synchronizer.currentURL == first.url)
+    }
+
     @Test func createNewTabWithURLMakesItActiveAndUpdatesAddressBar() {
         let synchronizer = URLSynchronizer()
         let tabManager = TabManager(urlSynchronizer: synchronizer, isPersistenceEnabled: false)
