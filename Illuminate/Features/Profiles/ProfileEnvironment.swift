@@ -54,8 +54,6 @@ final class ProfileEnvironment: ObservableObject {
             profileID: isGuestSession ? nil : profile.id,
             isGuestSession: isGuestSession
         )
-        // Start the recurring auto-update cycle. The first check fires after a short
-        // delay so the app finishes launching before hitting the network.
         self.extensionManager.scheduleAutoUpdates()
         self.downloadHistoryStore = DownloadHistoryStore(
             profileID: isGuestSession ? nil : profile.id,

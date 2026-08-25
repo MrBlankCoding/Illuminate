@@ -21,9 +21,13 @@ struct DownloadsToolbarButton: View {
     }
 
     var body: some View {
-        if !downloadManager.downloads.isEmpty {
+        if !downloadManager.downloads.isEmpty || isVisibleForUITesting {
             button
         }
+    }
+
+    private var isVisibleForUITesting: Bool {
+        ProcessInfo.processInfo.arguments.contains("-uiTestingForceDownloadsButton")
     }
 
     private var button: some View {

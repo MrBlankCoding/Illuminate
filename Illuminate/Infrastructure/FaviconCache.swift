@@ -112,41 +112,59 @@ final class FaviconCache: @unchecked Sendable {
             return cached
         }
         lock.unlock()
-        
+
         if let diskImage = loadFromDisk(key) {
-            lock.lock()
-            defer { lock.unlock() }
-            
-            if let cached = storage[key] {
-                touch(key)
-                return cached
-            }
-            
-            storage[key] = diskImage
-            touch(key)
-            evictIfNeeded()
-            return diskImage
+            return storeIfAbsent(diskImage, for: key)
         }
 
         return nil
     }
 
+    nonisolated func memoryImage(for key: URL) -> NSImage? {
+        lock.lock()
+        defer { lock.unlock() }
+        guard let cached = storage[key] else { return nil }
+        touch(key)
+        return cached
+    }
+
+    nonisolated func imageIncludingDisk(for key: URL) async -> NSImage? {
+        if let cached = memoryImage(for: key) { return cached }
+        return await Task.detached(priority: .utility) { [weak self] in
+            guard let self else { return nil }
+            if let diskImage = self.loadFromDisk(key) {
+                return self.storeIfAbsent(diskImage, for: key)
+            }
+            return nil
+        }.value
+    }
+
+    nonisolated private func storeIfAbsent(_ newImage: NSImage, for key: URL) -> NSImage {
+        lock.lock()
+        defer { lock.unlock() }
+        if let cached = storage[key] {
+            touch(key)
+            return cached
+        }
+        storage[key] = newImage
+        touch(key)
+        evictIfNeeded()
+        return newImage
+    }
+
     nonisolated func fetchImage(for url: URL) async -> NSImage? {
-        if let cached = image(for: url) {
+        if let cached = await imageIncludingDisk(for: url) {
             return cached
         }
 
         if url.scheme?.lowercased() == "data" {
             guard let data = DataURLDecoder.decode(url.absoluteString) else { return nil }
-            guard let result = await MainActor.run(body: { () -> (NSImage, Data?)? in
-                guard let img = NSImage(data: data) else { return nil }
-                return (img, img.pngData())
-            }) else {
+            guard let result = await Self.decodeAndEncode(data) else {
                 return nil
             }
             let (fetchedImage, pngData) = result
 
-            if let cached = image(for: url) { return cached }
+            if let cached = memoryImage(for: url) { return cached }
             setWithData(fetchedImage, pngData: pngData, for: url)
             return fetchedImage
         }
@@ -158,15 +176,12 @@ final class FaviconCache: @unchecked Sendable {
                 return try await fetchData(key)
             }
 
-            guard let result = await MainActor.run(body: { () -> (NSImage, Data?)? in
-                guard let img = NSImage(data: data) else { return nil }
-                return (img, img.pngData())
-            }) else {
+            guard let result = await Self.decodeAndEncode(data) else {
                 return nil
             }
             let (fetchedImage, pngData) = result
 
-            if let cached = image(for: url) { return cached }
+            if let cached = memoryImage(for: url) { return cached }
             setWithData(fetchedImage, pngData: pngData, for: url)
             return fetchedImage
         } catch {
@@ -179,9 +194,11 @@ final class FaviconCache: @unchecked Sendable {
         return s.isEmpty ? "INVALID_URL" : s
     }
 
-    @MainActor func set(_ image: NSImage, for key: URL) {
-        let pngData = image.pngData()
-        setWithData(image, pngData: pngData, for: key)
+    nonisolated private static func decodeAndEncode(_ data: Data) async -> (NSImage, Data?)? {
+        await Task.detached(priority: .utility) { () -> (NSImage, Data?)? in
+            guard let img = NSImage(data: data) else { return nil }
+            return (img, img.pngData())
+        }.value
     }
 
     nonisolated func performInline_set(_ image: NSImage, for key: URL) {

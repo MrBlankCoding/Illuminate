@@ -14,7 +14,9 @@ private enum TabBarMetrics {
     static let scrollThreshold: CGFloat = 72
     static let newTabButtonSize: CGFloat = 28
     static let rowHeight: CGFloat = 42
-    static let reorderAnimation: Animation = .spring(response: 0.34, dampingFraction: 0.82, blendDuration: 0.1)
+    static let reorderSpring: Animation = .spring(response: 0.26, dampingFraction: 0.85, blendDuration: 0)
+    static let swapThreshold: CGFloat = 0.6
+    static let settleDuration: TimeInterval = 0.4
 }
 
 private struct TabDragSession {
@@ -24,6 +26,8 @@ private struct TabDragSession {
     var translation: CGFloat = 0
     var tabWidth: CGFloat
     var spacing: CGFloat = TabBarMetrics.tabSpacing
+    var isSettling = false
+    var settleAnimation: Animation?
 
     var stride: CGFloat { tabWidth + spacing }
 }
@@ -183,7 +187,12 @@ struct TabBarView: View {
         if let tab = tabManager.tab(forID: tabID),
            let index = tabManager.indexOfTab(withID: tabID) {
             let isDragging  = dragSession?.tabID == tab.id
+            let isLifted    = isDragging && dragSession?.isSettling != true
             let dragOffsetX = offset(forTabAt: index, isDragging: isDragging)
+
+            let offsetAnimation: Animation? = isLifted
+                ? nil
+                : (isDragging ? (dragSession?.settleAnimation ?? TabBarMetrics.reorderSpring) : TabBarMetrics.reorderSpring)
 
             TabItemView(
                 tab: tab,
@@ -219,9 +228,11 @@ struct TabBarView: View {
             .frame(width: tabWidth)
             .zIndex(isDragging ? 1 : 0)
             .offset(x: dragOffsetX)
-            .opacity(isDragging ? 0.92 : 1.0)
-            .scaleEffect(isDragging ? 1.02 : 1.0, anchor: .center)
-            .animation(isDragging ? .none : MacDesign.springAnimation, value: dragOffsetX)
+            .opacity(isLifted ? 0.92 : 1.0)
+            .scaleEffect(isLifted ? 1.02 : 1.0, anchor: .center)
+            .shadow(color: .black.opacity(isLifted ? 0.15 : 0), radius: isLifted ? 7 : 0, y: isLifted ? 2 : 0)
+            .animation(offsetAnimation, value: dragOffsetX)
+            .animation(MacDesign.fastAnimation, value: isLifted)
             .transition(
                 .asymmetric(
                     insertion: .scale(scale: 0.85).combined(with: .opacity),
@@ -253,7 +264,8 @@ struct TabBarView: View {
         DragGesture(minimumDistance: 4, coordinateSpace: .named("top"))
             .onChanged { value in
                 if dragSession == nil || dragSession?.tabID != tab.id {
-                    guard let idx = tabManager.indexOfTab(withID: tab.id)
+                    guard dragSession?.isSettling != true,
+                          let idx = tabManager.indexOfTab(withID: tab.id)
                     else { return }
                     if tabManager.activeTabID != tab.id { tabManager.switchTo(tab.id) }
                     dragSession = TabDragSession(
@@ -265,30 +277,74 @@ struct TabBarView: View {
                     )
                 }
 
+                guard dragSession?.isSettling != true else { return }
                 dragSession?.translation = value.translation.width
                 updateCurrentIndex()
             }
-            .onEnded { _ in
-                commitReorder()
+            .onEnded { value in
+                commitReorder(predictedEndTranslation: value.predictedEndTranslation.width)
             }
     }
 
     private func updateCurrentIndex() {
-        guard let session = dragSession else { return }
-        let rawShift = Int((session.translation / session.stride).rounded())
-        let proposed = session.startIndex + rawShift
-        let clamped = min(max(proposed, 0), tabManager.tabs.count - 1)
+        guard let session = dragSession, !session.isSettling else { return }
 
+        let position = CGFloat(session.startIndex) + session.translation / session.stride
+        var target = session.currentIndex
+
+        if position >= CGFloat(session.currentIndex) + TabBarMetrics.swapThreshold {
+            target = session.currentIndex + 1
+        } else if position <= CGFloat(session.currentIndex) - TabBarMetrics.swapThreshold {
+            target = session.currentIndex - 1
+        }
+
+        let clamped = min(max(target, 0), tabManager.tabs.count - 1)
         if clamped != session.currentIndex {
-            withAnimation(MacDesign.springAnimation) {
+            withAnimation(TabBarMetrics.reorderSpring) {
                 dragSession?.currentIndex = clamped
             }
         }
     }
 
-    private func commitReorder() {
-        guard let session = dragSession else { return }
-        withAnimation(MacDesign.springAnimation) {
+    private func commitReorder(predictedEndTranslation: CGFloat) {
+        guard var session = dragSession, !session.isSettling else { return }
+        session.isSettling = true
+
+        // A quick flick can carry the tab one extra slot past where the finger stopped.
+        if abs(predictedEndTranslation - session.translation) > session.stride * 0.5 {
+            let flickIndex = session.startIndex + Int((predictedEndTranslation / session.stride).rounded())
+            if abs(flickIndex - session.currentIndex) == 1 {
+                session.currentIndex = min(max(flickIndex, 0), tabManager.tabs.count - 1)
+                withAnimation(TabBarMetrics.reorderSpring) {
+                    dragSession?.currentIndex = session.currentIndex
+                }
+            }
+        }
+
+        let snappedTranslation = CGFloat(session.currentIndex - session.startIndex) * session.stride
+
+        // Let the spring response scale with how far the tab has to travel.
+        let distance = abs(snappedTranslation - session.translation)
+        let response = min(0.34, max(0.18, distance / 1200))
+        let settleAnimation = Animation.spring(response: response, dampingFraction: 0.9)
+
+        dragSession?.settleAnimation = settleAnimation
+
+        withAnimation(settleAnimation) {
+            dragSession?.translation = snappedTranslation
+            dragSession?.isSettling = true
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + TabBarMetrics.settleDuration) {
+            finishReorder()
+        }
+    }
+
+    private func finishReorder() {
+        guard let session = dragSession, session.isSettling else { return }
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
             if session.currentIndex != session.startIndex {
                 let destination = session.currentIndex > session.startIndex
                     ? session.currentIndex + 1

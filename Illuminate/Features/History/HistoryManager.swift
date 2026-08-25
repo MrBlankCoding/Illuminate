@@ -38,7 +38,31 @@ struct HistorySuggestion: Identifiable, Equatable {
 
 @MainActor
 final class HistoryManager: ObservableObject {
+
+    private struct SuggestionCandidate {
+        let id: UUID
+        let displayTitle: String
+        let urlString: String
+        let visitCount: Int
+        let lastVisited: Date
+        let faviconURL: URL?
+        let lowercaseTitle: String
+        let lowercaseURL: String
+
+        init(entry: HistoryEntry) {
+            id = entry.id
+            displayTitle = entry.displayTitle
+            urlString = entry.urlString
+            visitCount = entry.visitCount
+            lastVisited = entry.lastVisited
+            faviconURL = entry.faviconURL
+            lowercaseTitle = entry.title.lowercased()
+            lowercaseURL = entry.urlString.lowercased()
+        }
+    }
+
     @Published private(set) var recentEntries: [HistoryEntry] = []
+    private var suggestionCandidates: [SuggestionCandidate] = []
     @Published private(set) var topSites: [HistoryEntry] = []
 
     @Published var isSavingEnabled: Bool {
@@ -168,6 +192,7 @@ final class HistoryManager: ObservableObject {
             await MainActor.run { [weak self] in
                 guard let self else { return }
                 self.recentEntries = []
+                self.suggestionCandidates = []
                 self.topSites = []
                 self.lastRecordedURL.removeAll()
             }
@@ -189,16 +214,18 @@ final class HistoryManager: ObservableObject {
         let q = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         guard !q.isEmpty else { return [] }
 
-        let candidates = recentEntries
+        // Scoring runs against precomputed lowercase keys (rebuilt only when
+        // history refreshes) so per-keystroke work never allocates strings.
+        let candidates = suggestionCandidates
         let now = Date()
         let daySeconds: Double = 86_400
 
         return candidates
-            .filter { $0.title.lowercased().contains(q) || $0.urlString.lowercased().contains(q) }
-            .map { entry -> (HistoryEntry, Double) in
+            .filter { $0.lowercaseTitle.contains(q) || $0.lowercaseURL.contains(q) }
+            .map { entry -> (SuggestionCandidate, Double) in
                 let ageDays = now.timeIntervalSince(entry.lastVisited) / daySeconds
                 let recencyBoost = max(0, 1.0 - ageDays / 30.0)
-                let titleMatch = entry.title.lowercased().hasPrefix(q) ? 2.0 : 1.0
+                let titleMatch = entry.lowercaseTitle.hasPrefix(q) ? 2.0 : 1.0
                 let score = Double(entry.visitCount) * (1.0 + recencyBoost) * titleMatch
                 return (entry, score)
             }
@@ -232,15 +259,20 @@ final class HistoryManager: ObservableObject {
             await MainActor.run {
                 self.recentEntries = recent
                 self.topSites = top
+                self.rebuildSuggestionCandidates()
             }
         }
+    }
+
+    private func rebuildSuggestionCandidates() {
+        suggestionCandidates = recentEntries.map(SuggestionCandidate.init)
     }
 
     private func refreshRecentEntries() {
         Task { [weak self] in
             guard let self else { return }
             let recent = await self.actor.fetchRecentEntries(limit: 500)
-            await MainActor.run { self.recentEntries = recent }
+            await MainActor.run { self.recentEntries = recent; self.rebuildSuggestionCandidates() }
         }
     }
 

@@ -16,6 +16,7 @@ final class DNSPreFetcher {
     private var inFlightHosts = Set<String>()
     private var lastResolvedAt: [String: Date] = [:]
     private let cooldown: TimeInterval = 120
+    private let maxResolvedHosts = 512
     
     private init() {}
     
@@ -103,5 +104,14 @@ final class DNSPreFetcher {
     private func markPrefetchComplete(for host: String) {
         lastResolvedAt[host] = Date()
         inFlightHosts.remove(host)
+
+        // Evict oldest-resolved hosts so the cache cannot grow without bound
+        // over a long browsing session.
+        if lastResolvedAt.count > maxResolvedHosts {
+            let evictCount = lastResolvedAt.count - maxResolvedHosts
+            for (staleHost, _) in lastResolvedAt.sorted(by: { $0.value < $1.value }).prefix(evictCount) {
+                lastResolvedAt.removeValue(forKey: staleHost)
+            }
+        }
     }
 }

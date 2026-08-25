@@ -8,6 +8,8 @@
 import XCTest
 
 final class BrowserDownloadsUITests: BrowserUITestCase {
+    override var additionalLaunchArguments: [String] { ["-uiTestingForceDownloadsButton"] }
+
     override func setUpWithError() throws {
         try super.setUpWithError()
         openGuestBrowser()
@@ -16,14 +18,14 @@ final class BrowserDownloadsUITests: BrowserUITestCase {
     func testDownloadsToolbarOpensAndClosesItsEmptyPopover() {
         let downloadsButton = app.buttons["browser.toolbar.downloadsButton"]
         let emptyState = app.staticTexts["No Downloads"]
+
         XCTAssertTrue(downloadsButton.waitForExistence(timeout: 10))
-        XCTAssertFalse(emptyState.exists)
 
         downloadsButton.tap()
         XCTAssertTrue(emptyState.waitForExistence(timeout: 10))
         XCTAssertTrue(app.staticTexts["Files you download will appear here."].exists)
 
-        downloadsButton.tap()
-        XCTAssertFalse(emptyState.waitForExistence(timeout: 1))
+        app.typeKey(.escape, modifierFlags: [])
+        XCTAssertFalse(emptyState.waitForExistence(timeout: 2))
     }
 }

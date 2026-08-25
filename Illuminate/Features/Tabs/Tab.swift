@@ -187,17 +187,17 @@ final class Tab: NSObject, ObservableObject, Identifiable, WKWebExtensionTab {
                 if let url, let page = IlluminatePage(url: url) {
                     self.title = page.tabTitle
                 }
-                saveMetadata()
+                scheduleMetadataSave()
                 // notifyExtensions(properties: .url) // .url seems to be missing in this SDK
             }
         }
     }
     @Published var title: String {
-        didSet { 
-            if oldValue != title { 
-                saveMetadata()
+        didSet {
+            if oldValue != title {
+                scheduleMetadataSave()
                 notifyExtensions(properties: .title)
-            } 
+            }
         }
     }
     @Published var favicon: NSImage? {
@@ -250,6 +250,10 @@ final class Tab: NSObject, ObservableObject, Identifiable, WKWebExtensionTab {
 
     private(set) var webView: WKWebView?
     private var isFetchingAssets = false
+    private var isFetchingMetadata = false
+    private var hasLoadedMetadata = false
+    private var isRestoringState = false
+    private var pendingMetadataSaveTask: Task<Void, Never>?
 
     private(set) var lastActivatedAt: Date
     private(set) var lastAccessed: Date
@@ -299,21 +303,30 @@ final class Tab: NSObject, ObservableObject, Identifiable, WKWebExtensionTab {
         super.init()
     }
 
-    convenience init(id: UUID, assetsBaseURL: URL? = nil, webViewConfiguration: WKWebViewConfiguration? = nil) {
+    convenience init(
+        id: UUID,
+        assetsBaseURL: URL? = nil,
+        webViewConfiguration: WKWebViewConfiguration? = nil,
+        loadsMetadataSynchronously: Bool = false
+    ) {
         let folder = (assetsBaseURL ?? FileManager.default.illuminateAppSupportDirectory())
             .appendingPathComponent("TabAssets", isDirectory: true)
             .appendingPathComponent(id.uuidString, isDirectory: true)
-        
+
         let metaURL = folder.appendingPathComponent("metadata.json")
         var title = "New Tab"
         var url: URL? = nil
-        
-        if let data = try? Data(contentsOf: metaURL),
+
+        // Only the tab that will be visible immediately reads its metadata from
+        // disk synchronously; every other restored tab hydrates asynchronously
+        // via loadAssets() to keep session restore off the main thread.
+        if loadsMetadataSynchronously,
+           let data = try? Data(contentsOf: metaURL),
            let payload = try? JSONDecoder().decode(TabMetadataPayload.self, from: data) {
             title = payload.title ?? "New Tab"
             url = payload.url
         }
-        
+
         self.init(
             id: id,
             url: url,
@@ -388,6 +401,7 @@ final class Tab: NSObject, ObservableObject, Identifiable, WKWebExtensionTab {
     }
 
     func close() {
+        pendingMetadataSaveTask?.cancel()
         guard let webView else { return }
 
         let mediaShutdownScript = """
@@ -532,6 +546,7 @@ final class Tab: NSObject, ObservableObject, Identifiable, WKWebExtensionTab {
     }
 
     private func saveFavicon() {
+        guard !isRestoringState else { return }
         let folder = assetsURLWithoutCreating
         let faviconData = favicon?.pngData()
 
@@ -543,32 +558,76 @@ final class Tab: NSObject, ObservableObject, Identifiable, WKWebExtensionTab {
         }
     }
 
-    private func saveMetadata() {
+    // Coalesces url/title changes into a single debounced disk write. A normal
+    // page load previously produced 2+ writes (url didSet + title didSet);
+    // now they collapse into one.
+    private func scheduleMetadataSave() {
+        guard !isRestoringState else { return }
+        pendingMetadataSaveTask?.cancel()
         let payload = TabMetadataPayload(url: url, title: title)
         let folder = assetsURLWithoutCreating
-        let encodedData = try? JSONEncoder().encode(payload)
-        Task.detached(priority: .background) {
-            try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-            if let data = encodedData {
-                try? data.write(to: folder.appendingPathComponent("metadata.json"), options: .atomic)
+        pendingMetadataSaveTask = Task(priority: .utility) {
+            try? await Task.sleep(nanoseconds: 300_000_000)
+            guard !Task.isCancelled else { return }
+            let encodedData = try? JSONEncoder().encode(payload)
+            Task.detached(priority: .background) {
+                try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+                if let data = encodedData {
+                    try? data.write(to: folder.appendingPathComponent("metadata.json"), options: .atomic)
+                }
             }
         }
     }
 
     func loadAssets() {
-        guard favicon == nil, !isFetchingAssets else { return }
-        isFetchingAssets = true
-        let folder = assetsURLWithoutCreating
+        if favicon == nil, !isFetchingAssets {
+            isFetchingAssets = true
+            let folder = assetsURLWithoutCreating
 
-        Task.detached(priority: .utility) { [weak self] in
-            let faviconData  = try? Data(contentsOf: folder.appendingPathComponent("favicon.png"))
+            Task.detached(priority: .utility) { [weak self] in
+                let faviconData  = try? Data(contentsOf: folder.appendingPathComponent("favicon.png"))
 
-            await MainActor.run { [weak self] in
-                guard let self else { return }
-                self.isFetchingAssets = false
-                if let data = faviconData  { self.favicon   = NSImage(data: data) }
+                await MainActor.run { [weak self] in
+                    guard let self else { return }
+                    self.isFetchingAssets = false
+                    if let data = faviconData, let image = NSImage(data: data) {
+                        self.applyRestoredFavicon(image)
+                    }
+                }
             }
         }
+
+        if !hasLoadedMetadata, !isFetchingMetadata {
+            isFetchingMetadata = true
+            let metaURL = assetsURLWithoutCreating.appendingPathComponent("metadata.json")
+
+            Task.detached(priority: .utility) { [weak self] in
+                let data    = try? Data(contentsOf: metaURL)
+                let payload = data.flatMap { try? JSONDecoder().decode(TabMetadataPayload.self, from: $0) }
+
+                await MainActor.run { [weak self] in
+                    guard let self else { return }
+                    self.hasLoadedMetadata   = true
+                    self.isFetchingMetadata  = false
+                    if let payload {
+                        self.applyRestoredMetadata(url: payload.url, title: payload.title)
+                    }
+                }
+            }
+        }
+    }
+
+    private func applyRestoredFavicon(_ image: NSImage) {
+        isRestoringState = true
+        defer { isRestoringState = false }
+        favicon = image
+    }
+
+    private func applyRestoredMetadata(url restoredURL: URL?, title restoredTitle: String?) {
+        isRestoringState = true
+        defer { isRestoringState = false }
+        if url == nil, let restoredURL { url = restoredURL }
+        if title == "New Tab", let restoredTitle, !restoredTitle.isEmpty { title = restoredTitle }
     }
 
     func toTransferPayload() -> TabTransferPayload {

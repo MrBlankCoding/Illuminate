@@ -8,6 +8,8 @@
 import XCTest
 
 final class BrowserAccessibilityUITests: BrowserUITestCase {
+    override var additionalLaunchArguments: [String] { ["-uiTestingForceDownloadsButton"] }
+
     override func setUpWithError() throws {
         try super.setUpWithError()
         openGuestBrowser()

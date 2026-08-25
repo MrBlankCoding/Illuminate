@@ -276,7 +276,10 @@ final class TabManager: NSObject, ObservableObject, WKWebExtensionWindow {
             activeTabID = state.activeTabID
             if let ids = state.tabIDs {
                 tabs = ids.map {
-                    let tab = Tab(id: $0, assetsBaseURL: tabAssetsBaseURL)
+                    // Only the tab that is about to be visible reads its
+                    // metadata synchronously; the rest hydrate via loadAssets().
+                    let isActive = $0 == activeTabID
+                    let tab = Tab(id: $0, assetsBaseURL: tabAssetsBaseURL, loadsMetadataSynchronously: isActive)
                     tab.tabManager = self
                     return tab
                 }
@@ -314,17 +317,18 @@ final class TabManager: NSObject, ObservableObject, WKWebExtensionWindow {
     }
 
     private func hydrateRestoredTabs() {
+        // The active tab hydrates immediately so its favicon/URL are present
+        // for the first paint; background tabs hydrate one per main-queue
+        // turn so launch never blocks on N tabs of asset I/O.
         if let activeID = activeTabID, let activeTab = tabIndex[activeID] {
             hydrateVisualState(for: activeTab)
         }
 
         let otherTabs = tabs.filter { $0.id != activeTabID }
-        Task.detached(priority: .utility) {
+        guard !otherTabs.isEmpty else { return }
+        Task { @MainActor [weak self] in
             for tab in otherTabs {
-                await MainActor.run {
-                    self.hydrateVisualState(for: tab)
-                }
-
+                self?.hydrateVisualState(for: tab)
                 await Task.yield()
             }
         }
@@ -796,18 +800,25 @@ final class TabManager: NSObject, ObservableObject, WKWebExtensionWindow {
         }
         tokens.append(openURLToken)
 
-        let extensionObserver = extensionManager.$installedExtensions
+        extensionObserverCancellable = extensionManager.$installedExtensions
             .sink { [weak self] _ in
                 Task { @MainActor [weak self] in
                     self?.handleExtensionListChanged()
                 }
             }
-        tokens.append(extensionObserver as AnyObject as! NSObjectProtocol)
 
         observerTokens = tokens
     }
 
+    private var lastReloadedExtensionIDs: [String] = []
+
     private func handleExtensionListChanged() {
+        // $installedExtensions republishes on unrelated mutations; only reload
+        // every tab when the set of installed extensions actually changed.
+        let currentIDs = extensionManager.installedExtensions.map(\.uniqueIdentifier)
+        guard currentIDs != lastReloadedExtensionIDs else { return }
+        lastReloadedExtensionIDs = currentIDs
+
         AppLog.debug("[TabManager] Extension list changed - installed extensions count: \(extensionManager.installedExtensions.count)")
         for tab in tabs {
             if tab.url != nil {

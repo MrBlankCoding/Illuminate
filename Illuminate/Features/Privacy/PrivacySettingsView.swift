@@ -86,9 +86,9 @@ struct PrivacySettingsView: View {
                             icon: "circle.hexagongrid.fill",
                             title: "Enable cookies",
                             subtitle: "Allow websites to store sign-in, preference, and session data.",
-                            isOn: $webKitManager.cookiesEnabled
+                            isOn: $webKitManager.cookiesEnabled,
+                            accessibilityID: "browser.cookies.enabledToggle"
                         )
-                        .accessibilityIdentifier("browser.cookies.enabledToggle")
                         Divider().padding(.leading, 48)
                         HStack(spacing: 12) {
                             Image(systemName: "xmark.circle")
@@ -159,7 +159,8 @@ struct PrivacySettingsView: View {
         icon: String,
         title: String,
         subtitle: String,
-        isOn: Binding<Bool>
+        isOn: Binding<Bool>,
+        accessibilityID: String? = nil
     ) -> some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
@@ -181,6 +182,8 @@ struct PrivacySettingsView: View {
                 .labelsHidden()
                 .toggleStyle(.switch)
                 .tint(tabManager.windowThemeColor)
+                .accessibilityLabel(Text(title))
+                .accessibilityIdentifier(accessibilityID ?? "")
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)

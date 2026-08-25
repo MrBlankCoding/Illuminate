@@ -10,9 +10,11 @@ import XCTest
 class BrowserUITestCase: XCTestCase {
     let app = XCUIApplication(bundleIdentifier: "com.MrBlankCoding.Illuminate")
 
+    var additionalLaunchArguments: [String] { [] }
+
     override func setUpWithError() throws {
         continueAfterFailure = false
-        app.launchArguments = ["-uiTesting"]
+        app.launchArguments = ["-uiTesting"] + additionalLaunchArguments
         app.launch()
 
         XCTAssertTrue(

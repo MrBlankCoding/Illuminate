@@ -148,6 +148,7 @@ final class TrackerBlockingService: ObservableObject {
     }
 
     private func rebuildBlockList() {
+        // TODO: WHY???
         // Tracker blocking data is maintained for display purposes.
         // Actual network-level blocking is handled by the uBlock Origin extension.
     }

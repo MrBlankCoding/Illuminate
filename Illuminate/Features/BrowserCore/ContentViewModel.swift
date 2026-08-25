@@ -34,6 +34,8 @@ final class ContentViewModel: ObservableObject {
     private var activeTabURLCancellable: AnyCancellable?
     private var webSuggestionTask: Task<Void, Never>?
     private var webSuggestionCache: [String: [String]] = [:]
+    private var webSuggestionCacheOrder: [String] = []
+    private let webSuggestionCacheLimit = 50
     private(set) var isEditingAddressBar = false
 
     init(
@@ -155,13 +157,22 @@ final class ContentViewModel: ObservableObject {
             let results = await Self.fetchWebSuggestions(for: q)
             guard !Task.isCancelled else { return }
 
-            if self.webSuggestionCache.count >= 50 {
-                self.webSuggestionCache.removeAll(keepingCapacity: true)
-            }
-            self.webSuggestionCache[q] = results
+            self.storeWebSuggestions(results, for: q)
             if self.webSuggestions != results {
                 self.webSuggestions = results
             }
+        }
+    }
+
+    private func storeWebSuggestions(_ results: [String], for query: String) {
+        if let existingIndex = webSuggestionCacheOrder.firstIndex(of: query) {
+            webSuggestionCacheOrder.remove(at: existingIndex)
+        }
+        webSuggestionCacheOrder.append(query)
+        webSuggestionCache[query] = results
+        while webSuggestionCacheOrder.count > webSuggestionCacheLimit {
+            let evicted = webSuggestionCacheOrder.removeFirst()
+            webSuggestionCache.removeValue(forKey: evicted)
         }
     }
 
