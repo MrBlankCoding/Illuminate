@@ -16,7 +16,6 @@ private enum TabBarMetrics {
     static let rowHeight: CGFloat = 42
     static let reorderSpring: Animation = .spring(response: 0.26, dampingFraction: 0.85, blendDuration: 0)
     static let swapThreshold: CGFloat = 0.6
-    static let settleDuration: TimeInterval = 0.4
 }
 
 private struct TabDragSession {
@@ -330,10 +329,12 @@ struct TabBarView: View {
         withAnimation(settleAnimation) {
             dragSession?.translation = snappedTranslation
             dragSession?.isSettling = true
-        }
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + TabBarMetrics.settleDuration) {
-            finishReorder()
+        } completion: {
+            // Finish as soon as the settle animation actually completes
+            // instead of waiting on a fixed timer.
+            Task { @MainActor in
+                finishReorder()
+            }
         }
     }
 

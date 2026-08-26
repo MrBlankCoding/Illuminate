@@ -123,6 +123,7 @@ final class Tab: NSObject, ObservableObject, Identifiable, WKWebExtensionTab {
         didSet {
             if oldValue != isPinned {
                 notifyExtensions(properties: .pinned)
+                tabManager?.updateProtectedFaviconURLs()
             }
         }
     }
@@ -379,7 +380,8 @@ final class Tab: NSObject, ObservableObject, Identifiable, WKWebExtensionTab {
     func detachWebView() {
         cancellables.removeAll()
         webView = nil
-        DispatchQueue.main.async {
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
             self.isLoading = false
             self.estimatedProgress = 0
             self.hasPiPCandidate = false
@@ -388,7 +390,11 @@ final class Tab: NSObject, ObservableObject, Identifiable, WKWebExtensionTab {
 
     func close() {
         pendingMetadataSaveTask?.cancel()
-        guard let webView else { return }
+
+        guard let webView else {
+            detachWebView()
+            return
+        }
 
         let mediaShutdownScript = """
         (() => {
@@ -516,11 +522,13 @@ final class Tab: NSObject, ObservableObject, Identifiable, WKWebExtensionTab {
     private func saveFavicon() {
         guard !isRestoringState else { return }
         let folder = assetsURLWithoutCreating
-        let faviconData = favicon?.pngData()
+        // PNG encoding happens on the background task — encoding on the main
+        // thread here runs on every favicon change (i.e. every navigation).
+        let image = favicon
 
         Task.detached(priority: .background) {
             try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-            if let data = faviconData {
+            if let data = image?.pngData() {
                 try? data.write(to: folder.appendingPathComponent("favicon.png"))
             }
         }

@@ -163,55 +163,100 @@ final class FindViewModel: ObservableObject {
 
     private static let findScriptSource = """
     (function() {
-      function illuminateFind(query, activeColor, matchColor, currentIndex) {
-        document.querySelectorAll('mark[data-illuminate-find]').forEach(function(el) {
+      // Stale-result detection: a MutationObserver marks the result set as
+      // stale when the DOM changes, but nothing is rescanned until the user
+      // actually interacts again. Rebuilds are only done when (a) the query
+      // changed or (b) results are stale; otherwise find-next/previous just
+      // restyles and scrolls — no DOM walk.
+      function ensureObserver() {
+        if (window.__illuminateFindObserver) return;
+        var observer = new MutationObserver(function() {
+          // Ignore mutations caused by our own mark rebuilds.
+          if (Date.now() - (window.__illuminateFindRebuiltAt || 0) < 150) return;
+          window.__illuminateFindStale = true;
+        });
+        observer.observe(document.documentElement, {
+          childList: true,
+          subtree: true,
+          characterData: true
+        });
+        window.__illuminateFindObserver = observer;
+      }
+
+      function stripMarks(marks) {
+        marks.forEach(function(el) {
           var parent = el.parentNode;
           if (!parent) return;
           parent.replaceChild(document.createTextNode(el.textContent), el);
           parent.normalize();
         });
+      }
 
-        if (!query) { return { total: 0, current: 0 }; }
+      function illuminateFind(query, activeColor, matchColor, currentIndex) {
+        ensureObserver();
+        var existing = document.querySelectorAll('mark[data-illuminate-find]');
+        var isSameQuery = !!query && window.__illuminateLastQuery === query && existing.length > 0;
+        var needsRebuild = !isSameQuery || !!window.__illuminateFindStale;
 
-        var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
-          acceptNode: function(node) {
-            if (!node.nodeValue || !node.nodeValue.trim()) return NodeFilter.FILTER_REJECT;
-            var tag = node.parentNode ? node.parentNode.nodeName : '';
-            if (tag === 'SCRIPT' || tag === 'STYLE' || tag === 'NOSCRIPT' || tag === 'TEXTAREA') {
-              return NodeFilter.FILTER_REJECT;
+        if (!query) {
+          stripMarks(existing);
+          if (window.__illuminateFindObserver) {
+            window.__illuminateFindObserver.disconnect();
+            window.__illuminateFindObserver = null;
+          }
+          window.__illuminateLastQuery = '';
+          window.__illuminateFindStale = false;
+          return { total: 0, current: 0 };
+        }
+
+        if (needsRebuild) {
+          stripMarks(existing);
+
+          var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
+            acceptNode: function(node) {
+              if (!node.nodeValue || !node.nodeValue.trim()) return NodeFilter.FILTER_REJECT;
+              var tag = node.parentNode ? node.parentNode.nodeName : '';
+              if (tag === 'SCRIPT' || tag === 'STYLE' || tag === 'NOSCRIPT' || tag === 'TEXTAREA') {
+                return NodeFilter.FILTER_REJECT;
+              }
+              return NodeFilter.FILTER_ACCEPT;
             }
-            return NodeFilter.FILTER_ACCEPT;
-          }
-        });
+          });
 
-        var lowerQuery = query.toLowerCase();
-        var nodes = [];
-        var node;
-        while (node = walker.nextNode()) { nodes.push(node); }
+          var lowerQuery = query.toLowerCase();
+          var nodes = [];
+          var node;
+          while (node = walker.nextNode()) { nodes.push(node); }
 
-        nodes.forEach(function(textNode) {
-          var text = textNode.nodeValue;
-          var lowerText = text.toLowerCase();
-          var pos, idx = 0, lastEnd = 0, found = false;
-          var frag = document.createDocumentFragment();
-          while ((pos = lowerText.indexOf(lowerQuery, idx)) !== -1) {
-            found = true;
-            frag.appendChild(document.createTextNode(text.slice(lastEnd, pos)));
-            var mark = document.createElement('mark');
-            mark.setAttribute('data-illuminate-find', '1');
-            mark.style.backgroundColor = matchColor;
-            mark.style.color = 'inherit';
-            mark.style.borderRadius = '2px';
-            mark.textContent = text.slice(pos, pos + query.length);
-            frag.appendChild(mark);
-            lastEnd = pos + query.length;
-            idx = lastEnd;
-          }
-          if (found) {
-            frag.appendChild(document.createTextNode(text.slice(lastEnd)));
-            textNode.parentNode.replaceChild(frag, textNode);
-          }
-        });
+          nodes.forEach(function(textNode) {
+            var text = textNode.nodeValue;
+            var lowerText = text.toLowerCase();
+            var pos, idx = 0, lastEnd = 0, found = false;
+            var frag = document.createDocumentFragment();
+            while ((pos = lowerText.indexOf(lowerQuery, idx)) !== -1) {
+              found = true;
+              frag.appendChild(document.createTextNode(text.slice(lastEnd, pos)));
+              var mark = document.createElement('mark');
+              mark.setAttribute('data-illuminate-find', '1');
+              mark.style.backgroundColor = matchColor;
+              mark.style.color = 'inherit';
+              mark.style.borderRadius = '2px';
+              mark.textContent = text.slice(pos, pos + query.length);
+              frag.appendChild(mark);
+              lastEnd = pos + query.length;
+              idx = lastEnd;
+            }
+            if (found) {
+              frag.appendChild(document.createTextNode(text.slice(lastEnd)));
+              textNode.parentNode.replaceChild(frag, textNode);
+            }
+          });
+
+          window.__illuminateFindRebuiltAt = Date.now();
+        }
+
+        window.__illuminateLastQuery = query;
+        window.__illuminateFindStale = false;
 
         var marks = document.querySelectorAll('mark[data-illuminate-find]');
         var total = marks.length;

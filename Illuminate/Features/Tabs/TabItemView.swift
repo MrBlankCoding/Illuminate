@@ -83,7 +83,7 @@ struct TabItemView: View {
                 }
 
                 if tab.isLoading && tab.estimatedProgress < 1.0 {
-                    loadingIndicator(width: geo.size.width)
+                    loadingIndicator
                         .transition(.opacity.animation(MacDesign.fastAnimation))
                         .allowsHitTesting(false)
                 }
@@ -215,26 +215,28 @@ struct TabItemView: View {
         }
     }
 
-    private func loadingIndicator(width: CGFloat) -> some View {
+    private var loadingIndicator: some View {
         VStack {
             Spacer()
-            GeometryReader { proxy in
-                Capsule()
-                    .fill(
-                        LinearGradient(
-                            colors: [themeColor.opacity(0.55), themeColor],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
+            // Progress animates via scaleEffect (GPU-composited transform)
+            // instead of frame(width:), so each 100ms progress tick never
+            // triggers a layout pass. No shadow — it would re-rasterize
+            // every frame.
+            Capsule()
+                .fill(
+                    LinearGradient(
+                        colors: [themeColor.opacity(0.55), themeColor],
+                        startPoint: .leading,
+                        endPoint: .trailing
                     )
-                    .frame(
-                        width: max(proxy.size.width * tab.estimatedProgress, TabItemMetrics.progressHeight * 2),
-                        height: TabItemMetrics.progressHeight
-                    )
-                    .shadow(color: themeColor.opacity(0.45), radius: 2, y: 0)
-                    .animation(.easeOut(duration: 0.25), value: tab.estimatedProgress)
-            }
-            .frame(height: TabItemMetrics.progressHeight)
+                )
+                .frame(height: TabItemMetrics.progressHeight)
+                .scaleEffect(
+                    x: max(tab.estimatedProgress, 0.002),
+                    y: 1,
+                    anchor: .leading
+                )
+                .animation(.easeOut(duration: 0.25), value: tab.estimatedProgress)
         }
         .padding(.horizontal, TabItemMetrics.hPad - 2)
         .padding(.bottom, 4)

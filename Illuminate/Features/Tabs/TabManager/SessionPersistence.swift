@@ -25,6 +25,28 @@ actor SessionWriter {
     }
 }
 
+enum StateFilePrefetcher {
+    private nonisolated(unsafe) static var cache: [URL: Data] = [:]
+    private static let lock = NSLock()
+
+    nonisolated static func prefetch(_ urls: [URL]) {
+        Task.detached(priority: .userInitiated) {
+            for url in urls {
+                let data = try? Data(contentsOf: url)
+                lock.lock()
+                cache[url] = data
+                lock.unlock()
+            }
+        }
+    }
+
+    nonisolated static func consume(_ url: URL) -> Data? {
+        lock.lock()
+        defer { lock.unlock() }
+        return cache.removeValue(forKey: url)
+    }
+}
+
 @MainActor
 extension TabManager {
     static func makeSessionURL(profileID: UUID?) -> URL {
@@ -42,7 +64,12 @@ extension TabManager {
         }
 
         do {
-            let data = try Data(contentsOf: url)
+            let data: Data
+            if let prefetched = StateFilePrefetcher.consume(url) {
+                data = prefetched
+            } else {
+                data = try Data(contentsOf: url)
+            }
             let state = try JSONDecoder().decode(SessionState.self, from: data)
             applySessionState(state)
         } catch let error as DecodingError {
@@ -71,14 +98,15 @@ extension TabManager {
                 tab.tabManager = self
                 return tab
             }
-        } else if let payloads = state.tabs {
-            tabs = payloads.map {
-                let tab = makeTab(from: $0)
-                tab.tabManager = self
-                return tab
+            } else if let payloads = state.tabs {
+                tabs = payloads.map {
+                    let tab = makeTab(from: $0)
+                    tab.tabManager = self
+                    return tab
+                }
             }
-        }
         rebuildTabIndex()
+        updateProtectedFaviconURLs()
     }
 
     func startFreshSession() {

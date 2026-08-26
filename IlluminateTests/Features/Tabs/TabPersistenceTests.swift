@@ -64,7 +64,7 @@ struct TabPersistenceTests {
         #expect(restoredTabs.contains { $0.id == tabId2 && $0.title == "Swift" })
     }
 
-    @Test func testTabClosingCleanup() throws {
+    @Test func testTabClosingCleanup() async throws {
         let tabManager = TabManager(isPersistenceEnabled: false)
 
         let tab = tabManager.createTab(url: URL(string: "https://apple.com"))
@@ -83,6 +83,13 @@ struct TabPersistenceTests {
         let remainingTabIDs = tabManager.tabs.map(\.id)
 
         #expect(!remainingTabIDs.contains(tabID))
+
+        // Asset deletion happens off the main thread so closing tabs never
+        // blocks the UI — wait briefly for the detached task to finish.
+        let deadline = Date().addingTimeInterval(2)
+        while FileManager.default.fileExists(atPath: tabFolder.path), Date() < deadline {
+            try await Task.sleep(nanoseconds: 20_000_000)
+        }
         #expect(!FileManager.default.fileExists(atPath: tabFolder.path), "Tab folder should be deleted from disk")
     }
 }

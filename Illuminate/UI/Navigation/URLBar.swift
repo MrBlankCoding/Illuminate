@@ -11,15 +11,14 @@ import AppKit
 
 struct URLBar: View {
     let activeTab: Tab?
-    @Binding var addressText: String
     let themeColor: Color
-    let onNavigate: () -> Void
+    let onNavigate: (String) -> Void
 
     @EnvironmentObject private var viewModel: ContentViewModel
-    @EnvironmentObject private var urlSynchronizer: URLSynchronizer
     @EnvironmentObject private var tabManager: TabManager
     @Environment(\.colorScheme) private var colorScheme
     @FocusState private var isFocused: Bool
+    @State private var addressText = ""
     @State private var isHoveringSuggestions = false
     @State private var didCopyURL = false
     @State private var isCopyHovered = false
@@ -62,16 +61,36 @@ struct URLBar: View {
                 isFocused = false
                 viewModel.setAddressBarEditing(false)
             }
+            if !isFocused {
+                addressText = ContentViewModel.addressBarDisplayText(for: activeTab?.url)
+            }
             if newID != nil && activeTab?.url == nil {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                     isFocused = true
                 }
             }
         }
+        .onChange(of: activeTab?.url) { _, newURL in
+            // Keep the bar in sync with redirects/in-page navigations while
+            // the user isn't typing.
+            guard !isFocused else { return }
+            let display = ContentViewModel.addressBarDisplayText(for: newURL)
+            if addressText != display {
+                addressText = display
+            }
+        }
         .onChange(of: isFocused) { _, focused in
             viewModel.setAddressBarEditing(focused)
-            if !focused && !isHoveringSuggestions {
-                viewModel.cancelSuggestions()
+            if !focused {
+                if !isHoveringSuggestions {
+                    viewModel.cancelSuggestions()
+                }
+                // Revert in-progress edits when focus is lost without a
+                // navigation (Escape, clicking away).
+                let display = ContentViewModel.addressBarDisplayText(for: activeTab?.url)
+                if addressText != display {
+                    addressText = display
+                }
             }
         }
     }
@@ -99,7 +118,7 @@ struct URLBar: View {
                     isHoveringSuggestions = false
                     viewModel.setAddressBarEditing(false)
                     viewModel.cancelSuggestions()
-                    onNavigate()
+                    onNavigate(addressText)
                 }
                 .onChange(of: addressText) { _, newValue in
                     if isFocused {
@@ -148,12 +167,8 @@ struct URLBar: View {
         .hoverCursor(.iBeam)
         .onAppear {
             if addressText.isEmpty {
-                addressText = activeTab?.url?.absoluteString ?? urlSynchronizer.currentURL?.absoluteString ?? ""
+                addressText = ContentViewModel.addressBarDisplayText(for: activeTab?.url)
             }
-        }
-        .onReceive(urlSynchronizer.$currentURL) { newURL in
-            guard !isFocused else { return }
-            addressText = newURL?.absoluteString ?? ""
         }
     }
 
@@ -197,7 +212,7 @@ struct URLBar: View {
             tabManager.switchTo(tabID)
         } else {
             addressText = suggestion.urlString
-            onNavigate()
+            onNavigate(suggestion.urlString)
         }
     }
 
@@ -207,7 +222,7 @@ struct URLBar: View {
         isFocused = false
         viewModel.setAddressBarEditing(false)
         viewModel.cancelSuggestions()
-        onNavigate()
+        onNavigate(suggestion.urlString)
     }
 
     private func selectWebSuggestion(_ suggestion: String) {
@@ -216,7 +231,7 @@ struct URLBar: View {
         isFocused = false
         viewModel.setAddressBarEditing(false)
         viewModel.cancelSuggestions()
-        onNavigate()
+        onNavigate(suggestion)
     }
 
     private var statusIcon: String {

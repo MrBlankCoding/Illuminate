@@ -21,6 +21,8 @@ jobs:
       DERIVED_DATA: build/DerivedData
       BUILD_RESULT: build/Illuminate-build.xcresult
       TEST_RESULT: build/Illuminate-tests.xcresult
+      UNIT_TEST_RESULT: build/Illuminate-unit-tests.xcresult
+      UI_TEST_RESULT: build/Illuminate-ui-tests.xcresult
 
     steps:
       - name: Checkout
@@ -57,6 +59,8 @@ jobs:
         run: |
           set -o pipefail
 
+          rm -rf "$UNIT_TEST_RESULT"
+
           xcodebuild test \
             -scheme "$SCHEME" \
             -project "$PROJECT" \
@@ -69,12 +73,14 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_STYLE=Manual \
             CODE_SIGN_IDENTITY=- \
-            -resultBundlePath "$TEST_RESULT" \
+            -resultBundlePath "$UNIT_TEST_RESULT" \
             | xcbeautify
 
       - name: Run UI Tests with Code Coverage
         run: |
           set -o pipefail
+
+          rm -rf "$UI_TEST_RESULT"
 
           xcodebuild test \
             -scheme "$SCHEME" \
@@ -88,7 +94,7 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_STYLE=Manual \
             CODE_SIGN_IDENTITY=- \
-            -resultBundlePath "$TEST_RESULT" \
+            -resultBundlePath "$UI_TEST_RESULT" \
             | xcbeautify
 
       - name: Export Code Coverage Report
@@ -96,10 +102,26 @@ jobs:
         run: |
           mkdir -p build
 
-          if [ -d "$TEST_RESULT" ]; then
-            if xcrun xccov view --report --json "$TEST_RESULT" > build/coverage.json; then
+          UNIT_EXISTS=false
+          UI_EXISTS=false
+          [ -d "$UNIT_TEST_RESULT" ] && UNIT_EXISTS=true
+          [ -d "$UI_TEST_RESULT" ] && UI_EXISTS=true
+
+          if [ "$UNIT_EXISTS" = true ] && [ "$UI_EXISTS" = true ]; then
+            rm -rf "$TEST_RESULT"
+            xcrun xcresulttool merge "$UNIT_TEST_RESULT" "$UI_TEST_RESULT" \
+              --output-path "$TEST_RESULT"
+            COVERAGE_BUNDLE="$TEST_RESULT"
+          elif [ "$UNIT_EXISTS" = true ]; then
+            COVERAGE_BUNDLE="$UNIT_TEST_RESULT"
+          elif [ "$UI_EXISTS" = true ]; then
+            COVERAGE_BUNDLE="$UI_TEST_RESULT"
+          fi
+
+          if [ -n "$COVERAGE_BUNDLE" ]; then
+            if xcrun xccov view --report --json "$COVERAGE_BUNDLE" > build/coverage.json; then
               echo "Coverage report exported."
-              xcrun xccov view --report "$TEST_RESULT" > build/coverage.txt || true
+              xcrun xccov view --report "$COVERAGE_BUNDLE" > build/coverage.txt || true
               echo "----- Coverage summary -----"
               grep -E "\.app|\.xctest|^/" build/coverage.txt | head -40 || true
             else
@@ -107,7 +129,7 @@ jobs:
               rm -f build/coverage.json
             fi
           else
-            echo "Test result bundle was not created; skipping coverage export."
+            echo "Test result bundles were not created; skipping coverage export."
           fi
 
       - name: Upload Xcode Results and Coverage

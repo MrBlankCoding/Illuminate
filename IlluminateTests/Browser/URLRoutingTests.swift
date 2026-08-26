@@ -47,8 +47,7 @@ struct URLRoutingTests {
         }
         
         await MainActor.run {
-            viewModel.addressBarText = "hello world"
-            viewModel.navigateToAddressBarURL()
+            viewModel.navigateToAddressBarURL("hello world")
         }
         
         let tabHost = await MainActor.run { tab.url?.host }
@@ -69,8 +68,7 @@ struct URLRoutingTests {
         }
         
         await MainActor.run {
-            viewModel.addressBarText = "apple.com"
-            viewModel.navigateToAddressBarURL()
+            viewModel.navigateToAddressBarURL("apple.com")
         }
         
         let tabURL = await MainActor.run { tab.url?.absoluteString }
@@ -82,8 +80,7 @@ struct URLRoutingTests {
         let (viewModel, tab) = await MainActor.run { makeViewModelAndTab() }
 
         await MainActor.run {
-            viewModel.addressBarText = "http://example.com"
-            viewModel.navigateToAddressBarURL()
+            viewModel.navigateToAddressBarURL("http://example.com")
         }
 
         let tabURL = await MainActor.run { tab.url?.absoluteString }
@@ -94,8 +91,7 @@ struct URLRoutingTests {
         let (viewModel, tab) = await MainActor.run { makeViewModelAndTab() }
 
         await MainActor.run {
-            viewModel.addressBarText = "example.com/path?q=1"
-            viewModel.navigateToAddressBarURL()
+            viewModel.navigateToAddressBarURL("example.com/path?q=1")
         }
 
         let tabURL = await MainActor.run { tab.url?.absoluteString }
@@ -106,8 +102,7 @@ struct URLRoutingTests {
         let (viewModel, tab) = await MainActor.run { makeViewModelAndTab() }
 
         await MainActor.run {
-            viewModel.addressBarText = "foo"
-            viewModel.navigateToAddressBarURL()
+            viewModel.navigateToAddressBarURL("foo")
         }
 
         let tabURL = await MainActor.run { tab.url?.absoluteString }
@@ -120,8 +115,7 @@ struct URLRoutingTests {
         let (viewModel, tab) = await MainActor.run { makeViewModelAndTab() }
 
         await MainActor.run {
-            viewModel.addressBarText = "a b"
-            viewModel.navigateToAddressBarURL()
+            viewModel.navigateToAddressBarURL("a b")
         }
 
         let tabURL = await MainActor.run { tab.url?.absoluteString }

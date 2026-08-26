@@ -222,8 +222,7 @@ struct HistoryPageView: View {
         switch action {
         case .open:
             guard let url = entry.url else { return }
-            viewModel.addressBarText = url.absoluteString
-            viewModel.navigateToAddressBarURL()
+            viewModel.navigateToAddressBarURL(url.absoluteString)
 
         case .delete:
             withAnimation(.easeOut(duration: 0.2)) {

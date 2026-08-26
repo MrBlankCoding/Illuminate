@@ -31,7 +31,6 @@ struct ContentView: View {
             VStack(spacing: 0) {
 
                 BrowserToolbarView(
-                    addressBarText: $viewModel.addressBarText,
                     onNavigate: viewModel.navigateToAddressBarURL
                 )
                 .zIndex(3)
@@ -78,7 +77,6 @@ struct ContentView: View {
         .onAppear {
             BrowserWindowRegistry.shared.register()
             DispatchQueue.main.async {
-                viewModel.updateAddressBarFromActiveTab()
                 AppFileOpening.shared.drain(into: tabManager)
             }
         }

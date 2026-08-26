@@ -77,10 +77,12 @@ final class ProfileManager: ObservableObject {
         saveProfiles()
 
         let directory = fileManager.illuminateProfileDirectory(profileID: profile.id)
-        do {
-            try fileManager.removeItem(at: directory)
-        } catch {
-            AppLog.error("Failed to remove profile directory for \(profile.id.uuidString)", error: error)
+        Task.detached(priority: .background) { [fileManager] in
+            do {
+                try fileManager.removeItem(at: directory)
+            } catch {
+                AppLog.error("Failed to remove profile directory for \(profile.id.uuidString)", error: error)
+            }
         }
 
         profileDeleted.send(profile.id)
@@ -142,21 +144,18 @@ final class ProfileManager: ObservableObject {
         }
 
         let url = profilesURL
-        let loadedProfiles: [BrowserProfile]
-        
-        if let data = try? Data(contentsOf: url),
-           let savedProfiles = try? JSONDecoder().decode([BrowserProfile].self, from: data),
-           !savedProfiles.isEmpty {
-            loadedProfiles = savedProfiles.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
-        } else {
-            loadedProfiles = [BrowserProfile(name: "Personal")]
-        }
-        
-        await MainActor.run {
-            self.profiles = loadedProfiles
-            if loadedProfiles.count == 1 && loadedProfiles[0].name == "Personal" {
-                saveProfiles()
+        let loadedProfiles: [BrowserProfile] = await Task.detached(priority: .userInitiated) { () -> [BrowserProfile] in
+            if let data = try? Data(contentsOf: url),
+               let savedProfiles = try? JSONDecoder().decode([BrowserProfile].self, from: data),
+               !savedProfiles.isEmpty {
+                return savedProfiles.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
             }
+            return [BrowserProfile(name: "Personal")]
+        }.value
+
+        profiles = loadedProfiles
+        if loadedProfiles.count == 1 && loadedProfiles[0].name == "Personal" {
+            saveProfiles()
         }
     }
 
@@ -164,7 +163,14 @@ final class ProfileManager: ObservableObject {
         guard !usesUITestProfiles else { return }
         do {
             let data = try JSONEncoder().encode(profiles)
-            try data.write(to: profilesURL, options: .atomic)
+            let url = profilesURL
+            Task.detached(priority: .utility) {
+                do {
+                    try data.write(to: url, options: .atomic)
+                } catch {
+                    AppLog.error("Failed to save profiles", error: error)
+                }
+            }
         } catch {
             AppLog.error("Failed to save profiles", error: error)
         }

@@ -89,16 +89,30 @@ struct DownloadEntryRow: View {
     let accentColor: Color
     var style: Style = .page
 
+    init(
+        item: DownloadHistoryItem,
+        store: DownloadHistoryStore?,
+        accentColor: Color,
+        style: Style = .page
+    ) {
+        self.item = item
+        self.store = store
+        self.accentColor = accentColor
+        self.style = style
+        _fileExistsOnDisk = State(initialValue: item.fileExistsOnDisk)
+    }
+
     @ObservedObject private var downloadManager = DownloadManager.shared
     @State private var isHovering = false
+    @State private var fileExistsOnDisk = false
 
     private var isCompact: Bool { style == .popover }
     private var isMissingFromDisk: Bool {
-        item.isCompleted && !item.fileExistsOnDisk
+        item.isCompleted && !fileExistsOnDisk
     }
 
     private var isRowInteractive: Bool {
-        item.isCompleted && item.fileExistsOnDisk
+        item.isCompleted && fileExistsOnDisk
     }
 
     var body: some View {
@@ -179,6 +193,9 @@ struct DownloadEntryRow: View {
         }
         .hoverCursor(isRowInteractive ? .pointingHand : .arrow)
         .animation(.easeOut(duration: 0.12), value: isHovering)
+        .task(id: item.destinationURL) {
+            fileExistsOnDisk = item.fileExistsOnDisk
+        }
     }
 
     private func revealInFinder() {

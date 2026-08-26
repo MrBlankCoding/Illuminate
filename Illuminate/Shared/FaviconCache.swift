@@ -50,9 +50,13 @@ final class FaviconCache: @unchecked Sendable {
     nonisolated(unsafe) var storage: [URL: NSImage] = [:]
     nonisolated(unsafe) var accessOrder: [URL: UInt64] = [:]
     nonisolated(unsafe) var accessCounter: UInt64 = 0
+    // Guarded by `lock`.
+    nonisolated(unsafe) var protectedKeys: Set<String> = []
 
     private let lock = NSLock()
     private let cacheURL: URL
+    private static let maxDiskEntries = 512
+    private nonisolated(unsafe) static var pendingDiskPrune = false
     private let fetchData: @Sendable (String) async throws -> Data
     private let inFlightRequests = AsyncRequestDeduplicator<String, Data>()
 
@@ -194,11 +198,51 @@ final class FaviconCache: @unchecked Sendable {
         return s.isEmpty ? "INVALID_URL" : s
     }
 
+    private static let maxCachedPixelSize: CGFloat = 64
+
     nonisolated private static func decodeAndEncode(_ data: Data) async -> (NSImage, Data?)? {
         await Task.detached(priority: .utility) { () -> (NSImage, Data?)? in
             guard let img = NSImage(data: data) else { return nil }
-            return (img, img.pngData())
+            let resized = downsampled(img, maxPixel: maxCachedPixelSize)
+            return (resized, resized.pngData())
         }.value
+    }
+
+    nonisolated private static func downsampled(_ image: NSImage, maxPixel: CGFloat) -> NSImage {
+        let largestDimension = max(image.size.width, image.size.height)
+        guard largestDimension > maxPixel, largestDimension > 0 else { return image }
+
+        let scale = maxPixel / largestDimension
+        let targetPixelsWide = max(1, Int((image.size.width * scale).rounded(.down)))
+        let targetPixelsHigh = max(1, Int((image.size.height * scale).rounded(.down)))
+
+        guard let rep = NSBitmapImageRep(
+            bitmapDataPlanes: nil,
+            pixelsWide: targetPixelsWide,
+            pixelsHigh: targetPixelsHigh,
+            bitsPerSample: 8,
+            samplesPerPixel: 4,
+            hasAlpha: true,
+            isPlanar: false,
+            colorSpaceName: .deviceRGB,
+            bytesPerRow: 0,
+            bitsPerPixel: 0
+        ) else { return image }
+
+        rep.size = NSSize(width: targetPixelsWide, height: targetPixelsHigh)
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
+        image.draw(
+            in: NSRect(x: 0, y: 0, width: targetPixelsWide, height: targetPixelsHigh),
+            from: NSRect(origin: .zero, size: image.size),
+            operation: .copy,
+            fraction: 1.0
+        )
+        NSGraphicsContext.restoreGraphicsState()
+
+        let result = NSImage(size: NSSize(width: targetPixelsWide, height: targetPixelsHigh))
+        result.addRepresentation(rep)
+        return result
     }
 
     nonisolated func performInline_set(_ image: NSImage, for key: URL) {
@@ -228,21 +272,34 @@ final class FaviconCache: @unchecked Sendable {
 
     nonisolated private func evictIfNeeded() {
         while accessOrder.count > capacity {
-            var oldestKey: URL?
-            var oldestSeq: UInt64 = .max
-            for (url, seq) in accessOrder {
-                if seq < oldestSeq {
-                    oldestSeq = seq
-                    oldestKey = url
-                }
-            }
-            if let oldest = oldestKey {
-                accessOrder.removeValue(forKey: oldest)
-                storage.removeValue(forKey: oldest)
-            } else {
-                break
+            let oldest = oldestAccessKey(preferUnprotected: true)
+                ?? oldestAccessKey(preferUnprotected: false)
+            guard let oldest else { break }
+            accessOrder.removeValue(forKey: oldest)
+            storage.removeValue(forKey: oldest)
+        }
+    }
+
+    private func oldestAccessKey(preferUnprotected: Bool) -> URL? {
+        var oldestKey: URL?
+        var oldestSeq: UInt64 = .max
+        for (url, seq) in accessOrder {
+            if seq < oldestSeq, isProtectedKey(normalizedRequestKey(for: url)) != preferUnprotected {
+                oldestSeq = seq
+                oldestKey = url
             }
         }
+        return oldestKey
+    }
+
+    nonisolated func setProtectedURLs(_ urls: [URL]) {
+        lock.lock()
+        defer { lock.unlock() }
+        protectedKeys = Set(urls.map { normalizedRequestKey(for: $0) })
+    }
+
+    private func isProtectedKey(_ key: String) -> Bool {
+        protectedKeys.contains(key)
     }
     
     nonisolated private func diskURL(for key: URL) -> URL {
@@ -260,14 +317,63 @@ final class FaviconCache: @unchecked Sendable {
     }
     
     nonisolated private func persistToDisk(_ data: Data, at fileURL: URL) {
-        Task.detached(priority: .userInitiated) {
+        // Caller holds `lock`; snapshot protection state before detaching.
+        let hashes = Set(protectedKeys.map { stableHash($0) })
+        Task.detached(priority: .userInitiated) { [cacheURL] in
             try? data.write(to: fileURL, options: .atomic)
+            Self.pruneDiskCacheIfNeeded(directory: cacheURL, protectedHashes: hashes)
         }
     }
-    
+
+    nonisolated private static func pruneDiskCacheIfNeeded(directory: URL, protectedHashes: Set<String>) {
+        dispatchPrecondition(condition: .notOnQueue(.main))
+        lockPrune.lock()
+        if pendingDiskPrune {
+            lockPrune.unlock()
+            return
+        }
+        pendingDiskPrune = true
+        lockPrune.unlock()
+        defer {
+            lockPrune.lock()
+            pendingDiskPrune = false
+            lockPrune.unlock()
+        }
+
+        guard let files = try? FileManager.default.contentsOfDirectory(
+            at: directory,
+            includingPropertiesForKeys: [.contentModificationDateKey],
+            options: .skipsHiddenFiles
+        ), files.count > maxDiskEntries else { return }
+
+        let dated = files.map { file -> (URL, Date, Bool) in
+            let date = (try? file.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate ?? .distantPast
+            let isProtected = protectedHashes.contains(file.deletingPathExtension().lastPathComponent)
+            return (file, date, isProtected)
+        }
+
+        // Semantic eviction: unprotected files oldest-first; protected files
+        // only as a last resort. mtime ≈ last access (loadFromDisk bumps it).
+        let sorted = dated.sorted { lhs, rhs in
+            if lhs.2 != rhs.2 { return !lhs.2 }
+            return lhs.1 < rhs.1
+        }
+        let excess = sorted.prefix(files.count - maxDiskEntries)
+        for (file, _, _) in excess {
+            try? FileManager.default.removeItem(at: file)
+        }
+    }
+    private static let lockPrune = NSLock()
+
     nonisolated private func loadFromDisk(_ key: URL) -> NSImage? {
         let url = diskURL(for: key)
         guard let data = try? Data(contentsOf: url) else { return nil }
+        // Keep the file's modification date as a proxy for "last accessed"
+        // so pruning evicts genuinely unused entries.
+        try? FileManager.default.setAttributes(
+            [.modificationDate: Date()],
+            ofItemAtPath: url.path
+        )
         guard let image = NSImage(data: data) else {
             try? FileManager.default.removeItem(at: url)
             return nil

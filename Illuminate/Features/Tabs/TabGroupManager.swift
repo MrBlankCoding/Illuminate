@@ -28,13 +28,16 @@ public final class TabGroupManager: ObservableObject {
 
     private var groupSubscriptions: [UUID: AnyCancellable] = [:]
 
-    init(profileID: UUID?, isPersistenceEnabled: Bool = true) {
-        self.isPersistenceEnabled = isPersistenceEnabled
-
+    nonisolated static func makeGroupsURL(profileID: UUID?) -> URL {
         let base: URL = profileID.map {
             FileManager.default.illuminateProfileDirectory(profileID: $0)
         } ?? FileManager.default.illuminateAppSupportDirectory()
-        self.groupsURL = base.appendingPathComponent("tab_groups.json")
+        return base.appendingPathComponent("tab_groups.json")
+    }
+
+    init(profileID: UUID?, isPersistenceEnabled: Bool = true) {
+        self.isPersistenceEnabled = isPersistenceEnabled
+        self.groupsURL = Self.makeGroupsURL(profileID: profileID)
 
         if isPersistenceEnabled {
             restoreGroups()
@@ -346,7 +349,12 @@ public final class TabGroupManager: ObservableObject {
 
     private func restoreGroups() {
         do {
-            let data = try Data(contentsOf: groupsURL)
+            let data: Data
+            if let prefetched = StateFilePrefetcher.consume(groupsURL) {
+                data = prefetched
+            } else {
+                data = try Data(contentsOf: groupsURL)
+            }
             let payloads = try JSONDecoder().decode([TabGroupPayload].self, from: data)
 
             for payload in payloads {

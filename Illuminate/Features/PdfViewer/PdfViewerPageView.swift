@@ -482,10 +482,13 @@ struct PdfViewerPageView: View {
         isLoading = true
         defer { isLoading = false }
 
-        let loadedDocument: PDFDocument? = sourceURL.withSecurityScopedAccess {
-            guard FileManager.default.fileExists(atPath: sourceURL.path) else { return nil }
-            return PDFDocument(url: sourceURL)
-        }
+        let url = sourceURL
+        let loadedDocument: PDFDocument? = await Task.detached(priority: .userInitiated) { () -> PDFDocument? in
+            url.withSecurityScopedAccess {
+                guard FileManager.default.fileExists(atPath: url.path) else { return nil }
+                return PDFDocument(url: url)
+            }
+        }.value
 
         if let document = loadedDocument {
             controller.setDocument(document)

@@ -354,6 +354,7 @@ final class TabManager: NSObject, ObservableObject, WKWebExtensionWindow {
         }
 
         scheduleSave()
+        updateProtectedFaviconURLs()
 
         return tab
     }
@@ -371,6 +372,7 @@ final class TabManager: NSObject, ObservableObject, WKWebExtensionWindow {
         tabs.remove(at: index)
         deindexTab(id: id)
         removeTabAssets(for: id)
+        updateProtectedFaviconURLs()
 
         if activeTabID == id {
             withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
@@ -477,6 +479,10 @@ final class TabManager: NSObject, ObservableObject, WKWebExtensionWindow {
 
     private func syncActiveTabURL() {
         urlSynchronizer.updateCurrentURL(activeTab?.url)
+    }
+
+    func updateProtectedFaviconURLs() {
+        faviconCache.setProtectedURLs(tabs.filter(\.isPinned).compactMap(\.url))
     }
 
     private func cycleTab(by delta: Int) {

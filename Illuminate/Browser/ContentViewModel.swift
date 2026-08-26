@@ -21,8 +21,6 @@ struct IlluminatePageSuggestion: Identifiable, Equatable {
 
 @MainActor
 final class ContentViewModel: ObservableObject {
-    @Published var addressBarText = ""
-
     @Published private(set) var illuminatePageSuggestions: [IlluminatePageSuggestion] = []
     @Published private(set) var historySuggestions: [HistorySuggestion] = []
     @Published private(set) var webSuggestions: [String] = []
@@ -31,11 +29,11 @@ final class ContentViewModel: ObservableObject {
     private let urlSynchronizer: URLSynchronizer
     private let historyManager: HistoryManager?
     private var cancellables = Set<AnyCancellable>()
-    private var activeTabURLCancellable: AnyCancellable?
     private var webSuggestionTask: Task<Void, Never>?
     private var webSuggestionCache: [String: [String]] = [:]
     private var webSuggestionCacheOrder: [String] = []
     private let webSuggestionCacheLimit = 50
+    private var lastSuggestionQuery: String?
     private(set) var isEditingAddressBar = false
 
     init(
@@ -46,52 +44,14 @@ final class ContentViewModel: ObservableObject {
         self.tabManager = tabManager
         self.urlSynchronizer = urlSynchronizer
         self.historyManager = historyManager
-        setupBindings()
-    }
-
-    private func setupBindings() {
-        cancellables.removeAll()
-
-        tabManager.$activeTabID
-            .receive(on: RunLoop.main)
-            .sink { [weak self] _ in
-                self?.syncAddressBarFromActiveTab(force: true)
-                self?.subscribeToActiveTabURL()
-            }
-            .store(in: &cancellables)
-
-        subscribeToActiveTabURL()
-    }
-
-    private func subscribeToActiveTabURL() {
-        activeTabURLCancellable?.cancel()
-        activeTabURLCancellable = nil
-
-        if let activeTab = tabManager.activeTab {
-            activeTabURLCancellable = activeTab.$url
-                .receive(on: RunLoop.main)
-                .sink { [weak self] _ in
-                    self?.syncAddressBarFromActiveTab()
-                }
-        }
-    }
-
-    func updateAddressBarFromActiveTab() {
-        syncAddressBarFromActiveTab(force: true)
     }
 
     func setAddressBarEditing(_ isEditing: Bool) {
         isEditingAddressBar = isEditing
-        if !isEditing {
-            DispatchQueue.main.async { [weak self] in
-                guard let self, !self.isEditingAddressBar else { return }
-                self.syncAddressBarFromActiveTab()
-            }
-        }
     }
 
-    func navigateToAddressBarURL() {
-        let trimmed = addressBarText.trimmingCharacters(in: .whitespacesAndNewlines)
+    func navigateToAddressBarURL(_ text: String) {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         if trimmed == Self.addressBarDisplayText(for: tabManager.activeTab?.url) {
             isEditingAddressBar = false
@@ -120,7 +80,6 @@ final class ContentViewModel: ObservableObject {
 
     func createNewTab(url: URL? = nil) {
         tabManager.createTab(url: url)
-        updateAddressBarFromActiveTab()
     }
 
     func updateSuggestions(for query: String) {
@@ -128,23 +87,29 @@ final class ContentViewModel: ObservableObject {
         let q = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
 
         guard q.count >= 2 || q.starts(with: "illuminate:") else {
-            illuminatePageSuggestions = []
-            historySuggestions = []
-            webSuggestions = []
+            clearLocalSuggestionsIfNeeded()
+            lastSuggestionQuery = nil
             return
         }
 
-        let newIlluminateSuggestions = fetchIlluminateSuggestions(for: q)
-        if illuminatePageSuggestions != newIlluminateSuggestions {
-            illuminatePageSuggestions = newIlluminateSuggestions
-        }
-        let historyResults = historyManager?.suggestions(for: q, limit: 3) ?? []
-        if historySuggestions != historyResults {
-            historySuggestions = historyResults
+        // The illuminate/history scans are pure in-memory work; memoize them
+        // per query so repeated keystrokes that normalize to the same query
+        // don't rescan.
+        if q != lastSuggestionQuery {
+            lastSuggestionQuery = q
+
+            let newIlluminateSuggestions = fetchIlluminateSuggestions(for: q)
+            if illuminatePageSuggestions != newIlluminateSuggestions {
+                illuminatePageSuggestions = newIlluminateSuggestions
+            }
+            let historyResults = historyManager?.suggestions(for: q, limit: 3) ?? []
+            if historySuggestions != historyResults {
+                historySuggestions = historyResults
+            }
         }
 
         guard !isLikelyURL(q), !q.starts(with: "illuminate:") else {
-            webSuggestions = []
+            if !webSuggestions.isEmpty { webSuggestions = [] }
             return
         }
 
@@ -216,9 +181,14 @@ final class ContentViewModel: ObservableObject {
 
     func cancelSuggestions() {
         webSuggestionTask?.cancel()
-        illuminatePageSuggestions = []
-        historySuggestions = []
-        webSuggestions = []
+        lastSuggestionQuery = nil
+        clearLocalSuggestionsIfNeeded()
+    }
+
+    private func clearLocalSuggestionsIfNeeded() {
+        if !illuminatePageSuggestions.isEmpty { illuminatePageSuggestions = [] }
+        if !historySuggestions.isEmpty { historySuggestions = [] }
+        if !webSuggestions.isEmpty { webSuggestions = [] }
     }
 
     private nonisolated static func fetchWebSuggestions(for query: String) async -> [String] {
@@ -258,11 +228,6 @@ final class ContentViewModel: ObservableObject {
         components.path = "/search"
         components.queryItems = [URLQueryItem(name: "q", value: query)]
         return components.url
-    }
-
-    private func syncAddressBarFromActiveTab(force: Bool = false) {
-        guard force || !isEditingAddressBar else { return }
-        addressBarText = Self.addressBarDisplayText(for: tabManager.activeTab?.url)
     }
 
     static func addressBarDisplayText(for url: URL?) -> String {

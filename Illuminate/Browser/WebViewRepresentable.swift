@@ -36,7 +36,10 @@ struct WebViewRepresentable: NSViewRepresentable {
     }
 
     func makeNSView(context: Context) -> WKWebView {
-        tab.createWebViewIfNeeded(configuration: webKitManager.makeConfiguration(), webKitManager: webKitManager)
+        if tab.webView == nil {
+            let configuration = tab.customWebViewConfiguration ?? webKitManager.makeConfiguration()
+            tab.createWebViewIfNeeded(configuration: configuration, webKitManager: webKitManager)
+        }
 
         guard let webView = tab.webView else {
             let fallback = webKitManager.makeWebView()

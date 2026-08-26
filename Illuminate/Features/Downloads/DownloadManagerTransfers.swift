@@ -185,7 +185,7 @@ extension DownloadManager {
         insertTask(item)
         webKitDownloadIDs[ObjectIdentifier(download)] = item.id
         webKitDownloadsByID[item.id] = download
-        webKitDownloadWebViews[item.id] = webView
+        webKitDownloadWebViews[item.id] = WeakWKWebViewBox(webView)
         download.delegate = self
     }
 
@@ -314,7 +314,7 @@ extension DownloadManager {
     }
 
     private func resumeWebKitDownload(task: DownloadTask, resumeData: Data, profileID: UUID?) {
-        guard let webView = webKitDownloadWebViews[task.id] else {
+        guard let box = webKitDownloadWebViews[task.id], let webView = box.webView else {
             retryDownload(item: DownloadHistoryItem(task: task))
             return
         }
@@ -335,7 +335,7 @@ extension DownloadManager {
             Task { @MainActor in
                 self.webKitDownloadIDs[ObjectIdentifier(download)] = task.id
                 self.webKitDownloadsByID[task.id] = download
-                self.webKitDownloadWebViews[task.id] = webView
+                self.webKitDownloadWebViews[task.id] = WeakWKWebViewBox(webView)
                 download.delegate = self
             }
         }

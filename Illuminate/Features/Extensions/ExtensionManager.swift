@@ -138,7 +138,13 @@ final class ExtensionManager: NSObject, ObservableObject {
         var errors: [ExtensionLoadingError] = []
 
         if !isGuestSession {
-            let records = loadPersistedRecords()
+            let persistenceURL = self.persistenceURL
+            let records = await Task.detached(priority: .userInitiated) { () -> [String: ExtensionRecord] in
+                guard let data = try? Data(contentsOf: persistenceURL),
+                      let decoded = try? JSONDecoder().decode([String: ExtensionRecord].self, from: data)
+                else { return [:] }
+                return decoded
+            }.value
             let sortedKeys = records.keys.sorted()
 
             await withTaskGroup(of: (String, WKWebExtensionContext?, ExtensionLoadingError?).self) { group in
@@ -232,13 +238,6 @@ final class ExtensionManager: NSObject, ObservableObject {
         }
     }
 
-    private func loadPersistedRecords() -> [String: ExtensionRecord] {
-        guard let data = try? Data(contentsOf: persistenceURL),
-              let records = try? JSONDecoder().decode([String: ExtensionRecord].self, from: data)
-        else { return [:] }
-        return records
-    }
-
     private func saveInstalledExtensions() {
         guard !isGuestSession else { return }
 
@@ -257,7 +256,10 @@ final class ExtensionManager: NSObject, ObservableObject {
         }
 
         if let data = try? JSONEncoder().encode(records) {
-            try? data.write(to: persistenceURL, options: .atomic)
+            let persistenceURL = self.persistenceURL
+            Task.detached(priority: .utility) {
+                try? data.write(to: persistenceURL, options: .atomic)
+            }
         }
 
         persistExtensionStates()

@@ -17,8 +17,7 @@ struct ViewModelBehaviorTests {
         let viewModel = ContentViewModel(tabManager: tabManager, urlSynchronizer: synchronizer)
         let tab = try! #require(tabManager.activeTab)
 
-        viewModel.addressBarText = "swift ui testing"
-        viewModel.navigateToAddressBarURL()
+        viewModel.navigateToAddressBarURL("swift ui testing")
 
         #expect(tab.url?.host == "www.google.com")
         #expect(tab.url?.path == "/search")
@@ -27,7 +26,7 @@ struct ViewModelBehaviorTests {
         #expect(synchronizer.currentURL == tab.url)
     }
 
-    @Test func switchingTabsUpdatesAddressBarTextEvenWhileEditing() async {
+    @Test func switchingTabsUpdatesSynchronizerURL() async {
         let synchronizer = URLSynchronizer()
         let tabManager = TabManager(urlSynchronizer: synchronizer, isPersistenceEnabled: false)
         let viewModel = ContentViewModel(tabManager: tabManager, urlSynchronizer: synchronizer)
@@ -37,20 +36,19 @@ struct ViewModelBehaviorTests {
 
         let second = await MainActor.run { tabManager.createTab(url: URL(string: "https://second.example.com")!) }
 
-        await MainActor.run { viewModel.updateAddressBarFromActiveTab() }
         #expect(tabManager.activeTab?.id == second.id)
-        #expect(viewModel.addressBarText == "https://second.example.com")
+        // The URLSynchronizer is what the URL bar observes for display text
+        // when it isn't focused.
+        #expect(synchronizer.currentURL == second.url)
 
         await MainActor.run { viewModel.setAddressBarEditing(true) }
         await MainActor.run { tabManager.switchTo(first.id) }
-        await MainActor.run { viewModel.updateAddressBarFromActiveTab() }
 
         #expect(tabManager.activeTab?.id == first.id)
-        #expect(viewModel.addressBarText == "https://first.example.com")
         #expect(synchronizer.currentURL == first.url)
     }
 
-    @Test func createNewTabWithURLMakesItActiveAndUpdatesAddressBar() {
+    @Test func createNewTabWithURLMakesItActive() {
         let synchronizer = URLSynchronizer()
         let tabManager = TabManager(urlSynchronizer: synchronizer, isPersistenceEnabled: false)
         let viewModel = ContentViewModel(tabManager: tabManager, urlSynchronizer: synchronizer)
@@ -59,7 +57,7 @@ struct ViewModelBehaviorTests {
         viewModel.createNewTab(url: url)
 
         #expect(tabManager.activeTab?.url == url)
-        #expect(viewModel.addressBarText == url.absoluteString)
+        #expect(synchronizer.currentURL == url)
         #expect(tabManager.tabs.count == 2)
     }
 

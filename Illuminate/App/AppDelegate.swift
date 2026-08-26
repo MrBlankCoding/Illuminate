@@ -22,11 +22,21 @@ final class DockMenuWindowRouter {
 class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         observeExtensionWindowRequests()
+        prewarmSessionStateFiles()
 
         guard isRunningUITests() else { return }
         Task { @MainActor in
             await bringAppToFrontForUITests()
         }
+    }
+
+    private func prewarmSessionStateFiles() {
+        let profileID = lastUsedOrFirstProfileID()
+        StateFilePrefetcher.prefetch([
+            TabManager.makeSessionURL(profileID: profileID),
+            TabGroupManager.makeGroupsURL(profileID: profileID),
+            FileManager.default.illuminateProfilesCatalogURL(),
+        ])
     }
 
     private func observeExtensionWindowRequests() {
@@ -150,8 +160,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func fetchProfiles() -> [BrowserProfile] {
         let catalogURL = FileManager.default.illuminateProfilesCatalogURL()
-
-        guard let data = try? Data(contentsOf: catalogURL),
+        let data = StateFilePrefetcher.consume(catalogURL) ?? (try? Data(contentsOf: catalogURL))
+        guard let data,
               let profiles = try? JSONDecoder().decode([BrowserProfile].self, from: data) else {
             return []
         }

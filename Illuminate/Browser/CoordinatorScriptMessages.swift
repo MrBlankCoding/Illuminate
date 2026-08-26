@@ -116,23 +116,27 @@ extension WebViewRepresentable.Coordinator {
                 }
 
             case "fieldsDetected":
-                let passwords = passwordService.fetchPasswords(for: url)
-                guard let first = passwords.first, let webView = message.webView else { return }
-                let payload: [String: String] = ["username": first.username, "password": first.passwordData]
-                guard
-                    let data = try? JSONEncoder().encode(payload),
-                    let json = String(data: data, encoding: .utf8)
-                else { return }
-                let script = """
-                (() => {
-                    const c = \(json);
-                    const pass = document.querySelector('input[type="password"]');
-                    const user = document.querySelector('input[type="text"], input[type="email"], input:not([type])');
-                    if (pass) pass.value = c.password;
-                    if (user) user.value = c.username;
-                })();
-                """
-                Task { _ = try? await webView.evaluateJavaScript(script) }
+                let service = passwordService
+                Task { @MainActor [weak self] in
+                    guard self != nil else { return }
+                    let passwords = service.fetchPasswords(for: url)
+                    guard let first = passwords.first, let webView = message.webView else { return }
+                    let payload: [String: String] = ["username": first.username, "password": first.passwordData]
+                    guard
+                        let data = try? JSONEncoder().encode(payload),
+                        let json = String(data: data, encoding: .utf8)
+                    else { return }
+                    let script = """
+                    (() => {
+                        const c = \(json);
+                        const pass = document.querySelector('input[type="password"]');
+                        const user = document.querySelector('input[type="text"], input[type="email"], input:not([type])');
+                        if (pass) pass.value = c.password;
+                        if (user) user.value = c.username;
+                    })();
+                    """
+                    _ = try? await webView.evaluateJavaScript(script)
+                }
 
             default:
                 break

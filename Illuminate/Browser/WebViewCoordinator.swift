@@ -538,6 +538,7 @@ extension WebViewRepresentable {
         }
 
         func loadFavicon(from url: URL, for tab: Tab) async {
+            guard tab.favicon == nil else { return }
             if let image = await faviconCache.fetchImage(for: url) {
                 await MainActor.run { tab.favicon = image }
             }

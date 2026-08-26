@@ -23,7 +23,7 @@ extension TabManager {
 
         guard tab.favicon == nil, let faviconURL = defaultFaviconURL(for: tab.url) else { return }
         Task(priority: .background) { [weak tab, faviconCache] in
-            guard let image = await faviconCache.fetchImage(for: faviconURL) else { return }
+            guard let image = await faviconCache.imageIncludingDisk(for: faviconURL) else { return }
             await MainActor.run {
                 guard let tab, tab.favicon == nil else { return }
                 tab.favicon = image
@@ -67,14 +67,16 @@ extension TabManager {
             .appendingPathComponent("TabAssets", isDirectory: true)
             .appendingPathComponent(id.uuidString, isDirectory: true)
 
-        do {
-            try FileManager.default.removeItem(at: folder)
-        } catch {
-            let nsError = error as NSError
-            let isMissingFile = nsError.domain == NSCocoaErrorDomain
-                && nsError.code == NSFileNoSuchFileError
-            guard !isMissingFile else { return }
-            AppLog.error("Could not remove tab assets for \(id.uuidString)", error: error)
+        Task.detached(priority: .utility) {
+            do {
+                try FileManager.default.removeItem(at: folder)
+            } catch {
+                let nsError = error as NSError
+                let isMissingFile = nsError.domain == NSCocoaErrorDomain
+                    && nsError.code == NSFileNoSuchFileError
+                guard !isMissingFile else { return }
+                AppLog.error("Could not remove tab assets for \(id.uuidString)", error: error)
+            }
         }
     }
 
@@ -94,7 +96,7 @@ extension TabManager {
                 guard !Task.isCancelled else { return }
                 guard self.backgroundImageURL == expectedURLString else { return }
 
-                withAnimation(.easeInOut(duration: 0.8)) {
+                withAnimation(.easeInOut(duration: 0.35)) {
                     self.backgroundImagePalette = palette
                     if applyTheme, let first = palette.first {
                         self.windowThemeColor = first

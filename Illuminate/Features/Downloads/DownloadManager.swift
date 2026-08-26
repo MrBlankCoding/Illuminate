@@ -11,6 +11,12 @@ import Foundation
 import WebKit
 
 @MainActor
+final class WeakWKWebViewBox {
+    weak var webView: WKWebView?
+    init(_ webView: WKWebView?) { self.webView = webView }
+}
+
+@MainActor
 final class DownloadManager: NSObject, ObservableObject {
     static let shared = DownloadManager()
 
@@ -36,7 +42,7 @@ final class DownloadManager: NSObject, ObservableObject {
     var sessionTasksByID: [UUID: URLSessionDownloadTask] = [:]
     var webKitDownloadIDs: [ObjectIdentifier: UUID] = [:]
     var webKitDownloadsByID: [UUID: WKDownload] = [:]
-    var webKitDownloadWebViews: [UUID: WKWebView] = [:]
+    var webKitDownloadWebViews: [UUID: WeakWKWebViewBox] = [:]
     var webKitStagingURLsByID: [UUID: URL] = [:]
     var taskProfileIDs: [UUID: UUID] = [:]
     private var completionIndicatorResetTask: Task<Void, Never>?

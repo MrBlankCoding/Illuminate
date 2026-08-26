@@ -95,8 +95,7 @@ struct BrowserToolbarView: View {
     @EnvironmentObject private var profileManager: ProfileManager
     @Environment(\.colorScheme) private var colorScheme
 
-    @Binding var addressBarText: String
-    let onNavigate: () -> Void
+    let onNavigate: (String) -> Void
 
     @State private var isProfileHovered = false
 
@@ -165,7 +164,6 @@ struct BrowserToolbarView: View {
             navigationControls
             URLBar(
                 activeTab: tabManager.activeTab,
-                addressText: $addressBarText,
                 themeColor: effectiveThemeColor,
                 onNavigate: onNavigate
             )
