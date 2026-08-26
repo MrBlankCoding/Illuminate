@@ -13,7 +13,7 @@ import WebKit
 @MainActor
 final class DownloadManager: NSObject, ObservableObject {
     static let shared = DownloadManager()
-    static let downloadsDidChangeNotification = Notification.Name("DownloadManager.downloadsDidChange")
+
 
     var downloads: [DownloadTask] = []
     var downloadIndexMap: [UUID: Int] = [:]

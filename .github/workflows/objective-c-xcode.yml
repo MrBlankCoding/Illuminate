@@ -13,7 +13,9 @@ jobs:
     timeout-minutes: 30
 
     env:
-      SCHEME: Illuminate
+      SCHEME: Illuminate-Coverage
+      UNIT_TEST_TARGET: IlluminateTests
+      UI_TEST_TARGET: IlluminateUITests
       PROJECT: Illuminate.xcodeproj
       DESTINATION: platform=macOS,arch=arm64
       DERIVED_DATA: build/DerivedData
@@ -51,7 +53,7 @@ jobs:
             -resultBundlePath "$BUILD_RESULT" \
             | xcbeautify
 
-      - name: Test with Code Coverage
+      - name: Run Unit Tests with Code Coverage
         run: |
           set -o pipefail
 
@@ -62,6 +64,26 @@ jobs:
             -derivedDataPath "$DERIVED_DATA" \
             -enableCodeCoverage YES \
             -parallel-testing-enabled NO \
+            -only-testing:"$UNIT_TEST_TARGET" \
+            CODE_SIGNING_ALLOWED=YES \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY=- \
+            -resultBundlePath "$TEST_RESULT" \
+            | xcbeautify
+
+      - name: Run UI Tests with Code Coverage
+        run: |
+          set -o pipefail
+
+          xcodebuild test \
+            -scheme "$SCHEME" \
+            -project "$PROJECT" \
+            -destination "$DESTINATION" \
+            -derivedDataPath "$DERIVED_DATA" \
+            -enableCodeCoverage YES \
+            -parallel-testing-enabled NO \
+            -only-testing:"$UI_TEST_TARGET" \
             CODE_SIGNING_ALLOWED=YES \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_STYLE=Manual \
@@ -77,6 +99,9 @@ jobs:
           if [ -d "$TEST_RESULT" ]; then
             if xcrun xccov view --report --json "$TEST_RESULT" > build/coverage.json; then
               echo "Coverage report exported."
+              xcrun xccov view --report "$TEST_RESULT" > build/coverage.txt || true
+              echo "----- Coverage summary -----"
+              grep -E "\.app|\.xctest|^/" build/coverage.txt | head -40 || true
             else
               echo "Coverage data was not available; continuing so result bundles can still be uploaded."
               rm -f build/coverage.json
@@ -93,5 +118,6 @@ jobs:
           path: |
             build/*.xcresult
             build/coverage.json
+            build/coverage.txt
           if-no-files-found: warn
           retention-days: 14

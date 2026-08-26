@@ -103,9 +103,9 @@ final class HistoryManager: ObservableObject {
         self.userDefaults = userDefaults
         self.actor = HistoryModelActor(modelContainer: modelContainer)
         
-        self.isSavingEnabled    = isGuestSession ? false : userDefaults.bool(forKey: Self.scopedKey("historySavingEnabled",  profileID: profileID), default: true)
-        self.showTopSites       = userDefaults.bool(forKey: Self.scopedKey("historyShowTopSites",     profileID: profileID), default: true)
-        self.showHistorySuggestions = userDefaults.bool(forKey: Self.scopedKey("historyShowSuggestions", profileID: profileID), default: true)
+        self.isSavingEnabled    = isGuestSession ? false : userDefaults.historyBool(forKey: Self.scopedKey("historySavingEnabled",  profileID: profileID), default: true)
+        self.showTopSites       = userDefaults.historyBool(forKey: Self.scopedKey("historyShowTopSites",     profileID: profileID), default: true)
+        self.showHistorySuggestions = userDefaults.historyBool(forKey: Self.scopedKey("historyShowSuggestions", profileID: profileID), default: true)
     }
 
     func loadInitialData() {
@@ -213,9 +213,6 @@ final class HistoryManager: ObservableObject {
         guard !isGuestSession, showHistorySuggestions else { return [] }
         let q = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         guard !q.isEmpty else { return [] }
-
-        // Scoring runs against precomputed lowercase keys (rebuilt only when
-        // history refreshes) so per-keystroke work never allocates strings.
         let candidates = suggestionCandidates
         let now = Date()
         let daySeconds: Double = 86_400
@@ -449,7 +446,7 @@ actor HistoryModelActor: ModelActor {
 }
 
 private extension UserDefaults {
-    func bool(forKey key: String, default defaultValue: Bool) -> Bool {
+    func historyBool(forKey key: String, default defaultValue: Bool) -> Bool {
         guard object(forKey: key) != nil else { return defaultValue }
         return bool(forKey: key)
     }

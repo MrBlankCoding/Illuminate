@@ -20,6 +20,9 @@ enum IlluminatePage: String, CaseIterable, Equatable {
 
     static let urlScheme = "illuminate"
     private static let pdfSourceQueryKey = "src"
+    static var suggestiblePages: [IlluminatePage] {
+        allCases.filter { $0 != .pdf }
+    }
 
     init?(url: URL) {
         guard

@@ -24,7 +24,7 @@ final class ProfileManager: ObservableObject {
     private let userDefaults: UserDefaults
     private let profilesURL: URL
     private let usesUITestProfiles: Bool
-    private let lastUsedProfileKey = "lastUsedProfileID"
+    static let lastUsedProfileKey = "lastUsedProfileID"
 
     init(fileManager: FileManager = .default, userDefaults: UserDefaults = .standard) {
         self.fileManager = fileManager
@@ -89,7 +89,7 @@ final class ProfileManager: ObservableObject {
     func environment(for route: BrowserWindowRoute, container: ModelContainer) -> ProfileEnvironment? {
         switch route {
         case let .profile(profileID):
-            userDefaults.set(profileID.uuidString, forKey: lastUsedProfileKey)
+            userDefaults.set(profileID.uuidString, forKey: Self.lastUsedProfileKey)
             return profileEnvironment(for: profileID, container: container)
         case let .guest(sessionID):
             if let env = guestEnvironments[sessionID] { return env }
@@ -119,7 +119,7 @@ final class ProfileManager: ObservableObject {
     }
 
     func prewarmLastUsedProfileEnvironment(container: ModelContainer) {
-        guard let rawID = userDefaults.string(forKey: lastUsedProfileKey),
+        guard let rawID = userDefaults.string(forKey: Self.lastUsedProfileKey),
               let profileID = UUID(uuidString: rawID) else { return }
         prewarmProfileEnvironment(for: profileID, container: container)
     }

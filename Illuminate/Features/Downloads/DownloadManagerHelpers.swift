@@ -277,7 +277,7 @@ extension DownloadManager {
     private func dispatchNotification() {
         self.objectWillChange.send()
         NotificationCenter.default.post(
-            name: Self.downloadsDidChangeNotification,
+            name: .downloadsDidChange,
             object: self,
             userInfo: [
                 "hasActiveDownloads": downloads.contains(where: \.isActive),

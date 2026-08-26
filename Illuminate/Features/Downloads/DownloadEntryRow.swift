@@ -183,7 +183,7 @@ struct DownloadEntryRow: View {
 
     private func revealInFinder() {
         guard let destinationURL = item.destinationURL, item.isCompleted else { return }
-        NSWorkspace.shared.activateFileViewerSelecting([destinationURL])
+        FinderReveal.reveal(destinationURL)
     }
 
     private func removeEntry() {

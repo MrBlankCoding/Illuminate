@@ -280,8 +280,6 @@ extension DownloadManager {
         guard item.state == .failed, let resumeData = item.resumeData else { return }
 
         guard let index = downloadIndexMap[item.id] else {
-            // The live task is gone (e.g. cleared from the session); fall back
-            // to a fresh download using the historical source URL.
             retryDownload(item: item)
             return
         }
@@ -317,8 +315,6 @@ extension DownloadManager {
 
     private func resumeWebKitDownload(task: DownloadTask, resumeData: Data, profileID: UUID?) {
         guard let webView = webKitDownloadWebViews[task.id] else {
-            // No originating web view is available to resume a WebKit download,
-            // so fall back to a full re-download.
             retryDownload(item: DownloadHistoryItem(task: task))
             return
         }
@@ -372,12 +368,12 @@ extension DownloadManager {
 
     func revealDownload(_ task: DownloadTask) {
         guard let destinationURL = task.destinationURL else { return }
-        NSWorkspace.shared.activateFileViewerSelecting([destinationURL])
+        FinderReveal.reveal(destinationURL)
     }
 
     func openDownload(_ task: DownloadTask) {
         guard task.state == .completed, let destinationURL = task.destinationURL else { return }
-        NSWorkspace.shared.open(destinationURL)
+        FinderReveal.open(destinationURL)
     }
 
     func presentSavePanel(
@@ -386,21 +382,10 @@ extension DownloadManager {
         completion: @escaping (URL?) -> Void
     ) {
         DispatchQueue.main.async {
-            let panel = NSSavePanel()
-            panel.canCreateDirectories = true
-            panel.nameFieldStringValue = suggestedFilename
-            panel.directoryURL = defaultDirectory
-
-            let ext = (suggestedFilename as NSString).pathExtension
-            if !ext.isEmpty, let contentType = UTType(filenameExtension: ext) {
-                panel.allowedContentTypes = [contentType]
-            }
-
-            if panel.runModal() == .OK {
-                completion(panel.url)
-            } else {
-                completion(nil)
-            }
+            completion(FilePanels.saveFile(
+                suggestedFilename: suggestedFilename,
+                defaultDirectory: defaultDirectory
+            ))
         }
     }
 }

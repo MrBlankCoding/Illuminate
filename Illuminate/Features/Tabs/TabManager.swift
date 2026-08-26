@@ -13,20 +13,6 @@ import Foundation
 import SwiftUI
 import WebKit
 
-private actor SessionWriter {
-    private var latestVersion: UInt64 = 0
-
-    func write(data: Data, version: UInt64, to url: URL) async {
-        guard version >= latestVersion else { return }
-        latestVersion = version
-        do {
-            try data.write(to: url, options: .atomic)
-        } catch {
-            AppLog.error("[TabManager] Session write failed", error: error)
-        }
-    }
-}
-
 
 @MainActor
 final class TabManager: NSObject, ObservableObject, WKWebExtensionWindow {
@@ -56,7 +42,7 @@ final class TabManager: NSObject, ObservableObject, WKWebExtensionWindow {
         completionHandler(nil)
     }
 
-    private enum Defaults {
+    enum Defaults {
         static let themeColor        = "89BBFF"
         static let maxRecentlyClosed = 25
         static let saveDebounceNs: UInt64 = 500_000_000
@@ -64,8 +50,8 @@ final class TabManager: NSObject, ObservableObject, WKWebExtensionWindow {
         static let rapidSwitchDebounceNs: UInt64 = 1_000_000_000
     }
 
-    @Published private(set) var tabs: [Tab] = []
-    @Published private(set) var activeTabID: UUID?
+    @Published var tabs: [Tab] = []
+    @Published var activeTabID: UUID?
     @Published var isResizing: Bool = false
     @Published var isFullScreen: Bool = false
     @Published var backgroundImagePalette: [Color] = []
@@ -107,17 +93,17 @@ final class TabManager: NSObject, ObservableObject, WKWebExtensionWindow {
 
     var canReopenTab: Bool { !recentlyClosed.isEmpty }
 
-    private let notificationCenter: NotificationCenter
-    private let urlSynchronizer: URLSynchronizer
-    private let userDefaults: UserDefaults
-    private let isPersistenceEnabled: Bool
-    private let sessionURL: URL
-    private let faviconCache: FaviconCache
-    private let sessionWriter = SessionWriter()
+    let notificationCenter: NotificationCenter
+    let urlSynchronizer: URLSynchronizer
+    let userDefaults: UserDefaults
+    let isPersistenceEnabled: Bool
+    let sessionURL: URL
+    let faviconCache: FaviconCache
+    let sessionWriter = SessionWriter()
     // not private ahh!
     let extensionManager: ExtensionManager
 
-    private var activeProfileID: UUID?
+    var activeProfileID: UUID?
     var profileID: UUID? { activeProfileID }
     var tabIndex: [UUID: Tab] = [:]
     private var tabPositionIndex: [UUID: Int] = [:]
@@ -128,13 +114,14 @@ final class TabManager: NSObject, ObservableObject, WKWebExtensionWindow {
 
     private var recentlyClosed: [ClosedTabSnapshot] = []
     private var isInitializing = true
-    private var pendingSaveTask: Task<Void, Never>?
-    private var backgroundThemeTask: Task<Void, Never>?
+    var pendingSaveTask: Task<Void, Never>?
+    var backgroundThemeTask: Task<Void, Never>?
     private var pendingFocusTask: Task<Void, Never>?
-    private var saveVersion: UInt64 = 0
-    private var observerTokens: [NSObjectProtocol] = []
-    private var extensionObserverCancellable: AnyCancellable?
-    private var lastSwitchTime: Date?
+    var saveVersion: UInt64 = 0
+    var observerTokens: [NSObjectProtocol] = []
+    var extensionObserverCancellable: AnyCancellable?
+    var lastReloadedExtensionIDs: [String] = []
+    var lastSwitchTime: Date?
 
     enum UIStyle: String, CaseIterable {
         case dark, light, system
@@ -193,7 +180,6 @@ final class TabManager: NSObject, ObservableObject, WKWebExtensionWindow {
 
         super.init()
 
-        // Ensure WebExtensions directory exists for extension storage
         if isPersistenceEnabled {
             ensureWebExtensionsDirectoryExists()
         }
@@ -257,138 +243,15 @@ final class TabManager: NSObject, ObservableObject, WKWebExtensionWindow {
         pendingFocusTask?.cancel()
     }
 
-    private static func makeSessionURL(profileID: UUID?) -> URL {
-        let base: URL = profileID.map {
-            FileManager.default.illuminateProfileDirectory(profileID: $0)
-        } ?? FileManager.default.illuminateAppSupportDirectory()
-        return base.appendingPathComponent("session.json")
-    }
 
-    private var tabAssetsBaseURL: URL {
+    var tabAssetsBaseURL: URL {
         activeProfileID.map {
             FileManager.default.illuminateProfileDirectory(profileID: $0)
         } ?? FileManager.default.illuminateAppSupportDirectory()
     }
 
-    private func restoreSession() {
-        let url = sessionURL
-        guard FileManager.default.fileExists(atPath: url.path) else {
-            AppLog.info("[TabManager] No session file found — starting fresh.")
-            startFreshSession()
-            return
-        }
 
-        do {
-            let data = try Data(contentsOf: url)
-            let state = try JSONDecoder().decode(SessionState.self, from: data)
-            applySessionState(state)
-        } catch let error as DecodingError {
-            AppLog.error("[TabManager] Session file is corrupt — backing up and starting fresh", error: error)
-            backupCorruptSession(at: url)
-            startFreshSession()
-        } catch {
-            let nsError = error as NSError
-            let isMissingFile = nsError.domain == NSCocoaErrorDomain
-                && nsError.code == NSFileReadNoSuchFileError
-            if isMissingFile {
-                AppLog.info("[TabManager] No session file found — starting fresh.")
-            } else {
-                AppLog.error("[TabManager] Session restore failed", error: error)
-            }
-            startFreshSession()
-        }
-    }
-
-    private func applySessionState(_ state: SessionState) {
-        activeTabID = state.activeTabID
-        if let ids = state.tabIDs {
-            tabs = ids.map {
-                let isActive = $0 == activeTabID
-                let tab = Tab(id: $0, assetsBaseURL: tabAssetsBaseURL, loadsMetadataSynchronously: isActive)
-                tab.tabManager = self
-                return tab
-            }
-        } else if let payloads = state.tabs {
-            tabs = payloads.map {
-                let tab = makeTab(from: $0)
-                tab.tabManager = self
-                return tab
-            }
-        }
-        rebuildTabIndex()
-    }
-
-    private func startFreshSession() {
-        tabs = [Tab(assetsBaseURL: tabAssetsBaseURL)]
-        rebuildTabIndex()
-    }
-
-    private func backupCorruptSession(at url: URL) {
-        let backupURL = url
-            .deletingPathExtension()
-            .appendingPathExtension("json.corrupt.\(Int(Date().timeIntervalSince1970))")
-        do {
-            try FileManager.default.copyItem(at: url, to: backupURL)
-            AppLog.info("[TabManager] Backed up corrupt session to \(backupURL.lastPathComponent)")
-            // Remove the corrupt original so it doesn't re-trigger recovery on
-            // every subsequent launch.
-            try FileManager.default.removeItem(at: url)
-        } catch {
-            AppLog.error("[TabManager] Could not back up corrupt session file", error: error)
-        }
-    }
-
-    private func hydrateRestoredTabs() {
-        if let activeID = activeTabID, let activeTab = tabIndex[activeID] {
-            hydrateVisualState(for: activeTab)
-        }
-
-        let otherTabs = tabs.filter { $0.id != activeTabID }
-        guard !otherTabs.isEmpty else { return }
-        Task { @MainActor [weak self] in
-            for tab in otherTabs {
-                self?.hydrateVisualState(for: tab)
-                await Task.yield()
-            }
-        }
-    }
-
-    private func scheduleSave() {
-        guard isPersistenceEnabled else { return }
-
-        pendingSaveTask?.cancel()
-        saveVersion &+= 1
-        let version = saveVersion
-        let now = Date()
-        let debounceInterval: UInt64
-        if let lastSwitch = lastSwitchTime, now.timeIntervalSince(lastSwitch) < 1.0 {
-            debounceInterval = Defaults.rapidSwitchDebounceNs
-        } else {
-            debounceInterval = Defaults.saveDebounceNs
-        }
-
-        pendingSaveTask = Task { [weak self] in
-            guard let self else { return }
-            try? await Task.sleep(nanoseconds: debounceInterval)
-            guard !Task.isCancelled else { return }
-
-            let state = SessionState(
-                tabIDs: self.tabs.map { $0.id },
-                activeTabID: self.activeTabID
-            )
-            let url     = self.sessionURL
-            let encoded = try? JSONEncoder().encode(state)
-            let writer  = self.sessionWriter
-
-            Task.detached(priority: .background) {
-                guard let data = encoded else { return }
-                await writer.write(data: data, version: version, to: url)
-            }
-        }
-    }
-
-
-    private func rebuildTabIndex() {
+    func rebuildTabIndex() {
         tabIndex = Dictionary(uniqueKeysWithValues: tabs.map { ($0.id, $0) })
         tabPositionIndex = Dictionary(uniqueKeysWithValues: tabs.enumerated().map { ($1.id, $0) })
     }
@@ -430,7 +293,7 @@ final class TabManager: NSObject, ObservableObject, WKWebExtensionWindow {
     func tab(forID id: UUID) -> Tab? { tabIndex[id] }
     func indexOfTab(withID id: UUID) -> Int? { tabPositionIndex[id] }
 
-    private func makeTab(from payload: TabTransferPayload) -> Tab {
+    func makeTab(from payload: TabTransferPayload) -> Tab {
         let tab = Tab(payload: payload, assetsBaseURL: tabAssetsBaseURL)
         return tab
     }
@@ -438,7 +301,6 @@ final class TabManager: NSObject, ObservableObject, WKWebExtensionWindow {
     // over engineered
     // TODO:
     func navigateActiveTab(to url: URL) {
-        // Always open webkit-extension URLs in new tabs
         if url.scheme == "webkit-extension" {
             createTab(url: url)
             return
@@ -649,210 +511,6 @@ final class TabManager: NSObject, ObservableObject, WKWebExtensionWindow {
         }
     }
 
-    private func hydrateVisualState(for tab: Tab) {
-        tab.loadAssets()
-
-        if let special = specialFavicon(for: tab.url) {
-            tab.favicon = special
-            return
-        }
-
-        guard tab.favicon == nil, let faviconURL = defaultFaviconURL(for: tab.url) else { return }
-        Task(priority: .background) { [weak tab, faviconCache] in
-            guard let image = await faviconCache.fetchImage(for: faviconURL) else { return }
-            await MainActor.run {
-                guard let tab, tab.favicon == nil else { return }
-                tab.favicon = image
-            }
-        }
-    }
-
-    private func defaultFaviconURL(for pageURL: URL?) -> URL? {
-        guard
-            let pageURL,
-            let scheme = pageURL.scheme?.lowercased(),
-            let host   = pageURL.host,
-            scheme == "http" || scheme == "https" || scheme == "webkit-extension"
-        else { return nil }
-
-        var components    = URLComponents()
-        components.scheme = scheme
-        components.host   = host
-        components.path   = "/favicon.ico"
-        return components.url
-    }
-
-    private func specialFavicon(for pageURL: URL?) -> NSImage? {
-        guard pageURL?.scheme?.lowercased() == "illuminate" else { return nil }
-        switch pageURL?.host?.lowercased() {
-        case "passwords":
-            return NSImage(systemSymbolName: "key.fill", accessibilityDescription: "Passwords")
-        case "protection":
-            return NSImage(systemSymbolName: "shield.fill", accessibilityDescription: "Protection")
-        case "downloads":
-            return NSImage(systemSymbolName: "arrow.down.circle.fill", accessibilityDescription: "Downloads")
-        case "history":
-            return NSImage(systemSymbolName: "clock.arrow.circlepath", accessibilityDescription: "History")
-        default:
-            return nil
-        }
-    }
-
-    private func removeTabAssets(for id: UUID) {
-        let folder = tabAssetsBaseURL
-            .appendingPathComponent("TabAssets", isDirectory: true)
-            .appendingPathComponent(id.uuidString, isDirectory: true)
-
-        do {
-            try FileManager.default.removeItem(at: folder)
-        } catch {
-            let nsError = error as NSError
-            let isMissingFile = nsError.domain == NSCocoaErrorDomain
-                && nsError.code == NSFileNoSuchFileError
-            guard !isMissingFile else { return }
-            AppLog.error("Could not remove tab assets for \(id.uuidString)", error: error)
-        }
-    }
-
-    private func updateThemeFromBackground(applyTheme: Bool) {
-        backgroundThemeTask?.cancel()
-
-        guard !backgroundImageURL.isEmpty, let url = URL(string: backgroundImageURL) else {
-            backgroundImagePalette = []
-            return
-        }
-
-        let expectedURLString = backgroundImageURL
-        backgroundThemeTask = Task { [weak self] in
-            let palette = await ImageColorExtractor.shared.extractPalette(from: url)
-            await MainActor.run {
-                guard let self else { return }
-                guard !Task.isCancelled else { return }
-                guard self.backgroundImageURL == expectedURLString else { return }
-
-                withAnimation(.easeInOut(duration: 0.8)) {
-                    self.backgroundImagePalette = palette
-                    if applyTheme, let first = palette.first {
-                        self.windowThemeColor = first
-                    }
-                }
-            }
-        }
-    }
-
-    private func persistIfEnabled(_ value: some UserDefaultsStorable, forKey key: String) {
-        guard isPersistenceEnabled else { return }
-        userDefaults.set(value, forKey: scopedKey(key))
-    }
-
-    private func scopedKey(_ key: String) -> String {
-        Self.scopedKey(key, profileID: activeProfileID)
-    }
-
-    private static func scopedKey(_ key: String, profileID: UUID?) -> String {
-        guard let profileID else { return key }
-        return "profile.\(profileID.uuidString).\(key)"
-    }
-
-    private func setupObservers() {
-        typealias Handler = @MainActor @Sendable () -> Void
-
-        let pairs: [(Notification.Name, Handler)] = [
-            (.newTab,          { [weak self] in self?.createTab() }),
-            (.reloadActiveTab, { [weak self] in self?.activeTab?.reload() }),
-            (.copyCurrentURL,  { [weak self] in self?.copyCurrentURL() }),
-            (.goBack,          { [weak self] in self?.activeTab?.webView?.goBack() }),
-            (.goForward,       { [weak self] in self?.activeTab?.webView?.goForward() }),
-            (.reopenTab,       { [weak self] in self?.reopenLastClosedTab() }),
-            (.nextTab,         { [weak self] in self?.nextTab() }),
-            (.previousTab,     { [weak self] in self?.previousTab() }),
-            (.switchToMostRecentTab, { [weak self] in self?.switchToMostRecentTab() }),
-            (.openDevTools,    { [weak self] in self?.activeTab?.openDevTools() }),
-            (.zoomIn,          { [weak self] in self?.activeTab?.zoomIn() }),
-            (.zoomOut,         { [weak self] in self?.activeTab?.zoomOut() }),
-            (.resetZoom,       { [weak self] in self?.activeTab?.resetZoom() }),
-            (.printPage,        { [weak self] in self?.activeTab?.printPage() }),
-            (.savePageAsPDF,    { [weak self] in self?.saveActiveTabAsPDF() }),
-            (.toggleFullScreen, { NSApp.keyWindow?.toggleFullScreen(nil) }),
-            (.showHistory,     { [weak self] in self?.navigateActiveTab(to: URL(string: "illuminate://history")!) }),
-            (Notification.Name.closeActiveTab, { [weak self] in self?.closeActiveTab() }),
-            (Notification.Name.closeAllTabs, { [weak self] in self?.clearAllTabs() }),
-
-            (.newTabGroup, { [weak self] in
-                guard let self, let activeTabID = self.activeTabID else { return }
-                self.tabGroupManager.createGroup(name: "", color: .blue, tabIDs: [activeTabID])
-            }),
-            (.closeCurrentGroup, { [weak self] in
-                guard let self else { return }
-                guard let activeTabID = self.activeTabID,
-                      let group = self.tabGroupManager.group(for: activeTabID) else { return }
-                let tabIDs = group.tabIDs
-                self.tabGroupManager.closeGroup(group.id, tabs: self.tabs)
-                for tabID in tabIDs {
-                    self.closeTab(id: tabID)
-                }
-            }),
-            (.moveTabToLeftGroup, { [weak self] in
-                guard let self else { return }
-                guard self.activeTabID != nil else { return }
-                self.moveActiveTabToAdjacentGroup(direction: -1)
-            }),
-            (.moveTabToRightGroup, { [weak self] in
-                guard let self else { return }
-                guard self.activeTabID != nil else { return }
-                self.moveActiveTabToAdjacentGroup(direction: +1)
-            }),
-        ]
-
-        var tokens = pairs.map { name, handler in
-            notificationCenter.addObserver(forName: name, object: nil, queue: .main) { _ in
-                Task { @MainActor in handler() }
-            }
-        }
-
-        let openURLToken = notificationCenter.addObserver(
-            forName: .openURL, object: nil, queue: .main
-        ) { [weak self] notification in
-            guard let url = notification.object as? URL else { return }
-            Task { @MainActor [weak self] in
-                self?.navigateActiveTab(to: url)
-            }
-        }
-        tokens.append(openURLToken)
-
-        extensionObserverCancellable = extensionManager.$installedExtensions
-            .sink { [weak self] _ in
-                Task { @MainActor [weak self] in
-                    self?.handleExtensionListChanged()
-                }
-            }
-
-        observerTokens = tokens
-    }
-
-    private var lastReloadedExtensionIDs: [String] = []
-
-    private func handleExtensionListChanged() {
-        // $installedExtensions republishes on unrelated mutations; only reload
-        // every tab when the set of installed extensions actually changed.
-        let currentIDs = extensionManager.installedExtensions.map(\.uniqueIdentifier)
-        guard currentIDs != lastReloadedExtensionIDs else { return }
-        lastReloadedExtensionIDs = currentIDs
-
-        AppLog.debug("[TabManager] Extension list changed - installed extensions count: \(extensionManager.installedExtensions.count)")
-        for tab in tabs {
-            if tab.url != nil {
-                tab.reload()
-            }
-        }
-    }
-
-    private func copyCurrentURL() {
-        guard let url = activeTab?.url else { return }
-        let pasteboard = NSPasteboard.general
-        pasteboard.clearContents()
-        pasteboard.setString(url.absoluteString, forType: .string)
-    }
 
     func saveActiveTabAsPDF() {
         guard
@@ -935,22 +593,3 @@ final class TabManager: NSObject, ObservableObject, WKWebExtensionWindow {
 }
 
 
-private extension Collection {
-    subscript(safe index: Index) -> Element? {
-        indices.contains(index) ? self[index] : nil
-    }
-}
-
-
-private extension UserDefaults {
-    func bool(forKey key: String, default defaultValue: Bool) -> Bool {
-        object(forKey: key) as? Bool ?? defaultValue
-    }
-}
-
-
-protocol UserDefaultsStorable {}
-extension String: UserDefaultsStorable {}
-extension Bool:   UserDefaultsStorable {}
-extension Int:    UserDefaultsStorable {}
-extension Double: UserDefaultsStorable {}

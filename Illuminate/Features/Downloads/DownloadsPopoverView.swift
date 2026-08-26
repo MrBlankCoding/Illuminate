@@ -128,23 +128,12 @@ private struct DownloadsPopoverContent: View {
     }
 
     private var emptyState: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "arrow.down.circle")
-                .font(.system(size: 32))
-                .foregroundStyle(Color.textSecondary.opacity(0.5))
-
-            Text("No Downloads")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(Color.textPrimary)
-
-            Text("Files you download will appear here.")
-                .font(.system(size: 12))
-                .foregroundStyle(Color.textSecondary)
-                .multilineTextAlignment(.center)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.horizontal, 20)
-        .padding(.vertical, 32)
+        InternalPageEmptyState(
+            icon: "arrow.down.circle",
+            message: "No Downloads",
+            subtitle: "Files you download will appear here.",
+            verticalPadding: 32
+        )
         .accessibilityIdentifier("browser.downloads.popover.emptyState")
     }
 }

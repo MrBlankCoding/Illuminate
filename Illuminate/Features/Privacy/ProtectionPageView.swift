@@ -32,7 +32,7 @@ struct ProtectionPageView: View {
 
     private var httpsSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            sectionHeader("Security")
+            InternalPageSectionHeader(title: "Security")
             InternalPageRow {
                 HStack {
                     VStack(alignment: .leading, spacing: 3) {
@@ -55,7 +55,7 @@ struct ProtectionPageView: View {
 
         private var trackerBlockingSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            sectionHeader("Tracker Blocking")
+            InternalPageSectionHeader(title: "Tracker Blocking")
 
             InternalPageRow {
                 HStack {
@@ -126,13 +126,6 @@ struct ProtectionPageView: View {
         }
     }
 
-    private func sectionHeader(_ title: String) -> some View {
-        Text(title)
-            .font(.system(size: 13, weight: .semibold))
-            .foregroundStyle(.secondary)
-            .textCase(.uppercase)
-            .tracking(0.5)
-    }
 }
 
 private struct TrackerDomainListView: View {

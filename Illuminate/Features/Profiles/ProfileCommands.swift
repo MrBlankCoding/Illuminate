@@ -14,6 +14,10 @@ struct ProfileCommands: Commands {
         CommandGroup(replacing: .newItem) {
             NewWindowButton()
             NewPrivateWindowMenuButton()
+
+            Divider()
+
+            OpenFileCommand()
         }
 
         CommandMenu("Profiles") {

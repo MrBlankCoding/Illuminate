@@ -55,14 +55,7 @@ struct DownloadsSettingsView: View {
     }
 
     private func chooseDownloadFolder() {
-        let panel = NSOpenPanel()
-        panel.canChooseFiles = false
-        panel.canChooseDirectories = true
-        panel.allowsMultipleSelection = false
-        panel.canCreateDirectories = true
-        panel.directoryURL = downloadManager.downloadDirectoryURL
-
-        if panel.runModal() == .OK, let url = panel.url {
+        if let url = FilePanels.chooseDirectory(initialDirectory: downloadManager.downloadDirectoryURL) {
             downloadManager.setDownloadDirectory(url)
         }
     }

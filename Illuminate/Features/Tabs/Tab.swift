@@ -169,15 +169,6 @@ final class Tab: NSObject, ObservableObject, Identifiable, WKWebExtensionTab {
         }
     }
 
-    static let zoomChangedNotification = NSNotification.Name("app.zoomChanged")
-    static let zoomLevelKey = "level"
-
-    private enum ZoomBounds {
-        static let min: CGFloat = 0.25
-        static let max: CGFloat = 5.0
-        static let step: CGFloat = 0.1
-        static let `default`: CGFloat = 1.0
-    }
 
     let id: UUID
 
@@ -494,29 +485,6 @@ final class Tab: NSObject, ObservableObject, Identifiable, WKWebExtensionTab {
         webView.evaluateJavaScript(script, completionHandler: nil)
     }
 
-    func zoomIn() {
-        applyZoom((webView?.pageZoom ?? ZoomBounds.default) + ZoomBounds.step)
-    }
-
-    func zoomOut() {
-        applyZoom((webView?.pageZoom ?? ZoomBounds.default) - ZoomBounds.step)
-    }
-
-    func resetZoom() {
-        applyZoom(ZoomBounds.default)
-    }
-
-    private func applyZoom(_ newLevel: CGFloat) {
-        guard let webView else { return }
-        let clamped = min(max(newLevel, ZoomBounds.min), ZoomBounds.max)
-        webView.pageZoom = clamped
-        zoomLevel = clamped
-        NotificationCenter.default.post(
-            name: Self.zoomChangedNotification,
-            object: nil,
-            userInfo: [Self.zoomLevelKey: zoomLevel]
-        )
-    }
 
     func printPage() {
         guard let webView, let window = webView.window else { return }
