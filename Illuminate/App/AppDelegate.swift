@@ -149,12 +149,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func handleOpenedFiles(_ urls: [URL]) {
-        let files = urls.filter { $0.isFileURL }
-        guard !files.isEmpty else { return }
         Task { @MainActor in
-            let needsWindow = BrowserWindowRegistry.shared.activeCount == 0
+            for url in urls where !url.isFileURL {
+                WebURLOpening.shared.handle(url)
+            }
+
+            let files = urls.filter { $0.isFileURL }
+            let hadWindowBefore = BrowserWindowRegistry.shared.activeCount > 0
             for url in files { AppFileOpening.shared.enqueue(url) }
-            if needsWindow { AppFileOpening.shared.markNeedsBrowserWindow() }
+            if !files.isEmpty && !hadWindowBefore {
+                AppFileOpening.shared.markNeedsBrowserWindow()
+            }
         }
     }
 

@@ -30,9 +30,9 @@ final class WebsiteLocationService: NSObject, CLLocationManagerDelegate {
         case .authorizedAlways, .authorizedWhenInUse:
             manager.requestLocation()
         case .denied, .restricted:
-            finish(.failure(LocationError.unavailable))
+            DispatchQueue.main.async { self.finish(.failure(LocationError.unavailable)) }
         @unknown default:
-            finish(.failure(LocationError.unavailable))
+            DispatchQueue.main.async { self.finish(.failure(LocationError.unavailable)) }
         }
     }
 

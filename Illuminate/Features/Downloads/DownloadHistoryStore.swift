@@ -65,18 +65,83 @@ final class DownloadHistoryStore: ObservableObject {
         let context = ModelContext(container)
         context.autosaveEnabled = false
         self.context = context
+        Task.detached(priority: .userInitiated) { [container, profileID] in
+            let bgContext = ModelContext(container)
+            bgContext.autosaveEnabled = false
 
-        var fetch = FetchDescriptor<DownloadRecord>(
-            sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
-        )
-        fetch.fetchLimit = 2000
+            var fetch = FetchDescriptor<DownloadRecord>(
+                sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
+            )
+            fetch.fetchLimit = 2000
 
-        do {
-            let allRecords = try context.fetch(fetch)
-            records = allRecords.filter { $0.profileID == profileID }
-            AppLog.download("Loaded download history profile=\(profileID?.uuidString ?? "nil") count=\(records.count) totalInStore=\(allRecords.count)")
-        } catch {
-            AppLog.error("Failed to load download history", error: error)
+            struct Snapshot {
+                let id: UUID
+                let profileID: UUID?
+                let sourceURLString: String
+                let filename: String
+                let destinationPathString: String?
+                let stateRawValue: String
+                let createdAt: Date
+                let finishedAt: Date?
+                let bytesWritten: Int64
+                let totalBytesExpected: Int64?
+                let errorDescription: String?
+                let resumeData: Data?
+                let resumeRequiresWebKit: Bool
+            }
+
+            do {
+                let fetched = try bgContext.fetch(fetch)
+                let resumableStates: Set<String> = ["paused", "waitingToResume"]
+                let snapshots = fetched.map { rec -> Snapshot in
+                    let needsResume = resumableStates.contains(rec.stateRawValue)
+                    return Snapshot(
+                        id: rec.id,
+                        profileID: rec.profileID,
+                        sourceURLString: rec.sourceURLString,
+                        filename: rec.filename,
+                        destinationPathString: rec.destinationPathString,
+                        stateRawValue: rec.stateRawValue,
+                        createdAt: rec.createdAt,
+                        finishedAt: rec.finishedAt,
+                        bytesWritten: rec.bytesWritten,
+                        totalBytesExpected: rec.totalBytesExpected,
+                        errorDescription: rec.errorDescription,
+                        resumeData: needsResume ? rec.resumeData : nil,
+                        resumeRequiresWebKit: rec.resumeRequiresWebKit
+                    )
+                }
+
+                await MainActor.run {
+                    let filtered = snapshots.filter { $0.profileID == profileID }
+                    if let ctx = self.context {
+                        for record in self.records { ctx.delete(record) }
+                    }
+                    self.records = filtered.map {
+                        DownloadRecord(
+                            id: $0.id,
+                            profileID: $0.profileID,
+                            sourceURLString: $0.sourceURLString,
+                            filename: $0.filename,
+                            destinationPathString: $0.destinationPathString,
+                            stateRawValue: $0.stateRawValue,
+                            createdAt: $0.createdAt,
+                            finishedAt: $0.finishedAt,
+                            bytesWritten: $0.bytesWritten,
+                            totalBytesExpected: $0.totalBytesExpected,
+                            errorDescription: $0.errorDescription,
+                            resumeData: $0.resumeData,
+                            resumeRequiresWebKit: $0.resumeRequiresWebKit
+                        )
+                    }
+                    self.records.forEach { self.context?.insert($0) }
+                    AppLog.download("Loaded download history profile=\(profileID?.uuidString ?? "nil") count=\(self.records.count) totalInStore=\(snapshots.count)")
+                }
+            } catch {
+                await MainActor.run {
+                    AppLog.error("Failed to load download history", error: error)
+                }
+            }
         }
     }
 

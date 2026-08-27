@@ -33,9 +33,9 @@ enum StateFilePrefetcher {
         Task.detached(priority: .userInitiated) {
             for url in urls {
                 let data = try? Data(contentsOf: url)
-                lock.lock()
+                await lock.lock()
                 cache[url] = data
-                lock.unlock()
+                await lock.unlock()
             }
         }
     }

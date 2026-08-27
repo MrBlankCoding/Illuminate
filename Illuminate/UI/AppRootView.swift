@@ -66,6 +66,9 @@ struct AppRootView: View {
         .onReceive(AppFileOpening.shared.$needsBrowserWindow) { needs in
             openBrowserWindowForPendingFilesIfNeeded()
         }
+        .onReceive(WebURLOpening.shared.$needsBrowserWindow) { needs in
+            openBrowserWindowForPendingWebURLsIfNeeded()
+        }
         .onReceive(profileManager.$profiles) { _ in
             openBrowserWindowForPendingFilesIfNeeded()
         }
@@ -84,6 +87,13 @@ struct AppRootView: View {
         guard AppFileOpening.shared.needsBrowserWindow, route == nil else { return }
         guard let profileID = profileManager.profiles.first?.id else { return }
         AppFileOpening.shared.clearNeedsBrowserWindow()
+        openWindow(value: BrowserWindowRoute.profile(profileID))
+    }
+
+    private func openBrowserWindowForPendingWebURLsIfNeeded() {
+        guard WebURLOpening.shared.needsBrowserWindow, route == nil else { return }
+        guard let profileID = profileManager.profiles.first?.id else { return }
+        WebURLOpening.shared.needsBrowserWindow = false
         openWindow(value: BrowserWindowRoute.profile(profileID))
     }
 

@@ -38,8 +38,6 @@ struct CachedBackgroundImageView: View {
     }
     
     private func loadImage(for targetURL: URL) async {
-        // All file I/O, JPEG decoding/encoding, and disk writes happen off the
-        // main thread; only the final image assignment hops back to MainActor.
         let processedImage: NSImage? = await Task.detached(priority: .utility) { () -> NSImage? in
             let fileManager = FileManager.default
             let appSupport = fileManager.illuminateAppSupportDirectory()
@@ -77,8 +75,9 @@ struct CachedBackgroundImageView: View {
             }
 
             guard let downloadedImage = NSImage(data: data) else { return nil }
-            let downsampled = downloadedImage.downsampled(toWidth: 1920)
-            if let processedData = downsampled.jpegData(compressionQuality: 0.8) {
+            let downsampled = await downloadedImage.downsampled(toWidth: 1920)
+            let processedData = await downsampled.jpegData(compressionQuality: 0.8)
+            if let processedData {
                 try? processedData.write(to: fileURL)
             }
             return downsampled

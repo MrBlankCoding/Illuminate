@@ -5,6 +5,7 @@
 //  Created by MrBlankCoding on 3/8/26.
 //
 
+import Combine
 import SwiftUI
 import SwiftData
 
@@ -19,6 +20,8 @@ struct IlluminateApp: App {
     private let keyboardShortcutHandler: KeyboardShortcutHandler
     private let backgroundResourceManager: BackgroundResourceManager
     private let runtimeSecurityMonitor: RuntimeSecurityMonitor
+    private let menuRefreshTrigger = MenuRefreshTrigger()
+    private var cancellables = Set<AnyCancellable>()
 
     let modelContainer: ModelContainer
 
@@ -41,6 +44,12 @@ struct IlluminateApp: App {
                 fatalError("Failed to create ModelContainer after reset: \(error)")
             }
         }
+
+        profileManager.objectWillChange
+            .sink { [menuRefreshTrigger] _ in
+                menuRefreshTrigger.value &+= 1
+            }
+            .store(in: &cancellables)
     }
 
     private static func resetStore() {
@@ -92,7 +101,7 @@ struct IlluminateApp: App {
         .modelContainer(modelContainer)
         .defaultSize(Self.browserWindowSize)
         .commands {
-            AppCommands(shortcutHandler: keyboardShortcutHandler)
+            AppCommands(shortcutHandler: keyboardShortcutHandler, menuRefreshTrigger: menuRefreshTrigger)
             BookmarksCommands(modelContainer: modelContainer)
             ProfileCommands(profileManager: profileManager)
         }

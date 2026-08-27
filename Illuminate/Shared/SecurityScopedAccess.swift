@@ -8,7 +8,7 @@
 import Foundation
 
 extension URL {
-    func withSecurityScopedAccess<T>(_ block: () throws -> T) rethrows -> T {
+    nonisolated func withSecurityScopedAccess<T>(_ block: () throws -> T) rethrows -> T {
         let isSecured = startAccessingSecurityScopedResource()
         defer {
             if isSecured {

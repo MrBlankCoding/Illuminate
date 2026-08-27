@@ -35,83 +35,79 @@ final class ImageColorExtractor {
 
         guard let data else { return [] }
         return await Task.detached(priority: .userInitiated) { [self] in
-            processPalette(from: data, count: count)
+            await processPalette(from: data, count: count)
         }.value
     }
 
     private func processPalette(from data: Data, count: Int) -> [Color] {
-        do {
-            guard let image = NSImage(data: data) else { return [] }
+        guard let image = NSImage(data: data) else { return [] }
 
-            // Downscale for performance
-            let thumbSize = NSSize(width: 40, height: 40)
-            guard let thumb = resize(image: image, to: thumbSize) else { return [] }
+        // Downscale for performance
+        let thumbSize = NSSize(width: 40, height: 40)
+        guard let thumb = resize(image: image, to: thumbSize) else { return [] }
 
-            guard let cgImage = thumb.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return [] }
+        guard let cgImage = thumb.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return [] }
 
-            let width = cgImage.width
-            let height = cgImage.height
-            let bytesPerPixel = 4
-            let bytesPerRow = bytesPerPixel * width
-            let totalBytes = height * bytesPerRow
+        let width = cgImage.width
+        let height = cgImage.height
+        let bytesPerPixel = 4
+        let bytesPerRow = bytesPerPixel * width
+        let totalBytes = height * bytesPerRow
 
-            var pixelData = [UInt8](repeating: 0, count: totalBytes)
-            let colorSpace = CGColorSpaceCreateDeviceRGB()
-            let context = CGContext(data: &pixelData,
-                                    width: width,
-                                    height: height,
-                                    bitsPerComponent: 8,
-                                    bytesPerRow: bytesPerRow,
-                                    space: colorSpace,
-                                    bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
+        var pixelData = [UInt8](repeating: 0, count: totalBytes)
+        let colorSpace = CGColorSpaceCreateDeviceRGB()
+        let context = CGContext(data: &pixelData,
+                                width: width,
+                                height: height,
+                                bitsPerComponent: 8,
+                                bytesPerRow: bytesPerRow,
+                                space: colorSpace,
+                                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
 
-            context?.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
+        context?.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
 
-            var colorCounts: [ColorBucket: Int] = [:]
+        var colorCounts: [ColorBucket: Int] = [:]
 
-            for y in 0..<height {
-                for x in 0..<width {
-                    let offset = (y * width + x) * bytesPerPixel
-                    let r = pixelData[offset]
-                    let g = pixelData[offset + 1]
-                    let b = pixelData[offset + 2]
-                    let a = pixelData[offset + 3]
+        for y in 0..<height {
+            for x in 0..<width {
+                let offset = (y * width + x) * bytesPerPixel
+                let r = pixelData[offset]
+                let g = pixelData[offset + 1]
+                let b = pixelData[offset + 2]
+                let a = pixelData[offset + 3]
 
-                    if a > 128 {
-                        // Bucket colors to reduce noise
-                        let bucket = ColorBucket(r: r / 12 * 12, g: g / 12 * 12, b: b / 12 * 12)
+                if a > 128 {
+                    // Bucket colors to reduce noise
+                    let bucket = ColorBucket(r: r / 12 * 12, g: g / 12 * 12, b: b / 12 * 12)
 
-                        // Filter out extreme blacks/whites
-                        let brightness = (Int(r) + Int(g) + Int(b)) / 3
-                        if brightness > 20 && brightness < 240 {
-                            colorCounts[bucket, default: 0] += 1
-                        }
+                    // Filter out extreme blacks/whites
+                    let brightness = (Int(r) + Int(g) + Int(b)) / 3
+                    if brightness > 20 && brightness < 240 {
+                        colorCounts[bucket, default: 0] += 1
                     }
                 }
             }
-
-            // Sort by a combination of count and vibrancy
-            let sortedBuckets = colorCounts.sorted { b1, b2 in
-                return score(bucket: b1.key, count: b1.value) > score(bucket: b2.key, count: b2.value)
-            }
-
-            var result: [Color] = []
-            for (bucket, _) in sortedBuckets {
-                let color = Color(red: Double(bucket.r) / 255.0,
-                                 green: Double(bucket.g) / 255.0,
-                                 blue: Double(bucket.b) / 255.0)
-
-                if !result.contains(where: { isSimilar($0, color) }) {
-                    result.append(color)
-                }
-
-                if result.count >= count { break }
-            }
-
-            return result
-        } catch {
-            return []
         }
+
+        // Sort by a combination of count and vibrancy
+        let sortedBuckets = colorCounts.sorted { b1, b2 in
+            return score(bucket: b1.key, count: b1.value) > score(bucket: b2.key, count: b2.value)
+        }
+
+        var result: [Color] = []
+        for (bucket, _) in sortedBuckets {
+            let color = Color(red: Double(bucket.r) / 255.0,
+                             green: Double(bucket.g) / 255.0,
+                             blue: Double(bucket.b) / 255.0)
+
+            if !result.contains(where: { isSimilar($0, color) }) {
+                result.append(color)
+            }
+
+            if result.count >= count { break }
+        }
+
+        return result
     }
     
     private func score(bucket: ColorBucket, count: Int) -> Double {

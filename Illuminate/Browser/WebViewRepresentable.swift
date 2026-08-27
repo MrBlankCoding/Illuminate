@@ -63,13 +63,7 @@ struct WebViewRepresentable: NSViewRepresentable {
             canvasFingerprintingProtectionEnabled: canvasFingerprintingService.isEnabled
         )
 
-        if let url = tab.url, webView.url == nil {
-            if url.isFileURL {
-                webView.loadFileURL(url, allowingReadAccessTo: url.deletingLastPathComponent())
-            } else {
-                webView.load(makeRequest(for: url))
-            }
-        }
+        loadIfNeeded(webView, coordinator: context.coordinator)
 
         return webView
     }
@@ -104,6 +98,25 @@ struct WebViewRepresentable: NSViewRepresentable {
                 guard let tab, let nsView else { return }
                 triggerIlluminateDownload(for: tab, in: nsView, event: event)
             }
+        }
+
+        if tab.id == tabManager.activeTabID {
+            loadIfNeeded(nsView, coordinator: context.coordinator)
+        }
+    }
+
+    private func loadIfNeeded(_ webView: WKWebView, coordinator: Coordinator) {
+        guard
+            let url = tab.url,
+            webView.url == nil,
+            coordinator.lastRequestedLoadURLString != url.absoluteString
+        else { return }
+
+        coordinator.lastRequestedLoadURLString = url.absoluteString
+        if url.isFileURL {
+            webView.loadFileURL(url, allowingReadAccessTo: url.deletingLastPathComponent())
+        } else {
+            webView.load(makeRequest(for: url))
         }
     }
 

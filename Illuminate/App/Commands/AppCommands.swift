@@ -5,10 +5,16 @@
 //  Created by MrBlankCoding on 3/8/26.
 //
 
+import Combine
 import SwiftUI
+
+final class MenuRefreshTrigger: ObservableObject {
+    @Published var value = 0
+}
 
 struct AppCommands: Commands {
     let shortcutHandler: KeyboardShortcutHandler
+    @ObservedObject var menuRefreshTrigger: MenuRefreshTrigger
 
     var body: some Commands {
 
@@ -35,10 +41,6 @@ struct AppCommands: Commands {
                 BrowserCommand("Previous Tab",            shortcut: .upArrow)   { .previousTab }
                 BrowserCommand("Switch to Most Recent Tab", shortcut: .tab, modifiers: .control) { .switchToMostRecentTab }
             }
-
-            Divider()
-
-            BrowserCommand("Close All Tabs", shortcut: "w", modifiers: [.command, .shift]) { .closeAllTabs }
 
             Divider()
 

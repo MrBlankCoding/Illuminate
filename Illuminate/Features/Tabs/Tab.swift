@@ -526,9 +526,10 @@ final class Tab: NSObject, ObservableObject, Identifiable, WKWebExtensionTab {
         // thread here runs on every favicon change (i.e. every navigation).
         let image = favicon
 
-        Task.detached(priority: .background) {
+        Task.detached(priority: .background) { [folder, image] in
             try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-            if let data = image?.pngData() {
+            let data = await MainActor.run { image?.pngData() }
+            if let data {
                 try? data.write(to: folder.appendingPathComponent("favicon.png"))
             }
         }
@@ -575,17 +576,13 @@ final class Tab: NSObject, ObservableObject, Identifiable, WKWebExtensionTab {
             isFetchingMetadata = true
             let metaURL = assetsURLWithoutCreating.appendingPathComponent("metadata.json")
 
-            Task.detached(priority: .utility) { [weak self] in
-                let data    = try? Data(contentsOf: metaURL)
-                let payload = data.flatMap { try? JSONDecoder().decode(TabMetadataPayload.self, from: $0) }
-
-                await MainActor.run { [weak self] in
-                    guard let self else { return }
-                    self.hasLoadedMetadata   = true
-                    self.isFetchingMetadata  = false
-                    if let payload {
-                        self.applyRestoredMetadata(url: payload.url, title: payload.title)
-                    }
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                let data = try? Data(contentsOf: metaURL)
+                self.hasLoadedMetadata = true
+                self.isFetchingMetadata = false
+                if let data, let payload = try? JSONDecoder().decode(TabMetadataPayload.self, from: data) {
+                    self.applyRestoredMetadata(url: payload.url, title: payload.title)
                 }
             }
         }

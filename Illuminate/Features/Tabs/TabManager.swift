@@ -11,6 +11,7 @@ import AppKit
 import Combine
 import Foundation
 import SwiftUI
+import UniformTypeIdentifiers
 import WebKit
 
 
@@ -519,6 +520,30 @@ final class TabManager: NSObject, ObservableObject, WKWebExtensionWindow {
 
 
     func saveActiveTabAsPDF() {
+        // If the active tab is showing a PDF in the viewer, offer to save the
+        // original file with a save panel so the user can choose the destination.
+        if let sourceURL = activeTab?.url,
+           let page = IlluminatePage(url: sourceURL),
+           let pdfFileURL = page.pdfSourceFileURL(from: sourceURL) {
+            let panel = NSSavePanel()
+            panel.nameFieldStringValue = pdfFileURL.lastPathComponent
+            panel.directoryURL = pdfFileURL.deletingLastPathComponent()
+            panel.allowedContentTypes = [.pdf]
+            panel.canCreateDirectories = true
+            guard panel.runModal() == .OK, let destination = panel.url else { return }
+            do {
+                if pdfFileURL != destination {
+                    if FileManager.default.fileExists(atPath: destination.path) {
+                        try FileManager.default.removeItem(at: destination)
+                    }
+                    try FileManager.default.copyItem(at: pdfFileURL, to: destination)
+                }
+            } catch {
+                AppLog.error("[TabManager] Failed to save PDF", error: error)
+            }
+            return
+        }
+
         guard
             let webView = activeTab?.webView,
             let sourceURL = activeTab?.url
@@ -532,19 +557,37 @@ final class TabManager: NSObject, ObservableObject, WKWebExtensionWindow {
             .replacingOccurrences(of: "/", with: "-")
         let filename = baseName.hasSuffix(".pdf") ? baseName : "\(baseName).pdf"
 
-        webView.createPDF { [weak self] result in
+        let configuration = WKPDFConfiguration()
+
+        let js = """
+        JSON.stringify({
+            w: Math.max(document.documentElement.scrollWidth, document.body.scrollWidth),
+            h: Math.max(document.documentElement.scrollHeight, document.body.scrollHeight)
+        })
+        """
+        webView.evaluateJavaScript(js) { [weak self] result, _ in
             guard let self else { return }
-            switch result {
-            case .success(let data):
-                DownloadManager.shared.saveDownloadedData(
-                    data,
-                    from: sourceURL,
-                    suggestedFilename: filename,
-                    mimeType: "application/pdf",
-                    profileID: self.activeProfileID
-                )
-            case .failure(let error):
-                AppLog.error("[TabManager] PDF failed to create", error: error)
+            if let dict = result as? String,
+               let data = dict.data(using: .utf8),
+               let dims = try? JSONSerialization.jsonObject(with: data) as? [String: CGFloat],
+               let w = dims["w"], let h = dims["h"],
+               w > 0, h > 0 {
+                configuration.rect = CGRect(x: 0, y: 0, width: w, height: h)
+            }
+            webView.createPDF(configuration: configuration) { [weak self] result in
+                guard let self else { return }
+                switch result {
+                case .success(let data):
+                    DownloadManager.shared.saveDownloadedData(
+                        data,
+                        from: sourceURL,
+                        suggestedFilename: filename,
+                        mimeType: "application/pdf",
+                        profileID: self.activeProfileID
+                    )
+                case .failure(let error):
+                    AppLog.error("[TabManager] PDF failed to create", error: error)
+                }
             }
         }
     }

@@ -114,13 +114,13 @@ final class PDFViewerController: ObservableObject {
         guard let document, pageIndex >= 0, pageIndex < document.pageCount else { return }
         pendingThumbnails.insert(pageIndex)
 
-        Task.detached(priority: .userInitiated) { [weak self] in
-            guard let page = document.page(at: pageIndex) else { return }
+        guard let page = document.page(at: pageIndex) else { return }
+
+        Task { @MainActor [weak self, pageIndex] in
+            guard let self else { return }
             let image = page.thumbnail(of: CGSize(width: 200, height: 260), for: .mediaBox)
-            await MainActor.run {
-                self?.thumbnailCache[pageIndex] = image
-                self?.pendingThumbnails.remove(pageIndex)
-            }
+            self.thumbnailCache[pageIndex] = image
+            self.pendingThumbnails.remove(pageIndex)
         }
     }
 

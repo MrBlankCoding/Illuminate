@@ -129,7 +129,7 @@ final class HistoryManager: ObservableObject {
         let finalTitle = title.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty ?? url.host ?? urlString
         let faviconString = faviconURL?.absoluteString
         
-        Task.detached(priority: .utility) { [actor] in
+        Task.detached(priority: .userInitiated) { [actor] in
             await actor.record(urlString: urlString, title: finalTitle, faviconURLString: faviconString)
             await MainActor.run { [weak self] in
                 self?.scheduleDebouncedRefresh()
@@ -306,7 +306,6 @@ final class HistoryManager: ObservableObject {
     }
 }
 
-@available(macOS 14, iOS 17, *)
 actor HistoryModelActor: ModelActor {
     let modelContainer: ModelContainer
     let modelExecutor: any ModelExecutor

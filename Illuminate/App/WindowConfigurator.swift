@@ -23,6 +23,7 @@ struct WindowConfigurator: NSViewRepresentable {
             context.coordinator.didConfigure = true
             context.coordinator.window = window
             tabManager.window = window
+            WebURLOpening.shared.register(tabManager)
             configure(window: window)
             update(window: window)
         }
@@ -35,6 +36,7 @@ struct WindowConfigurator: NSViewRepresentable {
             if context.coordinator.window !== window {
                 context.coordinator.window = window
                 tabManager.window = window
+                WebURLOpening.shared.register(tabManager)
                 if !context.coordinator.didConfigure {
                     context.coordinator.didConfigure = true
                     configure(window: window)
@@ -99,6 +101,11 @@ struct WindowConfigurator: NSViewRepresentable {
         func windowDidBecomeKey(_ notification: Notification) {
             guard let tabManager, let extensionManager else { return }
             extensionManager.controller.didFocusWindow(tabManager)
+        }
+
+        func windowWillClose(_ notification: Notification) {
+            guard let tabManager else { return }
+            WebURLOpening.shared.unregister(tabManager)
         }
 
         func windowDidResignKey(_ notification: Notification) {

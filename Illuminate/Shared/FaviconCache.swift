@@ -109,13 +109,17 @@ final class FaviconCache: @unchecked Sendable {
     }
 
     nonisolated func image(for key: URL) -> NSImage? {
-        lock.lock()
-        if let cached = storage[key] {
-            touch(key)
-            lock.unlock()
+        let cached: NSImage? = lock.withLock {
+            if let cached = storage[key] {
+                touch(key)
+                return cached
+            }
+            return nil
+        }
+
+        if let cached = cached {
             return cached
         }
-        lock.unlock()
 
         if let diskImage = loadFromDisk(key) {
             return storeIfAbsent(diskImage, for: key)
@@ -125,11 +129,11 @@ final class FaviconCache: @unchecked Sendable {
     }
 
     nonisolated func memoryImage(for key: URL) -> NSImage? {
-        lock.lock()
-        defer { lock.unlock() }
-        guard let cached = storage[key] else { return nil }
-        touch(key)
-        return cached
+        lock.withLock {
+            guard let cached = storage[key] else { return nil }
+            touch(key)
+            return cached
+        }
     }
 
     nonisolated func imageIncludingDisk(for key: URL) async -> NSImage? {
@@ -144,16 +148,16 @@ final class FaviconCache: @unchecked Sendable {
     }
 
     nonisolated private func storeIfAbsent(_ newImage: NSImage, for key: URL) -> NSImage {
-        lock.lock()
-        defer { lock.unlock() }
-        if let cached = storage[key] {
+        return lock.withLock {
+            if let cached = storage[key] {
+                touch(key)
+                return cached
+            }
+            storage[key] = newImage
             touch(key)
-            return cached
+            evictIfNeeded()
+            return newImage
         }
-        storage[key] = newImage
-        touch(key)
-        evictIfNeeded()
-        return newImage
     }
 
     nonisolated func fetchImage(for url: URL) async -> NSImage? {
@@ -203,8 +207,9 @@ final class FaviconCache: @unchecked Sendable {
     nonisolated private static func decodeAndEncode(_ data: Data) async -> (NSImage, Data?)? {
         await Task.detached(priority: .utility) { () -> (NSImage, Data?)? in
             guard let img = NSImage(data: data) else { return nil }
-            let resized = downsampled(img, maxPixel: maxCachedPixelSize)
-            return (resized, resized.pngData())
+            let resized = await downsampled(img, maxPixel: maxCachedPixelSize)
+            let pngData = await MainActor.run { resized.pngData() }
+            return (resized, pngData)
         }.value
     }
 
@@ -246,23 +251,28 @@ final class FaviconCache: @unchecked Sendable {
     }
 
     nonisolated func performInline_set(_ image: NSImage, for key: URL) {
-        lock.lock()
-        defer { lock.unlock() }
-        storage[key] = image
-        touch(key)
-        evictIfNeeded()
+        lock.withLock {
+            storage[key] = image
+            touch(key)
+            evictIfNeeded()
+        }
     }
 
     nonisolated private func setWithData(_ image: NSImage, pngData: Data?, for key: URL) {
-        lock.lock()
-        defer { lock.unlock() }
-
-        storage[key] = image
-        touch(key)
-        if let data = pngData {
-            persistToDisk(data, at: diskURL(for: key))
+        let diskPath = diskURL(for: key)
+        let hashes = lock.withLock {
+            storage[key] = image
+            touch(key)
+            let h = Set(protectedKeys.map { stableHash($0) })
+            evictIfNeeded()
+            return h
         }
-        evictIfNeeded()
+        if let data = pngData {
+            Task.detached(priority: .userInitiated) { [cacheURL] in
+                try? data.write(to: diskPath, options: .atomic)
+                await Self.pruneDiskCacheIfNeeded(directory: cacheURL, protectedHashes: hashes)
+            }
+        }
     }
 
     nonisolated func touch(_ key: URL) {
@@ -280,7 +290,7 @@ final class FaviconCache: @unchecked Sendable {
         }
     }
 
-    private func oldestAccessKey(preferUnprotected: Bool) -> URL? {
+    nonisolated private func oldestAccessKey(preferUnprotected: Bool) -> URL? {
         var oldestKey: URL?
         var oldestSeq: UInt64 = .max
         for (url, seq) in accessOrder {
@@ -293,12 +303,12 @@ final class FaviconCache: @unchecked Sendable {
     }
 
     nonisolated func setProtectedURLs(_ urls: [URL]) {
-        lock.lock()
-        defer { lock.unlock() }
-        protectedKeys = Set(urls.map { normalizedRequestKey(for: $0) })
+        lock.withLock {
+            protectedKeys = Set(urls.map { normalizedRequestKey(for: $0) })
+        }
     }
 
-    private func isProtectedKey(_ key: String) -> Bool {
+    nonisolated private func isProtectedKey(_ key: String) -> Bool {
         protectedKeys.contains(key)
     }
     
@@ -321,30 +331,33 @@ final class FaviconCache: @unchecked Sendable {
         let hashes = Set(protectedKeys.map { stableHash($0) })
         Task.detached(priority: .userInitiated) { [cacheURL] in
             try? data.write(to: fileURL, options: .atomic)
-            Self.pruneDiskCacheIfNeeded(directory: cacheURL, protectedHashes: hashes)
+            await Self.pruneDiskCacheIfNeeded(directory: cacheURL, protectedHashes: hashes)
         }
     }
 
-    nonisolated private static func pruneDiskCacheIfNeeded(directory: URL, protectedHashes: Set<String>) {
+    nonisolated private static func pruneDiskCacheIfNeeded(directory: URL, protectedHashes: Set<String>) async {
         dispatchPrecondition(condition: .notOnQueue(.main))
-        lockPrune.lock()
-        if pendingDiskPrune {
-            lockPrune.unlock()
-            return
+        let shouldPrune = await lockPrune.withLock {
+            if pendingDiskPrune {
+                return false
+            }
+            pendingDiskPrune = true
+            return true
         }
-        pendingDiskPrune = true
-        lockPrune.unlock()
+
+        guard shouldPrune else { return }
+
         defer {
-            lockPrune.lock()
-            pendingDiskPrune = false
-            lockPrune.unlock()
+            lockPrune.withLock {
+                pendingDiskPrune = false
+            }
         }
 
         guard let files = try? FileManager.default.contentsOfDirectory(
             at: directory,
             includingPropertiesForKeys: [.contentModificationDateKey],
             options: .skipsHiddenFiles
-        ), files.count > maxDiskEntries else { return }
+        ), await files.count > maxDiskEntries else { return }
 
         let dated = files.map { file -> (URL, Date, Bool) in
             let date = (try? file.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate ?? .distantPast
@@ -358,12 +371,12 @@ final class FaviconCache: @unchecked Sendable {
             if lhs.2 != rhs.2 { return !lhs.2 }
             return lhs.1 < rhs.1
         }
-        let excess = sorted.prefix(files.count - maxDiskEntries)
+        let excess = await sorted.prefix(files.count - maxDiskEntries)
         for (file, _, _) in excess {
             try? FileManager.default.removeItem(at: file)
         }
     }
-    private static let lockPrune = NSLock()
+    nonisolated(unsafe) private static let lockPrune = NSLock()
 
     nonisolated private func loadFromDisk(_ key: URL) -> NSImage? {
         let url = diskURL(for: key)

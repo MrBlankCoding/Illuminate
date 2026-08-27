@@ -27,7 +27,7 @@ enum FinderReveal {
     static func open(_ url: URL) {
         guard FileManager.default.fileExists(atPath: url.path) else { return }
 
-        url.withSecurityScopedAccess {
+        _ = url.withSecurityScopedAccess {
             NSWorkspace.shared.open(url)
         }
     }
