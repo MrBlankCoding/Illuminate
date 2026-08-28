@@ -297,7 +297,7 @@ struct ExtensionManagerUtilityTests {
         )
 
         let anyMatch = manager.installedExtensions.contains {
-            manager.matchesGalleryItem(fakeItem, context: $0)
+            manager.matchesCatalogItem(fakeItem, context: $0)
         }
         #expect(!anyMatch)
     }
