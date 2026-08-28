@@ -41,11 +41,16 @@ struct WebURLOpeningTests {
 
         WebURLOpening.shared.handle(URL(string: "https://example.com/1")!)
         WebURLOpening.shared.handle(URL(string: "https://example.com/2")!)
-        let initialCount = tabManager.tabs.count
 
         WebURLOpening.shared.drainIfNeeded(into: tabManager)
 
-        #expect(tabManager.tabs.count == initialCount + 2)
+        // The auto-created blank "New Tab" placeholder is replaced by the queued
+        // URLs so the user lands on the opened links instead of a profile page.
+        #expect(tabManager.tabs.count == 2)
+        #expect(tabManager.tabs.map(\.url) == [
+            URL(string: "https://example.com/1"),
+            URL(string: "https://example.com/2"),
+        ])
         #expect(WebURLOpening.shared.queuedURLs.isEmpty)
         #expect(!WebURLOpening.shared.needsBrowserWindow)
     }

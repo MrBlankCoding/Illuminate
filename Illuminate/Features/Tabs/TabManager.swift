@@ -115,6 +115,11 @@ final class TabManager: NSObject, ObservableObject, WKWebExtensionWindow {
 
     private var recentlyClosed: [ClosedTabSnapshot] = []
     private var isInitializing = true
+    // The auto-created blank "New Tab" that represents a freshly-opened window
+    // with no restored session. It is consumed when an external web URL (e.g. a
+    // link clicked in another app) is drained into this window so the user lands
+    // on the link instead of a blank start/profile page.
+    var pristineBlankTabID: UUID?
     var pendingSaveTask: Task<Void, Never>?
     var backgroundThemeTask: Task<Void, Never>?
     private var pendingFocusTask: Task<Void, Never>?
@@ -194,7 +199,7 @@ final class TabManager: NSObject, ObservableObject, WKWebExtensionWindow {
         setupObservers()
 
         if tabs.isEmpty {
-            createTab()
+            pristineBlankTabID = createTab().id
         }
 
         resolvedExtensionManager.registerTabManager(self)
@@ -317,6 +322,15 @@ final class TabManager: NSObject, ObservableObject, WKWebExtensionWindow {
     // keep it simple
     func ensureHasAtLeastOneTab() {
         if tabs.isEmpty { createTab() }
+    }
+
+    func consumePristineBlankTabForExternalOpen() -> UUID? {
+        guard let id = pristineBlankTabID, tabIndex[id]?.url == nil else {
+            pristineBlankTabID = nil
+            return nil
+        }
+        pristineBlankTabID = nil
+        return id
     }
 
     @discardableResult

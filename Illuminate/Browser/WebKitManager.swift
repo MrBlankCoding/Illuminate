@@ -9,6 +9,7 @@
 import Foundation
 import WebKit
 import Combine
+import ObjectiveC
 
 @MainActor
 final class WebKitManager: ObservableObject {
@@ -18,7 +19,6 @@ final class WebKitManager: ObservableObject {
         didSet {
             guard oldValue != cookiesEnabled else { return }
             sharedWebsiteDataStore = nil
-            sharedConfiguration = nil
             guard !isLoadingProfile, isPersistenceEnabled else { return }
             AppLog.info("WebKitManager: Setting changed cookiesEnabled=\(cookiesEnabled)")
             userDefaults.set(cookiesEnabled, forKey: scopedKey("cookiesEnabled"))
@@ -41,7 +41,6 @@ final class WebKitManager: ObservableObject {
     private let extensionManager: ExtensionManager
     
     private var sharedWebsiteDataStore: WKWebsiteDataStore?
-    private var sharedConfiguration: WKWebViewConfiguration?
 
     var currentUserAgent: String? {
         cachedUserAgent
@@ -59,7 +58,6 @@ final class WebKitManager: ObservableObject {
                     let chromeVersion = await ChromeVersionFetcher.fetchLatestStableVersion()
                     let enhancedUA = "\(defaultUA) Chrome/\(chromeVersion)"
                     self?.cachedUserAgent = enhancedUA
-                    self?.sharedConfiguration?.applicationNameForUserAgent = "Chrome/\(chromeVersion)"
                     continuation.resume(returning: enhancedUA)
                 }
             }
@@ -94,7 +92,6 @@ final class WebKitManager: ObservableObject {
     func prepareForRemoval() {
         AppLog.info("WebKitManager: Tearing down (profile: \(activeProfileID?.uuidString ?? "guest"))")
         sharedWebsiteDataStore = nil
-        sharedConfiguration = nil
     }
 
     func makeConfiguration() -> WKWebViewConfiguration {
@@ -111,8 +108,9 @@ final class WebKitManager: ObservableObject {
 
         configuration.preferences = preferences
         configuration.userContentController = WKUserContentController()
-        configuration.preferences.setValue(true, forKey: "developerExtrasEnabled")
-        configuration.webExtensionController = extensionManager.controller
+        if extensionManager.hasEnabledExtensions {
+            configuration.webExtensionController = extensionManager.controller
+        }
 
         if let ua = cachedUserAgent, let chromeVersion = ua.components(separatedBy: " Chrome/").last {
              configuration.applicationNameForUserAgent = "Chrome/\(chromeVersion)"
@@ -123,6 +121,17 @@ final class WebKitManager: ObservableObject {
 
     func makeWebView() -> WKWebView {
         let webView = WKWebView(frame: .zero, configuration: makeConfiguration())
+        webView.wantsLayer = true
+        if let scale = webView.window?.screen?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor {
+            webView.layer?.contentsScale = scale
+        }
+
+        webView.layer?.drawsAsynchronously = true
+
+        #if DEBUG
+        webView.isInspectable = true
+        #endif
+
         if let cachedUA = cachedUserAgent {
             webView.customUserAgent = cachedUA
         } else {
@@ -149,7 +158,6 @@ final class WebKitManager: ObservableObject {
                 
                 self.cachedUserAgent = enhancedUA
                 webView.customUserAgent = enhancedUA
-                self.sharedConfiguration?.applicationNameForUserAgent = "Chrome/\(chromeVersion)"
 
                 AppLog.info("Set and cached enhanced UA: \(enhancedUA)")
             }

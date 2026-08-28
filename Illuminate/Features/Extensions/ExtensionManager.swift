@@ -21,9 +21,14 @@ final class ExtensionManager: NSObject, ObservableObject {
     @Published private(set) var isCheckingForUpdates: Bool = false
     @Published private(set) var pinnedExtensions: Set<String> = []
 
-    @Published var activePermissionRequest: PermissionRequest?
+    @Published private(set) var activePermissionRequest: Extensions.PermissionPrompt?
 
-    let actionChanges = PassthroughSubject<(WKWebExtensionContext, (any WKWebExtensionTab)?), Never>()
+    var hasEnabledExtensions: Bool {
+        installedExtensions.contains { isEnabled($0) }
+    }
+
+    private let actionChangesSubject = PassthroughSubject<(WKWebExtensionContext, (any WKWebExtensionTab)?), Never>()
+    var actionChanges: AnyPublisher<(WKWebExtensionContext, (any WKWebExtensionTab)?), Never> { actionChangesSubject.eraseToAnyPublisher() }
     let controller: WKWebExtensionController
     let profileID: UUID?
     let isGuestSession: Bool
@@ -83,15 +88,6 @@ final class ExtensionManager: NSObject, ObservableObject {
         let timestamp = Date()
     }
 
-    struct PermissionRequest: Identifiable {
-        let id = UUID()
-        let context: WKWebExtensionContext
-        let permissions: Set<WKWebExtension.Permission>?
-        let matchPatterns: Set<WKWebExtension.MatchPattern>?
-        let urls: Set<URL>?
-        let completion: (Bool) -> Void
-        let createdAt = Date()
-    }
 
     init(profileID: UUID?, isGuestSession: Bool = false) {
         self.profileID = profileID
@@ -401,13 +397,6 @@ final class ExtensionManager: NSObject, ObservableObject {
         objectWillChange.send()
     }
 
-    func matchesGalleryItem(_ item: ExtensionGalleryItem, context: WKWebExtensionContext) -> Bool {
-        if identifier(for: context) == item.id { return true }
-        let names = [context.webExtension.displayName, context.webExtension.displayShortName]
-            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
-        return names.contains { $0.caseInsensitiveCompare(item.name) == .orderedSame }
-    }
-
     func installExtension(
         from url: URL,
         preferredIdentifier: String? = nil,
@@ -711,6 +700,40 @@ final class ExtensionManager: NSObject, ObservableObject {
         }
     }
 
+    func matchesCatalogItem(_ item: any Extensions.CatalogItem, context: WKWebExtensionContext) -> Bool {
+        if identifier(for: context) == item.id { return true }
+        let names = [context.webExtension.displayName, context.webExtension.displayShortName]
+            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+        return names.contains { $0.caseInsensitiveCompare(item.name) == .orderedSame }
+    }
+
+    func installExtension(
+        from url: URL,
+        preferredIdentifier: String?,
+        initiallyEnabled: Bool,
+        source: Extensions.Source?
+    ) async throws -> WKWebExtensionContext {
+        try await installExtension(
+            from: url,
+            preferredIdentifier: preferredIdentifier,
+            initiallyEnabled: initiallyEnabled,
+            persist: true,
+            source: source
+        )
+    }
+
+    func checkForUpdates() async {
+        await checkAndUpdateExtensions()
+    }
+
+    func resolvePermissionRequest(_ prompt: Extensions.PermissionPrompt, granted: Bool) {
+        resolvePermissionRequest(promptID: prompt.id, granted: granted)
+    }
+
+    func dismissPermissionRequest() {
+        activePermissionRequest = nil
+    }
+
     enum ExtensionError: LocalizedError {
         case invalidBundle(URL)
         case managerDeallocated
@@ -729,6 +752,10 @@ final class ExtensionManager: NSObject, ObservableObject {
         AppLog.info("ExtensionManager deallocated for profile: \(profileID?.uuidString ?? "global")")
     }
 }
+
+extension ExtensionManager: ExtensionManaging {}
+
+extension ExtensionGalleryItem: Extensions.CatalogItem {}
 
 extension ExtensionManager: WKWebExtensionControllerDelegate {
 
@@ -817,16 +844,14 @@ extension ExtensionManager: WKWebExtensionControllerDelegate {
         openOptionsPageFor context: WKWebExtensionContext,
         completionHandler: @escaping ((any Error)?) -> Void
     ) {
-        guard let url = context.optionsPageURL else {
-            completionHandler(NSError(
-                domain: "ExtensionManager", code: 2,
-                userInfo: [NSLocalizedDescriptionKey: "Options page not defined in manifest"]
-            ))
-            return
-        }
+        openOptionsPage(for: context)
+        completionHandler(nil)
+    }
+
+    func openOptionsPage(for context: WKWebExtensionContext) {
+        guard let url = context.optionsPageURL else { return }
         extensionContextCache.insert(context, for: url)
         NotificationCenter.default.post(name: .openURL, object: url)
-        completionHandler(nil)
     }
 
     func webExtensionController(
@@ -836,14 +861,9 @@ extension ExtensionManager: WKWebExtensionControllerDelegate {
         for context: WKWebExtensionContext,
         completionHandler: @escaping (Set<WKWebExtension.Permission>, Date?) -> Void
     ) {
-        let request = PermissionRequest(
-            context: context,
-            permissions: permissions,
-            matchPatterns: nil,
-            urls: nil,
-            completion: { granted in completionHandler(granted ? permissions : [], nil) }
-        )
-        presentPermissionRequest(request)
+        presentPermissionRequest(permissions: permissions, matchPatterns: nil, urls: nil, context: context) { granted in
+            completionHandler(granted ? permissions : [], nil)
+        }
     }
 
     func webExtensionController(
@@ -853,14 +873,9 @@ extension ExtensionManager: WKWebExtensionControllerDelegate {
         for context: WKWebExtensionContext,
         completionHandler: @escaping (Set<WKWebExtension.MatchPattern>, Date?) -> Void
     ) {
-        let request = PermissionRequest(
-            context: context,
-            permissions: nil,
-            matchPatterns: matchPatterns,
-            urls: nil,
-            completion: { granted in completionHandler(granted ? matchPatterns : [], nil) }
-        )
-        presentPermissionRequest(request)
+        presentPermissionRequest(permissions: nil, matchPatterns: matchPatterns, urls: nil, context: context) { granted in
+            completionHandler(granted ? matchPatterns : [], nil)
+        }
     }
 
     func webExtensionController(
@@ -870,28 +885,46 @@ extension ExtensionManager: WKWebExtensionControllerDelegate {
         for context: WKWebExtensionContext,
         completionHandler: @escaping (Set<URL>, Date?) -> Void
     ) {
-        let request = PermissionRequest(
-            context: context,
-            permissions: nil,
-            matchPatterns: nil,
-            urls: urls,
-            completion: { granted in completionHandler(granted ? urls : [], nil) }
-        )
-        presentPermissionRequest(request)
+        presentPermissionRequest(permissions: nil, matchPatterns: nil, urls: urls, context: context) { granted in
+            completionHandler(granted ? urls : [], nil)
+        }
     }
 
-    private func presentPermissionRequest(_ request: PermissionRequest) {
+    private func presentPermissionRequest(
+        permissions: Set<WKWebExtension.Permission>?,
+        matchPatterns: Set<WKWebExtension.MatchPattern>?,
+        urls: Set<URL>?,
+        context: WKWebExtensionContext,
+        completion: @escaping (Bool) -> Void
+    ) {
         permissionRequestTimeoutTask?.cancel()
-        activePermissionRequest = request
+        var prompt: Extensions.PermissionPrompt!
+        prompt = Extensions.PermissionPrompt(
+            id: UUID(),
+            extensionName: context.webExtension.displayName,
+            icon: context.webExtension.icon(for: CGSize(width: 64, height: 64)),
+            permissions: permissions,
+            matchPatterns: matchPatterns,
+            urls: urls
+        ) { [weak self] granted in
+            self?.resolvePermissionRequest(promptID: prompt.id, granted: granted)
+        }
+        activePermissionRequest = prompt
 
         permissionRequestTimeoutTask = Task { @MainActor [weak self] in
             try? await Task.sleep(nanoseconds: 300_000_000_000) // 5 min
             guard !Task.isCancelled, let self else { return }
-            guard self.activePermissionRequest?.id == request.id else { return }
-            AppLog.warning("Permission request timed out for extension: \(request.context.webExtension.displayName ?? "unknown")")
-            request.completion(false)
-            self.activePermissionRequest = nil
+            guard self.activePermissionRequest?.id == prompt.id else { return }
+            AppLog.warning("Permission request timed out for extension: \(context.webExtension.displayName ?? "unknown")")
+            self.resolvePermissionRequest(promptID: prompt.id, granted: false)
         }
+    }
+
+    private func resolvePermissionRequest(promptID: UUID, granted: Bool) {
+        guard activePermissionRequest?.id == promptID else { return }
+        let prompt = activePermissionRequest
+        activePermissionRequest = nil
+        prompt?.resolve(granted)
     }
 
     func webExtensionController(
@@ -899,6 +932,6 @@ extension ExtensionManager: WKWebExtensionControllerDelegate {
         didUpdate action: WKWebExtension.Action,
         forExtensionContext context: WKWebExtensionContext
     ) {
-        actionChanges.send((context, action.associatedTab))
+        actionChangesSubject.send((context, action.associatedTab))
     }
 }

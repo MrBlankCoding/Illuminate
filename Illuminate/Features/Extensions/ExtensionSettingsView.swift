@@ -517,11 +517,7 @@ struct ExtensionDetailView: View {
         VStack(spacing: 10) {
             if hasOptionsPage {
                 Button {
-                    profileEnvironment.extensionManager.webExtensionController(
-                        profileEnvironment.extensionManager.controller,
-                        openOptionsPageFor: context,
-                        completionHandler: { _ in }
-                    )
+                    profileEnvironment.extensionManager.openOptionsPage(for: context)
                     dismiss()
                 } label: {
                     Label("Extension Options", systemImage: "gear")

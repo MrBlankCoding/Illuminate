@@ -392,6 +392,11 @@ extension WebViewRepresentable {
             }
         }
 
+        @objc(_webViewDidRequestPointerLock:completionHandler:)
+        func grantPointerLockRequest(for webView: WKWebView, completionHandler: @escaping (Bool) -> Void) {
+            completionHandler(true)
+        }
+
         func webView(
             _ webView: WKWebView,
             runJavaScriptConfirmPanelWithMessage message: String,

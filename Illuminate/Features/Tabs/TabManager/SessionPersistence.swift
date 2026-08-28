@@ -110,7 +110,9 @@ extension TabManager {
     }
 
     func startFreshSession() {
-        tabs = [Tab(assetsBaseURL: tabAssetsBaseURL)]
+        let tab = Tab(assetsBaseURL: tabAssetsBaseURL)
+        tabs = [tab]
+        pristineBlankTabID = tab.id
         rebuildTabIndex()
     }
 

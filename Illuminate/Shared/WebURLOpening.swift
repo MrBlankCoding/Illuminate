@@ -60,10 +60,25 @@ final class WebURLOpening: ObservableObject {
         guard !queuedURLs.isEmpty else { return }
         let urls = queuedURLs
         queuedURLs.removeAll()
+        needsBrowserWindow = false
+
+        // If this window was freshly opened specifically to serve these queued
+        // URLs, drop the auto-created blank "New Tab" so the user lands on the
+        // link instead of a blank start/profile page.
+        let placeholderID = tabManager.consumePristineBlankTabForExternalOpen()
+
         for url in urls {
             tabManager.createTab(url: url)
         }
-        needsBrowserWindow = false
+
+        if let placeholderID {
+            tabManager.closeTab(id: placeholderID)
+        }
+
+        // Bring the browser window to front so the opened link isn't left running
+        // in the background behind a start/profile window.
+        NSApp.activate(ignoringOtherApps: true)
+        tabManager.window?.makeKeyAndOrderFront(nil)
     }
 
     // testing only

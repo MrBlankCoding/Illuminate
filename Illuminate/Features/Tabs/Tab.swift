@@ -59,6 +59,20 @@ private var webViewTabOwnerKey: UInt8 = 0
 
 final class IlluminateWebView: WKWebView {
     var onIlluminateDownload: ((NSEvent) -> Void)?
+    private final class GeometryLayer: CALayer {
+        override func action(forKey event: String) -> CAAction? {
+            switch event {
+            case "position", "bounds", "contents", "frame":
+                return NSNull()
+            default:
+                return super.action(forKey: event)
+            }
+        }
+    }
+
+    override func makeBackingLayer() -> CALayer {
+        GeometryLayer()
+    }
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
@@ -350,6 +364,7 @@ final class Tab: NSObject, ObservableObject, Identifiable, WKWebExtensionTab {
         newWebView.isInspectable = true
         newWebView.wantsLayer = true
         newWebView.pageZoom = zoomLevel
+        newWebView.underPageBackgroundColor = .windowBackgroundColor
         webKitManager.applyBrowserUserAgent(to: newWebView)
         objc_setAssociatedObject(
             newWebView,

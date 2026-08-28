@@ -14,7 +14,7 @@ struct IlluminateApp: App {
     private static let profileSelectionWindowID = "profile-selection-window"
     private static let profileWindowSize = CGSize(width: 320, height: 220)
     private static let browserWindowSize  = CGSize(width: 1180, height: 720)
-    @StateObject private var profileManager: ProfileManager
+    private let profileManager: ProfileManager
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
     private let keyboardShortcutHandler: KeyboardShortcutHandler
@@ -26,7 +26,7 @@ struct IlluminateApp: App {
     let modelContainer: ModelContainer
 
     init() {
-        _profileManager = StateObject(wrappedValue: ProfileManager())
+        profileManager = ProfileManager()
 
         let center = NotificationCenter.default
         keyboardShortcutHandler    = KeyboardShortcutHandler(notificationCenter: center)

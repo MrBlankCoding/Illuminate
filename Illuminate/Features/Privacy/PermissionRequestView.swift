@@ -9,13 +9,13 @@ import SwiftUI
 import WebKit
 
 struct PermissionRequestView: View {
-    let request: ExtensionManager.PermissionRequest
+    let request: Extensions.PermissionPrompt
     @EnvironmentObject var profileEnvironment: ProfileEnvironment
     
     var body: some View {
         VStack(spacing: 24) {
             VStack(spacing: 12) {
-                if let icon = request.context.webExtension.icon(for: CGSize(width: 64, height: 64)) {
+                if let icon = request.icon {
                     Image(nsImage: icon)
                         .resizable()
                         .frame(width: 64, height: 64)
@@ -31,7 +31,7 @@ struct PermissionRequestView: View {
                         )
                 }
                 
-                Text(request.context.webExtension.displayName ?? "An extension")
+                Text(request.extensionName ?? "An extension")
                     .font(.headline)
                     .fontWeight(.semibold)
             }
@@ -43,7 +43,7 @@ struct PermissionRequestView: View {
                     .font(.title3)
                     .fontWeight(.semibold)
                 
-                Text("\(request.context.webExtension.displayName ?? "This extension") is requesting additional permissions:")
+                Text("\(request.extensionName ?? "This extension") is requesting additional permissions:")
                     .font(.body)
                     .foregroundColor(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -97,16 +97,14 @@ struct PermissionRequestView: View {
             
             HStack(spacing: 16) {
                 Button("Deny") {
-                    request.completion(false)
-                    profileEnvironment.extensionManager.activePermissionRequest = nil
+                    profileEnvironment.extensionManager.resolvePermissionRequest(request, granted: false)
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.large)
                 .keyboardShortcut(.escape, modifiers: [])
                 
                 Button("Allow") {
-                    request.completion(true)
-                    profileEnvironment.extensionManager.activePermissionRequest = nil
+                    profileEnvironment.extensionManager.resolvePermissionRequest(request, granted: true)
                 }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
@@ -119,7 +117,7 @@ struct PermissionRequestView: View {
         .cornerRadius(16)
         .shadow(color: .black.opacity(0.2), radius: 20, x: 0, y: 10)
         .onDisappear {
-            profileEnvironment.extensionManager.activePermissionRequest = nil
+            profileEnvironment.extensionManager.dismissPermissionRequest()
         }
     }
 }

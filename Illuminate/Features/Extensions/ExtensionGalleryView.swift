@@ -355,7 +355,7 @@ struct ExtensionGalleryCard: View {
 
     private func syncInstalledState() {
         let matchedContext = profileEnvironment.extensionManager.installedExtensions.first {
-            profileEnvironment.extensionManager.matchesGalleryItem(item, context: $0)
+            profileEnvironment.extensionManager.matchesCatalogItem(item, context: $0)
         }
         let wasInstalled = installedContext != nil
         installedContext = matchedContext

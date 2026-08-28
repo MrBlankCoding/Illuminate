@@ -337,7 +337,7 @@ final class FaviconCache: @unchecked Sendable {
 
     nonisolated private static func pruneDiskCacheIfNeeded(directory: URL, protectedHashes: Set<String>) async {
         dispatchPrecondition(condition: .notOnQueue(.main))
-        let shouldPrune = await lockPrune.withLock {
+        let shouldPrune = lockPrune.withLock {
             if pendingDiskPrune {
                 return false
             }
@@ -365,8 +365,6 @@ final class FaviconCache: @unchecked Sendable {
             return (file, date, isProtected)
         }
 
-        // Semantic eviction: unprotected files oldest-first; protected files
-        // only as a last resort. mtime ≈ last access (loadFromDisk bumps it).
         let sorted = dated.sorted { lhs, rhs in
             if lhs.2 != rhs.2 { return !lhs.2 }
             return lhs.1 < rhs.1
@@ -381,8 +379,6 @@ final class FaviconCache: @unchecked Sendable {
     nonisolated private func loadFromDisk(_ key: URL) -> NSImage? {
         let url = diskURL(for: key)
         guard let data = try? Data(contentsOf: url) else { return nil }
-        // Keep the file's modification date as a proxy for "last accessed"
-        // so pruning evicts genuinely unused entries.
         try? FileManager.default.setAttributes(
             [.modificationDate: Date()],
             ofItemAtPath: url.path
