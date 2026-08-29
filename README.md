@@ -58,6 +58,8 @@ xcodebuild -project Illuminate.xcodeproj \
 * [ ] Nuke for image loading
 * [ ] KeychainAccess for password management
 * [ ] Fix passcode manager password capture
+* [ ] Unite all of the app into using UiTheme.swift
+* [ ] Write an actual onboarding view instead of AI 
 
 ## Known Issues
 
@@ -68,6 +70,7 @@ xcodebuild -project Illuminate.xcodeproj \
 * [ ] Developer tools don't launch
 * [ ] Guest windows can show an infinite spinner
 * [ ] Individual history items cannot be deleted
+* [ ] Profile window changes sizes (Cause unknown)
 
 ## AI Disclosure
 

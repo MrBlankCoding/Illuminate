@@ -169,17 +169,18 @@ struct ProfileSelectionView: View {
     }
 
     private var profileGrid: some View {
+        let tileWidth: CGFloat = 120
         let columns = Array(
-            repeating: GridItem(.fixed(120), spacing: 8),
+            repeating: GridItem(.fixed(tileWidth), spacing: MacDesign.Spacing.control),
             count: min(max(profileManager.profiles.count, 1), 4)
         )
 
-        return LazyVGrid(columns: columns, spacing: 8) {
+        return LazyVGrid(columns: columns, spacing: MacDesign.Spacing.control) {
             ForEach(Array(profileManager.profiles.enumerated()), id: \.element.id) { index, profile in
                 profileTile(profile: profile, index: index)
             }
         }
-        .padding(.horizontal, 40)
+        .padding(.horizontal, MacDesign.Spacing.page)
     }
 
     private func profileTile(profile: BrowserProfile, index: Int) -> some View {
@@ -190,7 +191,7 @@ struct ProfileSelectionView: View {
         return Button {
             handleSelection(.profile(profile.id))
         } label: {
-            VStack(spacing: 12) {
+            VStack(spacing: MacDesign.Spacing.regular) {
                 ZStack {
                     Circle()
                         .fill(avatarColor)
@@ -199,11 +200,11 @@ struct ProfileSelectionView: View {
                     if profile.iconName == ProfileManager.defaultIconName {
                         Text(initials)
                             .font(.system(size: 30, weight: .medium, design: .rounded))
-                            .foregroundStyle(.white)
+                            .foregroundStyle(theme.textOnAccent)
                     } else {
                         Image(systemName: profile.iconName)
                             .font(.system(size: 28, weight: .semibold))
-                            .foregroundStyle(.white)
+                            .foregroundStyle(theme.textOnAccent)
                     }
                 }
 
@@ -215,19 +216,16 @@ struct ProfileSelectionView: View {
                     .frame(maxWidth: 100)
             }
             .frame(width: 120, height: 128)
-            .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(isHovered ? theme.itemHover : Color.clear)
+            .macControlBackground(
+                isActive: isHovered,
+                tint: theme.accent,
+                radius: MacDesign.Radius.medium
             )
-            .overlay(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .strokeBorder(isHovered ? Color.borderSubtle : Color.clear, lineWidth: 1)
-            )
-            .contentShape(RoundedRectangle(cornerRadius: 12))
+            .contentShape(RoundedRectangle(cornerRadius: MacDesign.Radius.medium, style: .continuous))
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier("profileSelection.profileButton")
-        .animation(.easeInOut(duration: 0.12), value: isHovered)
+        .animation(MacDesign.fastAnimation, value: isHovered)
         .onHover { hovering in
             hoveredProfileID = hovering ? profile.id : nil
             if hovering {
@@ -242,7 +240,7 @@ struct ProfileSelectionView: View {
             }
             .accessibilityIdentifier("profileSelection.renameProfileButton")
 
-            Divider()
+            CavedDivider()
 
             Button("Delete", role: .destructive) {
                 profileToDelete = profile
@@ -253,19 +251,20 @@ struct ProfileSelectionView: View {
     }
 
     private var bottomActions: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: MacDesign.Spacing.regular) {
             Button {
                 showingAddProfile = true
             } label: {
-                HStack(spacing: 6) {
+                HStack(spacing: MacDesign.Spacing.tight) {
                     Image(systemName: "plus")
                         .font(.system(size: 13, weight: .medium))
                     Text("Add profile")
                         .font(.system(size: 13, weight: .medium))
                 }
+                .font(.webBody)
                 .foregroundStyle(Color.textPrimary)
-                .padding(.horizontal, 20)
-                .padding(.vertical, 9)
+                .padding(.horizontal, MacDesign.Spacing.section)
+                .padding(.vertical, MacDesign.Spacing.control)
                 .liquidGlassCapsule()
             }
             .buttonStyle(.plain)
@@ -275,15 +274,16 @@ struct ProfileSelectionView: View {
             Button {
                 handleSelection(.guest(UUID()))
             } label: {
-                HStack(spacing: 6) {
+                HStack(spacing: MacDesign.Spacing.tight) {
                     Image(systemName: "person.fill.questionmark")
                         .font(.system(size: 13, weight: .medium))
                     Text("Guest mode")
                         .font(.system(size: 13, weight: .medium))
                 }
+                .font(.webBody)
                 .foregroundStyle(Color.textPrimary)
-                .padding(.horizontal, 20)
-                .padding(.vertical, 9)
+                .padding(.horizontal, MacDesign.Spacing.section)
+                .padding(.vertical, MacDesign.Spacing.control)
                 .liquidGlassCapsule()
             }
             .buttonStyle(.plain)
@@ -337,14 +337,14 @@ struct AddProfileSheet: View {
                     Image(systemName: "xmark")
                         .font(.system(size: 13, weight: .medium))
                         .foregroundStyle(Color.textSecondary)
-                        .padding(8)
+                        .padding(MacDesign.Spacing.control)
                         .glassBackground(cornerRadius: 999)
                 }
                 .buttonStyle(.plain)
                 .hoverCursor(.pointingHand)
             }
-            .padding(.horizontal, 20)
-            .padding(.top, 16)
+            .padding(.horizontal, MacDesign.Spacing.section)
+            .padding(.top, MacDesign.Spacing.roomy)
 
             ZStack {
                 Circle()
@@ -352,12 +352,12 @@ struct AddProfileSheet: View {
                     .frame(width: 80, height: 80)
                 Image(systemName: selectedIcon)
                     .font(.system(size: 32, weight: .semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(theme.textOnAccent)
             }
-            .padding(.top, 8)
-            .padding(.bottom, 20)
+            .padding(.top, MacDesign.Spacing.control)
+            .padding(.bottom, MacDesign.Spacing.section)
 
-            HStack(spacing: 10) {
+            HStack(spacing: MacDesign.Spacing.control) {
                 ForEach(previewColors.indices, id: \.self) { i in
                     Button {
                         selectedColorIndex = i
@@ -381,9 +381,9 @@ struct AddProfileSheet: View {
                     .accessibilityLabel("Profile color")
                 }
             }
-            .padding(.bottom, 20)
+            .padding(.bottom, MacDesign.Spacing.section)
 
-            LazyVGrid(columns: Array(repeating: GridItem(.fixed(40)), count: 5), spacing: 8) {
+            LazyVGrid(columns: Array(repeating: GridItem(.fixed(MacDesign.Size.iconButton + 8)), count: 5), spacing: MacDesign.Spacing.control) {
                 ForEach(icons, id: \.self) { icon in
                     Button {
                         selectedIcon = icon
@@ -393,7 +393,7 @@ struct AddProfileSheet: View {
                             .foregroundStyle(selectedIcon == icon
                                             ? previewColors[selectedColorIndex]
                                             : Color.textSecondary)
-                            .frame(width: 36, height: 36)
+                            .frame(width: MacDesign.Size.largeIconButton + 4, height: MacDesign.Size.largeIconButton + 4)
                             .macControlBackground(
                                 isActive: selectedIcon == icon,
                                 tint: previewColors[selectedColorIndex],
@@ -406,14 +406,14 @@ struct AddProfileSheet: View {
                     .accessibilityLabel("Profile icon")
                 }
             }
-            .padding(.horizontal, 24)
-            .padding(.bottom, 20)
+            .padding(.horizontal, MacDesign.Spacing.section)
+            .padding(.bottom, MacDesign.Spacing.section)
 
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: MacDesign.Spacing.tight) {
                 TextField("Profile name", text: $name)
                     .textFieldStyle(.plain)
                     .font(.system(size: 14))
-                    .padding(.bottom, 6)
+                    .padding(.bottom, MacDesign.Spacing.tight)
                     .accessibilityIdentifier("profileSelection.addProfileNameField")
 
                 Rectangle()
@@ -421,19 +421,19 @@ struct AddProfileSheet: View {
                           ? Color.borderSubtle
                           : previewColors[selectedColorIndex])
                     .frame(height: 2)
-                    .animation(.easeInOut(duration: 0.15), value: name.isEmpty)
+                    .animation(MacDesign.fastAnimation, value: name.isEmpty)
             }
-            .padding(.horizontal, 24)
-            .padding(.bottom, 24)
+            .padding(.horizontal, MacDesign.Spacing.section)
+            .padding(.bottom, MacDesign.Spacing.section)
 
-            HStack(spacing: 12) {
+            HStack(spacing: MacDesign.Spacing.regular) {
                 Button("Cancel") {
                     isPresented = false
                 }
                 .font(.system(size: 13, weight: .medium))
                 .foregroundStyle(previewColors[selectedColorIndex])
-                .padding(.horizontal, 20)
-                .padding(.vertical, 9)
+                .padding(.horizontal, MacDesign.Spacing.section)
+                .padding(.vertical, MacDesign.Spacing.control)
                 .buttonStyle(.plain)
                 .hoverCursor(.pointingHand)
                 .accessibilityIdentifier("profileSelection.cancelAddProfileButton")
@@ -444,9 +444,9 @@ struct AddProfileSheet: View {
                     isPresented = false
                 }
                 .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(.white)
-                .padding(.horizontal, 20)
-                .padding(.vertical, 9)
+                .foregroundStyle(theme.textOnAccent)
+                .padding(.horizontal, MacDesign.Spacing.section)
+                .padding(.vertical, MacDesign.Spacing.control)
                 .background(
                     Capsule()
                         .fill(trimmedName.isEmpty
@@ -458,9 +458,9 @@ struct AddProfileSheet: View {
                 .disabled(trimmedName.isEmpty)
                 .accessibilityIdentifier("profileSelection.confirmAddProfileButton")
             }
-            .padding(.bottom, 24)
+            .padding(.bottom, MacDesign.Spacing.section)
         }
         .frame(width: 320)
-        .glassBackground(cornerRadius: 24)
+        .glassBackground(cornerRadius: MacDesign.Radius.panel)
     }
 }
