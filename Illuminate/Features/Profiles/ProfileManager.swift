@@ -8,7 +8,6 @@
 import Combine
 import Foundation
 import SwiftData
-import os
 
 @MainActor
 final class ProfileManager: ObservableObject {

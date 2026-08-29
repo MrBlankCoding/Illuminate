@@ -7,7 +7,6 @@
 
 import Foundation
 import WebKit
-import os.log
 
 @MainActor
 final class NavigationPreconnectManager {
@@ -19,8 +18,6 @@ final class NavigationPreconnectManager {
     private let dnsCooldown: TimeInterval = 20
     private let injectionCooldown: TimeInterval = 5
     private let maxTrackedHosts = 128
-
-    private let logger = Logger(subsystem: "Illuminate", category: "NavigationPreconnectManager")
 
     private init() {}
 
@@ -69,7 +66,7 @@ final class NavigationPreconnectManager {
         guard let script = preconnectScript(origin: origin, host: host) else { return }
         webView.evaluateJavaScript(script) { [weak self] _, error in
             if let error {
-                self?.logger.debug("Preconnect injection failed for \(origin, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                AppLog.debug("Preconnect injection failed for \(origin): \(error.localizedDescription)")
             }
         }
     }
