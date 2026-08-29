@@ -188,6 +188,21 @@ extension WebViewRepresentable {
             tab.networkError = classifyError(error, url: tab.url)
         }
 
+        func webView(
+            _ webView: WKWebView,
+            didFail navigation: WKNavigation!,
+            withError error: Error
+        ) {
+            guard let tab else { return }
+            tab.isLoading = false
+            tabManager.finishInitialTabPreloading(for: tab.id)
+            guard !isCancellationError(error) else {
+                tab.networkError = nil
+                return
+            }
+            tab.networkError = classifyError(error, url: tab.url)
+        }
+
         func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
             guard circuitBreaker.canReloadAfterTermination() else {
                 AppLog.info("Circuit breaker prevented reload loop")
@@ -204,6 +219,14 @@ extension WebViewRepresentable {
         ) {
             guard let url = navigationAction.request.url else {
                 decisionHandler(.allow)
+                return
+            }
+
+            if url.scheme?.lowercased() == "illuminate" {
+                decisionHandler(.cancel)
+                DispatchQueue.main.async { [weak self] in
+                    self?.tab?.load(url: url)
+                }
                 return
             }
 

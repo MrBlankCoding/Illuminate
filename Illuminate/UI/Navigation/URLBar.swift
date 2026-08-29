@@ -59,8 +59,8 @@ struct URLBar: View {
                 addressText = ContentViewModel.addressBarDisplayText(for: activeTab?.url)
             }
             if newID != nil && activeTab?.url == nil {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    isFocused = true
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                    focusURLBar()
                 }
             }
         }
@@ -163,6 +163,11 @@ struct URLBar: View {
             if addressText.isEmpty {
                 addressText = ContentViewModel.addressBarDisplayText(for: activeTab?.url)
             }
+            if activeTab?.url == nil {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                    focusURLBar()
+                }
+            }
         }
     }
 
@@ -244,7 +249,7 @@ struct URLBar: View {
         isFocused = true
         viewModel.setAddressBarEditing(true)
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-            guard let window = NSApp.keyWindow,
+            guard let window = NSApp.keyWindow ?? NSApp.mainWindow,
                   let fieldEditor = window.firstResponder as? NSText
             else { return }
             fieldEditor.selectAll(nil)

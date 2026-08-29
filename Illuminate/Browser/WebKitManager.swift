@@ -105,6 +105,7 @@ final class WebKitManager: ObservableObject {
         let preferences = WKPreferences()
         preferences.isTextInteractionEnabled = true
         preferences.isElementFullscreenEnabled = true
+        preferences.setValue(true, forKey: "developerExtrasEnabled")
 
         configuration.preferences = preferences
         configuration.userContentController = WKUserContentController()

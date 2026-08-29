@@ -152,6 +152,9 @@ final class HistoryManager: ObservableObject {
     }
 
     func delete(id: UUID) {
+        recentEntries.removeAll { $0.id == id }
+        suggestionCandidates.removeAll { $0.id == id }
+        topSites.removeAll { $0.id == id }
         Task.detached(priority: .userInitiated) { [actor] in
             await actor.delete(id: id)
             await MainActor.run { [weak self] in
@@ -162,6 +165,9 @@ final class HistoryManager: ObservableObject {
     }
 
     func deleteAll(forHost host: String) {
+        recentEntries.removeAll { $0.url?.host == host }
+        suggestionCandidates.removeAll { URL(string: $0.urlString)?.host == host }
+        topSites.removeAll { $0.url?.host == host }
         Task.detached(priority: .userInitiated) { [actor] in
             await actor.deleteAll(forHost: host)
             await MainActor.run { [weak self] in
@@ -358,12 +364,12 @@ actor HistoryModelActor: ModelActor {
     }
 
     func delete(id: UUID) {
-        let fetch = FetchDescriptor<HistoryEntry>(
-            predicate: #Predicate { $0.id == id }
-        )
+        let fetch = FetchDescriptor<HistoryEntry>()
         do {
             let entries = try modelContext.fetch(fetch)
-            for entry in entries { modelContext.delete(entry) }
+            for entry in entries where entry.id == id {
+                modelContext.delete(entry)
+            }
             try modelContext.save()
         } catch {
             AppLog.error("HistoryModelActor delete failed", error: error)

@@ -261,6 +261,7 @@ final class Tab: NSObject, ObservableObject, Identifiable, WKWebExtensionTab {
     private var isFetchingMetadata = false
     private var hasLoadedMetadata = false
     private var isRestoringState = false
+    private var isClosed = false
     private var pendingMetadataSaveTask: Task<Void, Never>?
 
     private(set) var lastActivatedAt: Date
@@ -407,6 +408,7 @@ final class Tab: NSObject, ObservableObject, Identifiable, WKWebExtensionTab {
     }
 
     func close() {
+        isClosed = true
         pendingMetadataSaveTask?.cancel()
 
         guard let webView else {
@@ -524,6 +526,7 @@ final class Tab: NSObject, ObservableObject, Identifiable, WKWebExtensionTab {
         AppLog.info("Attempting to open Web Inspector for tab: \(url?.absoluteString ?? "nil")")
         guard let webView else { return }
         webView.isInspectable = true
+        webView.configuration.preferences.setValue(true, forKey: "developerExtrasEnabled")
 
         let inspectorSelector = NSSelectorFromString("_inspector")
         guard webView.responds(to: inspectorSelector),
@@ -533,14 +536,17 @@ final class Tab: NSObject, ObservableObject, Identifiable, WKWebExtensionTab {
         }
 
         let showSelector = NSSelectorFromString("show")
-        guard inspector.responds(to: showSelector) else { return }
-        _ = inspector.perform(showSelector)
+        let showConsoleSelector = NSSelectorFromString("showConsole")
+        if inspector.responds(to: showSelector) {
+            _ = inspector.perform(showSelector)
+        } else if inspector.responds(to: showConsoleSelector) {
+            _ = inspector.perform(showConsoleSelector)
+        }
     }
 
     private func saveFavicon() {
-        guard !isRestoringState else { return }
+        guard !isRestoringState, !isClosed else { return }
         let folder = assetsURLWithoutCreating
-        // PNG encoding happens on the background task — encoding on the main
         // thread here runs on every favicon change (i.e. every navigation).
         let image = favicon
 
@@ -555,7 +561,7 @@ final class Tab: NSObject, ObservableObject, Identifiable, WKWebExtensionTab {
 
 
     private func scheduleMetadataSave() {
-        guard !isRestoringState else { return }
+        guard !isRestoringState, !isClosed else { return }
         pendingMetadataSaveTask?.cancel()
         let payload = TabMetadataPayload(url: url, title: title)
         let folder = assetsURLWithoutCreating

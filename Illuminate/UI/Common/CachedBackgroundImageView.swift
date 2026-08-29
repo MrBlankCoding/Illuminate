@@ -10,8 +10,14 @@ import AppKit
 
 struct CachedBackgroundImageView: View {
     let url: URL
+    private static let memoryCache = NSCache<NSURL, NSImage>()
     
     @State private var image: NSImage?
+
+    init(url: URL) {
+        self.url = url
+        _image = State(initialValue: Self.memoryCache.object(forKey: url as NSURL))
+    }
     
     var body: some View {
         GeometryReader { geo in
@@ -31,8 +37,12 @@ struct CachedBackgroundImageView: View {
             }
         }
         .onChange(of: url) { _, newURL in
-            Task {
-                await loadImage(for: newURL)
+            if let cached = Self.memoryCache.object(forKey: newURL as NSURL) {
+                self.image = cached
+            } else {
+                Task {
+                    await loadImage(for: newURL)
+                }
             }
         }
     }
@@ -84,6 +94,7 @@ struct CachedBackgroundImageView: View {
         }.value
 
         if let processedImage {
+            Self.memoryCache.setObject(processedImage, forKey: targetURL as NSURL)
             await MainActor.run {
                 if self.url == targetURL {
                     self.image = processedImage

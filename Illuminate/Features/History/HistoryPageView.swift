@@ -226,12 +226,14 @@ struct HistoryPageView: View {
 
         case .delete:
             withAnimation(.easeOut(duration: 0.2)) {
+                searchResults.removeAll { $0.id == entry.id }
                 historyManager.delete(id: entry.id)
             }
 
         case .deleteAllFromSite:
             if let host = entry.url?.host {
                 withAnimation(.easeOut(duration: 0.2)) {
+                    searchResults.removeAll { $0.url?.host == host }
                     historyManager.deleteAll(forHost: host)
                 }
             }

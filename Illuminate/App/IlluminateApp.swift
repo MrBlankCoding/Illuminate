@@ -12,7 +12,7 @@ import SwiftData
 @main
 struct IlluminateApp: App {
     private static let profileSelectionWindowID = "profile-selection-window"
-    private static let profileWindowSize = CGSize(width: 320, height: 220)
+    private static let profileWindowSize = CGSize(width: 580, height: 420)
     private static let browserWindowSize  = CGSize(width: 1180, height: 720)
     private let profileManager: ProfileManager
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
@@ -70,8 +70,8 @@ struct IlluminateApp: App {
             AppRootView(route: .constant(nil), isStandalone: true, modelContainer: modelContainer)
                 .environmentObject(profileManager)
                 .frame(
-                    maxWidth:  Self.profileWindowSize.width,
-                    maxHeight: Self.profileWindowSize.height
+                    width: Self.profileWindowSize.width,
+                    height: Self.profileWindowSize.height
                 )
                 .onAppear {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {

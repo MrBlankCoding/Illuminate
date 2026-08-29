@@ -48,7 +48,7 @@ xcodebuild -project Illuminate.xcodeproj \
   -destination 'platform=macOS' build
 ```
 
-## Roadmap
+## Features to implement
 
 * [ ] Add redirect blocking
 * [ ] Increase test coverage beyond 75%
@@ -60,17 +60,17 @@ xcodebuild -project Illuminate.xcodeproj \
 * [ ] Fix passcode manager password capture
 * [ ] Unite all of the app into using UiTheme.swift
 * [ ] Write an actual onboarding view instead of AI 
+* [ ] Migrate to LocalAuthentication for password manager locking, autofill for passwords on sites and private windows
 
 ## Known Issues
 
-* [ ] LocalAuthentication for password manager locking
-* [ ] Internal links can load the wrong website
-* [ ] Default background flashes during fast tab switches
-* [ ] New tabs don't focus the URL bar
-* [ ] Developer tools don't launch
+* [ ] Internal links can cause the website to load wrong and URL bar doesnt update
+* [ ] If youre in the URL bar when tabswitch is called, then the TABUI doesnt update
+* [ ] Developer tools don't launch from keyboard shortcut
 * [ ] Guest windows can show an infinite spinner
-* [ ] Individual history items cannot be deleted
-* [ ] Profile window changes sizes (Cause unknown)
+* [ ] When saving PDF's the whole page is not captured
+* [ ] Internal UI theme messing up CSS on webpages
+
 
 ## AI Disclosure
 

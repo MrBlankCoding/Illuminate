@@ -107,7 +107,6 @@ struct HistoryManagerDeletionTests {
         manager.prepareForRemoval()
         manager.prepareForRemoval()
 
-        // No crash and history still queryable afterwards.
         let entries = await manager.allEntries()
         #expect(entries.isEmpty)
     }
@@ -126,5 +125,65 @@ struct HistoryManagerDeletionTests {
 
         #expect(manager.recentEntries.isEmpty)
         #expect(manager.topSites.isEmpty)
+    }
+
+    @Test func deleteRemovesEntryImmediatelyFromInMemoryRecentEntries() async throws {
+        let container = try makeContainer()
+        let manager = makeManager(container: container)
+
+        manager.record(url: URL(string: "https://item1.example.com")!, title: "Item 1")
+        manager.record(url: URL(string: "https://item2.example.com")!, title: "Item 2")
+
+        let populated = try await eventually {
+            await manager.allEntries().count == 2
+        }
+        #expect(populated)
+
+        manager.loadInitialData()
+        let loaded = try await eventually {
+            manager.recentEntries.count == 2
+        }
+        #expect(loaded)
+
+        let targetEntry = manager.recentEntries.first { $0.urlString.contains("item1") }!
+        manager.delete(id: targetEntry.id)
+
+        #expect(!manager.recentEntries.contains { $0.id == targetEntry.id })
+        #expect(manager.recentEntries.count == 1)
+
+        let persistedEmpty = try await eventually {
+            let entries = await manager.allEntries()
+            return entries.count == 1 && !entries.contains { $0.id == targetEntry.id }
+        }
+        #expect(persistedEmpty)
+    }
+
+    @Test func deleteAllForHostRemovesMatchingHostEntries() async throws {
+        let container = try makeContainer()
+        let manager = makeManager(container: container)
+
+        manager.record(url: URL(string: "https://apple.com/mac")!, title: "Mac")
+        manager.record(url: URL(string: "https://apple.com/iphone")!, title: "iPhone")
+        manager.record(url: URL(string: "https://google.com/search")!, title: "Google")
+
+        try await eventually {
+            await manager.allEntries().count == 3
+        }
+
+        manager.loadInitialData()
+        try await eventually {
+            manager.recentEntries.count == 3
+        }
+
+        manager.deleteAll(forHost: "apple.com")
+
+        #expect(manager.recentEntries.allSatisfy { $0.url?.host != "apple.com" })
+        #expect(manager.recentEntries.count == 1)
+
+        let persistedDone = try await eventually {
+            let entries = await manager.allEntries()
+            return entries.count == 1 && entries.allSatisfy { $0.url?.host != "apple.com" }
+        }
+        #expect(persistedDone)
     }
 }

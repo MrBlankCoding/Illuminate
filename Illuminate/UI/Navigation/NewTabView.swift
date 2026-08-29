@@ -155,7 +155,9 @@ struct NewTabView: View {
 
     private var backgroundView: some View {
         ZStack {
-            defaultBackgroundImage
+            if backgroundImageURL == nil {
+                defaultBackgroundImage
+            }
 
             if let backgroundImageURL {
                 CachedBackgroundImageView(url: backgroundImageURL)

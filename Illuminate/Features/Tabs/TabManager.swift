@@ -585,19 +585,48 @@ final class TabManager: NSObject, ObservableObject, WKWebExtensionWindow {
         let configuration = WKPDFConfiguration()
 
         let js = """
-        JSON.stringify({
-            w: Math.max(document.documentElement.scrollWidth, document.body.scrollWidth),
-            h: Math.max(document.documentElement.scrollHeight, document.body.scrollHeight)
-        })
+        (() => {
+            const doc = document.documentElement;
+            const body = document.body;
+            const w = Math.max(
+                doc ? doc.scrollWidth : 0,
+                doc ? doc.offsetWidth : 0,
+                doc ? doc.clientWidth : 0,
+                body ? body.scrollWidth : 0,
+                body ? body.offsetWidth : 0,
+                body ? body.clientWidth : 0
+            );
+            const h = Math.max(
+                doc ? doc.scrollHeight : 0,
+                doc ? doc.offsetHeight : 0,
+                doc ? doc.clientHeight : 0,
+                body ? body.scrollHeight : 0,
+                body ? body.offsetHeight : 0,
+                body ? body.clientHeight : 0
+            );
+            return { w: w, h: h };
+        })()
         """
         webView.evaluateJavaScript(js) { [weak self] result, _ in
             guard let self else { return }
-            if let dict = result as? String,
-               let data = dict.data(using: .utf8),
-               let dims = try? JSONSerialization.jsonObject(with: data) as? [String: CGFloat],
-               let w = dims["w"], let h = dims["h"],
-               w > 0, h > 0 {
-                configuration.rect = CGRect(x: 0, y: 0, width: w, height: h)
+            if let dict = result as? [String: Any],
+               let wNumber = dict["w"] as? NSNumber,
+               let hNumber = dict["h"] as? NSNumber {
+                let w = CGFloat(wNumber.doubleValue)
+                let h = CGFloat(hNumber.doubleValue)
+                if w > 0 && h > 0 {
+                    configuration.rect = CGRect(x: 0, y: 0, width: w, height: h)
+                }
+            } else if let jsonStr = result as? String,
+                      let data = jsonStr.data(using: .utf8),
+                      let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                      let wNumber = obj["w"] as? NSNumber,
+                      let hNumber = obj["h"] as? NSNumber {
+                let w = CGFloat(wNumber.doubleValue)
+                let h = CGFloat(hNumber.doubleValue)
+                if w > 0 && h > 0 {
+                    configuration.rect = CGRect(x: 0, y: 0, width: w, height: h)
+                }
             }
             webView.createPDF(configuration: configuration) { [weak self] result in
                 guard let self else { return }
