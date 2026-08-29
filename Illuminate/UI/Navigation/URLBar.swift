@@ -47,13 +47,7 @@ struct URLBar: View {
             }
         .zIndex(100)
         .onReceive(NotificationCenter.default.publisher(for: .focusURLBar)) { _ in
-            isFocused = true
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.01) {
-                if let window = NSApp.keyWindow,
-                   let firstResponder = window.firstResponder as? NSText {
-                    firstResponder.selectAll(nil)
-                }
-            }
+            focusURLBar()
         }
         .onChange(of: activeTab?.id) { oldID, newID in
             guard newID != oldID else { return }
@@ -244,6 +238,17 @@ struct URLBar: View {
         if activeTab?.url?.scheme == "https" { return "lock.fill" }
         if activeTab?.url != nil { return "globe" }
         return "magnifyingglass"
+    }
+
+    private func focusURLBar() {
+        isFocused = true
+        viewModel.setAddressBarEditing(true)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+            guard let window = NSApp.keyWindow,
+                  let fieldEditor = window.firstResponder as? NSText
+            else { return }
+            fieldEditor.selectAll(nil)
+        }
     }
 
     private func copyAddressToPasteboard() {

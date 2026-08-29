@@ -1,7 +1,5 @@
 # Illuminate
 
-![Illuminate](screenshots/logo.png)
-
 A lightweight browser built for MacOS that uses webkit and includes no arbitrary features or user tracking.
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
@@ -66,7 +64,6 @@ xcodebuild -project Illuminate.xcodeproj \
 * [ ] LocalAuthentication for password manager locking
 * [ ] Internal links can load the wrong website
 * [ ] Default background flashes during fast tab switches
-* [ ] `Command + L` doesn't focus the URL bar
 * [ ] New tabs don't focus the URL bar
 * [ ] Developer tools don't launch
 * [ ] Guest windows can show an infinite spinner
