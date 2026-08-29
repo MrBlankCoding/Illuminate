@@ -2,7 +2,7 @@
 //  AuthenticationService.swift
 //  Illuminate
 //
-//  Created by Trae on 8/29/26.
+//  Created by MrBlankCoding on 8/29/26.
 //
 
 import Foundation

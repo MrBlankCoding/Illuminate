@@ -15,7 +15,7 @@ struct BrowserErrorPageView: View {
     let error: NetworkErrorKind
 
     private var theme: BrowserTheme {
-        BrowserTheme(accent: tabManager.windowThemeColor, colorScheme: colorScheme)
+        BrowserTheme(accent: tabManager.windowThemeColor, colorScheme: colorScheme, windowThemeColor: tabManager.windowThemeColor)
     }
 
     private var accentColor: Color {

@@ -19,7 +19,7 @@ struct NewTabView: View {
     @State private var hasAppeared = false
 
     private var theme: BrowserTheme {
-        BrowserTheme(accent: tabManager.windowThemeColor, colorScheme: colorScheme)
+        BrowserTheme(accent: tabManager.windowThemeColor, colorScheme: colorScheme, windowThemeColor: tabManager.windowThemeColor)
     }
 
     private var bookmarks: [Bookmark] {
@@ -156,7 +156,8 @@ struct NewTabView: View {
     private var backgroundView: some View {
         ZStack {
             if backgroundImageURL == nil {
-                defaultBackgroundImage
+                tabManager.windowThemeColor
+                    .ignoresSafeArea()
             }
 
             if let backgroundImageURL {
@@ -173,17 +174,6 @@ struct NewTabView: View {
                 startPoint: .top,
                 endPoint: .bottom
             )
-        }
-    }
-
-    private var defaultBackgroundImage: some View {
-        GeometryReader { geometry in
-            Image("DefaultBackground")
-                .resizable()
-                .aspectRatio(contentMode: .fill)
-                .frame(width: geometry.size.width, height: geometry.size.height)
-                .clipped()
-                .ignoresSafeArea()
         }
     }
 

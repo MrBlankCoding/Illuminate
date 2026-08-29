@@ -45,7 +45,7 @@ struct TabItemView: View {
     }
 
     private var theme: BrowserTheme {
-        BrowserTheme(accent: themeColor, colorScheme: colorScheme)
+        BrowserTheme(accent: themeColor, colorScheme: colorScheme, windowThemeColor: tabManager.windowThemeColor)
     }
 
     var body: some View {

@@ -21,7 +21,7 @@ struct PasswordsPageView: View {
     @State private var revealedIDs: Set<PersistentIdentifier> = []
 
     private var theme: BrowserTheme {
-        BrowserTheme(accent: tabManager.windowThemeColor, colorScheme: colorScheme)
+        BrowserTheme(accent: tabManager.windowThemeColor, colorScheme: colorScheme, windowThemeColor: tabManager.windowThemeColor)
     }
 
     private var filteredPasswords: [Password] {
@@ -97,10 +97,17 @@ struct PasswordsPageView: View {
                 Text(password.url)
                     .font(.system(size: 13, weight: .semibold))
                     .lineLimit(1)
-                Text(password.username)
-                    .font(.system(size: 12))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
+                
+                HStack(spacing: 4) {
+                    Text(password.username)
+                    if let email = password.email, !email.isEmpty {
+                        Text("•")
+                        Text(email)
+                    }
+                }
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
             }
 
             Spacer()

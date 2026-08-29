@@ -54,7 +54,7 @@ struct TabBarView: View {
     @Namespace private var activeTabNamespace
 
     private var theme: BrowserTheme {
-        BrowserTheme(accent: tabManager.windowThemeColor, colorScheme: colorScheme)
+        BrowserTheme(accent: tabManager.windowThemeColor, colorScheme: colorScheme, windowThemeColor: tabManager.windowThemeColor)
     }
 
     private var layoutElements: [TabBarElement] {

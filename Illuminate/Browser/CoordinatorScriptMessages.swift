@@ -194,75 +194,134 @@ extension WebViewRepresentable.Coordinator {
                     let username = body["username"] as? String,
                     let password = body["password"] as? String
                 else { return }
+                let email = body["email"] as? String
                 DispatchQueue.main.async { [weak self] in
-                    self?.passwordService.savePassword(url: url, username: username, passwordData: password)
+                    self?.passwordService.savePassword(url: url, username: username, email: email, passwordData: password)
                 }
+
+            case "requestAutofillOptions":
+                 guard let rect = body["rect"] as? [String: Double] else { return }
+                 DispatchQueue.main.async { [weak self] in
+                     guard let self, let webView = message.webView else { return }
+                     let metadata = self.passwordService.fetchAccountMetadata(for: url)
+                     guard !metadata.isEmpty else { return }
+
+                     let accounts = metadata.map { ["username": $0.username, "email": $0.email ?? ""] }
+                     guard let data = try? JSONEncoder().encode(accounts),
+                          let json = String(data: data, encoding: .utf8),
+                          let rectData = try? JSONEncoder().encode(rect),
+                          let rectJson = String(data: rectData, encoding: .utf8)
+                    else { return }
+
+                    let script = "window.__illuminateShowAutofillDropdown(\(json), \(rectJson));"
+                    webView.evaluateJavaScript(script)
+                }
+
+            case "selectAccount":
+                 guard let username = body["username"] as? String else { return }
+                 let email = body["email"] as? String
+                 let service = passwordService
+                 Task { @MainActor [weak self] in
+                     guard let self, let webView = message.webView else { return }
+                     
+                     // 1. get auth
+                     let authenticated = await service.authenticate()
+                     guard authenticated else { return }
+                     
+                     // 2. fetch specific password
+                     let passwords = service.fetchPasswords(for: url)
+                     let password = passwords.first(where: { 
+                         $0.username == username && ($0.email == email || (email == nil && $0.email == nil) || (email?.isEmpty == true && ($0.email == nil || $0.email?.isEmpty == true)))
+                     })
+                     
+                     guard let password else { return }
+                     
+                     let payload: [String: String?] = [
+                         "username": password.username,
+                         "email": password.email,
+                         "password": password.passwordData
+                     ]
+                     guard
+                         let data = try? JSONEncoder().encode(payload),
+                         let json = String(data: data, encoding: .utf8)
+                     else { return }
+                     
+                     let script = """
+                     (() => {
+                         const c = \(json);
+                         const pass = document.querySelector('input[type="password"]');
+                         
+                         // Select all potential user/email fields
+                         const inputs = Array.from(document.querySelectorAll('input:not([type="password"])')).filter(el => {
+                             const type = el.type.toLowerCase();
+                             const name = (el.name || '').toLowerCase();
+                             const id = (el.id || '').toLowerCase();
+                             const autocomplete = (el.getAttribute('autocomplete') || '').toLowerCase();
+                             
+                             return type === 'email' || 
+                                    type === 'text' || 
+                                    type === 'tel' ||
+                                    autocomplete.includes('username') ||
+                                    autocomplete.includes('email') ||
+                                    name.includes('user') ||
+                                    name.includes('login') ||
+                                    name.includes('email') ||
+                                    id.includes('user') ||
+                                    id.includes('login') ||
+                                    id.includes('email');
+                         });
+
+                         const highlight = (el) => {
+                             if (!el) return;
+                             el.style.transition = 'all 0.5s ease-in-out';
+                             el.style.backgroundColor = '#fdf2d5';
+                             el.style.boxShadow = '0 0 10px rgba(255, 215, 0, 0.5)';
+                             el.style.borderColor = '#ffd700';
+                             
+                             setTimeout(() => {
+                                 el.style.backgroundColor = '';
+                                 el.style.boxShadow = '';
+                                 el.style.borderColor = '';
+                             }, 2000);
+                         };
+
+                         const fill = (el, val) => {
+                             if (!el || !val) return;
+                             el.value = val;
+                             el.dispatchEvent(new Event('input', { bubbles: true }));
+                             el.dispatchEvent(new Event('change', { bubbles: true }));
+                             highlight(el);
+                         };
+
+                         fill(pass, c.password);
+                         
+                         // Try to be smart about filling username and email
+                         inputs.forEach(input => {
+                             const type = input.type.toLowerCase();
+                             const name = (input.name || '').toLowerCase();
+                             const id = (input.id || '').toLowerCase();
+                             const autocomplete = (input.getAttribute('autocomplete') || '').toLowerCase();
+
+                             const isEmailField = type === 'email' || name.includes('email') || id.includes('email') || autocomplete.includes('email');
+                             const isUserField = name.includes('user') || id.includes('user') || autocomplete.includes('username') || (type === 'text' && !isEmailField);
+
+                             if (isEmailField && c.email) {
+                                 fill(input, c.email);
+                             } else if (isUserField && c.username) {
+                                 fill(input, c.username);
+                             } else if (!isEmailField && !isUserField && c.username) {
+                                 // Fallback: fill the first field found with username if we're not sure
+                                 fill(input, c.username);
+                             }
+                         });
+                     })();
+                     """
+                     _ = try? await webView.evaluateJavaScript(script)
+                 }
 
             case "fieldsDetected":
-                let service = passwordService
-                Task { @MainActor [weak self] in
-                    guard let self, let webView = message.webView else { return }
-                    
-                    // do we have passwords
-                    guard service.hasPasswords(for: url) else { return }
-                    
-                    // 2. get auth
-                    let authenticated = await service.authenticate()
-                    guard authenticated else { return }
-                    
-                    // 3. fetch :)
-                    let passwords = service.fetchPasswords(for: url)
-                    guard let first = passwords.first else { return }
-                    
-                    let payload: [String: String] = ["username": first.username, "password": first.passwordData]
-                    guard
-                        let data = try? JSONEncoder().encode(payload),
-                        let json = String(data: data, encoding: .utf8)
-                    else { return }
-                    let script = """
-                    (() => {
-                        const c = \(json);
-                        const pass = document.querySelector('input[type="password"]');
-                        const user = document.querySelector(
-                            'input[autocomplete="username"], ' +
-                            'input[autocomplete="email"], ' +
-                            'input[name*="user"], ' +
-                            'input[name*="login"], ' +
-                            'input[name*="email"], ' +
-                            'input[type="email"], ' +
-                            'input[type="text"], ' +
-                            'input[type="tel"], ' +
-                            'input:not([type])'
-                        );
-
-                        const highlight = (el) => {
-                            if (!el) return;
-                            el.style.transition = 'all 0.5s ease-in-out';
-                            el.style.backgroundColor = '#fdf2d5'; // Light gold
-                            el.style.boxShadow = '0 0 10px rgba(255, 215, 0, 0.5)';
-                            el.style.borderColor = '#ffd700';
-                            
-                            setTimeout(() => {
-                                el.style.backgroundColor = '';
-                                el.style.boxShadow = '';
-                                el.style.borderColor = '';
-                            }, 2000);
-                        };
-
-                        const fill = (el, val) => {
-                            if (!el) return;
-                            el.value = val;
-                            el.dispatchEvent(new Event('input', { bubbles: true }));
-                            el.dispatchEvent(new Event('change', { bubbles: true }));
-                            highlight(el);
-                        };
-
-                        fill(pass, c.password);
-                        fill(user, c.username);
-                    })();
-                    """
-                    _ = try? await webView.evaluateJavaScript(script)
-                }
+                // No longer auto-triggering auth on detection
+                break
 
             default:
                 break

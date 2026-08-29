@@ -15,6 +15,11 @@ struct NativeSettingsView: View {
 
     var body: some View {
         TabView {
+            SearchSettingsView()
+                .tabItem {
+                    Label("Search", systemImage: "magnifyingglass")
+                }
+
             DownloadsSettingsView()
                 .tabItem {
                     Label("Downloads", systemImage: "arrow.down.circle")

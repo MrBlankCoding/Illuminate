@@ -21,6 +21,8 @@ struct IlluminatePageSuggestion: Identifiable, Equatable {
 
 @MainActor
 final class ContentViewModel: ObservableObject {
+    @AppStorage("defaultSearchEngine") private var defaultSearchEngine: SearchEngine = .google
+
     @Published private(set) var illuminatePageSuggestions: [IlluminatePageSuggestion] = []
     @Published private(set) var historySuggestions: [HistorySuggestion] = []
     @Published private(set) var webSuggestions: [String] = []
@@ -63,7 +65,7 @@ final class ContentViewModel: ObservableObject {
         if let absolute = URL(string: trimmed), absolute.scheme != nil {
             destination = absolute
         } else if trimmed.contains(" ") || !trimmed.contains(".") {
-            destination = googleSearchURL(for: trimmed)
+            destination = defaultSearchEngine.searchURL(for: trimmed)
         } else {
             destination = URL(string: "https://\(trimmed)")
         }
@@ -124,7 +126,8 @@ final class ContentViewModel: ObservableObject {
             try? await Task.sleep(nanoseconds: 150_000_000) // 150ms
             guard !Task.isCancelled, let self else { return }
 
-            let results = await Self.fetchWebSuggestions(for: q)
+            let engine = self.defaultSearchEngine
+            let results = await Self.fetchWebSuggestions(for: q, engine: engine)
             guard !Task.isCancelled else { return }
 
             self.storeWebSuggestions(results, for: q)
@@ -191,24 +194,33 @@ final class ContentViewModel: ObservableObject {
         if !webSuggestions.isEmpty { webSuggestions = [] }
     }
 
-    private nonisolated static func fetchWebSuggestions(for query: String) async -> [String] {
-        guard
-            let escaped = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
-            let url = URL(string: "https://suggestqueries.google.com/complete/search?client=chrome&q=\(escaped)")
-        else {
-            return []
-        }
+    private nonisolated static func fetchWebSuggestions(for query: String, engine: SearchEngine) async -> [String] {
+        guard let url = engine.suggestionURL(for: query) else { return [] }
 
         do {
             let (data, _) = try await URLSession.shared.data(from: url)
-            guard
-                let payload = try JSONSerialization.jsonObject(with: data) as? [Any],
-                payload.count > 1,
-                let suggestions = payload[1] as? [String]
-            else {
-                return []
+            
+            switch engine {
+            case .google, .bing:
+                guard
+                    let payload = try JSONSerialization.jsonObject(with: data) as? [Any],
+                    payload.count > 1,
+                    let suggestions = payload[1] as? [String]
+                else {
+                    return []
+                }
+                return Array(suggestions.prefix(3))
+                
+            case .duckDuckGo:
+                // DuckDuckGo returns an array of objects: [{"phrase":"..."}, ...]
+                guard
+                    let payload = try JSONSerialization.jsonObject(with: data) as? [[String: Any]]
+                else {
+                    return []
+                }
+                let suggestions = payload.compactMap { $0["phrase"] as? String }
+                return Array(suggestions.prefix(3))
             }
-            return Array(suggestions.prefix(3))
         } catch {
             return []
         }
@@ -219,15 +231,6 @@ final class ContentViewModel: ObservableObject {
             return true
         }
         return input.contains(".") && !input.contains(" ")
-    }
-
-    private func googleSearchURL(for query: String) -> URL? {
-        var components = URLComponents()
-        components.scheme = "https"
-        components.host = "www.google.com"
-        components.path = "/search"
-        components.queryItems = [URLQueryItem(name: "q", value: query)]
-        return components.url
     }
 
     static func addressBarDisplayText(for url: URL?) -> String {

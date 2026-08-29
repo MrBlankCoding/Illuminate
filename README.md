@@ -59,6 +59,9 @@ xcodebuild -project Illuminate.xcodeproj \
 * [ ] KeychainAccess for password management
 * [ ] Unite all of the app into using UiTheme.swift
 * [ ] Write an actual onboarding view instead of AI 
+* [ ] Haptic feedback for actions like reordering tabs
+* [ ] Build in whiteboard
+* [ ] Build theme picker similar to act (1/3 done)
 
 ## Known Issues
 
@@ -67,9 +70,15 @@ xcodebuild -project Illuminate.xcodeproj \
 * [ ] Developer tools don't launch from keyboard shortcut
 * [ ] Guest windows can show an infinite spinner
 * [ ] When saving PDF's the whole page is not captured
-* [ ] Internal UI theme messing up CSS on webpages
+* [ ] Instead of pushing our theme onto websites, tell websites our theme
 * [ ] If the browser is closed by all of the tabs being closed it doesnt reopen with any tabs
+* [ ] When tab is closed, the next tab isnt loaded
+* [ ] WHen user is in url bar when tab switch occurs, the next tab carries old URL
 
+## Contributing
+If you'd like to report a bug, please do under issues
+
+Illuminate is open-source for a reason, and any contributions from anyone is welcome! 
 
 ## AI Disclosure
 

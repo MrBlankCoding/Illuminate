@@ -26,7 +26,7 @@ struct URLBar: View {
     private let barGlassID = "url-bar-shell"
 
     private var theme: BrowserTheme {
-        BrowserTheme(accent: themeColor, colorScheme: colorScheme)
+        BrowserTheme(accent: themeColor, colorScheme: colorScheme, windowThemeColor: themeColor)
     }
 
     private var showSuggestions: Bool {

@@ -11,8 +11,8 @@ import Testing
 
 struct UiThemeTests {
     @Test func browserThemesExposeLightAndDarkValues() {
-        let light = BrowserTheme(accent: .blue, colorScheme: .light)
-        let dark = BrowserTheme(accent: .orange, colorScheme: .dark)
+        let light = BrowserTheme(accent: .blue, colorScheme: .light, windowThemeColor: .white)
+        let dark = BrowserTheme(accent: .orange, colorScheme: .dark, windowThemeColor: .black)
         #expect(light.isDark == false)
         #expect(dark.isDark == true)
         _ = [light.windowBase, light.toolbarBase, light.sidebarBase, light.pageBase, light.itemHover, light.itemActive, light.separator, light.controlFill, light.elevatedFill, light.selectionIndicator, light.textOnAccent]

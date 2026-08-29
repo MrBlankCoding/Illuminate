@@ -111,36 +111,12 @@ struct BackgroundLayer: View {
     let colorScheme: ColorScheme
 
     private var theme: BrowserTheme {
-        BrowserTheme(accent: windowThemeColor, colorScheme: colorScheme)
+        BrowserTheme(accent: windowThemeColor, colorScheme: colorScheme, windowThemeColor: windowThemeColor)
     }
 
     var body: some View {
-        ZStack {
-            theme.windowBase
-                .ignoresSafeArea()
-
-            if !backgroundImageURL.isEmpty,
-               let imageURL = URL(string: backgroundImageURL) {
-                CachedBackgroundImageView(url: imageURL)
-                    .ignoresSafeArea()
-            } else {
-                DefaultBackgroundView()
-                    .ignoresSafeArea()
-            }
-        }
-    }
-}
-
-struct DefaultBackgroundView: View {
-    var body: some View {
-        GeometryReader { geometry in
-            Image("DefaultBackground")
-                .resizable()
-                .aspectRatio(contentMode: .fill)
-                .frame(width: geometry.size.width, height: geometry.size.height)
-                .clipped()
-                .ignoresSafeArea()
-        }
+        theme.windowBase
+            .ignoresSafeArea()
     }
 }
 
@@ -164,7 +140,7 @@ struct BrowserContentView: View {
     }
 
     private var theme: BrowserTheme {
-        BrowserTheme(accent: windowThemeColor, colorScheme: colorScheme)
+        BrowserTheme(accent: windowThemeColor, colorScheme: colorScheme, windowThemeColor: windowThemeColor)
     }
 
     var body: some View {

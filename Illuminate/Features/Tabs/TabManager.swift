@@ -44,7 +44,7 @@ final class TabManager: NSObject, ObservableObject, WKWebExtensionWindow {
     }
 
     enum Defaults {
-        static let themeColor        = "89BBFF"
+        static let themeColor        = "808080"
         static let maxRecentlyClosed = 25
         static let saveDebounceNs: UInt64 = 500_000_000
         static let tabCreationDelay: TimeInterval = 0.05
@@ -58,6 +58,21 @@ final class TabManager: NSObject, ObservableObject, WKWebExtensionWindow {
     @Published var backgroundImagePalette: [Color] = []
     @Published private var initialPreloadingTabIDs: Set<UUID> = []
     let tabGroupManager: TabGroupManager
+
+    @Published var theme: IlluminateTheme {
+        didSet {
+            guard isPersistenceEnabled, !isInitializing else { return }
+            if let data = try? JSONEncoder().encode(theme),
+               let json = String(data: data, encoding: .utf8) {
+                persistIfEnabled(json, forKey: "browserTheme")
+            }
+            // Sync legacy properties for backward compatibility
+            if let firstColor = theme.colors.first?.color {
+                windowThemeColor = firstColor
+            }
+            userInterfaceStyle = theme.colorScheme.toUIStyle()
+        }
+    }
 
     @Published var windowThemeColor: Color {
         didSet {
@@ -192,7 +207,29 @@ final class TabManager: NSObject, ObservableObject, WKWebExtensionWindow {
         let savedStyle = isPersistenceEnabled
             ? (userDefaults.string(forKey: Self.scopedKey("userInterfaceStyle", profileID: profileID)) ?? "dark")
             : "dark"
-        self.userInterfaceStyle = UIStyle(rawValue: savedStyle) ?? .dark
+        let style = UIStyle(rawValue: savedStyle) ?? .dark
+        self.userInterfaceStyle = style
+
+        if isPersistenceEnabled,
+           let themeJSON = userDefaults.string(forKey: Self.scopedKey("browserTheme", profileID: profileID)),
+           let themeData = themeJSON.data(using: .utf8),
+           let savedTheme = try? JSONDecoder().decode(IlluminateTheme.self, from: themeData) {
+            self.theme = savedTheme
+        } else {
+            var defaultTheme = IlluminateTheme.default
+            defaultTheme.colorScheme = ThemeScheme.fromUIStyle(style)
+            
+            // Start with a neutral grey theme if no image is present
+            let grey = Color(hex: Defaults.themeColor).resolvedHSL
+            if let firstIdx = defaultTheme.colors.indices.first {
+                defaultTheme.colors[firstIdx].hue = grey.h
+                defaultTheme.colors[firstIdx].saturation = grey.s
+                defaultTheme.colors[firstIdx].lightness = grey.l
+                defaultTheme.colors[firstIdx].position = ThemeColorMath.colorToPoint(hue: grey.h, saturation: grey.s)
+            }
+            
+            self.theme = defaultTheme
+        }
 
         super.init()
 

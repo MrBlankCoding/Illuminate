@@ -17,7 +17,7 @@ struct DownloadsToolbarButton: View {
     @State private var isHovered = false
 
     private var theme: BrowserTheme {
-        BrowserTheme(accent: tabManager.windowThemeColor, colorScheme: colorScheme)
+        BrowserTheme(accent: tabManager.windowThemeColor, colorScheme: colorScheme, windowThemeColor: tabManager.windowThemeColor)
     }
 
     var body: some View {

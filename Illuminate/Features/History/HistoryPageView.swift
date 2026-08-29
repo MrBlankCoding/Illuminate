@@ -23,7 +23,7 @@ struct HistoryPageView: View {
     @State private var searchTask: Task<Void, Never>?
 
     private var theme: BrowserTheme {
-        BrowserTheme(accent: tabManager.windowThemeColor, colorScheme: colorScheme)
+        BrowserTheme(accent: tabManager.windowThemeColor, colorScheme: colorScheme, windowThemeColor: tabManager.windowThemeColor)
     }
 
     private var displayedEntries: [HistoryEntry] {

@@ -40,7 +40,7 @@ struct ProfileSelectionView: View {
     ]
 
     private var theme: BrowserTheme {
-        BrowserTheme(accent: .accentBeam, colorScheme: colorScheme)
+        BrowserTheme(accent: .accentBeam, colorScheme: colorScheme, windowThemeColor: .accentBeam)
     }
 
     var body: some View {
@@ -338,7 +338,7 @@ struct AddProfileSheet: View {
     @State private var selectedColorIndex = 0
 
     private var theme: BrowserTheme {
-        BrowserTheme(accent: previewColors[selectedColorIndex], colorScheme: colorScheme)
+        BrowserTheme(accent: previewColors[selectedColorIndex], colorScheme: colorScheme, windowThemeColor: .accentBeam)
     }
 
     private var trimmedName: String {

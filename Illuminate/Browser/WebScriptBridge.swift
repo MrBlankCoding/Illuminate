@@ -103,7 +103,7 @@ final class WebScriptBridge {
         var scripts = [
             browserThemeSyncScript(colorScheme: colorScheme),
             hoverTrackingScript(),
-            passwordScript(),
+            passwordScript(colorScheme: colorScheme),
             locationPermissionScript(),
             notificationScript(),
             metadataExtractionScript()
@@ -491,7 +491,15 @@ final class WebScriptBridge {
         return WKUserScript(source: source, injectionTime: .atDocumentStart, forMainFrameOnly: false)
     }
 
-    private func passwordScript() -> WKUserScript {
+    private func passwordScript(colorScheme: String) -> WKUserScript {
+        let isDark = colorScheme == "dark"
+        let bgColor = isDark ? "#2a2a2a" : "white"
+        let textColor = isDark ? "#eee" : "#333"
+        let subColor = isDark ? "#aaa" : "#666"
+        let borderColor = isDark ? "#444" : "#ddd"
+        let hoverColor = isDark ? "#3a3a3a" : "#f5f5f5"
+        let separatorColor = isDark ? "#444" : "#eee"
+
         let source = """
         (() => {
             'use strict';
@@ -499,16 +507,11 @@ final class WebScriptBridge {
             window.__illuminatePasswordInstalled = true;
 
             const bridge = () => \(BridgeName.password.jsAccessor);
+            
+            let lastFocusedElement = null;
 
             function notifyFieldsDetected() {
                 try { bridge().postMessage({ type: 'fieldsDetected' }); } catch (_) {}
-            }
-
-            function trySavePassword(username, password) {
-                if (!username || !password) return;
-                try {
-                    bridge().postMessage({ type: 'savePassword', username, password });
-                } catch (_) {}
             }
 
             function checkForPasswordFields() {
@@ -527,6 +530,9 @@ final class WebScriptBridge {
             // Detect focus to show autofill dropdown
             document.addEventListener('focusin', (e) => {
                 const el = e.target;
+                if (el === lastFocusedElement) return;
+                lastFocusedElement = el;
+
                 if (el.tagName === 'INPUT' && (
                     el.type === 'password' || 
                     el.type === 'email' || 
@@ -545,8 +551,8 @@ final class WebScriptBridge {
                     
                     if (isLoginField) {
                         const rect = el.getBoundingClientRect();
-                        window.webkit.messageHandlers.passwordBridge.postMessage({
-                            type: 'showAutofill',
+                        bridge().postMessage({
+                            type: 'requestAutofillOptions',
                             rect: {
                                 x: rect.left,
                                 y: rect.top,
@@ -557,6 +563,87 @@ final class WebScriptBridge {
                     }
                 }
             }, true);
+
+            document.addEventListener('focusout', (e) => {
+                // Short delay to allow for click events on the dropdown
+                setTimeout(() => {
+                    if (document.activeElement !== lastFocusedElement) {
+                        lastFocusedElement = null;
+                        const dropdown = document.getElementById('illuminate-autofill-dropdown');
+                        if (dropdown) dropdown.remove();
+                    }
+                }, 200);
+            }, true);
+
+            window.__illuminateShowAutofillDropdown = (accounts, rect) => {
+                let dropdown = document.getElementById('illuminate-autofill-dropdown');
+                if (dropdown) dropdown.remove();
+
+                dropdown = document.createElement('div');
+                dropdown.id = 'illuminate-autofill-dropdown';
+                
+                const width = Math.max(rect.width, 200);
+                
+                dropdown.style.cssText = `
+                    position: absolute;
+                    top: ${rect.y + rect.height + window.scrollY + 5}px;
+                    left: ${rect.x + window.scrollX}px;
+                    width: ${width}px;
+                    background: \(bgColor);
+                    border: 1px solid \(borderColor);
+                    border-radius: 8px;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+                    z-index: 1000000;
+                    overflow: hidden;
+                    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+                `;
+
+                accounts.forEach(account => {
+                    const item = document.createElement('div');
+                    item.style.cssText = `
+                        padding: 10px 12px;
+                        cursor: pointer;
+                        border-bottom: 1px solid \(separatorColor);
+                        transition: background 0.2s;
+                    `;
+                    
+                    const username = document.createElement('div');
+                    username.textContent = account.username;
+                    username.style.cssText = `
+                        font-weight: 500;
+                        font-size: 13px;
+                        color: \(textColor);
+                    `;
+                    item.appendChild(username);
+
+                    if (account.email) {
+                        const email = document.createElement('div');
+                        email.textContent = account.email;
+                        email.style.cssText = `
+                            font-size: 11px;
+                            color: \(subColor);
+                            margin-top: 2px;
+                        `;
+                        item.appendChild(email);
+                    }
+
+                    item.onmouseover = () => item.style.background = '\(hoverColor)';
+                    item.onmouseout = () => item.style.background = '\(bgColor)';
+                    item.onclick = (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        bridge().postMessage({
+                            type: 'selectAccount',
+                            username: account.username,
+                            email: account.email
+                        });
+                        dropdown.remove();
+                    };
+                    dropdown.appendChild(item);
+                });
+
+                document.body.appendChild(dropdown);
+            };
 
             document.addEventListener('submit', (e) => {
                 const form = e.target;

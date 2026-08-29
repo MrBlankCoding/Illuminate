@@ -18,6 +18,7 @@ extension Color {
 struct BrowserTheme {
     let accent: Color
     let colorScheme: ColorScheme
+    let windowThemeColor: Color
 
     var isDark: Bool { colorScheme == .dark }
 
@@ -25,8 +26,8 @@ struct BrowserTheme {
         isDark ? Color(hex: "161617") : Color(hex: "F5F5F7")
     }
 
-    var toolbarBase: Color { isDark ? Color.white.opacity(0.045) : Color.white.opacity(0.56) }
-    var sidebarBase: Color { isDark ? Color.white.opacity(0.035) : Color.white.opacity(0.42) }
+    var toolbarBase: Color { windowThemeColor }
+    var sidebarBase: Color { windowThemeColor }
     var pageBase: Color { isDark ? Color(hex: "1C1C1E") : Color.white }
     var itemHover: Color { isDark ? Color.white.opacity(0.075) : Color.black.opacity(0.055) }
     var itemActive: Color { accent.opacity(isDark ? 0.22 : 0.16) }

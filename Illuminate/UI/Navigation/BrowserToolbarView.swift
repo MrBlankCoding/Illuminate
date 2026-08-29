@@ -109,10 +109,7 @@ struct BrowserToolbarView: View {
 
     // gonna need to work on the spacing here
     private var theme: BrowserTheme {
-        let accent = profileEnvironment.isGuestSession
-            ? Color(hex: "7B52CC")
-            : tabManager.windowThemeColor
-        return BrowserTheme(accent: accent, colorScheme: colorScheme)
+        BrowserTheme(accent: effectiveThemeColor, colorScheme: colorScheme, windowThemeColor: tabManager.windowThemeColor)
     }
 
     private var effectiveThemeColor: Color {
@@ -190,7 +187,7 @@ struct BrowserToolbarView: View {
     @ViewBuilder
     private var navigationControls: some View {
         if let activeTab = tabManager.activeTab {
-            NavigationControls(tab: activeTab, themeColor: tabManager.windowThemeColor)
+            NavigationControls(tab: activeTab, themeColor: effectiveThemeColor, windowThemeColor: tabManager.windowThemeColor)
         } else {
             HStack(spacing: 1) {
                 inertNavIcon("chevron.left")
@@ -262,8 +259,7 @@ struct BrowserToolbarView: View {
 
     private var toolbarBackground: some View {
         Rectangle()
-            .fill(.bar)
-            .background(theme.toolbarBase)
+            .fill(theme.toolbarBase)
             .ignoresSafeArea(edges: .top)
     }
 

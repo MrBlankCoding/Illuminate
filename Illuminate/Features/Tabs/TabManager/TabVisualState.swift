@@ -100,6 +100,15 @@ extension TabManager {
                     self.backgroundImagePalette = palette
                     if applyTheme, let first = palette.first {
                         self.windowThemeColor = first
+                        
+                        // Update the advanced theme model as well
+                        if let firstIdx = self.theme.colors.indices.first {
+                            let hsl = first.resolvedHSL
+                            self.theme.colors[firstIdx].hue = hsl.h
+                            self.theme.colors[firstIdx].saturation = hsl.s
+                            self.theme.colors[firstIdx].lightness = hsl.l
+                            self.theme.colors[firstIdx].position = ThemeColorMath.colorToPoint(hue: hsl.h, saturation: hsl.s)
+                        }
                     }
                 }
             }

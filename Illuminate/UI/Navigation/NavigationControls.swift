@@ -12,9 +12,10 @@ struct NavigationControls: View {
     @ObservedObject var tab: Tab
     @Environment(\.colorScheme) private var colorScheme
     let themeColor: Color
+    let windowThemeColor: Color
 
     private var theme: BrowserTheme {
-        BrowserTheme(accent: themeColor, colorScheme: colorScheme)
+        BrowserTheme(accent: themeColor, colorScheme: colorScheme, windowThemeColor: windowThemeColor)
     }
 
     var body: some View {
