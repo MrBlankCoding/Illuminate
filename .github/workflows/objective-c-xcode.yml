@@ -1,5 +1,8 @@
 name: Xcode - Build, Analyze, and Test
 
+permissions:
+  contents: read
+
 on:
   push:
     branches: ["master"]
@@ -56,6 +59,8 @@ jobs:
             | xcbeautify
 
       - name: Run Unit Tests with Code Coverage
+        env:
+          NSUnbufferedIO: YES
         run: |
           set -o pipefail
 
@@ -77,6 +82,8 @@ jobs:
             | xcbeautify
 
       - name: Run UI Tests with Code Coverage
+        env:
+          NSUnbufferedIO: YES
         run: |
           set -o pipefail
 
