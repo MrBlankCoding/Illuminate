@@ -136,6 +136,7 @@ extension TabManager {
 
         let otherTabs = tabs.filter { $0.id != activeTabID }
         guard !otherTabs.isEmpty else { return }
+        beginInitialTabPreloadingSuppression(for: otherTabs)
         Task { @MainActor [weak self] in
             for tab in otherTabs {
                 self?.hydrateVisualState(for: tab)

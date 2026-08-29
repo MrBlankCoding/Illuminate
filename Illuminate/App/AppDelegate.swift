@@ -16,7 +16,15 @@ final class DockMenuWindowRouter {
     var openProfile: ((UUID) -> Void)?
     var openGuest: (() -> Void)?
 
+    @MainActor
+    var profileSelectionWasExplicitlyRequested: Bool = false
+
     private init() {}
+
+    func requestProfileSelection(open: @escaping () -> Void) {
+        profileSelectionWasExplicitlyRequested = true
+        open()
+    }
 }
 
 class AppDelegate: NSObject, NSApplicationDelegate {

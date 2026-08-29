@@ -40,6 +40,9 @@ struct TabItemView: View {
     @State private var isCloseHovered = false
 
     private var showClose: Bool { isHovered || isActive }
+    private var showsLoadingIndicator: Bool {
+        tab.isLoading && !tabManager.shouldSuppressLoadingIndicator(for: tab)
+    }
 
     private var theme: BrowserTheme {
         BrowserTheme(accent: themeColor, colorScheme: colorScheme)
@@ -82,7 +85,7 @@ struct TabItemView: View {
                         .zIndex(1)
                 }
 
-                if tab.isLoading && tab.estimatedProgress < 1.0 {
+                if showsLoadingIndicator && tab.estimatedProgress < 1.0 {
                     loadingIndicator
                         .transition(.opacity.animation(MacDesign.fastAnimation))
                         .allowsHitTesting(false)
@@ -116,7 +119,7 @@ struct TabItemView: View {
     private var faviconArea: some View {
         ZStack(alignment: .bottomTrailing) {
             ZStack {
-                if tab.isLoading {
+                if showsLoadingIndicator {
                     ProgressView()
                         .controlSize(.mini)
                         .tint(isActive ? themeColor : Color.textSecondary)

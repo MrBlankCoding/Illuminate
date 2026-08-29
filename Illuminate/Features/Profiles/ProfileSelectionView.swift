@@ -95,6 +95,7 @@ struct ProfileSelectionView: View {
         .onAppear {
             registerDockMenuRoutes()
             checkAutoRedirect()
+            dismissIfRedundant()
         }
         .onChange(of: profileManager.profiles) { oldValue, newValue in
             checkAutoRedirect()
@@ -126,7 +127,9 @@ struct ProfileSelectionView: View {
 
     private func registerDockMenuRoutes() {
         DockMenuWindowRouter.shared.openProfileSelection = {
-            openWindow(id: "profile-selection-window")
+            DockMenuWindowRouter.shared.requestProfileSelection {
+                openWindow(id: "profile-selection-window")
+            }
         }
         DockMenuWindowRouter.shared.openProfile = { profileID in
             openWindow(value: BrowserWindowRoute.profile(profileID))
@@ -147,6 +150,21 @@ struct ProfileSelectionView: View {
             if visibleBrowserWindows.isEmpty {
                 handleSelection(.profile(profile.id))
             }
+        }
+    }
+
+    private func dismissIfRedundant() {
+        guard isStandalone else { return }
+
+        let wasExplicit = DockMenuWindowRouter.shared.profileSelectionWasExplicitlyRequested
+        DockMenuWindowRouter.shared.profileSelectionWasExplicitlyRequested = false
+
+        guard !wasExplicit else { return }
+        guard BrowserWindowRegistry.shared.activeCount > 0 else { return }
+
+        AppLog.ui("Dismissing redundant profile window; a browser window is already open.")
+        DispatchQueue.main.async { [dismiss] in
+            dismiss()
         }
     }
 

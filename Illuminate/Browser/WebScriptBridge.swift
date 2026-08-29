@@ -135,6 +135,7 @@ final class WebScriptBridge {
                 const canonicalEl = document.querySelector('link[rel="canonical"]');
                 return {
                     type:         "\(MetadataMessageKind.page.rawValue)",
+                    pageURL:      window.location.href,
                     favicon:      faviconEl   ? faviconEl.href    : null,
                     themeColor:   themeEl     ? themeEl.content   : null,
                     canonicalURL: canonicalEl ? canonicalEl.href  : null,

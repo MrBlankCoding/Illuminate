@@ -56,6 +56,7 @@ final class TabManager: NSObject, ObservableObject, WKWebExtensionWindow {
     @Published var isResizing: Bool = false
     @Published var isFullScreen: Bool = false
     @Published var backgroundImagePalette: [Color] = []
+    @Published private var initialPreloadingTabIDs: Set<UUID> = []
     let tabGroupManager: TabGroupManager
 
     @Published var windowThemeColor: Color {
@@ -92,6 +93,19 @@ final class TabManager: NSObject, ObservableObject, WKWebExtensionWindow {
         return tabIndex[activeTabID]
     }
 
+    func shouldSuppressLoadingIndicator(for tab: Tab) -> Bool {
+        initialPreloadingTabIDs.contains(tab.id)
+    }
+
+    func beginInitialTabPreloadingSuppression(for tabs: [Tab]) {
+        initialPreloadingTabIDs = Set(tabs.map(\.id))
+    }
+
+    func finishInitialTabPreloading(for tabID: UUID) {
+        guard initialPreloadingTabIDs.contains(tabID) else { return }
+        initialPreloadingTabIDs.remove(tabID)
+    }
+
     var canReopenTab: Bool { !recentlyClosed.isEmpty }
 
     let notificationCenter: NotificationCenter
@@ -115,10 +129,6 @@ final class TabManager: NSObject, ObservableObject, WKWebExtensionWindow {
 
     private var recentlyClosed: [ClosedTabSnapshot] = []
     private var isInitializing = true
-    // The auto-created blank "New Tab" that represents a freshly-opened window
-    // with no restored session. It is consumed when an external web URL (e.g. a
-    // link clicked in another app) is drained into this window so the user lands
-    // on the link instead of a blank start/profile page.
     var pristineBlankTabID: UUID?
     var pendingSaveTask: Task<Void, Never>?
     var backgroundThemeTask: Task<Void, Never>?
@@ -473,6 +483,7 @@ final class TabManager: NSObject, ObservableObject, WKWebExtensionWindow {
         let oldTab = activeTab
         activeTabID = id
         if let id, let tab = tabIndex[id] {
+            finishInitialTabPreloading(for: id)
             tab.markActivated()
             tab.markAccessed()
 
@@ -492,7 +503,7 @@ final class TabManager: NSObject, ObservableObject, WKWebExtensionWindow {
         scheduleSave()
     }
 
-    private func syncActiveTabURL() {
+    func syncActiveTabURL() {
         urlSynchronizer.updateCurrentURL(activeTab?.url)
     }
 
@@ -654,5 +665,3 @@ final class TabManager: NSObject, ObservableObject, WKWebExtensionWindow {
         }
     }
 }
-
-

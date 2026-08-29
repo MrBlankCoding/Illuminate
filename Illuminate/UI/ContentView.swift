@@ -36,7 +36,8 @@ struct ContentView: View {
                 .zIndex(3)
 
                 BrowserContentView(
-                    activeTab: tabManager.activeTab,
+                    tabs: tabManager.tabs,
+                    activeTabID: tabManager.activeTabID,
                     windowThemeColor: tabManager.windowThemeColor,
                     colorScheme: colorScheme,
                     findViewModel: findViewModel,
@@ -75,13 +76,17 @@ struct ContentView: View {
         .preferredColorScheme(tabManager.userInterfaceStyle.colorScheme)
         .environmentObject(popupCoordinator)
         .onAppear {
-            BrowserWindowRegistry.shared.register()
+            if let window = NSApp.windows.first(where: { $0.isKeyWindow }) {
+                BrowserWindowRegistry.shared.register(window)
+            }
             DispatchQueue.main.async {
                 AppFileOpening.shared.drain(into: tabManager)
             }
         }
         .onDisappear {
-            BrowserWindowRegistry.shared.unregister()
+            if let window = NSApp.windows.first(where: { $0.isKeyWindow }) {
+                BrowserWindowRegistry.shared.unregister(window)
+            }
         }
         .onReceive(AppFileOpening.shared.$pendingURLs) { _ in
             AppFileOpening.shared.drain(into: tabManager)
@@ -148,12 +153,23 @@ struct DefaultBackgroundView: View {
 }
 
 struct BrowserContentView: View {
-    let activeTab: Tab?
+    let tabs: [Tab]
+    let activeTabID: UUID?
     let windowThemeColor: Color
     let colorScheme: ColorScheme
     @ObservedObject var findViewModel: FindViewModel
     @ObservedObject var zoomViewModel: ZoomViewModel
     @EnvironmentObject private var viewModel: ContentViewModel
+
+    private var activeTab: Tab? {
+        guard let activeTabID else { return nil }
+        return tabs.first { $0.id == activeTabID }
+    }
+
+    private var tabsWithActiveFirst: [Tab] {
+        guard let activeTab else { return tabs }
+        return [activeTab] + tabs.filter { $0.id != activeTab.id }
+    }
 
     private var theme: BrowserTheme {
         BrowserTheme(accent: windowThemeColor, colorScheme: colorScheme)
@@ -181,12 +197,17 @@ struct BrowserContentView: View {
 
             VStack(spacing: 0) {
                 ZStack {
-                    if let activeTab = activeTab {
-                        WebView(tab: activeTab)
-                            .id(activeTab.id)
+                    ForEach(tabsWithActiveFirst) { tab in
+                        let isActive = tab.id == activeTabID
+
+                        WebView(tab: tab)
                             .transaction { $0.animation = nil }
                             .environmentObject(viewModel)
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .opacity(isActive ? 1 : 0)
+                            .allowsHitTesting(isActive)
+                            .accessibilityHidden(!isActive)
+                            .zIndex(isActive ? 1 : 0)
                     }
 
                     if let activeTab = activeTab,

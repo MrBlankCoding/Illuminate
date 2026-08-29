@@ -114,17 +114,23 @@ extension WebViewRepresentable {
             tab.networkError = nil
             tab.hoveredLinkURLString = nil
             lastAppliedFaviconURL = nil
+            syncTabURL(from: webView, for: tab)
         }
 
         func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
             lastLoadedURL = webView.url
+            if let tab {
+                syncTabURL(from: webView, for: tab)
+            }
         }
 
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
             guard let tab else { return }
             lastLoadedURL = webView.url
+            syncTabURL(from: webView, for: tab)
 
             tab.isLoading = false
+            tabManager.finishInitialTabPreloading(for: tab.id)
             tab.title = webView.title?.nilIfEmpty ?? tab.title
             tab.hasMixedContentWarning = !webView.hasOnlySecureContent
 
@@ -159,6 +165,14 @@ extension WebViewRepresentable {
             }
         }
 
+        private func syncTabURL(from webView: WKWebView, for tab: Tab) {
+            guard let url = webView.url, tab.url != url else { return }
+            tab.url = url
+            if tab.id == tabManager.activeTabID {
+                tabManager.syncActiveTabURL()
+            }
+        }
+
         func webView(
             _ webView: WKWebView,
             didFailProvisionalNavigation navigation: WKNavigation!,
@@ -166,6 +180,7 @@ extension WebViewRepresentable {
         ) {
             guard let tab else { return }
             tab.isLoading = false
+            tabManager.finishInitialTabPreloading(for: tab.id)
             guard !isCancellationError(error) else {
                 tab.networkError = nil
                 return

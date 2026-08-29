@@ -68,6 +68,15 @@ extension WebViewRepresentable.Coordinator {
             DispatchQueue.main.async { [weak self] in
                 guard let self, let tab = self.tab else { return }
 
+                if let pageURLString = body["pageURL"] as? String,
+                   let pageURL = URL(string: pageURLString),
+                   tab.url != pageURL {
+                    tab.url = pageURL
+                    if tab.id == self.tabManager.activeTabID {
+                        self.tabManager.syncActiveTabURL()
+                    }
+                }
+
                 if let title = body["title"] as? String, !title.isEmpty, tab.title != title {
                     tab.title = title
                     if let url = tab.url {

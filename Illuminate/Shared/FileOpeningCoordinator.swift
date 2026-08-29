@@ -55,10 +55,35 @@ final class AppFileOpening: ObservableObject {
 @MainActor
 final class BrowserWindowRegistry: ObservableObject {
     static let shared = BrowserWindowRegistry()
-    private(set) var activeCount = 0
+    private var windows: [ObjectIdentifier: WeakWindow] = [:]
+
+    var activeCount: Int {
+        pruneClosedWindows()
+        return windows.values.filter { $0.window?.isVisible == true }.count
+    }
 
     private init() {}
 
-    func register() { activeCount += 1 }
-    func unregister() { activeCount = max(0, activeCount - 1) }
+    func register(_ window: NSWindow) {
+        windows[ObjectIdentifier(window)] = WeakWindow(window)
+    }
+
+    func unregister(_ window: NSWindow) {
+        windows.removeValue(forKey: ObjectIdentifier(window))
+    }
+
+    private func pruneClosedWindows() {
+        windows = windows.filter { _, value in
+            guard let window = value.window else { return false }
+            return window.isVisible
+        }
+    }
+
+    private struct WeakWindow {
+        weak var window: NSWindow?
+
+        init(_ window: NSWindow) {
+            self.window = window
+        }
+    }
 }

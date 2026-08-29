@@ -46,7 +46,9 @@ struct NewWindowButton: View {
         let _ = registerDockMenuRoutes()
 
         Button("New Window") {
-            openWindow(id: "profile-selection-window")
+            DockMenuWindowRouter.shared.requestProfileSelection {
+                openWindow(id: "profile-selection-window")
+            }
         }
         .keyboardShortcut("n", modifiers: .command)
     }
@@ -54,7 +56,9 @@ struct NewWindowButton: View {
     @MainActor
     private func registerDockMenuRoutes() {
         DockMenuWindowRouter.shared.openProfileSelection = {
-            openWindow(id: "profile-selection-window")
+            DockMenuWindowRouter.shared.requestProfileSelection {
+                openWindow(id: "profile-selection-window")
+            }
         }
         DockMenuWindowRouter.shared.openProfile = { profileID in
             openWindow(value: BrowserWindowRoute.profile(profileID))

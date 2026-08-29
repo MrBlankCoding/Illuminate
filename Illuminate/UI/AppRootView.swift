@@ -99,7 +99,9 @@ struct AppRootView: View {
 
     private func registerDockMenuRoutes() {
         DockMenuWindowRouter.shared.openProfileSelection = {
-            openWindow(id: "profile-selection-window")
+            DockMenuWindowRouter.shared.requestProfileSelection {
+                openWindow(id: "profile-selection-window")
+            }
         }
         DockMenuWindowRouter.shared.openProfile = { profileID in
             openWindow(value: BrowserWindowRoute.profile(profileID))

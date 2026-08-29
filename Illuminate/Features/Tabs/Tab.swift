@@ -193,6 +193,9 @@ final class Tab: NSObject, ObservableObject, Identifiable, WKWebExtensionTab {
                 if let url, let page = IlluminatePage(url: url) {
                     self.title = page.displayTitle(for: url)
                 }
+                if isSelected {
+                    tabManager?.syncActiveTabURL()
+                }
                 scheduleMetadataSave()
             }
         }
