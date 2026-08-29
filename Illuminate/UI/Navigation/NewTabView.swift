@@ -82,68 +82,32 @@ struct NewTabView: View {
     private var bookmarkGrid: some View {
         if !environment.isGuestSession {
             Group {
-                if bookmarks.isEmpty {
-                    emptyState
-                } else {
-                    GlassEffectContainer(spacing: NewTabLayout.gridSpacing) {
-                        LazyVGrid(
-                            columns: [
-                                GridItem(.adaptive(minimum: NewTabLayout.tileWidth, maximum: NewTabLayout.tileWidth), spacing: NewTabLayout.gridSpacing)
-                            ],
-                            alignment: .center,
-                            spacing: NewTabLayout.gridSpacing
-                        ) {
-                            ForEach(bookmarks) { bookmark in
-                                NewTabBookmarkCard(
-                                    bookmark: bookmark,
-                                    accentColor: tabManager.windowThemeColor,
-                                    onOpen: { open(bookmark, inNewTab: false) },
-                                    onOpenInNewTab: { open(bookmark, inNewTab: true) },
-                                    onDelete: { modelContext.delete(bookmark) },
-                                    onRename: { newTitle in
-                                        bookmark.title = newTitle
-                                        try? modelContext.save()
-                                    }
-                                )
-                            }
+                GlassEffectContainer(spacing: NewTabLayout.gridSpacing) {
+                    LazyVGrid(
+                        columns: [
+                            GridItem(.adaptive(minimum: NewTabLayout.tileWidth, maximum: NewTabLayout.tileWidth), spacing: NewTabLayout.gridSpacing)
+                        ],
+                        alignment: .center,
+                        spacing: NewTabLayout.gridSpacing
+                    ) {
+                        ForEach(bookmarks) { bookmark in
+                            NewTabBookmarkCard(
+                                bookmark: bookmark,
+                                accentColor: tabManager.windowThemeColor,
+                                onOpen: { open(bookmark, inNewTab: false) },
+                                onOpenInNewTab: { open(bookmark, inNewTab: true) },
+                                onDelete: { modelContext.delete(bookmark) },
+                                onRename: { newTitle in
+                                    bookmark.title = newTitle
+                                    try? modelContext.save()
+                                }
+                            )
                         }
                     }
-                    .frame(maxWidth: 560)
                 }
-            }
-            .opacity(hasAppeared ? 1 : 0)
-            .offset(y: hasAppeared ? 0 : 10)
-        }
-    }
-
-    private var emptyState: some View {
-        VStack(spacing: 14) {
-            Image(systemName: "bookmark")
-                .font(.system(size: 26, weight: .medium))
-                .foregroundStyle(.white.opacity(0.85))
-
-            VStack(spacing: 4) {
-                Text("No Bookmarks Yet")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(.white)
-
-                Text("Bookmark a page with ⌘B and it will appear here.")
-                    .font(.system(size: 12.5))
-                    .foregroundStyle(.white.opacity(0.7))
-                    .multilineTextAlignment(.center)
+                .frame(maxWidth: 560)
             }
         }
-        .padding(.horizontal, 28)
-        .padding(.vertical, 24)
-        .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(Color.black.opacity(0.28))
-        )
-        .overlay {
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(Color.white.opacity(0.10), lineWidth: 0.5)
-        }
-        .frame(maxWidth: 340)
     }
 
     private var customizeButton: some View {
