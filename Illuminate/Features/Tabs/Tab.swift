@@ -116,8 +116,16 @@ final class IlluminateWebView: WKWebView {
 }
 
 @MainActor
+struct PasswordAutofillData: Equatable {
+    let passwords: [Password]
+    let rect: CGRect
+}
+
+@MainActor
 final class Tab: NSObject, ObservableObject, Identifiable, WKWebExtensionTab {
     weak var tabManager: TabManager?
+    
+    @Published var passwordAutofillData: PasswordAutofillData?
     
     var window: (any WKWebExtensionWindow)? {
         tabManager
@@ -466,6 +474,80 @@ final class Tab: NSObject, ObservableObject, Identifiable, WKWebExtensionTab {
             webView.reload()
         } else if let url {
             load(url: url)
+        }
+    }
+
+    func fill(password: Password, passwordService: PasswordService) {
+        guard let webView else { return }
+        
+        Task {
+            // Re-authenticate when the user actually chooses an account
+            let authenticated = await passwordService.authenticate()
+            guard authenticated else { return }
+            
+            let payload: [String: String] = [
+                "username": password.username,
+                "password": password.passwordData,
+                "email": password.email ?? ""
+            ]
+            
+            guard let data = try? JSONEncoder().encode(payload),
+                  let json = String(data: data, encoding: .utf8) else { return }
+            
+            let script = """
+            (() => {
+                const c = \(json);
+                const pass = document.querySelector('input[type="password"]');
+                const userFields = Array.from(document.querySelectorAll(
+                    'input[autocomplete="username"], ' +
+                    'input[autocomplete="email"], ' +
+                    'input[name*="user"], ' +
+                    'input[name*="login"], ' +
+                    'input[name*="email"], ' +
+                    'input[type="email"], ' +
+                    'input[type="text"], ' +
+                    'input[type="tel"], ' +
+                    'input:not([type])'
+                ));
+
+                const highlight = (el) => {
+                    if (!el) return;
+                    el.style.transition = 'all 0.5s ease-in-out';
+                    el.style.backgroundColor = '#fdf2d5';
+                    el.style.boxShadow = '0 0 10px rgba(255, 215, 0, 0.5)';
+                    el.style.borderColor = '#ffd700';
+                    setTimeout(() => {
+                        el.style.backgroundColor = '';
+                        el.style.boxShadow = '';
+                        el.style.borderColor = '';
+                    }, 2000);
+                };
+
+                const fill = (el, val) => {
+                    if (!el || !val) return;
+                    el.value = val;
+                    el.dispatchEvent(new Event('input', { bubbles: true }));
+                    el.dispatchEvent(new Event('change', { bubbles: true }));
+                    highlight(el);
+                };
+
+                fill(pass, c.password);
+                
+                // Try to fill username or email fields
+                userFields.forEach(field => {
+                    const type = field.getAttribute('type') || '';
+                    const name = field.getAttribute('name') || '';
+                    const auto = field.getAttribute('autocomplete') || '';
+                    
+                    if (auto.includes('email') || name.includes('email') || type === 'email') {
+                        fill(field, c.email || c.username);
+                    } else {
+                        fill(field, c.username);
+                    }
+                });
+            })();
+            """
+            _ = try? await webView.evaluateJavaScript(script)
         }
     }
 

@@ -19,6 +19,10 @@ struct ProfileSelectionView: View {
     @State private var hoveredProfileID: UUID?
     @State private var showingAddProfile = false
 
+    @State private var selectionWasExplicit = false
+    @State private var didRouteLaunchWindow = false
+    @State private var isRedirectingToProfile = false
+
     @State private var renamingProfile: BrowserProfile?
     @State private var renameText: String = ""
 
@@ -44,21 +48,10 @@ struct ProfileSelectionView: View {
             theme.windowBase
                 .ignoresSafeArea()
 
-            VStack(spacing: 0) {
-                Spacer()
-
-                VStack(spacing: 10) {
-                    Text("Choose a profile for Illuminate")
-                        .font(.system(size: 22, weight: .regular, design: .default))
-                        .foregroundStyle(Color.textPrimary)
-                        .accessibilityIdentifier("profileSelection.title")
-                }
-                .padding(.bottom, 36)
-
-                profileGrid
-                Spacer()
-                bottomActions
-                    .padding(.bottom, 32)
+            if isAwaitingLaunchRoute {
+                EmptyView()
+            } else {
+                profileSelectionContent
             }
         }
         .sheet(isPresented: $showingAddProfile) {
@@ -94,12 +87,60 @@ struct ProfileSelectionView: View {
         }
         .onAppear {
             registerDockMenuRoutes()
-            checkAutoRedirect()
+            selectionWasExplicit = DockMenuWindowRouter.shared.consumeExplicitProfileSelectionRequest()
+            routeLaunchWindow()
+            adoptSoleProfileIfNeeded()
             dismissIfRedundant()
         }
-        .onChange(of: profileManager.profiles) { oldValue, newValue in
-            checkAutoRedirect()
+        .onChange(of: profileManager.profiles) { _, _ in
+            routeLaunchWindow()
+            adoptSoleProfileIfNeeded()
         }
+    }
+
+    private var isAwaitingLaunchRoute: Bool {
+        isStandalone && !selectionWasExplicit && (!didRouteLaunchWindow || isRedirectingToProfile)
+    }
+
+    private var profileSelectionContent: some View {
+        VStack(spacing: 0) {
+            Spacer()
+
+            VStack(spacing: 10) {
+                Text("Choose a profile for Illuminate")
+                    .font(.system(size: 22, weight: .regular, design: .default))
+                    .foregroundStyle(Color.textPrimary)
+                    .accessibilityIdentifier("profileSelection.title")
+            }
+            .padding(.bottom, 36)
+
+            profileGrid
+            Spacer()
+            bottomActions
+                .padding(.bottom, 32)
+        }
+    }
+
+    private func routeLaunchWindow() {
+        guard isStandalone, !selectionWasExplicit, !didRouteLaunchWindow else { return }
+        guard !profileManager.profiles.isEmpty else { return }
+
+        didRouteLaunchWindow = true
+        guard let profileID = profileManager.launchProfileID else { return }
+
+        isRedirectingToProfile = true
+        guard BrowserWindowRegistry.shared.beginOpening(for: profileID) else {
+            DispatchQueue.main.async { [dismiss] in dismiss() }
+            return
+        }
+        openWindow(value: BrowserWindowRoute.profile(profileID))
+        dismiss()
+    }
+
+    private func adoptSoleProfileIfNeeded() {
+        guard !isStandalone, route == nil, !showingAddProfile else { return }
+        guard profileManager.profiles.count == 1, let profile = profileManager.profiles.first else { return }
+        route = .profile(profile.id)
     }
 
     private var renamingProfileBinding: Binding<Bool> {
@@ -139,27 +180,8 @@ struct ProfileSelectionView: View {
         }
     }
 
-    private func checkAutoRedirect() {
-        guard route == nil, !showingAddProfile, renamingProfile == nil, profileToDelete == nil else { return }
-
-        if profileManager.profiles.count == 1, let profile = profileManager.profiles.first {
-            let visibleBrowserWindows = NSApp.windows.filter { window in
-                window.isVisible && window.title != "Profile Selection" // Heuristic
-            }
-
-            if visibleBrowserWindows.isEmpty {
-                handleSelection(.profile(profile.id))
-            }
-        }
-    }
-
     private func dismissIfRedundant() {
-        guard isStandalone else { return }
-
-        let wasExplicit = DockMenuWindowRouter.shared.profileSelectionWasExplicitlyRequested
-        DockMenuWindowRouter.shared.profileSelectionWasExplicitlyRequested = false
-
-        guard !wasExplicit else { return }
+        guard isStandalone, !selectionWasExplicit, !isRedirectingToProfile else { return }
         guard BrowserWindowRegistry.shared.activeCount > 0 else { return }
 
         AppLog.ui("Dismissing redundant profile window; a browser window is already open.")

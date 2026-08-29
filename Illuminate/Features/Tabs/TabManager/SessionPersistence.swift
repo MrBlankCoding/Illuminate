@@ -9,6 +9,7 @@ import AppKit
 import Combine
 import Foundation
 import SwiftUI
+import Synchronization
 import WebKit
 
 actor SessionWriter {
@@ -26,24 +27,19 @@ actor SessionWriter {
 }
 
 enum StateFilePrefetcher {
-    private nonisolated(unsafe) static var cache: [URL: Data] = [:]
-    private static let lock = NSLock()
+    private static let cache = Mutex<[URL: Data]>([:])
 
     nonisolated static func prefetch(_ urls: [URL]) {
         Task.detached(priority: .userInitiated) {
             for url in urls {
-                let data = try? Data(contentsOf: url)
-                await lock.lock()
-                cache[url] = data
-                await lock.unlock()
+                guard let data = try? Data(contentsOf: url) else { continue }
+                cache.withLock { $0[url] = data }
             }
         }
     }
 
     nonisolated static func consume(_ url: URL) -> Data? {
-        lock.lock()
-        defer { lock.unlock() }
-        return cache.removeValue(forKey: url)
+        cache.withLock { $0.removeValue(forKey: url) }
     }
 }
 

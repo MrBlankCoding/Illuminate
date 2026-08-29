@@ -17,6 +17,10 @@ final class ProfileEnvironment: ObservableObject {
     let isGuestSession: Bool
     let sessionIdentifier: UUID?
 
+    var windowRoute: BrowserWindowRoute {
+        isGuestSession ? .guest(sessionIdentifier ?? UUID()) : .profile(profile.id)
+    }
+
     let tabManager: TabManager
     let webKitManager: WebKitManager
     let passwordService: PasswordService

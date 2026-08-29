@@ -8,6 +8,7 @@
 import CoreLocation
 import Foundation
 import SwiftUI
+import UserNotifications
 import WebKit
 
 extension WebViewRepresentable.Coordinator {
@@ -30,8 +31,81 @@ extension WebViewRepresentable.Coordinator {
                 handlePermissionMessage(message)
             case webScriptBridge.metadataBridgeName:
                 handleMetadataMessage(message)
+            case webScriptBridge.notificationBridgeName:
+                handleNotificationMessage(message)
             default:
                 break
+            }
+        }
+
+        private func handleNotificationMessage(_ message: WKScriptMessage) {
+            guard
+                let body = message.body as? [String: Any],
+                let type = body["type"] as? String,
+                let webView = message.webView
+            else { return }
+
+            switch type {
+            case "syncPermission":
+                Task {
+                    let status = await notificationService.getAuthorizationStatus()
+                    await MainActor.run {
+                        self.syncNotificationPermission(status, in: webView)
+                    }
+                }
+
+            case "requestPermission":
+                guard let requestID = body["id"] as? Int else { return }
+                Task {
+                    do {
+                        let granted = try await notificationService.requestAuthorization()
+                        let status: UNAuthorizationStatus = granted ? .authorized : .denied
+                        await MainActor.run {
+                            self.respondToNotificationPermissionRequest(requestID, status: status, in: webView)
+                        }
+                    } catch {
+                        await MainActor.run {
+                            self.respondToNotificationPermissionRequest(requestID, status: .denied, in: webView)
+                        }
+                    }
+                }
+
+            case "send":
+                guard
+                    let title = body["title"] as? String,
+                    let bodyText = body["body"] as? String
+                else { return }
+                let tag = body["tag"] as? String
+                
+                Task {
+                    try? await notificationService.sendNotification(title: title, body: bodyText, identifier: tag)
+                }
+
+            default:
+                break
+            }
+        }
+
+        private func syncNotificationPermission(_ status: UNAuthorizationStatus, in webView: WKWebView) {
+            let jsStatus = webNotificationStatus(for: status)
+            webView.evaluateJavaScript("if (typeof window.__illuminateNotificationSyncPermission === 'function') window.__illuminateNotificationSyncPermission('\(jsStatus)');")
+        }
+
+        private func respondToNotificationPermissionRequest(_ requestID: Int, status: UNAuthorizationStatus, in webView: WKWebView) {
+            let jsStatus = webNotificationStatus(for: status)
+            webView.evaluateJavaScript("if (typeof window.__illuminateNotificationResult === 'function') window.__illuminateNotificationResult(\(requestID), '\(jsStatus)');")
+        }
+
+        private func webNotificationStatus(for status: UNAuthorizationStatus) -> String {
+            switch status {
+            case .authorized, .provisional, .ephemeral:
+                return "granted"
+            case .denied:
+                return "denied"
+            case .notDetermined:
+                return "default"
+            @unknown default:
+                return "default"
             }
         }
 
@@ -127,9 +201,19 @@ extension WebViewRepresentable.Coordinator {
             case "fieldsDetected":
                 let service = passwordService
                 Task { @MainActor [weak self] in
-                    guard self != nil else { return }
+                    guard let self, let webView = message.webView else { return }
+                    
+                    // do we have passwords
+                    guard service.hasPasswords(for: url) else { return }
+                    
+                    // 2. get auth
+                    let authenticated = await service.authenticate()
+                    guard authenticated else { return }
+                    
+                    // 3. fetch :)
                     let passwords = service.fetchPasswords(for: url)
-                    guard let first = passwords.first, let webView = message.webView else { return }
+                    guard let first = passwords.first else { return }
+                    
                     let payload: [String: String] = ["username": first.username, "password": first.passwordData]
                     guard
                         let data = try? JSONEncoder().encode(payload),
@@ -139,9 +223,42 @@ extension WebViewRepresentable.Coordinator {
                     (() => {
                         const c = \(json);
                         const pass = document.querySelector('input[type="password"]');
-                        const user = document.querySelector('input[type="text"], input[type="email"], input:not([type])');
-                        if (pass) pass.value = c.password;
-                        if (user) user.value = c.username;
+                        const user = document.querySelector(
+                            'input[autocomplete="username"], ' +
+                            'input[autocomplete="email"], ' +
+                            'input[name*="user"], ' +
+                            'input[name*="login"], ' +
+                            'input[name*="email"], ' +
+                            'input[type="email"], ' +
+                            'input[type="text"], ' +
+                            'input[type="tel"], ' +
+                            'input:not([type])'
+                        );
+
+                        const highlight = (el) => {
+                            if (!el) return;
+                            el.style.transition = 'all 0.5s ease-in-out';
+                            el.style.backgroundColor = '#fdf2d5'; // Light gold
+                            el.style.boxShadow = '0 0 10px rgba(255, 215, 0, 0.5)';
+                            el.style.borderColor = '#ffd700';
+                            
+                            setTimeout(() => {
+                                el.style.backgroundColor = '';
+                                el.style.boxShadow = '';
+                                el.style.borderColor = '';
+                            }, 2000);
+                        };
+
+                        const fill = (el, val) => {
+                            if (!el) return;
+                            el.value = val;
+                            el.dispatchEvent(new Event('input', { bubbles: true }));
+                            el.dispatchEvent(new Event('change', { bubbles: true }));
+                            highlight(el);
+                        };
+
+                        fill(pass, c.password);
+                        fill(user, c.username);
                     })();
                     """
                     _ = try? await webView.evaluateJavaScript(script)

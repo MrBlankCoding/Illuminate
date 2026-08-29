@@ -119,9 +119,19 @@ final class ProfileManager: ObservableObject {
         _ = profileEnvironment(for: profileID, container: container)
     }
 
-    func prewarmLastUsedProfileEnvironment(container: ModelContainer) {
+    var launchProfileID: UUID? {
         guard let rawID = userDefaults.string(forKey: Self.lastUsedProfileKey),
-              let profileID = UUID(uuidString: rawID) else { return }
+              let profileID = UUID(uuidString: rawID),
+              profiles.contains(where: { $0.id == profileID }) else { return nil }
+        return profileID
+    }
+
+    var preferredProfileID: UUID? {
+        launchProfileID ?? profiles.first?.id
+    }
+
+    func prewarmLastUsedProfileEnvironment(container: ModelContainer) {
+        guard let profileID = launchProfileID else { return }
         prewarmProfileEnvironment(for: profileID, container: container)
     }
 

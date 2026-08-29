@@ -12,6 +12,7 @@ enum BridgeName: String, CaseIterable {
     case metadata = "metadataBridge"
     case password = "passwordBridge"
     case permission = "permissionBridge"
+    case notification = "notificationBridge"
     var jsAccessor: String {
         "window.webkit.messageHandlers.\(rawValue)"
     }
@@ -46,6 +47,7 @@ final class WebScriptBridge {
     var metadataBridgeName: String { BridgeName.metadata.rawValue }
     var passwordBridgeName: String { BridgeName.password.rawValue }
     var permissionBridgeName: String { BridgeName.permission.rawValue }
+    var notificationBridgeName: String { BridgeName.notification.rawValue }
     private struct InstalledConfiguration: Equatable {
         let colorScheme: String
         let canvasFingerprintingProtectionEnabled: Bool
@@ -103,6 +105,7 @@ final class WebScriptBridge {
             hoverTrackingScript(),
             passwordScript(),
             locationPermissionScript(),
+            notificationScript(),
             metadataExtractionScript()
         ]
         if canvasFingerprintingProtectionEnabled {
@@ -350,6 +353,83 @@ final class WebScriptBridge {
         )
     }
 
+    private func notificationScript() -> WKUserScript {
+        let source = """
+        (() => {
+            'use strict';
+            if (window.__illuminateNotificationInstalled) return;
+            window.__illuminateNotificationInstalled = true;
+
+            const bridge = () => \(BridgeName.notification.jsAccessor);
+            let permissionStatus = 'default';
+
+            window.__illuminateNotificationSyncPermission = (status) => {
+                permissionStatus = status;
+            };
+
+            const callbacks = new Map();
+            let nextID = 0;
+
+            window.__illuminateNotificationResult = (id, result) => {
+                const cb = callbacks.get(id);
+                if (cb) {
+                    callbacks.delete(id);
+                    cb(result);
+                }
+            };
+
+            class IlluminateNotification extends EventTarget {
+                constructor(title, options = {}) {
+                    super();
+                    this.title = title;
+                    this.body = options.body || '';
+                    this.tag = options.tag || null;
+                    
+                    if (permissionStatus === 'granted') {
+                        try {
+                            bridge().postMessage({
+                                type: 'send',
+                                title: this.title,
+                                body: this.body,
+                                tag: this.tag
+                            });
+                        } catch (_) {}
+                    }
+                }
+
+                static get permission() {
+                    return permissionStatus;
+                }
+
+                static requestPermission(callback) {
+                    const id = ++nextID;
+                    const promise = new Promise((resolve) => {
+                        callbacks.set(id, (status) => {
+                            permissionStatus = status;
+                            if (callback) callback(status);
+                            resolve(status);
+                        });
+                    });
+
+                    try {
+                        bridge().postMessage({ type: 'requestPermission', id });
+                    } catch (_) {
+                        window.__illuminateNotificationResult(id, 'denied');
+                    }
+
+                    return promise;
+                }
+            }
+
+            window.Notification = IlluminateNotification;
+            
+            // Initial sync request
+            try { bridge().postMessage({ type: 'syncPermission' }); } catch (_) {}
+        })();
+        """
+        return WKUserScript(source: source, injectionTime: .atDocumentStart, forMainFrameOnly: false)
+    }
+
     private func canvasFingerprintingProtectionScript() -> WKUserScript {
         let source = """
         (() => {
@@ -444,6 +524,40 @@ final class WebScriptBridge {
                 subtree: true
             });
 
+            // Detect focus to show autofill dropdown
+            document.addEventListener('focusin', (e) => {
+                const el = e.target;
+                if (el.tagName === 'INPUT' && (
+                    el.type === 'password' || 
+                    el.type === 'email' || 
+                    el.type === 'text' || 
+                    el.getAttribute('autocomplete')?.includes('username') ||
+                    el.getAttribute('autocomplete')?.includes('email')
+                )) {
+                    // Check if this is likely a login field
+                    const isLoginField = el.type === 'password' || 
+                                       el.name?.toLowerCase().includes('user') ||
+                                       el.name?.toLowerCase().includes('login') ||
+                                       el.name?.toLowerCase().includes('email') ||
+                                       el.id?.toLowerCase().includes('user') ||
+                                       el.id?.toLowerCase().includes('login') ||
+                                       el.id?.toLowerCase().includes('email');
+                    
+                    if (isLoginField) {
+                        const rect = el.getBoundingClientRect();
+                        window.webkit.messageHandlers.passwordBridge.postMessage({
+                            type: 'showAutofill',
+                            rect: {
+                                x: rect.left,
+                                y: rect.top,
+                                width: rect.width,
+                                height: rect.height
+                            }
+                        });
+                    }
+                }
+            }, true);
+
             document.addEventListener('submit', (e) => {
                 const form = e.target;
                 if (!(form instanceof HTMLFormElement)) return;
@@ -451,12 +565,28 @@ final class WebScriptBridge {
                 const passwordField = form.querySelector('input[type="password"]');
                 if (!passwordField) return;
 
+                const emailField = form.querySelector('input[type="email"], input[name*="email"]');
                 const userField = form.querySelector(
-                    'input[type="email"], input[type="text"], input:not([type])'
+                    'input[autocomplete="username"], ' +
+                    'input[name*="user"], ' +
+                    'input[name*="login"], ' +
+                    'input[type="text"], ' +
+                    'input[type="tel"], ' +
+                    'input:not([type])'
                 );
-                if (!userField) return;
+                
+                if (!userField && !emailField) return;
 
-                trySavePassword(userField.value.trim(), passwordField.value);
+                const username = userField ? userField.value.trim() : '';
+                const email = emailField ? emailField.value.trim() : '';
+                
+                window.webkit.messageHandlers.passwordBridge.postMessage({
+                    type: 'savePassword',
+                    url: window.location.href,
+                    username: username,
+                    email: email,
+                    password: passwordField.value
+                });
             }, { capture: true });
         })();
         """

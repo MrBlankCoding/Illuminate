@@ -25,6 +25,11 @@ final class DockMenuWindowRouter {
         profileSelectionWasExplicitlyRequested = true
         open()
     }
+
+    func consumeExplicitProfileSelectionRequest() -> Bool {
+        defer { profileSelectionWasExplicitlyRequested = false }
+        return profileSelectionWasExplicitlyRequested
+    }
 }
 
 class AppDelegate: NSObject, NSApplicationDelegate {
@@ -80,12 +85,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             || env["XCTestConfigurationFilePath"] != nil
     }
 
-    func applicationDidBecomeActive(_ notification: Notification) {
-        Task { @MainActor in
-            PasskeyAuthorizationService.shared.requestAccessIfNeeded()
-        }
-    }
-    
     func applicationDockMenu(_ sender: NSApplication) -> NSMenu? {
         let menu = NSMenu()
 

@@ -13,7 +13,13 @@ struct WindowConfigurator: NSViewRepresentable {
     @EnvironmentObject var tabManager: TabManager
     @EnvironmentObject var profileEnvironment: ProfileEnvironment
 
-    func makeCoordinator() -> Coordinator { Coordinator(tabManager: tabManager, extensionManager: profileEnvironment.extensionManager) }
+    func makeCoordinator() -> Coordinator {
+        Coordinator(
+            tabManager: tabManager,
+            extensionManager: profileEnvironment.extensionManager,
+            route: profileEnvironment.windowRoute
+        )
+    }
 
     func makeNSView(context: Context) -> NSView {
         let view = NSView()
@@ -71,15 +77,20 @@ struct WindowConfigurator: NSViewRepresentable {
         var didConfigure = false
         weak var tabManager: TabManager?
         weak var extensionManager: ExtensionManager?
+        let route: BrowserWindowRoute
         weak var window: NSWindow? {
             didSet {
+                guard window !== oldValue else { return }
+                if let oldValue { BrowserWindowRegistry.shared.unregister(oldValue) }
+                if let window { BrowserWindowRegistry.shared.register(window, route: route) }
                 window?.delegate = self
             }
         }
 
-        init(tabManager: TabManager, extensionManager: ExtensionManager) {
+        init(tabManager: TabManager, extensionManager: ExtensionManager, route: BrowserWindowRoute) {
             self.tabManager = tabManager
             self.extensionManager = extensionManager
+            self.route = route
         }
 
         func windowWillStartLiveResize(_ notification: Notification) {
@@ -104,6 +115,9 @@ struct WindowConfigurator: NSViewRepresentable {
         }
 
         func windowWillClose(_ notification: Notification) {
+            if let closingWindow = notification.object as? NSWindow {
+                BrowserWindowRegistry.shared.unregister(closingWindow)
+            }
             guard let tabManager else { return }
             WebURLOpening.shared.unregister(tabManager)
         }

@@ -12,8 +12,9 @@ import WebKit
 @MainActor
 struct WebScriptBridgeTests {
     @Test func bridgeNamesAndJavaScriptLiteralsAreStable() {
-        #expect(BridgeName.allCases.count == 3)
+        #expect(BridgeName.allCases.count == 4)
         #expect(BridgeName.metadata.jsAccessor.contains("metadataBridge"))
+        #expect(BridgeName.notification.jsAccessor.contains("notificationBridge"))
         #expect(MetadataMessageKind.hover.rawValue == "hover")
         #expect(WebScriptBridge.jsStringLiteral("quote\"slash\\") == "\"quote\\\"slash\\\\\"")
         #expect(WebScriptBridge.jsStringLiteral("value", fallback: "fallback") == "\"value\"")
@@ -29,21 +30,21 @@ struct WebScriptBridgeTests {
             colorScheme: "dark",
             canvasFingerprintingProtectionEnabled: true
         )
-        #expect(controller.userScripts.count == 6)
+        #expect(controller.userScripts.count == 7)
         bridge.installScripts(
             on: controller,
             handler: handler,
             colorScheme: "dark",
             canvasFingerprintingProtectionEnabled: true
         )
-        #expect(controller.userScripts.count == 6)
+        #expect(controller.userScripts.count == 7)
         bridge.installScripts(
             on: controller,
             handler: handler,
             colorScheme: "light",
             canvasFingerprintingProtectionEnabled: false
         )
-        #expect(controller.userScripts.count == 5)
+        #expect(controller.userScripts.count == 6)
         bridge.removeAll(from: controller)
         #expect(controller.userScripts.isEmpty)
     }

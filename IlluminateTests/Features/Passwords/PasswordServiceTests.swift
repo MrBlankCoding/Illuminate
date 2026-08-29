@@ -30,6 +30,7 @@ struct PasswordServiceTests {
             passwordData: "encrypted-password-data"
         )
         
+        _ = await service.authenticate()
         let passwords = service.fetchPasswords(for: "https://example.com")
         
         #expect(passwords.count == 1, "Should have one password saved")
@@ -53,6 +54,7 @@ struct PasswordServiceTests {
             passwordData: "new-password"
         )
         
+        _ = await service.authenticate()
         let passwords = service.fetchPasswords(for: "https://updatesite.com")
         
         #expect(passwords.count == 1, "Should still have only one password (updated)")
@@ -79,6 +81,7 @@ struct PasswordServiceTests {
             passwordData: "pass3"
         )
         
+        _ = await service.authenticate()
         let passwords = service.fetchPasswords(for: "https://multilogin.com")
         
         #expect(passwords.count == 3, "Should have three passwords for different usernames")
@@ -99,6 +102,7 @@ struct PasswordServiceTests {
             passwordData: "testpass"
         )
         
+        _ = await service.authenticate()
         let passwords = service.fetchPasswords(for: "login.example.com")
         
         #expect(passwords.count == 1, "Should find password by host")

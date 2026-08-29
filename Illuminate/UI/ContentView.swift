@@ -76,16 +76,8 @@ struct ContentView: View {
         .preferredColorScheme(tabManager.userInterfaceStyle.colorScheme)
         .environmentObject(popupCoordinator)
         .onAppear {
-            if let window = NSApp.windows.first(where: { $0.isKeyWindow }) {
-                BrowserWindowRegistry.shared.register(window)
-            }
             DispatchQueue.main.async {
                 AppFileOpening.shared.drain(into: tabManager)
-            }
-        }
-        .onDisappear {
-            if let window = NSApp.windows.first(where: { $0.isKeyWindow }) {
-                BrowserWindowRegistry.shared.unregister(window)
             }
         }
         .onReceive(AppFileOpening.shared.$pendingURLs) { _ in

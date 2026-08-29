@@ -24,6 +24,7 @@ extension WebViewRepresentable {
         let historyManager: HistoryManager
         let websitePermissionService: WebsitePermissionService
         let locationService = WebsiteLocationService()
+        let notificationService = NotificationService.shared
         let preconnectManager = NavigationPreconnectManager.shared
 
         private let circuitBreaker = WebProcessCircuitBreaker()

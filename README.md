@@ -57,10 +57,8 @@ xcodebuild -project Illuminate.xcodeproj \
 * [ ] Migrate from Combine → Observation
 * [ ] Nuke for image loading
 * [ ] KeychainAccess for password management
-* [ ] Fix passcode manager password capture
 * [ ] Unite all of the app into using UiTheme.swift
 * [ ] Write an actual onboarding view instead of AI 
-* [ ] Migrate to LocalAuthentication for password manager locking, autofill for passwords on sites and private windows
 
 ## Known Issues
 
@@ -70,6 +68,7 @@ xcodebuild -project Illuminate.xcodeproj \
 * [ ] Guest windows can show an infinite spinner
 * [ ] When saving PDF's the whole page is not captured
 * [ ] Internal UI theme messing up CSS on webpages
+* [ ] If the browser is closed by all of the tabs being closed it doesnt reopen with any tabs
 
 
 ## AI Disclosure
