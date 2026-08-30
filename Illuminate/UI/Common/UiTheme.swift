@@ -7,12 +7,66 @@
 
 import SwiftUI
 
+struct ThemeColor: Codable, Identifiable {
+    var id = UUID()
+    var hue: Double
+    var saturation: Double
+    var lightness: Double
+    var position: CGPoint
+
+    var color: Color {
+        Color(hslHue: hue, saturation: saturation, lightness: lightness)
+    }
+}
+
+enum ThemeScheme: String, Codable, CaseIterable {
+    case dark, light, system
+
+    func toUIStyle() -> TabManager.UIStyle {
+        switch self {
+        case .dark: return .dark
+        case .light: return .light
+        case .system: return .system
+        }
+    }
+
+    static func fromUIStyle(_ style: TabManager.UIStyle) -> ThemeScheme {
+        switch style {
+        case .dark: return .dark
+        case .light: return .light
+        case .system: return .system
+        }
+    }
+}
+
+struct IlluminateTheme: Codable {
+    var colors: [ThemeColor]
+    var colorScheme: ThemeScheme
+
+    static var `default`: IlluminateTheme {
+        IlluminateTheme(
+            colors: [ThemeColor(hue: 0, saturation: 0, lightness: 0.5, position: .zero)],
+            colorScheme: .system
+        )
+    }
+}
+
+struct ThemeColorMath {
+    static func colorToPoint(hue: Double, saturation: Double) -> CGPoint {
+        // Simple mapping for theme picker
+        return CGPoint(x: hue, y: saturation)
+    }
+}
+
 extension Color {
     static let textPrimary = Color.primary
     static let textSecondary = Color.secondary
+    static let textTertiary = Color.primary.opacity(0.28)
+    static let textQuaternary = Color.primary.opacity(0.18)
     static let borderSubtle = Color.primary.opacity(0.10)
     static let accentBeam = Color.accentColor
     static let accentSoft = Color.accentColor.opacity(0.14)
+    static let suggestionRowHover = Color.primary.opacity(0.07)
 }
 
 struct BrowserTheme {
@@ -36,38 +90,64 @@ struct BrowserTheme {
     var elevatedFill: Color { isDark ? Color.white.opacity(0.09) : Color.white.opacity(0.88) }
     var selectionIndicator: Color { accent }
     var textOnAccent: Color { .white }
+    var guestAccent: Color { Color(hex: "7B52CC") }
 }
 
 enum MacDesign {
     enum Radius {
+        static let micro: CGFloat = 4
+        static let mini: CGFloat = 5
+        static let groupHeader: CGFloat = 6
         static let small: CGFloat = 7
         static let control: CGFloat = 10
         static let medium: CGFloat = 12
+        static let card: CGFloat = 14
         static let large: CGFloat = 16
         static let panel: CGFloat = 20
+        static let urlBar: CGFloat = 11
+        static let full: CGFloat = 999
     }
 
     enum Spacing {
+        static let hairlineThin: CGFloat = 0.5
         static let hairline: CGFloat = 1
+        static let micro: CGFloat = 2
+        static let tiny: CGFloat = 3
+        static let small: CGFloat = 4
+        static let mini: CGFloat = 5
         static let tight: CGFloat = 6
         static let control: CGFloat = 8
+        static let medium: CGFloat = 10
         static let regular: CGFloat = 12
+        static let toolbarPadding: CGFloat = 14
         static let roomy: CGFloat = 16
+        static let grid: CGFloat = 18
         static let section: CGFloat = 20
         static let page: CGFloat = 24
+        static let pageHeaderPadding: CGFloat = 32
+        static let largeSpacer: CGFloat = 72
     }
 
     enum Size {
+        static let urlBarIcon: CGFloat = 22
         static let iconButton: CGFloat = 28
         static let largeIconButton: CGFloat = 32
+        static let floatingButton: CGFloat = 36
         static let urlBarHeight: CGFloat = 34
         static let tabHeight: CGFloat = 34
+        static let thumbnail: CGFloat = 52
         static let tabStripHeight: CGFloat = 42
         static let toolbarRowHeight: CGFloat = 48
+        static let trafficLightWidth: CGFloat = 78
+        static let sidePanelWidth: CGFloat = 260
+        static let sidePanelContentWidth: CGFloat = 228
+        static let newTabGridMax: CGFloat = 560
+        static let internalPageMax: CGFloat = 680
     }
 
     static let fastAnimation = Animation.easeInOut(duration: 0.16)
     static let springAnimation = Animation.spring(response: 0.32, dampingFraction: 0.86)
+    static let popupAnimation = Animation.spring(response: 0.2, dampingFraction: 0.8)
 }
 
 struct MacMaterialModifier: ViewModifier {
@@ -168,6 +248,25 @@ extension View {
     func hoverCursor(_ cursor: NSCursor) -> some View {
         modifier(HoverCursorModifier(cursor: cursor))
     }
+
+    func navClusterBackground() -> some View {
+        modifier(NavClusterBackgroundModifier())
+    }
+}
+
+struct NavClusterBackgroundModifier: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .padding(MacDesign.Spacing.tiny)
+            .background {
+                Capsule()
+                    .fill(Color.primary.opacity(0.035))
+            }
+            .overlay {
+                Capsule()
+                    .stroke(Color.primary.opacity(0.07), lineWidth: MacDesign.Spacing.hairlineThin)
+            }
+    }
 }
 
 struct GlassButtonStyle: ButtonStyle {
@@ -251,20 +350,40 @@ private struct HoverCursorModifier: ViewModifier {
     }
 }
 
-struct CavedDivider: View {
+struct CappedDivider: View {
     var body: some View {
         Rectangle()
             .fill(Color.borderSubtle)
-            .frame(height: 1)
+            .frame(height: MacDesign.Spacing.hairline)
             .opacity(0.7)
     }
 }
 
+struct CavedDivider: View {
+    var body: some View {
+        CappedDivider()
+    }
+}
+
 extension Font {
+    static let webHero = Font.system(size: 40, weight: .semibold, design: .rounded)
+    static let webInternalPageTitle = Font.system(size: 26, weight: .bold, design: .rounded)
     static let webH1   = Font.system(size: 24, weight: .semibold)
     static let webH2   = Font.system(size: 20, weight: .medium)
+    static let webInternalPageIcon = Font.system(size: 22, weight: .semibold)
+    static let webMonogram = Font.system(size: 18, weight: .medium, design: .rounded)
     static let webBody = Font.system(size: 14)
+    static let webCaption = Font.system(size: 13)
+    static let webCaptionBold = Font.system(size: 13, weight: .semibold)
+    static let webCaptionMonospaced = Font.system(size: 13).monospaced()
     static let webMicro = Font.system(size: 12.5)
+    static let webMicroMedium = Font.system(size: 12.5, weight: .medium)
+    static let webSmallRegular = Font.system(size: 11)
+    static let webSmallRegularMedium = Font.system(size: 11, weight: .medium)
+    static let webSmall = Font.system(size: 10)
+    static let webSmallBold = Font.system(size: 10, weight: .bold)
+    static let webTinyBold = Font.system(size: 8, weight: .bold)
+    static let webBadge = Font.system(size: 7.5, weight: .bold, design: .rounded)
 }
 
 extension Animation {
@@ -385,6 +504,30 @@ extension Color {
         let lhs = NSColor(self).usingColorSpace(.deviceRGB) ?? .white
         let rhs = NSColor(color).usingColorSpace(.deviceRGB) ?? .white
         return Color(lhs.blended(withFraction: fraction, of: rhs) ?? lhs)
+    }
+
+    var resolvedHSL: (h: Double, s: Double, l: Double) {
+        let nsColor = NSColor(self).usingColorSpace(.deviceRGB) ?? .white
+        var h: CGFloat = 0
+        var s: CGFloat = 0
+        var b: CGFloat = 0
+        var a: CGFloat = 0
+        nsColor.getHue(&h, saturation: &s, brightness: &b, alpha: &a)
+
+        // HSB to HSL
+        let l = (2 - s) * b / 2
+        var sL = s * b / (l < 0.5 ? l * 2 : 2 - l * 2)
+        if sL.isNaN { sL = 0 }
+
+        return (h: Double(h), s: Double(sL), l: Double(l))
+    }
+
+    init(hslHue: Double, saturation: Double, lightness: Double) {
+        // HSL to HSB
+        let t = saturation * (lightness < 0.5 ? lightness : 1 - lightness)
+        let b = lightness + t
+        let s = lightness > 0 ? 2 * t / b : 0
+        self.init(hue: hslHue, saturation: s, brightness: b)
     }
 }
 

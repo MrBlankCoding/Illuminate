@@ -81,12 +81,12 @@ struct TabStripContainer<Content: View>: NSViewRepresentable {
 }
 
 private enum ToolbarMetrics {
-    static let tabRowHeight: CGFloat = 42
-    static let toolbarHeight: CGFloat = 48
-    static let trafficLightWidth: CGFloat = 78
-    static let trailingPad: CGFloat = 14
-    static let toolbarLeadingPad: CGFloat = 14
-    static let totalHeight: CGFloat = tabRowHeight + 1 + toolbarHeight
+    static let tabRowHeight: CGFloat = MacDesign.Size.tabStripHeight
+    static let toolbarHeight: CGFloat = MacDesign.Size.toolbarRowHeight
+    static let trafficLightWidth: CGFloat = MacDesign.Size.trafficLightWidth
+    static let trailingPad: CGFloat = MacDesign.Spacing.toolbarPadding
+    static let toolbarLeadingPad: CGFloat = MacDesign.Spacing.toolbarPadding
+    static let totalHeight: CGFloat = tabRowHeight + MacDesign.Spacing.hairline + toolbarHeight
 }
 
 struct BrowserToolbarView: View {
@@ -107,13 +107,12 @@ struct BrowserToolbarView: View {
             .ignoresSafeArea(edges: .top)
     }
 
-    // gonna need to work on the spacing here
     private var theme: BrowserTheme {
         BrowserTheme(accent: effectiveThemeColor, colorScheme: colorScheme, windowThemeColor: tabManager.windowThemeColor)
     }
 
     private var effectiveThemeColor: Color {
-        profileEnvironment.isGuestSession ? Color(hex: "7B52CC") : tabManager.windowThemeColor
+        profileEnvironment.isGuestSession ? theme.guestAccent : tabManager.windowThemeColor
     }
 
     private var topContent: some View {
@@ -127,7 +126,7 @@ struct BrowserToolbarView: View {
         .overlay(alignment: .bottom) {
             Rectangle()
                 .fill(theme.separator)
-                .frame(height: 1)
+                .frame(height: MacDesign.Spacing.hairline)
         }
     }
 
@@ -135,7 +134,7 @@ struct BrowserToolbarView: View {
         HStack(spacing: 0) {
             WindowDragArea()
                 .frame(width: tabManager.isFullScreen
-                       ? 8
+                       ? MacDesign.Spacing.control
                        : ToolbarMetrics.trafficLightWidth)
 
             TabStripContainer {
@@ -143,7 +142,7 @@ struct BrowserToolbarView: View {
             }
             .frame(maxWidth: .infinity)
             WindowDragArea()
-                .frame(width: ToolbarMetrics.trailingPad - 8)
+                .frame(width: ToolbarMetrics.trailingPad - MacDesign.Spacing.control)
         }
         .frame(height: ToolbarMetrics.tabRowHeight)
     }
@@ -151,11 +150,11 @@ struct BrowserToolbarView: View {
     private var separatorLine: some View {
         Rectangle()
             .fill(theme.separator.opacity(0.45))
-            .frame(height: 0.5)
+            .frame(height: MacDesign.Spacing.hairlineThin)
     }
 
     private var navigationRow: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: MacDesign.Spacing.control) {
             Spacer()
                 .frame(width: ToolbarMetrics.toolbarLeadingPad)
             navigationControls
@@ -176,7 +175,7 @@ struct BrowserToolbarView: View {
     }
 
     private var actionsCluster: some View {
-        HStack(spacing: 2) {
+        HStack(spacing: MacDesign.Spacing.micro) {
             ExtensionToolbarItems()
             DownloadsToolbarButton()
             profileMenu
@@ -189,7 +188,7 @@ struct BrowserToolbarView: View {
         if let activeTab = tabManager.activeTab {
             NavigationControls(tab: activeTab, themeColor: effectiveThemeColor, windowThemeColor: tabManager.windowThemeColor)
         } else {
-            HStack(spacing: 1) {
+            HStack(spacing: MacDesign.Spacing.hairline) {
                 inertNavIcon("chevron.left")
                 inertNavIcon("chevron.right")
                 inertNavIcon("arrow.clockwise")
@@ -200,8 +199,8 @@ struct BrowserToolbarView: View {
 
     private func inertNavIcon(_ name: String) -> some View {
         Image(systemName: name)
-            .font(.system(size: 12, weight: .medium))
-            .foregroundStyle(Color.textSecondary.opacity(0.28))
+            .font(.webMicroMedium)
+            .foregroundStyle(Color.textTertiary)
             .frame(width: MacDesign.Size.iconButton, height: MacDesign.Size.iconButton)
     }
 
@@ -235,16 +234,16 @@ struct BrowserToolbarView: View {
             Group {
                 if profileEnvironment.isGuestSession {
                     Image(systemName: "eyeglasses")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(Color(hex: "7B52CC"))
+                        .font(.webCaptionBold)
+                        .foregroundStyle(theme.guestAccent)
                 } else {
                     Image(systemName: profileEnvironment.profile.iconName)
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.webCaptionBold)
                         .foregroundStyle(isProfileHovered ? Color.textPrimary : Color.textSecondary)
                 }
             }
             .frame(width: MacDesign.Size.iconButton, height: MacDesign.Size.iconButton)
-            .macControlBackground(isHovered: isProfileHovered, tint: effectiveThemeColor, radius: 999)
+            .macControlBackground(isHovered: isProfileHovered, tint: effectiveThemeColor, radius: MacDesign.Radius.full)
             .contentShape(Circle())
             .animation(MacDesign.fastAnimation, value: isProfileHovered)
         }

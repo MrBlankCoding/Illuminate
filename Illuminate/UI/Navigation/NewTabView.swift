@@ -31,20 +31,20 @@ struct NewTabView: View {
         HStack(spacing: 0) {
             ZStack(alignment: .bottomTrailing) {
                 ScrollView {
-                    VStack(spacing: 48) {
-                        Spacer(minLength: 72)
+                    VStack(spacing: MacDesign.Size.toolbarRowHeight) {
+                        Spacer(minLength: MacDesign.Spacing.largeSpacer)
                         header
                         bookmarkGrid
-                        Spacer(minLength: 72)
+                        Spacer(minLength: MacDesign.Spacing.largeSpacer)
                     }
                     .frame(maxWidth: .infinity, minHeight: 480)
-                    .padding(.horizontal, 32)
+                    .padding(.horizontal, MacDesign.Spacing.pageHeaderPadding)
                 }
                 .scrollIndicators(.hidden)
 
                 customizeButton
-                    .padding(.trailing, 20)
-                    .padding(.bottom, 20)
+                    .padding(.trailing, MacDesign.Spacing.section)
+                    .padding(.bottom, MacDesign.Spacing.section)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
@@ -65,17 +65,17 @@ struct NewTabView: View {
     }
 
     private var header: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: MacDesign.Spacing.control) {
             // should change the font or remove entierly
             Text("Illuminate")
-                .font(.system(size: 40, weight: .semibold, design: .rounded))
+                .font(.webHero)
                 .tracking(1)
                 .foregroundStyle(.white)
-                .shadow(color: .black.opacity(0.32), radius: 10, y: 2)
-                .shadow(color: .black.opacity(0.18), radius: 2, y: 1)
+                .shadow(color: .black.opacity(0.32), radius: MacDesign.Spacing.medium, y: MacDesign.Spacing.micro)
+                .shadow(color: .black.opacity(0.18), radius: MacDesign.Spacing.micro, y: MacDesign.Spacing.hairline)
         }
         .opacity(hasAppeared ? 1 : 0)
-        .offset(y: hasAppeared ? 0 : 6)
+        .offset(y: hasAppeared ? 0 : MacDesign.Spacing.tight)
     }
 
     @ViewBuilder
@@ -105,7 +105,7 @@ struct NewTabView: View {
                         }
                     }
                 }
-                .frame(maxWidth: 560)
+                .frame(maxWidth: MacDesign.Size.newTabGridMax)
             }
         }
     }
@@ -117,8 +117,8 @@ struct NewTabView: View {
             }
         } label: {
             Image(systemName: isCustomizePanelShown ? "xmark" : "pencil")
-                .font(.system(size: 13, weight: .semibold))
-                .frame(width: 36, height: 36)
+                .font(.webCaptionBold)
+                .frame(width: MacDesign.Size.floatingButton, height: MacDesign.Size.floatingButton)
                 .background(
                     isCustomizePanelShown
                         ? AnyShapeStyle(tabManager.windowThemeColor.opacity(0.85))
@@ -132,19 +132,19 @@ struct NewTabView: View {
                             isCustomizePanelShown
                                 ? tabManager.windowThemeColor
                                 : Color.white.opacity(0.18),
-                            lineWidth: 0.5
+                            lineWidth: MacDesign.Spacing.hairlineThin
                         )
                 }
                 .shadow(
                     color: isCustomizePanelShown
                         ? tabManager.windowThemeColor.opacity(0.35)
                         : .black.opacity(0.25),
-                    radius: isCustomizePanelShown ? 8 : 5,
-                    y: 2
+                    radius: isCustomizePanelShown ? MacDesign.Spacing.control : MacDesign.Spacing.mini,
+                    y: MacDesign.Spacing.micro
                 )
-                
+
                 .contentShape(Circle())
-                .padding(4)
+                .padding(MacDesign.Spacing.small)
         }
         .buttonStyle(.plain)
         .accessibilityLabel(isCustomizePanelShown ? "Close customize panel" : "Customize new tab page")
@@ -195,7 +195,7 @@ struct NewTabView: View {
 private enum NewTabLayout {
     static let tileWidth: CGFloat = 88
     static let iconSize: CGFloat = 47
-    static let gridSpacing: CGFloat = 18
+    static let gridSpacing: CGFloat = MacDesign.Spacing.grid
 }
 
 private struct NewTabBookmarkCard: View {
@@ -212,19 +212,19 @@ private struct NewTabBookmarkCard: View {
     @State private var editText: String = ""
 
     var body: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: MacDesign.Spacing.control) {
             if isRenaming {
                 TextField("Edit bookmark title", text: $editText)
                     .textFieldStyle(.plain)
-                    .font(.system(size: 11, weight: .regular))
+                    .font(.webSmallRegular)
                     .foregroundStyle(.white.opacity(0.85))
-                    .padding(.horizontal, 7)
-                    .padding(.vertical, 3)
+                    .padding(.horizontal, MacDesign.Radius.small)
+                    .padding(.vertical, MacDesign.Spacing.tiny)
                     .background(
                         Capsule()
                             .fill(Color.black.opacity(0.22))
                             .overlay(
-                                Capsule().stroke(Color.white.opacity(0.08), lineWidth: 0.5)
+                                Capsule().stroke(Color.white.opacity(0.08), lineWidth: MacDesign.Spacing.hairlineThin)
                             )
                     )
                     .frame(maxWidth: NewTabLayout.tileWidth)
@@ -243,28 +243,28 @@ private struct NewTabBookmarkCard: View {
                     }
             } else {
                 Button(action: onOpen) {
-                    VStack(spacing: 8) {
+                    VStack(spacing: MacDesign.Spacing.control) {
                         faviconTile
                             .frame(width: NewTabLayout.iconSize, height: NewTabLayout.iconSize)
-                            .glassEffect(.regular.interactive(), in: .rect(cornerRadius: 14))
+                            .glassEffect(.regular.interactive(), in: .rect(cornerRadius: MacDesign.Radius.card))
                             .overlay {
-                                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                    .stroke(Color.white.opacity(0.12), lineWidth: 0.5)
+                                RoundedRectangle(cornerRadius: MacDesign.Radius.card, style: .continuous)
+                                    .stroke(Color.white.opacity(0.12), lineWidth: MacDesign.Spacing.hairlineThin)
                             }
-                            .shadow(color: .black.opacity(0.18), radius: 4, y: 2)
+                            .shadow(color: .black.opacity(0.18), radius: MacDesign.Spacing.small, y: MacDesign.Spacing.micro)
 
                         Text(displayTitle)
-                            .font(.system(size: 11, weight: .regular))
+                            .font(.webSmallRegular)
                             .foregroundStyle(.white.opacity(0.85))
                             .lineLimit(1)
                             .truncationMode(.tail)
-                            .padding(.horizontal, 7)
-                            .padding(.vertical, 3)
+                            .padding(.horizontal, MacDesign.Radius.small)
+                            .padding(.vertical, MacDesign.Spacing.tiny)
                             .background(
                                 Capsule()
                                     .fill(Color.black.opacity(0.22))
                                     .overlay(
-                                        Capsule().stroke(Color.white.opacity(0.08), lineWidth: 0.5)
+                                        Capsule().stroke(Color.white.opacity(0.08), lineWidth: MacDesign.Spacing.hairlineThin)
                                     )
                             )
                             .frame(maxWidth: NewTabLayout.tileWidth)
@@ -273,7 +273,7 @@ private struct NewTabBookmarkCard: View {
                 .buttonStyle(.plain)
                 .frame(width: NewTabLayout.tileWidth)
                 .opacity(isHovered ? 0.65 : 1)
-                .animation(.easeInOut(duration: 0.12), value: isHovered)
+                .animation(MacDesign.fastAnimation, value: isHovered)
                 .onHover { isHovered = $0 }
                 .contextMenu {
                     Button("Open") { onOpen() }
@@ -298,14 +298,14 @@ private struct NewTabBookmarkCard: View {
     @ViewBuilder
     private var faviconTile: some View {
         if let faviconImage {
-            FaviconView(image: faviconImage, size: NewTabLayout.iconSize - 12)
+            FaviconView(image: faviconImage, size: NewTabLayout.iconSize - MacDesign.Spacing.regular)
         } else {
             ZStack {
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                RoundedRectangle(cornerRadius: MacDesign.Radius.medium, style: .continuous)
                     .fill(accentColor.opacity(0.55))
-                    .frame(width: NewTabLayout.iconSize - 12, height: NewTabLayout.iconSize - 12)
+                    .frame(width: NewTabLayout.iconSize - MacDesign.Spacing.regular, height: NewTabLayout.iconSize - MacDesign.Spacing.regular)
                 Text(monogram)
-                    .font(.system(size: 18, weight: .medium, design: .rounded))
+                    .font(.webMonogram)
                     .foregroundStyle(.white.opacity(0.9))
             }
         }

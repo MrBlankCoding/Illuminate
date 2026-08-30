@@ -35,7 +35,7 @@ struct DownloadsToolbarButton: View {
             isPopoverPresented.toggle()
         } label: {
             Image(systemName: downloadManager.hasActiveDownloads ? "arrow.down.circle.fill" : "arrow.down.circle")
-                .font(.system(size: 14, weight: .semibold))
+                .font(.webBody.weight(.semibold))
                 .foregroundStyle(isPopoverPresented ? tabManager.windowThemeColor : (isHovered ? Color.textPrimary : Color.textSecondary))
                 .frame(width: MacDesign.Size.iconButton, height: MacDesign.Size.iconButton)
                 .background {
@@ -79,7 +79,7 @@ private struct DownloadsPopoverContent: View {
             // Header
             HStack {
                 Text("Downloads")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.webCaptionBold)
                     .foregroundStyle(Color.textPrimary)
 
                 Spacer()
@@ -89,21 +89,21 @@ private struct DownloadsPopoverContent: View {
                         clearFinished()
                     }
                     .buttonStyle(.plain)
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.webSmallRegular.weight(.semibold))
                     .foregroundStyle(Color.textSecondary)
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 14)
+            .padding(.horizontal, MacDesign.Spacing.roomy)
+            .padding(.vertical, MacDesign.Spacing.toolbarPadding)
 
-            CavedDivider()
+            CappedDivider()
 
             if items.isEmpty {
                 emptyState
             } else {
                 ScrollView {
-                    GlassEffectContainer(spacing: 6) {
-                        LazyVStack(spacing: 6) {
+                    GlassEffectContainer(spacing: MacDesign.Spacing.tight) {
+                        LazyVStack(spacing: MacDesign.Spacing.tight) {
                             ForEach(items) { item in
                                 DownloadEntryRow(
                                     item: item,
@@ -115,7 +115,7 @@ private struct DownloadsPopoverContent: View {
                             }
                         }
                     }
-                    .padding(12)
+                    .padding(MacDesign.Spacing.regular)
                 }
                 .frame(maxHeight: 400)
             }
@@ -132,7 +132,7 @@ private struct DownloadsPopoverContent: View {
             icon: "arrow.down.circle",
             message: "No Downloads",
             subtitle: "Files you download will appear here.",
-            verticalPadding: 32
+            verticalPadding: MacDesign.Spacing.pageHeaderPadding
         )
         .accessibilityIdentifier("browser.downloads.popover.emptyState")
     }

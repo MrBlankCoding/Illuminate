@@ -158,7 +158,7 @@ struct BrowserContentView: View {
                 }
 
                 Rectangle()
-                    .strokeBorder(theme.separator, lineWidth: 1)
+                    .strokeBorder(theme.separator, lineWidth: MacDesign.Spacing.hairline)
                     .padding(.top, -1)
                     .opacity(activeTab?.url == nil ? 0.3 : 1.0)
                     .ignoresSafeArea()
@@ -194,8 +194,8 @@ struct BrowserContentView: View {
                     HStack {
                         Spacer()
                         ZoomIndicatorView(viewModel: zoomViewModel)
-                            .padding(.top, 12)
-                            .padding(.trailing, 16)
+                            .padding(.top, MacDesign.Spacing.regular)
+                            .padding(.trailing, MacDesign.Spacing.roomy)
                     }
                     Spacer()
                 }
@@ -207,8 +207,8 @@ struct BrowserContentView: View {
                     HStack {
                         Spacer()
                         FindInPageView(viewModel: findViewModel, theme: theme)
-                            .padding(.trailing, 16)
-                            .padding(.bottom, 16)
+                            .padding(.trailing, MacDesign.Spacing.roomy)
+                            .padding(.bottom, MacDesign.Spacing.roomy)
                     }
                 }
             }

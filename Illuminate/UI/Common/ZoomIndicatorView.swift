@@ -12,7 +12,7 @@ struct ZoomIndicatorView: View {
     var viewModel: ZoomViewModel
     
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: MacDesign.Spacing.control) {
             Image(systemName: "magnifyingglass")
                 .foregroundStyle(Color.textSecondary)
             
@@ -20,14 +20,14 @@ struct ZoomIndicatorView: View {
                 tabManager.activeTab?.zoomOut()
             } label: {
                 Image(systemName: "minus")
-                    .font(.system(size: 11, weight: .bold))
+                    .font(.webSmallBold)
             }
             .labelStyle(.iconOnly)
             .buttonStyle(.plain)
             
             Button(action: { tabManager.activeTab?.resetZoom() }) {
                 Text("\(Int(round(viewModel.zoomLevel * 100)))%")
-                    .font(.system(size: 13, weight: .bold, design: .monospaced))
+                    .font(.webCaptionBold.monospacedDigit())
                     .frame(minWidth: 44)
             }
             .buttonStyle(.plain)
@@ -37,13 +37,13 @@ struct ZoomIndicatorView: View {
                 tabManager.activeTab?.zoomIn()
             } label: {
                 Image(systemName: "plus")
-                    .font(.system(size: 11, weight: .bold))
+                    .font(.webSmallBold)
             }
             .labelStyle(.iconOnly)
             .buttonStyle(.plain)
             
             Divider()
-                .frame(height: 16)
+                .frame(height: MacDesign.Spacing.roomy)
             
             Button {
                 viewModel.hide()
@@ -55,8 +55,8 @@ struct ZoomIndicatorView: View {
             .buttonStyle(.plain)
             .help("Close")
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
+        .padding(.horizontal, MacDesign.Spacing.medium)
+        .padding(.vertical, MacDesign.Spacing.control)
         .floatingGlassPanel(cornerRadius: MacDesign.Radius.control)
     }
 }

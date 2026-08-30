@@ -11,9 +11,6 @@ import UniformTypeIdentifiers
 struct NewTabCustomizePanel: View {
     @Environment(TabManager.self) private var tabManager: TabManager
     @Environment(\.colorScheme) private var colorScheme
-    @State private var showThemeEditor = false
-    private static let contentWidth: CGFloat = 228
-    private static let subtleAnimation: Animation = .easeOut(duration: 0.15)
 
     private var backgroundLabel: String {
         guard !tabManager.backgroundImageURL.isEmpty,
@@ -27,69 +24,34 @@ struct NewTabCustomizePanel: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
                 Label("Customize", systemImage: "paintbrush.pointed.fill")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.webCaptionBold)
                     .foregroundStyle(tabManager.windowThemeColor)
                 Spacer()
             }
-            .padding(.horizontal, 16)
-            .padding(.top, 20)
-            .padding(.bottom, 14)
+            .padding(.horizontal, MacDesign.Spacing.roomy)
+            .padding(.top, MacDesign.Spacing.section)
+            .padding(.bottom, MacDesign.Spacing.toolbarPadding)
 
             Divider()
                 .frame(maxWidth: .infinity)
 
             ScrollView(.vertical, showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 24) {
+                VStack(alignment: .leading, spacing: MacDesign.Spacing.page) {
                     sidebarSection(title: "Appearance") {
-                        VStack(alignment: .leading, spacing: 12) {
-                            if tabManager.backgroundImageURL.isEmpty {
-                                Button {
-                                    showThemeEditor = true
-                                } label: {
-                                    HStack(spacing: 8) {
-                                        Circle()
-                                            .fill(tabManager.windowThemeColor)
-                                            .frame(width: 28, height: 28)
-                                            .overlay {
-                                                Circle()
-                                                    .strokeBorder(Color.primary.opacity(0.12), lineWidth: 1)
-                                            }
-                                        
-                                        Text("Advanced Editor")
-                                            .font(.system(size: 12, weight: .medium))
-                                        
-                                        Spacer()
-                                        
-                                        Image(systemName: "chevron.right")
-                                            .font(.system(size: 10, weight: .bold))
-                                            .foregroundStyle(.secondary)
-                                    }
-                                    .padding(.horizontal, 10)
-                                    .padding(.vertical, 8)
-                                    .liquidGlassCapsule()
-                                }
-                                .buttonStyle(.plain)
-                                .popover(isPresented: $showThemeEditor, arrowEdge: .leading) {
-                                    ThemeEditorView(theme: Binding(get: { tabManager.theme }, set: { tabManager.theme = $0 }))
-                                        .frame(width: 378, height: 512)
-                                }
-                            } else {
-                                Text("Auto-determined from image")
-                                    .font(.system(size: 11, weight: .medium))
-                                    .foregroundStyle(.secondary)
-                                    .padding(.horizontal, 4)
-                            }
-                        }
+                        Text("Auto-determined from image")
+                                .font(.webMicroMedium)
+                                .foregroundStyle(.secondary)
+                                .padding(.horizontal, MacDesign.Spacing.small)
                     }
 
                     sidebarSection(title: "Background Image") {
-                        VStack(alignment: .leading, spacing: 12) {
-                            HStack(alignment: .top, spacing: 12) {
+                        VStack(alignment: .leading, spacing: MacDesign.Spacing.regular) {
+                            HStack(alignment: .top, spacing: MacDesign.Spacing.regular) {
                                 backgroundThumbnail
 
-                                VStack(alignment: .leading, spacing: 4) {
+                                VStack(alignment: .leading, spacing: MacDesign.Spacing.small) {
                                     Text(backgroundLabel)
-                                        .font(.system(size: 12, weight: .medium))
+                                        .font(.webMicroMedium)
                                         .lineLimit(1)
                                         .truncationMode(.middle)
 
@@ -98,7 +60,7 @@ struct NewTabCustomizePanel: View {
                                             ? "No image set"
                                             : tabManager.backgroundImageURL
                                     )
-                                    .font(.caption.monospaced())
+                                    .font(.webCaptionMonospaced)
                                     .foregroundStyle(.secondary)
                                     .lineLimit(2)
                                     .truncationMode(.middle)
@@ -106,28 +68,28 @@ struct NewTabCustomizePanel: View {
                                 .frame(maxWidth: .infinity, alignment: .leading)
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            HStack(spacing: 8) {
+                            HStack(spacing: MacDesign.Spacing.control) {
                                 Button {
                                     chooseBackgroundImage()
                                 } label: {
                                     Label("Choose…", systemImage: "folder")
-                                        .font(.caption)
-                                        .padding(.horizontal, 10)
-                                        .padding(.vertical, 5)
+                                        .font(.webMicro)
+                                        .padding(.horizontal, MacDesign.Spacing.medium)
+                                        .padding(.vertical, MacDesign.Spacing.mini)
                                         .liquidGlassCapsule()
                                 }
                                 .buttonStyle(.plain)
 
                                 if !tabManager.backgroundImageURL.isEmpty {
                                     Button {
-                                        withAnimation(Self.subtleAnimation) {
+                                        withAnimation(MacDesign.fastAnimation) {
                                             tabManager.backgroundImageURL = ""
                                         }
                                     } label: {
                                         Label("Remove", systemImage: "xmark")
-                                            .font(.caption)
-                                            .padding(.horizontal, 10)
-                                            .padding(.vertical, 5)
+                                            .font(.webMicro)
+                                            .padding(.horizontal, MacDesign.Spacing.medium)
+                                            .padding(.vertical, MacDesign.Spacing.mini)
                                             .liquidGlassCapsule(tint: .red)
                                             .foregroundStyle(.red)
                                     }
@@ -138,21 +100,21 @@ struct NewTabCustomizePanel: View {
                     }
                 }
 
-                .frame(width: Self.contentWidth, alignment: .leading)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 20)
+                .frame(width: MacDesign.Size.sidePanelContentWidth, alignment: .leading)
+                .padding(.horizontal, MacDesign.Spacing.roomy)
+                .padding(.vertical, MacDesign.Spacing.section)
             }
 
             .frame(maxWidth: .infinity)
         }
-        .frame(width: 260)
+        .frame(width: MacDesign.Size.sidePanelWidth)
         .frame(maxHeight: .infinity)
         .accessibilityIdentifier("browser.newTab.customizePanel")
         .glassEffect(.regular, in: .rect)
         .overlay(alignment: .leading) {
             Rectangle()
-                .fill(Color.primary.opacity(0.10))
-                .frame(width: 0.5)
+                .fill(Color.borderSubtle)
+                .frame(width: MacDesign.Spacing.hairlineThin)
         }
     }
 
@@ -161,9 +123,9 @@ struct NewTabCustomizePanel: View {
         title: String,
         @ViewBuilder content: () -> Content
     ) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: MacDesign.Spacing.medium) {
             Text(title.uppercased())
-                .font(.system(size: 10, weight: .semibold))
+                .font(.webSmallBold)
                 .foregroundStyle(.secondary)
                 .tracking(0.8)
 
@@ -173,25 +135,25 @@ struct NewTabCustomizePanel: View {
 
     @ViewBuilder
     private var backgroundThumbnail: some View {
-        let size: CGFloat = 52
+        let size: CGFloat = MacDesign.Size.thumbnail
         ZStack {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(.quaternary)
+            RoundedRectangle(cornerRadius: MacDesign.Radius.control, style: .continuous)
+                .fill(Color.textQuaternary)
 
             if !tabManager.backgroundImageURL.isEmpty,
                let url = URL(string: tabManager.backgroundImageURL) {
                 CachedBackgroundImageView(url: url)
-                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: MacDesign.Radius.control, style: .continuous))
             } else {
                 Image(systemName: "photo")
-                    .font(.system(size: 20))
+                    .font(.webH2)
                     .foregroundStyle(.secondary)
             }
         }
         .frame(width: size, height: size)
         .overlay {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .stroke(Color.primary.opacity(0.10), lineWidth: 0.5)
+            RoundedRectangle(cornerRadius: MacDesign.Radius.control, style: .continuous)
+                .stroke(Color.borderSubtle, lineWidth: MacDesign.Spacing.hairlineThin)
         }
     }
 

@@ -67,10 +67,7 @@ final class TabManager: NSObject, WKWebExtensionWindow {
                let json = String(data: data, encoding: .utf8) {
                 persistIfEnabled(json, forKey: "browserTheme")
             }
-            // Sync legacy properties for backward compatibility
-            if let firstColor = theme.colors.first?.color {
-                windowThemeColor = firstColor
-            }
+            
             userInterfaceStyle = theme.colorScheme.toUIStyle()
         }
     }

@@ -56,7 +56,6 @@ xcodebuild -project Illuminate.xcodeproj \
 * [ ] Expand extension support
 * [ ] Nuke for image loading
 * [ ] KeychainAccess for password management
-* [ ] Unite all of the app into using UiTheme.swift
 * [ ] Write an actual onboarding view instead of AI 
 * [ ] Haptic feedback for actions like reordering tabs
 * [ ] Build in whiteboard
@@ -64,7 +63,7 @@ xcodebuild -project Illuminate.xcodeproj \
 
 ## Known Issues
 
-* [ ] Internal links can cause the website to load wrong and URL bar doesnt update
+* [ ] Internal links can cause the website to load wrong and URL bar doesnt update -> preconnecting error?
 * [ ] Guest windows can show an infinite spinner
 * [ ] When saving PDF's the whole page is not captured
 

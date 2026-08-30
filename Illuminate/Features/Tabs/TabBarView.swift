@@ -10,10 +10,10 @@ import SwiftUI
 private enum TabBarMetrics {
     static let minTabWidth: CGFloat = 48
     static let maxTabWidth: CGFloat = 220
-    static let tabSpacing: CGFloat = 3
+    static let tabSpacing: CGFloat = MacDesign.Spacing.tiny
     static let scrollThreshold: CGFloat = 72
-    static let newTabButtonSize: CGFloat = 28
-    static let rowHeight: CGFloat = 42
+    static let newTabButtonSize: CGFloat = MacDesign.Size.iconButton
+    static let rowHeight: CGFloat = MacDesign.Size.tabStripHeight
     static let reorderSpring: Animation = .spring(response: 0.26, dampingFraction: 0.85, blendDuration: 0)
     static let swapThreshold: CGFloat = 0.6
 }
@@ -154,8 +154,8 @@ struct TabBarView: View {
                                     }
                                 }
                             )
-                            .padding(.trailing, 2)
-                            .padding(.leading, 2)
+                            .padding(.trailing, MacDesign.Spacing.micro)
+                            .padding(.leading, MacDesign.Spacing.micro)
 
                             if !group.isCollapsed {
                                 ForEach(tabIDs, id: \.self) { tabID in
@@ -163,12 +163,12 @@ struct TabBarView: View {
                                 }
                             }
                         }
-                        .padding(.bottom, 4)
+                        .padding(.bottom, MacDesign.Spacing.small)
                         .overlay(alignment: .bottom) {
-                            RoundedRectangle(cornerRadius: 1)
+                            RoundedRectangle(cornerRadius: MacDesign.Spacing.hairline)
                                 .fill(group.groupColor.color)
-                                .frame(height: 2)
-                                .padding(.horizontal, 4)
+                                .frame(height: MacDesign.Spacing.micro)
+                                .padding(.horizontal, MacDesign.Spacing.small)
                         }
                     }
 
@@ -177,8 +177,8 @@ struct TabBarView: View {
                 }
             }
         }
-        .padding(.vertical, 4)
-        .padding(.leading, 2)
+        .padding(.vertical, MacDesign.Spacing.small)
+        .padding(.leading, MacDesign.Spacing.micro)
     }
 
     @ViewBuilder
@@ -361,7 +361,7 @@ struct TabBarView: View {
             withAnimation(MacDesign.springAnimation) { _ = tabManager.createTab() }
         } label: {
             Image(systemName: "plus")
-                .font(.system(size: 12, weight: .medium))
+                .font(.webMicroMedium)
                 .foregroundStyle(isNewTabHovered ? Color.textPrimary : Color.textSecondary)
                 .frame(width: TabBarMetrics.newTabButtonSize, height: TabBarMetrics.newTabButtonSize)
                 .background {
@@ -376,6 +376,6 @@ struct TabBarView: View {
         .accessibilityLabel("New Tab")
         .accessibilityIdentifier("browser.tabbar.newTabButton")
         .padding(.leading, TabBarMetrics.tabSpacing)
-        .padding(.trailing, 8)
+        .padding(.trailing, MacDesign.Spacing.control)
     }
 }   

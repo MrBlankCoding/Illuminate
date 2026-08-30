@@ -42,7 +42,7 @@ struct URLBar: View {
             .overlay(alignment: .top) {
                 if showSuggestions {
                     suggestionsDropdown
-                        .offset(y: MacDesign.Size.urlBarHeight + 5)
+                        .offset(y: MacDesign.Size.urlBarHeight + MacDesign.Spacing.mini)
                 }
             }
         .zIndex(100)
@@ -93,7 +93,7 @@ struct URLBar: View {
     }
 
     private var barContent: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: MacDesign.Spacing.control) {
             // search icon
             Image(systemName: statusIcon)
                 .buttonStyle(.plain)
@@ -102,7 +102,7 @@ struct URLBar: View {
 
             
             TextField("Search or enter URL", text: $addressText)
-                .font(.system(size: 13, weight: .regular))
+                .font(.webCaption)
                 .textFieldStyle(.plain)
                 .foregroundStyle(Color.textPrimary)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -128,10 +128,10 @@ struct URLBar: View {
                     copyAddressToPasteboard()
                 } label: {
                     Image(systemName: didCopyURL ? "checkmark.circle.fill" : "doc.on.doc")
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.webMicroMedium)
                         .foregroundStyle(didCopyURL ? Color.green : Color.textSecondary)
-                        .frame(width: 22, height: 22)
-                        .macControlBackground(isHovered: isCopyHovered, tint: didCopyURL ? .green : themeColor, radius: 7)
+                        .frame(width: MacDesign.Size.urlBarIcon, height: MacDesign.Size.urlBarIcon)
+                        .macControlBackground(isHovered: isCopyHovered, tint: didCopyURL ? .green : themeColor, radius: MacDesign.Radius.small)
                         .animation(MacDesign.fastAnimation, value: isCopyHovered)
                 }
                 .buttonStyle(.plain)
@@ -139,10 +139,10 @@ struct URLBar: View {
                 .hoverCursor(.pointingHand)
                 .help(didCopyURL ? "Copied" : "Copy URL")
             } else {
-                Color.clear.frame(width: 22, height: 22)
+                Color.clear.frame(width: MacDesign.Size.urlBarIcon, height: MacDesign.Size.urlBarIcon)
             }
         }
-        .padding(.horizontal, 9)
+        .padding(.horizontal, MacDesign.Spacing.control + MacDesign.Spacing.hairline)
         .frame(height: MacDesign.Size.urlBarHeight)
         .frame(maxWidth: .infinity, alignment: .leading)
         .modifier(
@@ -155,12 +155,12 @@ struct URLBar: View {
         )
         .shadow(
             color: Color.black.opacity(isFocused ? 0.10 : 0.04),
-            radius: isFocused ? 12 : 6,
-            y: isFocused ? 5 : 2
+            radius: isFocused ? MacDesign.Radius.medium : MacDesign.Spacing.tight,
+            y: isFocused ? MacDesign.Spacing.mini : MacDesign.Spacing.micro
         )
         .focusRing(isFocused)
-        .font(.system(size: 13, weight: .regular))
-        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: isFocused)
+        .font(.webCaption)
+        .animation(MacDesign.springAnimation, value: isFocused)
         .hoverCursor(.iBeam)
         .onAppear {
             if addressText.isEmpty {
@@ -175,7 +175,7 @@ struct URLBar: View {
     }
 
     private var suggestionsDropdown: some View {
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: MacDesign.Spacing.micro) {
             ForEach(viewModel.illuminatePageSuggestions) { suggestion in
                 IlluminatePageSuggestionRowView(suggestion: suggestion, accentColor: themeColor) {
                     selectIlluminatePageSuggestion(suggestion)
@@ -194,7 +194,7 @@ struct URLBar: View {
                 }
             }
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, MacDesign.Spacing.small)
         .background(theme.windowBase.opacity(0.72), in: RoundedRectangle(cornerRadius: MacDesign.Radius.medium, style: .continuous))
         .floatingGlassPanel(cornerRadius: MacDesign.Radius.medium)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -277,35 +277,35 @@ private struct SuggestionRowView: View {
 
     var body: some View {
         Button(action: onSelect) {
-            HStack(spacing: 8) {
+            HStack(spacing: MacDesign.Spacing.control) {
                 AsyncImage(url: suggestion.faviconURL) { phase in
                     if case .success(let image) = phase {
                         image.resizable().scaledToFit().frame(width: 13, height: 13)
                     } else {
                         Image(systemName: "clock")
-                            .font(.system(size: 10, weight: .medium))
+                            .font(.webSmall)
                             .foregroundStyle(.secondary)
                     }
                 }
                 .frame(width: 16, height: 16)
 
                 Text(suggestion.title)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.webMicroMedium)
                     .foregroundStyle(Color.textPrimary)
                     .lineLimit(1)
 
-                Spacer(minLength: 8)
+                Spacer(minLength: MacDesign.Spacing.control)
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 5)
+            .padding(.horizontal, MacDesign.Spacing.control + 2)
+            .padding(.vertical, MacDesign.Spacing.mini)
             .background {
                 RoundedRectangle(cornerRadius: MacDesign.Radius.small, style: .continuous)
-                    .fill(isHovered ? Color.primary.opacity(0.07) : Color.clear)
+                    .fill(isHovered ? Color.suggestionRowHover : Color.clear)
             }
             .contentShape(RoundedRectangle(cornerRadius: MacDesign.Radius.small, style: .continuous))
         }
         .buttonStyle(.plain)
-        .padding(.horizontal, 4)
+        .padding(.horizontal, MacDesign.Spacing.small)
         .hoverCursor(.pointingHand)
         .onHover { hovering in
             withAnimation(MacDesign.fastAnimation) { isHovered = hovering }
@@ -322,61 +322,61 @@ private struct IlluminatePageSuggestionRowView: View {
 
     var body: some View {
         Button(action: onSelect) {
-            HStack(spacing: 8) {
+            HStack(spacing: MacDesign.Spacing.control) {
                 ZStack {
-                    RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    RoundedRectangle(cornerRadius: MacDesign.Radius.micro, style: .continuous)
                         .fill(accentColor.opacity(0.14))
                         .frame(width: 18, height: 18)
                     Image(systemName: suggestion.icon)
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.webSmallBold)
                         .foregroundStyle(accentColor)
                 }
 
-                VStack(alignment: .leading, spacing: 1) {
-                    HStack(spacing: 6) {
+                VStack(alignment: .leading, spacing: MacDesign.Spacing.hairline) {
+                    HStack(spacing: MacDesign.Spacing.tight) {
                         Text(suggestion.title)
-                            .font(.system(size: 12, weight: .medium))
+                            .font(.webMicroMedium)
                             .foregroundStyle(Color.textPrimary)
                             .lineLimit(1)
 
                         if suggestion.isCurrentlyOpenTab {
                             Text("OPEN TAB")
-                                .font(.system(size: 8, weight: .bold))
+                                .font(.webTinyBold)
                                 .foregroundStyle(accentColor)
-                                .padding(.horizontal, 4)
-                                .padding(.vertical, 1)
+                                .padding(.horizontal, MacDesign.Spacing.small)
+                                .padding(.vertical, MacDesign.Spacing.hairline)
                                 .background(accentColor.opacity(0.12), in: RoundedRectangle(cornerRadius: 3))
                         }
                     }
 
                     Text(suggestion.subtitle)
-                        .font(.system(size: 10))
+                        .font(.webSmall)
                         .foregroundStyle(Color.textSecondary)
                         .lineLimit(1)
                 }
 
-                Spacer(minLength: 8)
+                Spacer(minLength: MacDesign.Spacing.control)
 
                 if suggestion.isCurrentlyOpenTab {
                     Text("Switch to tab")
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.webMicroMedium)
                         .foregroundStyle(accentColor)
                 } else {
                     Text("Illuminate Page")
-                        .font(.system(size: 10))
-                        .foregroundStyle(Color.textSecondary.opacity(0.7))
+                        .font(.webSmall)
+                        .foregroundStyle(Color.textTertiary)
                 }
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 5)
+            .padding(.horizontal, MacDesign.Spacing.control + 2)
+            .padding(.vertical, MacDesign.Spacing.mini)
             .background {
                 RoundedRectangle(cornerRadius: MacDesign.Radius.small, style: .continuous)
-                    .fill(isHovered ? Color.primary.opacity(0.07) : Color.clear)
+                    .fill(isHovered ? Color.suggestionRowHover : Color.clear)
             }
             .contentShape(RoundedRectangle(cornerRadius: MacDesign.Radius.small, style: .continuous))
         }
         .buttonStyle(.plain)
-        .padding(.horizontal, 4)
+        .padding(.horizontal, MacDesign.Spacing.small)
         .hoverCursor(.pointingHand)
         .onHover { isHovered = $0 }
     }
@@ -391,29 +391,29 @@ private struct WebSuggestionRowView: View {
 
     var body: some View {
         Button(action: onSelect) {
-            HStack(spacing: 8) {
+            HStack(spacing: MacDesign.Spacing.control) {
                 Image(systemName: "magnifyingglass")
-                    .font(.system(size: 10, weight: .medium))
+                    .font(.webSmallBold)
                     .foregroundStyle(isHovered ? accentColor : Color.textSecondary)
                     .frame(width: 16, height: 16)
 
                 Text(text)
-                    .font(.system(size: 12))
+                    .font(.webMicro)
                     .foregroundStyle(Color.textPrimary)
                     .lineLimit(1)
 
-                Spacer(minLength: 8)
+                Spacer(minLength: MacDesign.Spacing.control)
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
+            .padding(.horizontal, MacDesign.Spacing.control + 2)
+            .padding(.vertical, MacDesign.Spacing.tight)
             .background {
                 RoundedRectangle(cornerRadius: MacDesign.Radius.small, style: .continuous)
-                    .fill(isHovered ? Color.primary.opacity(0.07) : Color.clear)
+                    .fill(isHovered ? Color.suggestionRowHover : Color.clear)
             }
             .contentShape(RoundedRectangle(cornerRadius: MacDesign.Radius.small, style: .continuous))
         }
         .buttonStyle(.plain)
-        .padding(.horizontal, 4)
+        .padding(.horizontal, MacDesign.Spacing.small)
         .hoverCursor(.pointingHand)
         .onHover { isHovered = $0 }
     }
@@ -428,14 +428,14 @@ private struct URLBarShellGlassModifier: ViewModifier {
     @ViewBuilder
     func body(content: Content) -> some View {
         content
-            .glassEffect(.regular, in: .rect(cornerRadius: 11))
+            .glassEffect(.regular, in: .rect(cornerRadius: MacDesign.Radius.urlBar))
             .background {
-                RoundedRectangle(cornerRadius: 11, style: .continuous)
+                RoundedRectangle(cornerRadius: MacDesign.Radius.urlBar, style: .continuous)
                     .fill(themeColor.opacity(isFocused ? 0.10 : 0.035))
             }
             .overlay {
-                RoundedRectangle(cornerRadius: 11, style: .continuous)
-                    .stroke(isFocused ? themeColor.opacity(0.34) : Color.primary.opacity(0.10), lineWidth: 0.5)
+                RoundedRectangle(cornerRadius: MacDesign.Radius.urlBar, style: .continuous)
+                    .stroke(isFocused ? themeColor.opacity(0.34) : Color.borderSubtle, lineWidth: MacDesign.Spacing.hairlineThin)
             }
     }
 }

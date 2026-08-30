@@ -126,13 +126,13 @@ struct DownloadEntryRow: View {
     }
 
     private var content: some View {
-        HStack(spacing: isCompact ? 10 : 14) {
+        HStack(spacing: isCompact ? MacDesign.Spacing.medium : MacDesign.Spacing.toolbarPadding) {
             fileIcon
 
-            VStack(alignment: .leading, spacing: isCompact ? 3 : 4) {
-                HStack(spacing: 8) {
+            VStack(alignment: .leading, spacing: isCompact ? MacDesign.Spacing.tiny : MacDesign.Spacing.small) {
+                HStack(spacing: MacDesign.Spacing.control) {
                     Text(item.filename)
-                        .font(.system(size: isCompact ? 12 : 14, weight: .medium))
+                        .font(isCompact ? .webMicroMedium : .webBody.weight(.medium))
                         .foregroundStyle(.primary)
                         .strikethrough(isMissingFromDisk, color: .secondary)
                         .lineLimit(1)
@@ -147,9 +147,9 @@ struct DownloadEntryRow: View {
                     removeButton
                 }
 
-                HStack(spacing: 8) {
+                HStack(spacing: MacDesign.Spacing.control) {
                     Text(subtitleText)
-                        .font(.system(size: isCompact ? 10 : 11))
+                        .font(isCompact ? .webSmall : .webSmallRegular)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                         .truncationMode(isCompact ? .tail : .middle)
@@ -173,14 +173,14 @@ struct DownloadEntryRow: View {
                     ProgressView(value: item.progress)
                         .progressViewStyle(.linear)
                         .tint(accentColor)
-                        .padding(.top, 2)
+                        .padding(.top, MacDesign.Spacing.micro)
                 }
             }
         }
-        .padding(.horizontal, isRowInteractive ? 6 : 0)
-        .padding(.vertical, isRowInteractive ? 4 : 0)
+        .padding(.horizontal, isRowInteractive ? MacDesign.Spacing.tight : 0)
+        .padding(.vertical, isRowInteractive ? MacDesign.Spacing.small : 0)
         .background(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
+            RoundedRectangle(cornerRadius: MacDesign.Radius.small, style: .continuous)
                 .fill(Color.primary.opacity(isHovering && isRowInteractive ? 0.05 : 0))
         )
         .contentShape(Rectangle())
@@ -220,7 +220,7 @@ struct DownloadEntryRow: View {
             .resizable()
             .interpolation(.high)
             .scaledToFit()
-            .frame(width: isCompact ? 28 : 36, height: isCompact ? 28 : 36)
+            .frame(width: isCompact ? MacDesign.Size.iconButton : 36, height: isCompact ? MacDesign.Size.iconButton : 36)
             .opacity(isMissingFromDisk ? 0.35 : 1)
     }
 
@@ -287,10 +287,10 @@ struct DownloadEntryRow: View {
 
     private var badgeText: some View {
         Text(badgeLabel)
-            .font(.system(size: isCompact ? 9 : 10, weight: .bold))
+            .font(isCompact ? .webTinyBold.weight(.bold) : .webSmallBold)
             .foregroundStyle(badgeTint)
-            .padding(.horizontal, isCompact ? 6 : 8)
-            .padding(.vertical, isCompact ? 3 : 4)
+            .padding(.horizontal, isCompact ? MacDesign.Spacing.tight : MacDesign.Spacing.control)
+            .padding(.vertical, isCompact ? MacDesign.Spacing.tiny : MacDesign.Spacing.small)
             .background(badgeTint.opacity(0.12))
             .clipShape(Capsule())
     }
@@ -336,7 +336,7 @@ struct DownloadEntryRow: View {
 
     private var revealHint: some View {
         Image(systemName: "chevron.right")
-            .font(.system(size: isCompact ? 9 : 10, weight: .semibold))
+            .font(isCompact ? .webTinyBold.weight(.semibold) : .webSmallBold.weight(.semibold))
             .foregroundStyle(.tertiary)
             .opacity(isHovering ? 0.9 : 0.4)
     }
@@ -346,7 +346,7 @@ struct DownloadEntryRow: View {
             removeEntry()
         } label: {
             Image(systemName: "xmark")
-                .font(.system(size: isCompact ? 9 : 10, weight: .bold))
+                .font(isCompact ? .webTinyBold.weight(.bold) : .webSmallBold.weight(.bold))
                 .foregroundStyle(.secondary)
                 .frame(width: isCompact ? 18 : 20, height: isCompact ? 18 : 20)
                 .background(Color.primary.opacity(0.06))

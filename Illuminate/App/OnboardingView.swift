@@ -105,7 +105,7 @@ struct OnboardingView: View {
             .frame(maxHeight: .infinity)
 
             progressDots
-                .padding(.bottom, 28)
+                .padding(.bottom, MacDesign.Spacing.page)
 
             Divider()
 
@@ -116,12 +116,12 @@ struct OnboardingView: View {
     }
 
     private var progressDots: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: MacDesign.Spacing.control) {
             ForEach(Self.steps) { step in
                 Capsule()
                     .fill(step.id == currentStep ? Color.accentColor : Color.secondary.opacity(0.25))
-                    .frame(width: step.id == currentStep ? 24 : 7, height: 7)
-                    .animation(.spring(response: 0.35, dampingFraction: 0.8), value: currentStep)
+                    .frame(width: step.id == currentStep ? MacDesign.Spacing.page : MacDesign.Spacing.small + MacDesign.Spacing.tiny, height: MacDesign.Spacing.mini + MacDesign.Spacing.micro)
+                    .animation(MacDesign.springAnimation, value: currentStep)
                     .onTapGesture { goTo(step.id) }
                     .accessibilityLabel("Step \(step.id + 1) of \(Self.steps.count)")
             }
@@ -153,11 +153,11 @@ struct OnboardingView: View {
             .buttonStyle(.borderedProminent)
         }
         .controlSize(.large)
-        .padding(24)
+        .padding(MacDesign.Spacing.page)
     }
 
     private func stepContent(_ step: Step) -> some View {
-        VStack(spacing: 24) {
+        VStack(spacing: MacDesign.Spacing.page) {
             ZStack {
                 Circle()
                     .fill(
@@ -175,7 +175,7 @@ struct OnboardingView: View {
             }
             .accessibilityHidden(true)
 
-            VStack(spacing: 6) {
+            VStack(spacing: MacDesign.Spacing.tight) {
                 Text(step.title)
                     .font(.title.bold())
                 Text(step.summary)
@@ -185,17 +185,17 @@ struct OnboardingView: View {
                     .frame(maxWidth: 380)
             }
 
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: MacDesign.Spacing.roomy) {
                 ForEach(step.highlights) { highlight in
-                    HStack(alignment: .top, spacing: 14) {
+                    HStack(alignment: .top, spacing: MacDesign.Spacing.toolbarPadding) {
                         Image(systemName: highlight.symbol)
                             .font(.system(size: 15, weight: .semibold))
                             .foregroundStyle(.tint)
-                            .frame(width: 28, height: 28)
-                            .background(Color.accentColor.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
+                            .frame(width: MacDesign.Size.iconButton, height: MacDesign.Size.iconButton)
+                            .background(Color.accentColor.opacity(0.12), in: RoundedRectangle(cornerRadius: MacDesign.Radius.small))
                             .accessibilityHidden(true)
 
-                        VStack(alignment: .leading, spacing: 2) {
+                        VStack(alignment: .leading, spacing: MacDesign.Spacing.micro) {
                             Text(highlight.title)
                                 .font(.headline)
                             Text(highlight.detail)
@@ -206,8 +206,8 @@ struct OnboardingView: View {
                 }
             }
             .frame(maxWidth: 420, alignment: .leading)
-            .padding(20)
-            .background(.quaternary.opacity(0.4), in: RoundedRectangle(cornerRadius: 14))
+            .padding(MacDesign.Spacing.section)
+            .background(.quaternary.opacity(0.4), in: RoundedRectangle(cornerRadius: MacDesign.Radius.card))
 
             if currentStep == Self.defaultBrowserStepID {
                 if isDefaultBrowser {
@@ -218,7 +218,7 @@ struct OnboardingView: View {
                     Button {
                         setAsDefaultBrowser()
                     } label: {
-                        HStack(spacing: 8) {
+                        HStack(spacing: MacDesign.Spacing.control) {
                             Image(systemName: "globe.badge.chevron.backward")
                             Text("Set as Default Browser")
                         }
@@ -231,7 +231,7 @@ struct OnboardingView: View {
         }
         .padding(.horizontal, 40)
         .padding(.top, 44)
-        .padding(.bottom, 8)
+        .padding(.bottom, MacDesign.Spacing.control)
     }
 
     private func goTo(_ step: Int) {

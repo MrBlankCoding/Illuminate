@@ -9,12 +9,12 @@ import SwiftUI
 
 private enum TabItemMetrics {
     static let titleThreshold: CGFloat = 72
-    static let height: CGFloat = 34
+    static let height: CGFloat = MacDesign.Size.tabHeight
     static let cornerRadius: CGFloat = MacDesign.Radius.control
     static let closeButtonSize: CGFloat = 18
-    static let hPad: CGFloat = 8
+    static let hPad: CGFloat = MacDesign.Spacing.control
     static let closeReserve: CGFloat = 22
-    static let progressHeight: CGFloat = 2
+    static let progressHeight: CGFloat = MacDesign.Spacing.micro
     static let separatorHeight: CGFloat = 12.5
 }
 
@@ -52,7 +52,7 @@ struct TabItemView: View {
         GeometryReader { geo in
             ZStack(alignment: .trailing) {
                 Button(action: onSelect) {
-                    HStack(spacing: 5) {
+                    HStack(spacing: MacDesign.Spacing.mini) {
                         faviconArea
 
                         if geo.size.width >= TabItemMetrics.titleThreshold {
@@ -80,7 +80,7 @@ struct TabItemView: View {
 
                 if showClose {
                     closeButton
-                        .padding(.trailing, 5)
+                        .padding(.trailing, MacDesign.Spacing.mini)
                         .transition(.opacity)
                         .zIndex(1)
                 }
@@ -104,7 +104,7 @@ struct TabItemView: View {
             if showsTrailingSeparator {
                 Rectangle()
                     .fill(Color.white.opacity(isActive ? 0.50 : 0.38))
-                    .frame(width: 1, height: TabItemMetrics.separatorHeight)
+                    .frame(width: MacDesign.Spacing.hairline, height: TabItemMetrics.separatorHeight)
             }
         }
         .contentShape(Rectangle())
@@ -149,15 +149,15 @@ struct TabItemView: View {
                 .resizable()
                 .aspectRatio(contentMode: .fit)
                 .frame(width: 16, height: 16)
-                .clipShape(RoundedRectangle(cornerRadius: 3, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: MacDesign.Spacing.tiny, style: .continuous))
         } else if let url = tab.url, let page = IlluminatePage(url: url) {
             Image(systemName: page.icon)
-                .font(.system(size: 11, weight: .semibold))
+                .font(.webSmallRegular)
                 .foregroundStyle(isActive ? themeColor : Color.textSecondary)
                 .frame(width: 16, height: 16)
         } else {
             Image(systemName: "globe")
-                .font(.system(size: 11, weight: .medium))
+                .font(.webSmallRegular)
                 .foregroundStyle(isActive ? themeColor : Color.textSecondary)
                 .frame(width: 16, height: 16)
         }
@@ -165,7 +165,7 @@ struct TabItemView: View {
 
     private var titleLabel: some View {
         Text(tab.title.isEmpty ? "New Tab" : tab.title)
-            .font(.system(size: 12, weight: isActive ? .medium : .regular))
+            .font(isActive ? .webMicroMedium : .webMicro)
             .foregroundStyle(isActive ? Color.textPrimary : Color.textSecondary)
             .lineLimit(1)
             .truncationMode(.tail)
@@ -186,13 +186,13 @@ struct TabItemView: View {
                     RoundedRectangle(cornerRadius: TabItemMetrics.cornerRadius, style: .continuous)
                         .stroke(
                             themeColor.opacity(colorScheme == .dark ? 0.26 : 0.20),
-                            lineWidth: 0.75
+                            lineWidth: MacDesign.Spacing.hairlineThin + 0.25
                         )
                 }
                 .shadow(
                     color: .black.opacity(colorScheme == .dark ? 0.28 : 0.10),
-                    radius: 6,
-                    y: 2
+                    radius: MacDesign.Spacing.tight,
+                    y: MacDesign.Spacing.micro
                 )
                 .matchedGeometryEffect(id: "activeTabBackground", in: namespace)
                 .transition(.opacity)
@@ -205,12 +205,12 @@ struct TabItemView: View {
                 }
                 .overlay {
                     RoundedRectangle(cornerRadius: TabItemMetrics.cornerRadius, style: .continuous)
-                        .stroke(Color.primary.opacity(0.07), lineWidth: 0.5)
+                        .stroke(Color.primary.opacity(0.07), lineWidth: MacDesign.Spacing.hairlineThin)
                 }
                 .shadow(
                     color: .black.opacity(colorScheme == .dark ? 0.14 : 0.05),
-                    radius: 3,
-                    y: 1
+                    radius: MacDesign.Spacing.tiny,
+                    y: MacDesign.Spacing.hairline
                 )
                 .transition(.opacity)
         } else {
@@ -241,8 +241,8 @@ struct TabItemView: View {
                 )
                 .animation(.easeOut(duration: 0.25), value: tab.estimatedProgress)
         }
-        .padding(.horizontal, TabItemMetrics.hPad - 2)
-        .padding(.bottom, 4)
+        .padding(.horizontal, TabItemMetrics.hPad - MacDesign.Spacing.micro)
+        .padding(.bottom, MacDesign.Spacing.small)
     }
 
     private var closeButton: some View {

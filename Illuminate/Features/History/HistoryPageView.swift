@@ -68,7 +68,7 @@ struct HistoryPageView: View {
             title: "History",
             accentColor: tabManager.windowThemeColor
         ) {
-            VStack(alignment: .leading, spacing: 20) {
+            VStack(alignment: .leading, spacing: MacDesign.Spacing.section) {
                 if !entries.isEmpty {
                     clearDataSection
                 }
@@ -121,13 +121,13 @@ struct HistoryPageView: View {
     }
 
     private var searchBar: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: MacDesign.Spacing.medium) {
             Image(systemName: "magnifyingglass")
                 .foregroundStyle(.secondary)
-                .font(.system(size: 13, weight: .medium))
+                .font(.webCaption.weight(.medium))
             TextField("Search history", text: $searchText)
                 .textFieldStyle(.plain)
-                .font(.system(size: 13))
+                .font(.webCaption)
             if !searchText.isEmpty {
                 Button {
                     searchText = ""
@@ -138,44 +138,44 @@ struct HistoryPageView: View {
                 .buttonStyle(.plain)
             }
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .padding(.horizontal, MacDesign.Spacing.toolbarPadding)
+        .padding(.vertical, MacDesign.Spacing.medium)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: MacDesign.Radius.control, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .stroke(Color.primary.opacity(0.08), lineWidth: 0.5)
+            RoundedRectangle(cornerRadius: MacDesign.Radius.control, style: .continuous)
+                .stroke(Color.primary.opacity(0.08), lineWidth: MacDesign.Spacing.hairlineThin)
         }
     }
 
     @ViewBuilder
     private func sectionView(label: String, entries: [HistoryEntry]) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: MacDesign.Spacing.tight) {
             Text(label)
-                .font(.system(size: 11, weight: .semibold))
+                .font(.webSmallRegular.weight(.semibold))
                 .foregroundStyle(.tertiary)
                 .textCase(.uppercase)
-                .padding(.horizontal, 4)
+                .padding(.horizontal, MacDesign.Spacing.small)
 
-            LazyVStack(spacing: 1) {
+            LazyVStack(spacing: MacDesign.Spacing.hairline) {
                 ForEach(entries) { entry in
                     HistoryRowView(entry: entry) { action in
                         handleRowAction(action, entry: entry)
                     }
                 }
             }
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: MacDesign.Radius.medium, style: .continuous))
         }
     }
 
     private var clearDataSection: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: MacDesign.Spacing.tight) {
             Text("Clear Browsing Data")
-                .font(.system(size: 11, weight: .semibold))
+                .font(.webSmallRegular.weight(.semibold))
                 .foregroundStyle(.tertiary)
                 .textCase(.uppercase)
-                .padding(.horizontal, 4)
+                .padding(.horizontal, MacDesign.Spacing.small)
 
-            VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: MacDesign.Spacing.toolbarPadding) {
                 Picker("Time range", selection: $clearRange) {
                     ForEach(ClearRange.allCases) { range in
                         Text(range.label).tag(range)
@@ -184,10 +184,10 @@ struct HistoryPageView: View {
                 .pickerStyle(.segmented)
 
                 Text("Removes your browsing history for the selected time period.")
-                    .font(.system(size: 12))
+                    .font(.webMicro)
                     .foregroundStyle(.secondary)
 
-                HStack(spacing: 10) {
+                HStack(spacing: MacDesign.Spacing.medium) {
                     Button("Clear Browsing Data…") {
                         showClearSheet = true
                     }
@@ -196,11 +196,11 @@ struct HistoryPageView: View {
                     Spacer()
                 }
             }
-            .padding(14)
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .padding(MacDesign.Spacing.toolbarPadding)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: MacDesign.Radius.medium, style: .continuous))
             .overlay {
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(Color.primary.opacity(0.08), lineWidth: 0.5)
+                RoundedRectangle(cornerRadius: MacDesign.Radius.medium, style: .continuous)
+                    .stroke(Color.primary.opacity(0.08), lineWidth: MacDesign.Spacing.hairlineThin)
             }
         }
     }
@@ -281,37 +281,37 @@ private struct HistoryRowView: View {
     }()
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: MacDesign.Spacing.regular) {
             faviconView
 
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: MacDesign.Spacing.micro) {
                 Text(entry.displayTitle)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.webCaption.weight(.medium))
                     .foregroundStyle(Color.textPrimary)
                     .lineLimit(1)
 
                 Text(entry.urlString)
-                    .font(.system(size: 11))
+                    .font(.webSmallRegular)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
 
             Spacer()
 
-            VStack(alignment: .trailing, spacing: 2) {
+            VStack(alignment: .trailing, spacing: MacDesign.Spacing.micro) {
                 Text(Self.timeFormatter.string(from: entry.lastVisited))
-                    .font(.system(size: 11))
+                    .font(.webSmallRegular)
                     .foregroundStyle(.tertiary)
 
                 if entry.visitCount > 1 {
                     Text("\(entry.visitCount) visits")
-                        .font(.system(size: 10))
+                        .font(.webSmall)
                         .foregroundStyle(.quaternary)
                 }
             }
 
             if isHovered {
-                HStack(spacing: 6) {
+                HStack(spacing: MacDesign.Spacing.tight) {
                     Button("Open") {
                         onAction(.open)
                     }
@@ -328,7 +328,7 @@ private struct HistoryRowView: View {
                         }
                     } label: {
                         Image(systemName: "ellipsis")
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(.webSmallRegular.weight(.semibold))
                             .frame(width: 26, height: 22)
                             .background(Color.primary.opacity(0.07), in: Capsule())
                     }
@@ -338,8 +338,8 @@ private struct HistoryRowView: View {
                 .transition(.opacity.combined(with: .scale(scale: 0.95, anchor: .trailing)))
             }
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
+        .padding(.horizontal, MacDesign.Spacing.toolbarPadding)
+        .padding(.vertical, MacDesign.Spacing.medium)
         .background(isHovered ? Color.primary.opacity(0.045) : Color.clear)
         .background(.regularMaterial)
         .contentShape(Rectangle())
@@ -362,9 +362,9 @@ private struct HistoryRowView: View {
     @ViewBuilder
     private var faviconView: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
+            RoundedRectangle(cornerRadius: MacDesign.Radius.small, style: .continuous)
                 .fill(tabManager.windowThemeColor.opacity(0.12))
-                .frame(width: 32, height: 32)
+                .frame(width: MacDesign.Size.largeIconButton, height: MacDesign.Size.largeIconButton)
 
             if let faviconURL = entry.faviconURL,
                faviconURL.scheme == "https" || faviconURL.scheme == "http" {
@@ -387,7 +387,7 @@ private struct HistoryRowView: View {
 
     private var fallbackFaviconIcon: some View {
         Image(systemName: "globe")
-            .font(.system(size: 14, weight: .medium))
+            .font(.webBody.weight(.medium))
             .foregroundStyle(tabManager.windowThemeColor.opacity(0.7))
     }
 }

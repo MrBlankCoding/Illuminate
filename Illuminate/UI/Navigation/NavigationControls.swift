@@ -20,7 +20,7 @@ struct NavigationControls: View {
     }
 
     var body: some View {
-        HStack(spacing: 1) {
+        HStack(spacing: MacDesign.Spacing.hairline) {
             navButton(systemName: "chevron.left", identifier: "browser.navigation.backButton", isEnabled: tab.canGoBack, help: "Go Back", accessibilityLabel: "Back") {
                 tab.webView?.goBack()
             }
@@ -76,10 +76,10 @@ private struct NavigationControlButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: systemName)
-                .font(.system(size: 12, weight: .medium))
+                .font(.webMicroMedium)
                 .foregroundStyle(symbolColor)
                 .frame(width: MacDesign.Size.iconButton, height: MacDesign.Size.iconButton)
-                .macControlBackground(isHovered: isEnabled && isHovered && !isGreyedOut, tint: theme.accent, radius: 999)
+                .macControlBackground(isHovered: isEnabled && isHovered && !isGreyedOut, tint: theme.accent, radius: MacDesign.Radius.full)
                 .contentShape(Circle())
                 .animation(MacDesign.fastAnimation, value: isHovered)
         }
@@ -96,32 +96,11 @@ private struct NavigationControlButton: View {
 
     private var symbolColor: Color {
         guard isEnabled else {
-            return Color.textSecondary.opacity(0.28)
+            return Color.textTertiary
         }
         if isGreyedOut {
-            return Color.textSecondary.opacity(0.42)
+            return Color.textTertiary.opacity(0.42)
         }
         return isHovered ? Color.textPrimary : Color.textSecondary
-    }
-}
-
-struct NavClusterBackgroundModifier: ViewModifier {
-    func body(content: Content) -> some View {
-        content
-            .padding(3)
-            .background {
-                Capsule()
-                    .fill(Color.primary.opacity(0.035))
-            }
-            .overlay {
-                Capsule()
-                    .stroke(Color.primary.opacity(0.07), lineWidth: 0.5)
-            }
-    }
-}
-
-extension View {
-    func navClusterBackground() -> some View {
-        modifier(NavClusterBackgroundModifier())
     }
 }

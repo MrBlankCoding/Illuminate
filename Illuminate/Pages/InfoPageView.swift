@@ -36,7 +36,7 @@ struct InfoPageView: View {
             title: "Browser Info & Diagnostics",
             accentColor: tabManager.windowThemeColor
         ) {
-            VStack(alignment: .leading, spacing: 24) {
+            VStack(alignment: .leading, spacing: MacDesign.Spacing.page) {
                 actionsHeaderSection
                 userAgentSection
                 profileAndSessionSection
@@ -52,12 +52,12 @@ struct InfoPageView: View {
 
     private var actionsHeaderSection: some View {
         InternalPageRow {
-            HStack(spacing: 12) {
-                VStack(alignment: .leading, spacing: 3) {
+            HStack(spacing: MacDesign.Spacing.regular) {
+                VStack(alignment: .leading, spacing: MacDesign.Spacing.tiny) {
                     Text("Diagnostics & Debugging")
-                        .font(.system(size: 14, weight: .medium))
+                        .font(.webBody.weight(.medium))
                     Text("Inspect internal state, copy configuration report, or manage diagnostic caches.")
-                        .font(.system(size: 12))
+                        .font(.webMicro)
                         .foregroundStyle(.secondary)
                 }
 
@@ -81,14 +81,14 @@ struct InfoPageView: View {
     }
 
     private var userAgentSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: MacDesign.Spacing.control) {
             InternalPageSectionHeader(title: "User Agent & Web Engine")
 
             InternalPageRow {
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: MacDesign.Spacing.control) {
                     HStack {
                         Text("User Agent String")
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(.webCaptionBold)
                         Spacer()
                         Button {
                             copyToPasteboard(userAgent)
@@ -106,14 +106,14 @@ struct InfoPageView: View {
                         .font(.system(size: 11, design: .monospaced))
                         .foregroundStyle(.secondary)
                         .textSelection(.enabled)
-                        .padding(10)
+                        .padding(MacDesign.Spacing.medium)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: MacDesign.Radius.control, style: .continuous))
                 }
             }
 
             InternalPageRow {
-                VStack(spacing: 8) {
+                VStack(spacing: MacDesign.Spacing.control) {
                     infoKeyValueRow(title: "Website Data Store", value: environment.isGuestSession ? "Non-Persistent (In-Memory / Private)" : "Persistent (\(environment.profile.name))")
                     Divider()
                     infoKeyValueRow(title: "Cookies Enabled", value: environment.webKitManager.cookiesEnabled ? "Yes" : "No")
@@ -130,11 +130,11 @@ struct InfoPageView: View {
     }
 
     private var profileAndSessionSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: MacDesign.Spacing.control) {
             InternalPageSectionHeader(title: "Profile & Session")
 
             InternalPageRow {
-                VStack(spacing: 8) {
+                VStack(spacing: MacDesign.Spacing.control) {
                     infoKeyValueRow(title: "Profile Name", value: environment.profile.name)
                     Divider()
                     infoKeyValueRow(title: "Profile Identifier", value: environment.profile.id.uuidString)
@@ -152,11 +152,11 @@ struct InfoPageView: View {
     }
 
     private var tabsAndWindowStateSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: MacDesign.Spacing.control) {
             InternalPageSectionHeader(title: "Tabs & Navigation State")
 
             InternalPageRow {
-                VStack(spacing: 8) {
+                VStack(spacing: MacDesign.Spacing.control) {
                     infoKeyValueRow(title: "Open Tabs", value: "\(tabManager.tabs.count) tab\(tabManager.tabs.count == 1 ? "" : "s")")
                     Divider()
                     infoKeyValueRow(title: "Active Tab Title", value: tabManager.activeTab?.title.isEmpty == false ? tabManager.activeTab!.title : "Untitled")
@@ -177,11 +177,11 @@ struct InfoPageView: View {
     }
 
     private var protectionServicesSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: MacDesign.Spacing.control) {
             InternalPageSectionHeader(title: "Protection Services")
 
             InternalPageRow {
-                VStack(spacing: 8) {
+                VStack(spacing: MacDesign.Spacing.control) {
                     let blockedTrackers = environment.trackerBlockingService.domainStats.filter(\.isBlocked).count
                     let totalTrackers = environment.trackerBlockingService.domainStats.count
                     infoKeyValueRow(
@@ -206,11 +206,11 @@ struct InfoPageView: View {
     }
 
     private var systemDiagnosticsSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: MacDesign.Spacing.control) {
             InternalPageSectionHeader(title: "System & Process Information")
 
             InternalPageRow {
-                VStack(spacing: 8) {
+                VStack(spacing: MacDesign.Spacing.control) {
                     let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
                     let appBuild = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
                     infoKeyValueRow(title: "Illuminate Version", value: "\(appVersion) (\(appBuild))")
@@ -234,16 +234,16 @@ struct InfoPageView: View {
     private func infoKeyValueRow(title: String, value: String) -> some View {
         HStack(alignment: .top) {
             Text(title)
-                .font(.system(size: 13, weight: .medium))
+                .font(.webCaption.weight(.medium))
                 .foregroundStyle(Color.textPrimary)
-            Spacer(minLength: 16)
+            Spacer(minLength: MacDesign.Spacing.roomy)
             Text(value)
-                .font(.system(size: 13))
+                .font(.webCaption)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.trailing)
                 .textSelection(.enabled)
         }
-        .padding(.vertical, 2)
+        .padding(.vertical, MacDesign.Spacing.micro)
     }
 
     private func formattedUptime(_ seconds: TimeInterval) -> String {

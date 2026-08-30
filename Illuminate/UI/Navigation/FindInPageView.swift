@@ -15,7 +15,7 @@ struct FindInPageView: View {
 
     var body: some View {
         @Bindable var viewModel = viewModel
-        HStack(spacing: 8) {
+        HStack(spacing: MacDesign.Spacing.control) {
             Image(systemName: "magnifyingglass")
                 .foregroundStyle(Color.textSecondary)
 
@@ -31,13 +31,13 @@ struct FindInPageView: View {
                     .font(.webMicro)
                     .monospacedDigit()
                     .foregroundStyle(viewModel.matchFound ? theme.accent : .red)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 2)
+                    .padding(.horizontal, MacDesign.Spacing.control)
+                    .padding(.vertical, MacDesign.Spacing.micro)
                     .liquidGlassCapsule(tint: viewModel.matchFound ? theme.accent : .red)
             }
 
             Divider()
-                .frame(height: 16)
+                .frame(height: MacDesign.Spacing.roomy)
 
             Group {
                 Button {
@@ -70,8 +70,8 @@ struct FindInPageView: View {
             .buttonStyle(.plain)
             .help("Close search")
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
+        .padding(.horizontal, MacDesign.Spacing.medium)
+        .padding(.vertical, MacDesign.Spacing.control)
         .floatingGlassPanel(cornerRadius: MacDesign.Radius.control)
         .onAppear {
             isSearchFocused = true

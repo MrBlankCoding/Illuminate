@@ -19,11 +19,11 @@ struct ExtensionToolbarItems: View {
     }
 
     var body: some View {
-        HStack(spacing: 2) {
+        HStack(spacing: MacDesign.Spacing.micro) {
             if profileEnvironment.extensionManager.isLoadingExtensions {
                 ProgressView()
                     .controlSize(.small)
-                    .frame(width: 16, height: 16)
+                    .frame(width: MacDesign.Spacing.roomy, height: MacDesign.Spacing.roomy)
                     .transition(.opacity)
             } else {
                 ForEach(filteredExtensions, id: \.self) { context in
@@ -32,9 +32,9 @@ struct ExtensionToolbarItems: View {
                 }
             }
         }
-        .animation(.spring(response: 0.28, dampingFraction: 0.75),
+        .animation(MacDesign.springAnimation,
                    value: filteredExtensions.map(\.uniqueIdentifier))
-        .animation(.easeInOut(duration: 0.15),
+        .animation(MacDesign.fastAnimation,
                    value: profileEnvironment.extensionManager.isLoadingExtensions)
     }
 }
@@ -65,7 +65,7 @@ struct ExtensionToolbarItemView: View {
             .onHover { isHovered = $0 }
             .help(context.webExtension.displayName ?? "Extension")
         }
-        .frame(width: 28, height: 28)
+        .frame(width: MacDesign.Size.iconButton, height: MacDesign.Size.iconButton)
         .onAppear(perform: updateActionState)
         .onReceive(profileEnvironment.extensionManager.actionChanges) { updatedContext, updatedTab in
             guard updatedContext === context else { return }
@@ -78,7 +78,7 @@ struct ExtensionToolbarItemView: View {
     private func handleTap(buttonFrame: CGRect) {
         let action = context.action(for: tabManager.activeTab)
         if isShowingPopup {
-            withAnimation(.spring(response: 0.2, dampingFraction: 0.8)) {
+            withAnimation(MacDesign.popupAnimation) {
                 popupCoordinator.close()
                 action?.closePopup()
             }
@@ -89,7 +89,7 @@ struct ExtensionToolbarItemView: View {
             context.performAction(for: tabManager.activeTab)
             return
         }
-        withAnimation(.spring(response: 0.2, dampingFraction: 0.8)) {
+        withAnimation(MacDesign.popupAnimation) {
             popupCoordinator.open(.init(
                 popupWebView: popupWebView,
                 extensionName: context.webExtension.displayName,
@@ -106,36 +106,36 @@ struct ExtensionToolbarItemView: View {
                         .resizable()
                         .interpolation(.high)
                         .antialiased(true)
-                        .frame(width: 16, height: 16)
+                        .frame(width: MacDesign.Spacing.roomy, height: MacDesign.Spacing.roomy)
                 } else {
                     Image(systemName: "puzzlepiece.fill")
-                        .font(.system(size: 13))
-                        .foregroundStyle(isHovered ? Color.primary : Color.secondary)
+                        .font(.webCaption)
+                        .foregroundStyle(isHovered ? Color.textPrimary : Color.textSecondary)
                 }
             }
             if let badge = badgeText, !badge.isEmpty {
                 badgeView(badge)
             }
         }
-        .frame(width: 28, height: 28)
+        .frame(width: MacDesign.Size.iconButton, height: MacDesign.Size.iconButton)
         .background(
-            RoundedRectangle(cornerRadius: 6, style: .continuous)
-                .fill(isHovered || isShowingPopup ? Color.secondary.opacity(0.18) : Color.clear)
+            RoundedRectangle(cornerRadius: MacDesign.Radius.groupHeader, style: .continuous)
+                .fill(isHovered || isShowingPopup ? Color.textSecondary.opacity(0.18) : Color.clear)
         )
-        .animation(.easeInOut(duration: 0.1), value: isHovered)
-        .animation(.easeInOut(duration: 0.1), value: isShowingPopup)
+        .animation(MacDesign.fastAnimation, value: isHovered)
+        .animation(MacDesign.fastAnimation, value: isShowingPopup)
         .contentShape(Rectangle())
     }
 
     private func badgeView(_ text: String) -> some View {
         Text(text.count > 3 ? "…" : text)
-            .font(.system(size: 7.5, weight: .bold, design: .rounded))
+            .font(.webBadge)
             .lineLimit(1)
-            .padding(.horizontal, 3)
+            .padding(.horizontal, MacDesign.Spacing.tiny)
             .padding(.vertical, 1.5)
             .background(Capsule().fill(Color.red))
             .foregroundColor(.white)
-            .offset(x: 5, y: 5)
+            .offset(x: MacDesign.Spacing.mini, y: MacDesign.Spacing.mini)
     }
 
     private func updateActionState() {
@@ -154,10 +154,10 @@ struct ExtensionPopupPanel: View {
 
     @State private var contentSize: CGSize = CGSize(width: 320, height: 400)
 
-    private let headerHeight: CGFloat = 32
-    private let cornerRadius: CGFloat = 12
-    private let panelMargin: CGFloat  = 6
-    private let edgePad: CGFloat      = 8
+    private let headerHeight: CGFloat = MacDesign.Size.largeIconButton
+    private let cornerRadius: CGFloat = MacDesign.Radius.medium
+    private let panelMargin: CGFloat  = MacDesign.Spacing.tight
+    private let edgePad: CGFloat      = MacDesign.Spacing.control
 
     private var panelWidth:  CGFloat { contentSize.width }
     private var panelHeight: CGFloat { contentSize.height + headerHeight }
@@ -172,32 +172,32 @@ struct ExtensionPopupPanel: View {
             Spacer().frame(width: panelLeading)
 
             VStack(spacing: 0) {
-                HStack(spacing: 6) {
+                HStack(spacing: MacDesign.Spacing.tight) {
                     Image(systemName: "puzzlepiece.fill")
-                        .font(.system(size: 10))
+                        .font(.webSmall)
                         .foregroundStyle(.tertiary)
                     if let name = payload.extensionName {
                         Text(name)
-                            .font(.system(size: 11, weight: .medium))
+                            .font(.webSmallRegularMedium)
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
                     }
                     Spacer(minLength: 0)
                     Button {
-                        withAnimation(.spring(response: 0.2, dampingFraction: 0.8)) {
+                        withAnimation(MacDesign.popupAnimation) {
                             popupCoordinator.close()
                         }
                     } label: {
                         Image(systemName: "xmark")
-                            .font(.system(size: 9, weight: .bold))
+                            .font(.webTinyBold)
                             .foregroundStyle(.secondary)
-                            .frame(width: 16, height: 16)
-                            .background(Circle().fill(Color.secondary.opacity(0.12)))
+                            .frame(width: MacDesign.Spacing.roomy, height: MacDesign.Spacing.roomy)
+                            .background(Circle().fill(Color.textSecondary.opacity(0.12)))
                     }
                     .buttonStyle(.plain)
                     .help("Close")
                 }
-                .padding(.horizontal, 10)
+                .padding(.horizontal, MacDesign.Spacing.medium)
                 .frame(height: headerHeight)
 
                 Divider().opacity(0.4)
@@ -207,7 +207,7 @@ struct ExtensionPopupPanel: View {
                     tabManager: tabManager,
                     contentSize: $contentSize,
                     onDismiss: {
-                        withAnimation(.spring(response: 0.2, dampingFraction: 0.8)) {
+                        withAnimation(MacDesign.popupAnimation) {
                             popupCoordinator.close()
                         }
                     }
@@ -220,18 +220,18 @@ struct ExtensionPopupPanel: View {
                     .fill(.regularMaterial)
                     .overlay {
                         RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                            .strokeBorder(Color.primary.opacity(0.1), lineWidth: 0.5)
+                            .strokeBorder(Color.borderSubtle, lineWidth: 0.5)
                     }
             }
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-            .shadow(color: .black.opacity(0.18), radius: 20, x: 0, y: 6)
+            .shadow(color: .black.opacity(0.18), radius: 20, x: 0, y: MacDesign.Spacing.tight)
             .padding(.top, panelMargin)
 
             Spacer()
         }
         .frame(maxWidth: .infinity)
         .onKeyPress(.escape) {
-            withAnimation(.spring(response: 0.2, dampingFraction: 0.8)) {
+            withAnimation(MacDesign.popupAnimation) {
                 popupCoordinator.close()
             }
             return .handled

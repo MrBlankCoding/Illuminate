@@ -15,27 +15,27 @@ struct InternalPage<Content: View>: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 28) {
-                HStack(spacing: 14) {
+            VStack(alignment: .leading, spacing: MacDesign.Spacing.pageHeaderPadding) {
+                HStack(spacing: MacDesign.Spacing.toolbarPadding) {
                     ZStack {
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        RoundedRectangle(cornerRadius: MacDesign.Radius.medium, style: .continuous)
                             .fill(accentColor.opacity(0.18))
-                            .frame(width: 48, height: 48)
+                            .frame(width: MacDesign.Size.toolbarRowHeight, height: MacDesign.Size.toolbarRowHeight)
                         Image(systemName: icon)
-                            .font(.system(size: 22, weight: .semibold))
+                            .font(.webInternalPageIcon)
                             .foregroundStyle(accentColor)
                     }
 
                     Text(title)
-                        .font(.system(size: 26, weight: .bold, design: .rounded))
+                        .font(.webInternalPageTitle)
                         .foregroundStyle(Color.textPrimary)
                         .accessibilityIdentifier("browser.internalPage.\(title.lowercased())")
                 }
 
                 content()
             }
-            .padding(32)
-            .frame(maxWidth: 680, alignment: .leading)
+            .padding(MacDesign.Spacing.pageHeaderPadding)
+            .frame(maxWidth: MacDesign.Size.internalPageMax, alignment: .leading)
             .frame(maxWidth: .infinity, alignment: .center)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -47,10 +47,10 @@ struct InternalPageRow<Content: View>: View {
 
     var body: some View {
         content()
-            .padding(.horizontal, 16)
-            .padding(.vertical, 14)
+            .padding(.horizontal, MacDesign.Spacing.roomy)
+            .padding(.vertical, MacDesign.Spacing.toolbarPadding)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: MacDesign.Radius.medium, style: .continuous))
     }
 }
 
@@ -59,13 +59,13 @@ struct InternalPageChipButtonStyle: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.system(size: 12, weight: .semibold))
+            .font(.webMicroMedium.weight(.semibold))
             .foregroundStyle(color)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
+            .padding(.horizontal, MacDesign.Spacing.regular)
+            .padding(.vertical, MacDesign.Spacing.tight)
             .background(color.opacity(configuration.isPressed ? 0.22 : 0.12),
                         in: Capsule())
-            .animation(.easeInOut(duration: 0.1), value: configuration.isPressed)
+            .animation(MacDesign.fastAnimation, value: configuration.isPressed)
     }
 }
 
@@ -73,20 +73,20 @@ struct InternalPageEmptyState: View {
     let icon: String
     let message: String
     var subtitle: String? = nil
-    var verticalPadding: CGFloat = 48
+    var verticalPadding: CGFloat = MacDesign.Size.toolbarRowHeight
 
     var body: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: MacDesign.Spacing.regular) {
             Image(systemName: icon)
                 .font(.system(size: 32, weight: .light))
                 .foregroundStyle(.tertiary)
             Text(message)
-                .font(.system(size: 14))
+                .font(.webBody)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
             if let subtitle {
                 Text(subtitle)
-                    .font(.system(size: 12))
+                    .font(.webMicro)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
             }
@@ -101,9 +101,9 @@ struct InternalPageSectionHeader: View {
 
     var body: some View {
         Text(title)
-            .font(.system(size: 13, weight: .semibold))
+            .font(.webCaptionBold)
             .foregroundStyle(.secondary)
             .textCase(.uppercase)
-            .tracking(0.5)
+            .tracking(MacDesign.Spacing.hairlineThin)
     }
 }

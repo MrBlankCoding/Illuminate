@@ -98,14 +98,18 @@ extension TabManager {
                 withAnimation(.easeInOut(duration: 0.35)) {
                     self.backgroundImagePalette = palette
                     if applyTheme, let first = palette.first {
-                        self.windowThemeColor = first
-                        
+                        let hsl = first.resolvedHSL
+                        // Slightly darker logic: reduce lightness by 12%
+                        let darkerL = max(0, hsl.l - 0.12)
+                        let darkerColor = Color(hslHue: hsl.h, saturation: hsl.s, lightness: darkerL)
+
+                        self.windowThemeColor = darkerColor
+
                         // Update the advanced theme model as well
                         if let firstIdx = self.theme.colors.indices.first {
-                            let hsl = first.resolvedHSL
                             self.theme.colors[firstIdx].hue = hsl.h
                             self.theme.colors[firstIdx].saturation = hsl.s
-                            self.theme.colors[firstIdx].lightness = hsl.l
+                            self.theme.colors[firstIdx].lightness = darkerL
                             self.theme.colors[firstIdx].position = ThemeColorMath.colorToPoint(hue: hsl.h, saturation: hsl.s)
                         }
                     }
