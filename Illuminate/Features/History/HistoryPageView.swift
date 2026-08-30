@@ -367,18 +367,9 @@ private struct HistoryRowView: View {
                 .frame(width: MacDesign.Size.largeIconButton, height: MacDesign.Size.largeIconButton)
 
             if let faviconURL = entry.faviconURL,
-               faviconURL.scheme == "https" || faviconURL.scheme == "http" {
-                AsyncImage(url: faviconURL) { phase in
-                    switch phase {
-                    case .success(let image):
-                        image
-                            .resizable()
-                            .scaledToFit()
-                            .frame(width: 18, height: 18)
-                    default:
-                        fallbackFaviconIcon
-                    }
-                }
+               faviconURL.scheme == "https" || faviconURL.scheme == "http" || faviconURL.scheme == "data" {
+                NukeFaviconView(url: faviconURL, size: 18)
+                    .frame(width: 18, height: 18)
             } else {
                 fallbackFaviconIcon
             }

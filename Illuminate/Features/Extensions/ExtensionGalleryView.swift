@@ -259,24 +259,13 @@ struct ExtensionGalleryCard: View {
     }
 
     private var iconView: some View {
-        AsyncImage(url: item.iconURL) { phase in
-            switch phase {
-            case .success(let image):
-                image.resizable()
-                    .interpolation(.high)
-                    .antialiased(true)
-                    .aspectRatio(contentMode: .fit)
-                    .transition(.opacity.animation(.easeIn(duration: 0.2)))
-            case .failure:
-                iconFallback
-            case .empty:
-                ProgressView()
-                    .controlSize(.small)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            @unknown default:
-                iconFallback
-            }
-        }
+        NukeImageView(
+            url: item.iconURL,
+            placeholder: {
+                ProgressView().controlSize(.small).frame(maxWidth: .infinity, maxHeight: .infinity)
+            },
+            failureView: { iconFallback }
+        )
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         .background(
             RoundedRectangle(cornerRadius: 12, style: .continuous)

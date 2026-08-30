@@ -54,12 +54,10 @@ xcodebuild -project Illuminate.xcodeproj \
 * [ ] Increase test coverage beyond 75%
 * [ ] Performance optimizations
 * [ ] Expand extension support
-* [ ] Nuke for image loading
 * [ ] KeychainAccess for password management
 * [ ] Write an actual onboarding view instead of AI 
 * [ ] Haptic feedback for actions like reordering tabs
 * [ ] Build in whiteboard
-* [ ] Build theme picker similar to act (1/3 done)
 
 ## Known Issues
 

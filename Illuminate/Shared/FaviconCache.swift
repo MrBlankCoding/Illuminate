@@ -8,6 +8,7 @@
 
 import AppKit
 import Foundation
+import Nuke
 
 final class FaviconCache: @unchecked Sendable {
     private enum FaviconFetchError: LocalizedError {
@@ -83,6 +84,11 @@ final class FaviconCache: @unchecked Sendable {
 
                 switch url.scheme?.lowercased() {
                 case "http", "https":
+                    if let nukeImage = try? await BrowserImageLoader.shared.loadImage(from: url) {
+                        if let png = await MainActor.run { nukeImage.pngData() } {
+                            return png
+                        }
+                    }
                     let (data, _) = try await Task.detached(priority: .utility) {
                         try await URLSession.shared.data(from: url)
                     }.value

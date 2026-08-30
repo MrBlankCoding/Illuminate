@@ -43,6 +43,5 @@ struct UiThemeTests {
         _ = Text("content").macControlBackground(isActive: true, isHovered: true, tint: .blue)
         _ = Text("content").focusRing(true)
         _ = CavedDivider().body
-        _ = AngularGradient.colorfulAngularGradient
     }
 }

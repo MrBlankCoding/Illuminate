@@ -9,6 +9,8 @@
 /* Begin PBXBuildFile section */
 		F76B1F872F5E21580043FEAE /* SwiftData.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F76B1F852F5E213A0043FEAE /* SwiftData.framework */; };
 		F76B1F8A2F5E21590043FEAE /* WebKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F76B1F832F5E21300043FEAE /* WebKit.framework */; };
+		F7B8307C3044D59B00AC1471 /* Nuke in Frameworks */ = {isa = PBXBuildFile; productRef = F7B000022F5E99010043FEAE /* Nuke */; };
+		F7B8307D3044D59B00AC1471 /* Nuke in Frameworks */ = {isa = PBXBuildFile; productRef = F7B000022F5E99010043FEAE /* Nuke */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -59,6 +61,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F7B8307C3044D59B00AC1471 /* Nuke in Frameworks */,
 				F76B1F8A2F5E21590043FEAE /* WebKit.framework in Frameworks */,
 				F76B1F872F5E21580043FEAE /* SwiftData.framework in Frameworks */,
 			);
@@ -68,6 +71,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F7B8307D3044D59B00AC1471 /* Nuke in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -139,6 +143,7 @@
 			);
 			name = Illuminate;
 			packageProductDependencies = (
+				F7B000022F5E99010043FEAE /* Nuke */,
 			);
 			productName = Illuminate;
 			productReference = F76B1DFC2F5E1A520043FEAE /* Illuminate.app */;
@@ -162,6 +167,7 @@
 			);
 			name = IlluminateTests;
 			packageProductDependencies = (
+				F7B000022F5E99010043FEAE /* Nuke */,
 			);
 			productName = IlluminateTests;
 			productReference = F76B1E0B2F5E1A550043FEAE /* IlluminateTests.xctest */;
@@ -222,6 +228,9 @@
 			);
 			mainGroup = F76B1DF32F5E1A520043FEAE;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				F7B000012F5E99000043FEAE /* XCRemoteSwiftPackageReference "Nuke" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = F76B1DFD2F5E1A520043FEAE /* Products */;
 			projectDirPath = "";
@@ -642,6 +651,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		F7B000012F5E99000043FEAE /* XCRemoteSwiftPackageReference "Nuke" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/kean/Nuke";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 12.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		F7B000022F5E99010043FEAE /* Nuke */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = F7B000012F5E99000043FEAE /* XCRemoteSwiftPackageReference "Nuke" */;
+			productName = Nuke;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = F76B1DF42F5E1A520043FEAE /* Project object */;
 }

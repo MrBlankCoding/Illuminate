@@ -530,14 +530,3 @@ extension Color {
         self.init(hue: hslHue, saturation: s, brightness: b)
     }
 }
-
-extension AngularGradient {
-    static var colorfulAngularGradient: AngularGradient {
-        AngularGradient(
-            gradient: Gradient(colors: stride(from: 0, through: 360, by: 60).map {
-                Color(hue: Double($0) / 360, saturation: 1, brightness: 1)
-            }),
-            center: .center
-        )
-    }
-}

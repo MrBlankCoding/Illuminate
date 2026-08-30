@@ -333,7 +333,12 @@ private struct NewTabBookmarkCard: View {
         components.path = "/favicon.ico"
         guard let faviconURL = components.url else { return }
 
-        faviconImage = await FaviconCache.shared.fetchImage(for: faviconURL)
+        // Uses Nuke pipeline via FaviconLoader; falls back to legacy cache on failure.
+        if let image = await FaviconLoader.shared.loadFavicon(from: faviconURL) {
+            faviconImage = image
+        } else {
+            faviconImage = await FaviconCache.shared.fetchImage(for: faviconURL)
+        }
     }
 
 }

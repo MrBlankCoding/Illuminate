@@ -278,16 +278,12 @@ private struct SuggestionRowView: View {
     var body: some View {
         Button(action: onSelect) {
             HStack(spacing: MacDesign.Spacing.control) {
-                AsyncImage(url: suggestion.faviconURL) { phase in
-                    if case .success(let image) = phase {
-                        image.resizable().scaledToFit().frame(width: 13, height: 13)
-                    } else {
-                        Image(systemName: "clock")
-                            .font(.webSmall)
-                            .foregroundStyle(.secondary)
+                NukeFaviconView(url: suggestion.faviconURL, size: 13)
+                    .frame(width: 16, height: 16)
+                    .overlay {
+                        // Fallback clock if favicon never loads is handled inside NukeFaviconView (globe).
+                        // Keep visual size consistent with previous AsyncImage success case.
                     }
-                }
-                .frame(width: 16, height: 16)
 
                 Text(suggestion.title)
                     .font(.webMicroMedium)

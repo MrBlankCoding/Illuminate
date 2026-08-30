@@ -569,6 +569,11 @@ extension WebViewRepresentable {
 
         func loadFavicon(from url: URL, for tab: Tab) async {
             guard tab.favicon == nil else { return }
+            // Prefer the dedicated FaviconLoader (Nuke pipeline) with fallback to legacy cache.
+            if let image = await FaviconLoader.shared.loadFavicon(from: url) {
+                await MainActor.run { tab.favicon = image }
+                return
+            }
             if let image = await faviconCache.fetchImage(for: url) {
                 await MainActor.run { tab.favicon = image }
             }

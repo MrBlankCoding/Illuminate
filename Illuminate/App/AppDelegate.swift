@@ -34,6 +34,7 @@ final class DockMenuWindowRouter {
 
 class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
+        _ = BrowserImagePipeline.shared
         observeExtensionWindowRequests()
         prewarmSessionStateFiles()
 
