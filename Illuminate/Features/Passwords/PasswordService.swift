@@ -5,21 +5,21 @@
 //  Created by MrBlankCoding on 3/9/26.
 //
 
-import Combine
 import Foundation
 import SwiftData
 import SwiftUI
+import Observation
 
 @MainActor
-final class PasswordService: ObservableObject {
-    let objectWillChange = ObservableObjectPublisher()
-    var container: ModelContainer?
-    private var activeProfileID: UUID?
-    private let authService: AuthenticationServiceProtocol
+@Observable
+final class PasswordService {
+    @ObservationIgnored var container: ModelContainer?
+    @ObservationIgnored private var activeProfileID: UUID?
+    @ObservationIgnored private let authService: AuthenticationServiceProtocol
     
-    @Published private(set) var isAuthenticated = false
-    private var lastAuthTime: Date?
-    private let authTimeout: TimeInterval = 300 // 5 minutes
+    private(set) var isAuthenticated = false
+    @ObservationIgnored private var lastAuthTime: Date?
+    @ObservationIgnored private let authTimeout: TimeInterval = 300 // 5 minutes
 
     init(profileID: UUID? = nil, container: ModelContainer, authService: AuthenticationServiceProtocol = LocalAuthenticationService()) {
         self.activeProfileID = profileID

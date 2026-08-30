@@ -6,7 +6,7 @@
 //
 
 import Foundation
-import Combine
+import Observation
 
 enum TrackerDomainPolicy: String, Codable {
     case allowed
@@ -14,8 +14,9 @@ enum TrackerDomainPolicy: String, Codable {
 }
 
 @MainActor
-final class TrackerBlockingService: ObservableObject {
-    @Published var isEnabled: Bool = true {
+@Observable
+final class TrackerBlockingService {
+    var isEnabled: Bool = true {
         didSet {
             guard oldValue != isEnabled else { return }
             persistSettings()
@@ -23,7 +24,7 @@ final class TrackerBlockingService: ObservableObject {
         }
     }
 
-    @Published var learnThreshold: Int = 3 {
+    var learnThreshold: Int = 3 {
         didSet {
             let clamped = max(1, learnThreshold)
             if clamped != learnThreshold {
@@ -36,18 +37,18 @@ final class TrackerBlockingService: ObservableObject {
         }
     }
 
-    @Published private(set) var domainStats: [DomainStat] = []
+    private(set) var domainStats: [DomainStat] = []
 
-    private var seenOn: [String: Set<String>] = [:]
-    private var overrides: [String: TrackerDomainPolicy] = [:]
+    @ObservationIgnored private var seenOn: [String: Set<String>] = [:]
+    @ObservationIgnored private var overrides: [String: TrackerDomainPolicy] = [:]
     private let maxOriginsPerDomain = 64
 
-    private let userDefaults: UserDefaults
-    private let isPersistenceEnabled: Bool
-    private let profileID: UUID?
+    @ObservationIgnored private let userDefaults: UserDefaults
+    @ObservationIgnored private let isPersistenceEnabled: Bool
+    @ObservationIgnored private let profileID: UUID?
 
-    private var isLoadingPersistedData = false
-    private var pendingUpdateTask: Task<Void, Never>?
+    @ObservationIgnored private var isLoadingPersistedData = false
+    @ObservationIgnored private var pendingUpdateTask: Task<Void, Never>?
     private let updateDebounceNanoseconds: UInt64 = 300_000_000 
 
     private var enabledKey:   String { scopedKey("trackerBlockingEnabled") }

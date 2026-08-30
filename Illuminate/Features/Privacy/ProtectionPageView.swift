@@ -10,10 +10,10 @@ import SwiftUI
 // illuminate://protection
 
 struct ProtectionPageView: View {
-    @EnvironmentObject private var tabManager: TabManager
-    @EnvironmentObject private var environment: ProfileEnvironment
-    @EnvironmentObject private var webKitManager: WebKitManager
-    @EnvironmentObject private var trackerBlockingService: TrackerBlockingService
+    @Environment(TabManager.self) private var tabManager: TabManager
+    @Environment(ProfileEnvironment.self) private var environment: ProfileEnvironment
+    @Environment(WebKitManager.self) private var webKitManager: WebKitManager
+    @Environment(TrackerBlockingService.self) private var trackerBlockingService: TrackerBlockingService
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
@@ -43,7 +43,7 @@ struct ProtectionPageView: View {
                             .foregroundStyle(.secondary)
                     }
                     Spacer()
-                    Toggle("", isOn: $webKitManager.httpsOnlyEnabled)
+                    Toggle("", isOn: Binding(get: { webKitManager.httpsOnlyEnabled }, set: { webKitManager.httpsOnlyEnabled = $0 }))
                         .labelsHidden()
                         .toggleStyle(.switch)
                         .accessibilityLabel("HTTPS-only mode")
@@ -67,7 +67,7 @@ struct ProtectionPageView: View {
                             .foregroundStyle(.secondary)
                     }
                     Spacer()
-                    Toggle("", isOn: $trackerBlockingService.isEnabled)
+                    Toggle("", isOn: Binding(get: { trackerBlockingService.isEnabled }, set: { trackerBlockingService.isEnabled = $0 }))
                         .labelsHidden()
                         .toggleStyle(.switch)
                         .accessibilityLabel("Enable tracker learning")
@@ -88,7 +88,7 @@ struct ProtectionPageView: View {
                         Spacer()
                         Stepper(
                             "\(trackerBlockingService.learnThreshold) site\(trackerBlockingService.learnThreshold == 1 ? "" : "s")",
-                            value: $trackerBlockingService.learnThreshold,
+                            value: Binding(get: { trackerBlockingService.learnThreshold }, set: { trackerBlockingService.learnThreshold = $0 }),
                             in: 1...10
                         )
                         .fixedSize()

@@ -7,14 +7,15 @@
 
 import SwiftUI
 import WebKit
+import Observation
 
 struct CookieManagerView: View {
-    @EnvironmentObject private var tabManager: TabManager
-    @EnvironmentObject private var webKitManager: WebKitManager
-    @StateObject private var viewModel: CookieViewModel
+    @Environment(TabManager.self) private var tabManager: TabManager
+    @Environment(WebKitManager.self) private var webKitManager: WebKitManager
+    @State private var viewModel: CookieViewModel
 
     init(domain: String? = nil) {
-        _viewModel = StateObject(wrappedValue: CookieViewModel(domain: domain))
+        _viewModel = State(initialValue: CookieViewModel(domain: domain))
     }
 
     var body: some View {

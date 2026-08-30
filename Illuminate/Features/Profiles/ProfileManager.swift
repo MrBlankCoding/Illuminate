@@ -7,22 +7,24 @@
 
 import Combine
 import Foundation
+import Observation
 import SwiftData
 
 @MainActor
-final class ProfileManager: ObservableObject {
+@Observable
+final class ProfileManager {
     nonisolated static let defaultIconName = "person.crop.circle"
 
-    @Published private(set) var profiles: [BrowserProfile] = []
-    let profileDeleted = PassthroughSubject<UUID, Never>()
+    var profiles: [BrowserProfile] = []
+    @ObservationIgnored let profileDeleted = PassthroughSubject<UUID, Never>()
 
-    private var environments: [UUID: ProfileEnvironment] = [:]
-    private var guestEnvironments: [UUID: ProfileEnvironment] = [:]
+    @ObservationIgnored private var environments: [UUID: ProfileEnvironment] = [:]
+    @ObservationIgnored private var guestEnvironments: [UUID: ProfileEnvironment] = [:]
 
-    private let fileManager: FileManager
-    private let userDefaults: UserDefaults
-    private let profilesURL: URL
-    private let usesUITestProfiles: Bool
+    @ObservationIgnored private let fileManager: FileManager
+    @ObservationIgnored private let userDefaults: UserDefaults
+    @ObservationIgnored private let profilesURL: URL
+    @ObservationIgnored private let usesUITestProfiles: Bool
     static let lastUsedProfileKey = "lastUsedProfileID"
 
     init(fileManager: FileManager = .default, userDefaults: UserDefaults = .standard) {

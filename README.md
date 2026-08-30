@@ -54,7 +54,6 @@ xcodebuild -project Illuminate.xcodeproj \
 * [ ] Increase test coverage beyond 75%
 * [ ] Performance optimizations
 * [ ] Expand extension support
-* [ ] Migrate from Combine → Observation
 * [ ] Nuke for image loading
 * [ ] KeychainAccess for password management
 * [ ] Unite all of the app into using UiTheme.swift
@@ -66,14 +65,8 @@ xcodebuild -project Illuminate.xcodeproj \
 ## Known Issues
 
 * [ ] Internal links can cause the website to load wrong and URL bar doesnt update
-* [ ] If youre in the URL bar when tabswitch is called, then the TABUI doesnt update
-* [ ] Developer tools don't launch from keyboard shortcut
 * [ ] Guest windows can show an infinite spinner
 * [ ] When saving PDF's the whole page is not captured
-* [ ] Instead of pushing our theme onto websites, tell websites our theme
-* [ ] If the browser is closed by all of the tabs being closed it doesnt reopen with any tabs
-* [ ] When tab is closed, the next tab isnt loaded
-* [ ] WHen user is in url bar when tab switch occurs, the next tab carries old URL
 
 ## Contributing
 If you'd like to report a bug, please do under issues

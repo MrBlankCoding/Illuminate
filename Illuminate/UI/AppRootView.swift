@@ -14,23 +14,23 @@ struct AppRootView: View {
     let modelContainer: ModelContainer
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
     @State private var hasRequestedOnboarding = false
-    @EnvironmentObject private var profileManager: ProfileManager
+    @Environment(ProfileManager.self) private var profileManager: ProfileManager
 
     var body: some View {
         Group {
             if let route, let env = profileManager.environment(for: route, container: modelContainer) {
                 ContentView()
-                    .environmentObject(env)
-                    .environmentObject(env.tabManager)
-                    .environmentObject(env.viewModel)
-                    .environmentObject(env.passwordService)
-                    .environmentObject(env.webKitManager)
-                    .environmentObject(env.urlSynchronizer)
-                    .environmentObject(env.trackerBlockingService)
-                    .environmentObject(env.websitePermissionService)
-                    .environmentObject(env.canvasFingerprintingService)
-                    .environmentObject(env.historyManager)
-                    .environmentObject(env.extensionManager)
+                    .environment(env)
+                    .environment(env.tabManager)
+                    .environment(env.viewModel)
+                    .environment(env.passwordService)
+                    .environment(env.webKitManager)
+                    .environment(env.urlSynchronizer)
+                    .environment(env.trackerBlockingService)
+                    .environment(env.websitePermissionService)
+                    .environment(env.canvasFingerprintingService)
+                    .environment(env.historyManager)
+                    .environment(env.extensionManager)
                     .focusedSceneValue(\.activeEnvironment, env)
                     .id(route)
                     .onAppear {
@@ -63,13 +63,13 @@ struct AppRootView: View {
         .onAppear {
             presentOnboardingIfNeeded()
         }
-        .onReceive(AppFileOpening.shared.$needsBrowserWindow) { needs in
+        .onChange(of: AppFileOpening.shared.needsBrowserWindow) { _ in
             openBrowserWindowForPendingFilesIfNeeded()
         }
-        .onReceive(WebURLOpening.shared.$needsBrowserWindow) { needs in
+        .onChange(of: WebURLOpening.shared.needsBrowserWindow) { _ in
             openBrowserWindowForPendingWebURLsIfNeeded()
         }
-        .onReceive(profileManager.$profiles) { _ in
+        .onChange(of: profileManager.profiles) { _ in
             openBrowserWindowForPendingFilesIfNeeded()
         }
     }

@@ -6,9 +6,9 @@
 import SwiftUI
 
 struct DownloadsPageView: View {
-    @EnvironmentObject private var tabManager: TabManager
-    @EnvironmentObject private var environment: ProfileEnvironment
-    @ObservedObject private var downloadManager = DownloadManager.shared
+    @Environment(TabManager.self) private var tabManager: TabManager
+    @Environment(ProfileEnvironment.self) private var environment: ProfileEnvironment
+    private var downloadManager = DownloadManager.shared
 
     var body: some View {
         DownloadsHistoryList(
@@ -18,10 +18,10 @@ struct DownloadsPageView: View {
     }
 }
 
-private struct DownloadsHistoryList: View {
-    @ObservedObject var store: DownloadHistoryStore
+struct DownloadsHistoryList: View {
+    var store: DownloadHistoryStore
     let accentColor: Color
-    @ObservedObject private var downloadManager = DownloadManager.shared
+    var downloadManager = DownloadManager.shared
 
     @State private var showClearAllConfirmation = false
 

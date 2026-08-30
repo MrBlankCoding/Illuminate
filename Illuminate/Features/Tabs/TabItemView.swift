@@ -19,7 +19,7 @@ private enum TabItemMetrics {
 }
 
 struct TabItemView: View {
-    @ObservedObject var tab: Tab
+    var tab: Tab
 
     let themeColor: Color
     let isActive: Bool
@@ -34,7 +34,7 @@ struct TabItemView: View {
     let onToggleMute: () -> Void
 
     @Environment(\.colorScheme) private var colorScheme
-    @EnvironmentObject private var tabManager: TabManager
+    @Environment(TabManager.self) private var tabManager: TabManager
     
     @State private var isHovered = false
     @State private var isCloseHovered = false

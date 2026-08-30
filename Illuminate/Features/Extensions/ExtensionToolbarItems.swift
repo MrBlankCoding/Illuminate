@@ -9,8 +9,7 @@ import SwiftUI
 import WebKit
 
 struct ExtensionToolbarItems: View {
-    @EnvironmentObject var profileEnvironment: ProfileEnvironment
-    @State private var pinnedExtensions: [WKWebExtensionContext] = []
+    @Environment(ProfileEnvironment.self) var profileEnvironment: ProfileEnvironment
 
     private var filteredExtensions: [WKWebExtensionContext] {
         profileEnvironment.extensionManager.installedExtensions.filter { context in
@@ -27,36 +26,24 @@ struct ExtensionToolbarItems: View {
                     .frame(width: 16, height: 16)
                     .transition(.opacity)
             } else {
-                ForEach(pinnedExtensions, id: \.self) { context in
+                ForEach(filteredExtensions, id: \.self) { context in
                     ExtensionToolbarItemView(context: context)
                         .transition(AnyTransition.scale(scale: 0.7).combined(with: .opacity))
                 }
             }
         }
         .animation(.spring(response: 0.28, dampingFraction: 0.75),
-                   value: pinnedExtensions.map(\.uniqueIdentifier))
+                   value: filteredExtensions.map(\.uniqueIdentifier))
         .animation(.easeInOut(duration: 0.15),
                    value: profileEnvironment.extensionManager.isLoadingExtensions)
-        .onReceive(profileEnvironment.extensionManager.$installedExtensions) { _ in
-            pinnedExtensions = filteredExtensions
-        }
-        .onReceive(profileEnvironment.extensionManager.$enabledStateVersion) { _ in
-            pinnedExtensions = filteredExtensions
-        }
-        .onReceive(profileEnvironment.extensionManager.$pinnedExtensions) { _ in
-            pinnedExtensions = filteredExtensions
-        }
-        .onAppear {
-            pinnedExtensions = filteredExtensions
-        }
     }
 }
 
 struct ExtensionToolbarItemView: View {
     let context: WKWebExtensionContext
-    @EnvironmentObject var tabManager: TabManager
-    @EnvironmentObject var profileEnvironment: ProfileEnvironment
-    @EnvironmentObject var popupCoordinator: ExtensionPopupCoordinator
+    @Environment(TabManager.self) var tabManager: TabManager
+    @Environment(ProfileEnvironment.self) var profileEnvironment: ProfileEnvironment
+    @Environment(ExtensionPopupCoordinator.self) var popupCoordinator: ExtensionPopupCoordinator
 
     @State private var badgeText: String?
     @State private var icon: NSImage?
@@ -161,9 +148,9 @@ struct ExtensionToolbarItemView: View {
 struct ExtensionPopupPanel: View {
     let payload: ExtensionPopupCoordinator.PopupPayload
     let windowWidth: CGFloat
-    @EnvironmentObject var tabManager: TabManager
-    @EnvironmentObject var profileEnvironment: ProfileEnvironment
-    @EnvironmentObject var popupCoordinator: ExtensionPopupCoordinator
+    @Environment(TabManager.self) var tabManager: TabManager
+    @Environment(ProfileEnvironment.self) var profileEnvironment: ProfileEnvironment
+    @Environment(ExtensionPopupCoordinator.self) var popupCoordinator: ExtensionPopupCoordinator
 
     @State private var contentSize: CGSize = CGSize(width: 320, height: 400)
 

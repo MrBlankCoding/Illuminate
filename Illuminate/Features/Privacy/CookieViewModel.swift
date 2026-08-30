@@ -7,12 +7,13 @@
 
 import SwiftUI
 import WebKit
-import Combine
+import Observation
 
-final class CookieViewModel: ObservableObject {
-    @Published var cookies: [HTTPCookie] = []
-    @Published var searchText = ""
-    @Published var isLoading = true
+@Observable
+final class CookieViewModel {
+    var cookies: [HTTPCookie] = []
+    var searchText = ""
+    var isLoading = true
     var currentDomain: String?
 
     init(domain: String? = nil) {

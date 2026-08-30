@@ -5,19 +5,20 @@
 //  Created by MrBlankCoding on 3/11/26.
 //
 
-import Combine
 import Foundation
 import SwiftData
+import Observation
 
 @MainActor
-final class DownloadHistoryStore: ObservableObject {
-    @Published private(set) var records: [DownloadRecord] = []
+@Observable
+final class DownloadHistoryStore {
+    private(set) var records: [DownloadRecord] = []
 
     let profileID: UUID?
-    private let isGuestSession: Bool
-    private let modelContainer: ModelContainer?
+    @ObservationIgnored private let isGuestSession: Bool
+    @ObservationIgnored private let modelContainer: ModelContainer?
 
-    private var context: ModelContext?
+    @ObservationIgnored private var context: ModelContext?
 
     init(
         profileID: UUID?,

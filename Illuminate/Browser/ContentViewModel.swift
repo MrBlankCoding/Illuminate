@@ -6,7 +6,7 @@
 //
 
 import SwiftUI
-import Combine
+import Observation
 
 struct IlluminatePageSuggestion: Identifiable, Equatable {
     var id: String { urlString }
@@ -20,22 +20,22 @@ struct IlluminatePageSuggestion: Identifiable, Equatable {
 }
 
 @MainActor
-final class ContentViewModel: ObservableObject {
-    @AppStorage("defaultSearchEngine") private var defaultSearchEngine: SearchEngine = .google
+@Observable
+final class ContentViewModel {
+    @ObservationIgnored @AppStorage("defaultSearchEngine") private var defaultSearchEngine: SearchEngine = .google
 
-    @Published private(set) var illuminatePageSuggestions: [IlluminatePageSuggestion] = []
-    @Published private(set) var historySuggestions: [HistorySuggestion] = []
-    @Published private(set) var webSuggestions: [String] = []
+    var illuminatePageSuggestions: [IlluminatePageSuggestion] = []
+    var historySuggestions: [HistorySuggestion] = []
+    var webSuggestions: [String] = []
 
-    private let tabManager: TabManager
-    private let urlSynchronizer: URLSynchronizer
-    private let historyManager: HistoryManager?
-    private var cancellables = Set<AnyCancellable>()
-    private var webSuggestionTask: Task<Void, Never>?
-    private var webSuggestionCache: [String: [String]] = [:]
-    private var webSuggestionCacheOrder: [String] = []
-    private let webSuggestionCacheLimit = 50
-    private var lastSuggestionQuery: String?
+    @ObservationIgnored private let tabManager: TabManager
+    @ObservationIgnored private let urlSynchronizer: URLSynchronizer
+    @ObservationIgnored private let historyManager: HistoryManager?
+    @ObservationIgnored private var webSuggestionTask: Task<Void, Never>?
+    @ObservationIgnored private var webSuggestionCache: [String: [String]] = [:]
+    @ObservationIgnored private var webSuggestionCacheOrder: [String] = []
+    @ObservationIgnored private let webSuggestionCacheLimit = 50
+    @ObservationIgnored private var lastSuggestionQuery: String?
     private(set) var isEditingAddressBar = false
 
     init(

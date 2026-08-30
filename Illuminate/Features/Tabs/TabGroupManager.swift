@@ -5,28 +5,27 @@
 //  Created by MrBlankCoding on 3/8/26.
 //
 
-import Combine
 import Foundation
+import Observation
 import SwiftUI
 
 @MainActor
-public final class TabGroupManager: ObservableObject {
+@Observable
+public final class TabGroupManager {
     private enum Defaults {
         static let maxClosedGroups = 10
         static let groupSaveDebounceNs: UInt64 = 500_000_000
     }
 
-    @Published private(set) var groups: [TabGroup] = []
-    @Published private(set) var closedGroups: [ClosedGroupSnapshot] = []
+    var groups: [TabGroup] = []
+    var closedGroups: [ClosedGroupSnapshot] = []
 
-    private let isPersistenceEnabled: Bool
-    private let groupsURL: URL
-    private var pendingSaveTask: Task<Void, Never>?
-    private var saveVersion: UInt64 = 0
-    private var tabGroupIndex: [UUID: UUID] = [:]
-    private var groupIndex: [UUID: TabGroup] = [:]
-
-    private var groupSubscriptions: [UUID: AnyCancellable] = [:]
+    @ObservationIgnored private let isPersistenceEnabled: Bool
+    @ObservationIgnored private let groupsURL: URL
+    @ObservationIgnored private var pendingSaveTask: Task<Void, Never>?
+    @ObservationIgnored private var saveVersion: UInt64 = 0
+    @ObservationIgnored private var tabGroupIndex: [UUID: UUID] = [:]
+    @ObservationIgnored private var groupIndex: [UUID: TabGroup] = [:]
 
     nonisolated static func makeGroupsURL(profileID: UUID?) -> URL {
         let base: URL = profileID.map {
@@ -46,8 +45,6 @@ public final class TabGroupManager: ObservableObject {
 
     func prepareForRemoval() {
         pendingSaveTask?.cancel()
-        groupSubscriptions.values.forEach { $0.cancel() }
-        groupSubscriptions.removeAll()
     }
 
     func group(for tabID: UUID) -> TabGroup? {
@@ -289,31 +286,12 @@ public final class TabGroupManager: ObservableObject {
     private func addToStorage(_ group: TabGroup) {
         groups.append(group)
         groupIndex[group.id] = group
-        observe(group)
     }
 
     private func removeFromStorage(_ groupID: UUID) {
         groups.removeAll { $0.id == groupID }
         groupIndex.removeValue(forKey: groupID)
-        stopObserving(groupID)
     }
-
-    private func observe(_ group: TabGroup) {
-        groupSubscriptions[group.id] = group.objectWillChange
-            .sink { [weak self] _ in
-                self?.republishGroups()
-            }
-    }
-
-    private func stopObserving(_ groupID: UUID) {
-        groupSubscriptions[groupID]?.cancel()
-        groupSubscriptions.removeValue(forKey: groupID)
-    }
-
-    private func republishGroups() {
-        objectWillChange.send()
-    }
-
 
     private func scheduleSave() {
         guard isPersistenceEnabled else { return }

@@ -12,13 +12,13 @@ import WebKit
 // illuminate://info
 
 struct InfoPageView: View {
-    @EnvironmentObject private var tabManager: TabManager
-    @EnvironmentObject private var environment: ProfileEnvironment
-    @EnvironmentObject private var webKitManager: WebKitManager
-    @EnvironmentObject private var trackerBlockingService: TrackerBlockingService
-    @EnvironmentObject private var websitePermissionService: WebsitePermissionService
-    @EnvironmentObject private var canvasFingerprintingService: CanvasFingerprintingService
-    @EnvironmentObject private var historyManager: HistoryManager
+    @Environment(TabManager.self) private var tabManager: TabManager
+    @Environment(ProfileEnvironment.self) private var environment: ProfileEnvironment
+    @Environment(WebKitManager.self) private var webKitManager: WebKitManager
+    @Environment(TrackerBlockingService.self) private var trackerBlockingService: TrackerBlockingService
+    @Environment(WebsitePermissionService.self) private var websitePermissionService: WebsitePermissionService
+    @Environment(CanvasFingerprintingService.self) private var canvasFingerprintingService: CanvasFingerprintingService
+    @Environment(HistoryManager.self) private var historyManager: HistoryManager
     @Environment(\.colorScheme) private var colorScheme
 
     @State private var userAgent: String = "Loading..."

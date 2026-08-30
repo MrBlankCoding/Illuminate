@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct DownloadsSettingsView: View {
-    @ObservedObject private var downloadManager = DownloadManager.shared
+    private var downloadManager = DownloadManager.shared
 
     var body: some View {
         Form {

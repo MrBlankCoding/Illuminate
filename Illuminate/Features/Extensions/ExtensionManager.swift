@@ -8,60 +8,62 @@
 
 import Foundation
 import WebKit
+import Observation
 import SwiftUI
 import Combine
 
 @MainActor
-final class ExtensionManager: NSObject, ObservableObject {
-    @Published private(set) var installedExtensions: [WKWebExtensionContext] = []
-    @Published private(set) var isLoadingExtensions: Bool = false
-    @Published private(set) var loadingErrors: [ExtensionLoadingError] = []
-    @Published private(set) var enabledStateVersion: Int = 0
-    @Published private(set) var pendingUpdateCount: Int = 0
-    @Published private(set) var isCheckingForUpdates: Bool = false
-    @Published private(set) var pinnedExtensions: Set<String> = []
+@Observable
+final class ExtensionManager: NSObject {
+    var installedExtensions: [WKWebExtensionContext] = []
+    var isLoadingExtensions: Bool = false
+    var loadingErrors: [ExtensionLoadingError] = []
+    var enabledStateVersion: Int = 0
+    var pendingUpdateCount: Int = 0
+    var isCheckingForUpdates: Bool = false
+    var pinnedExtensions: Set<String> = []
 
-    @Published private(set) var activePermissionRequest: Extensions.PermissionPrompt?
+    var activePermissionRequest: Extensions.PermissionPrompt?
 
     var hasEnabledExtensions: Bool {
         installedExtensions.contains { isEnabled($0) }
     }
 
-    private let actionChangesSubject = PassthroughSubject<(WKWebExtensionContext, (any WKWebExtensionTab)?), Never>()
-    var actionChanges: AnyPublisher<(WKWebExtensionContext, (any WKWebExtensionTab)?), Never> { actionChangesSubject.eraseToAnyPublisher() }
-    let controller: WKWebExtensionController
-    let profileID: UUID?
-    let isGuestSession: Bool
+    @ObservationIgnored private let actionChangesSubject = PassthroughSubject<(WKWebExtensionContext, (any WKWebExtensionTab)?), Never>()
+    @ObservationIgnored var actionChanges: AnyPublisher<(WKWebExtensionContext, (any WKWebExtensionTab)?), Never> { actionChangesSubject.eraseToAnyPublisher() }
+    @ObservationIgnored let controller: WKWebExtensionController
+    @ObservationIgnored let profileID: UUID?
+    @ObservationIgnored let isGuestSession: Bool
 
-    private var bundledExtensionIdentifiers: Set<String> = []
-    private let userDefaults = UserDefaults.standard
-    private var extensionStatesCache: [String: Bool] = [:]
+    @ObservationIgnored private var bundledExtensionIdentifiers: Set<String> = []
+    @ObservationIgnored private let userDefaults = UserDefaults.standard
+    @ObservationIgnored private var extensionStatesCache: [String: Bool] = [:]
 
-    private var statesKey: String {
+    @ObservationIgnored private var statesKey: String {
         if let id = profileID { return "illuminate.extension.states.\(id.uuidString)" }
         return "illuminate.extension.states.global"
     }
 
-    private var pinnedExtensionsKey: String {
+    @ObservationIgnored private var pinnedExtensionsKey: String {
         if let id = profileID { return "illuminate.extension.pinned.\(id.uuidString)" }
         return "illuminate.extension.pinned.global"
     }
 
-    private var extensionResourceURLs: [WKWebExtension: URL] = [:]
-    private var tabManagers: Set<TabManager> = []
-    private var extensionContextCache = LRUCache<URL, WKWebExtensionContext>(capacity: 128)
-    private var loadingTask: Task<Void, Never>?
-    private var extensionSources: [String: ExtensionPackageSource] = [:]
-    private var autoUpdateTask: Task<Void, Never>?
-    private static let autoUpdateInterval: TimeInterval = 86_400
+    @ObservationIgnored private var extensionResourceURLs: [WKWebExtension: URL] = [:]
+    @ObservationIgnored private var tabManagers: Set<TabManager> = []
+    @ObservationIgnored private var extensionContextCache = LRUCache<URL, WKWebExtensionContext>(capacity: 128)
+    @ObservationIgnored private var loadingTask: Task<Void, Never>?
+    @ObservationIgnored private var extensionSources: [String: ExtensionPackageSource] = [:]
+    @ObservationIgnored private var autoUpdateTask: Task<Void, Never>?
+    @ObservationIgnored private static let autoUpdateInterval: TimeInterval = 86_400
     private struct PendingWindow {
         let id: UUID
         let initialURL: URL?
         let completion: (WKWebExtensionWindow?, (any Error)?) -> Void
         let timeoutTask: Task<Void, Never>
     }
-    private var pendingWindows: [UUID: PendingWindow] = [:]
-    private var permissionRequestTimeoutTask: Task<Void, Never>?
+    @ObservationIgnored private var pendingWindows: [UUID: PendingWindow] = [:]
+    @ObservationIgnored private var permissionRequestTimeoutTask: Task<Void, Never>?
 
     private var persistenceURL: URL {
         let fileName = profileID.map { "extensions-\($0.uuidString).json" } ?? "extensions-global.json"
@@ -394,7 +396,6 @@ final class ExtensionManager: NSObject, ObservableObject {
             pinnedExtensions.remove(id)
         }
         persistPinnedExtensions()
-        objectWillChange.send()
     }
 
     func installExtension(
@@ -431,7 +432,6 @@ final class ExtensionManager: NSObject, ObservableObject {
 
         if initiallyEnabled {
             enabledStateVersion += 1
-            objectWillChange.send()
         }
 
         return context
@@ -469,7 +469,6 @@ final class ExtensionManager: NSObject, ObservableObject {
         installedExtensions = installedExtensions.filter { $0 !== context }
         saveInstalledExtensions()
         enabledStateVersion += 1
-        objectWillChange.send()
     }
 
     func scheduleAutoUpdates(initialDelay: TimeInterval = 10) {

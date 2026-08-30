@@ -6,33 +6,34 @@
 //
 
 import AppKit
-import Combine
 import PDFKit
 import SwiftUI
+import Observation
 
 @MainActor
-final class PDFViewerController: ObservableObject {
+@Observable
+final class PDFViewerController {
     static let minScale: CGFloat = 0.1
     static let maxScale: CGFloat = 8
     static let zoomStep: CGFloat = 1.2
     static let fitPadding: CGFloat = 32
 
-    @Published private(set) var pageCount = 0
-    @Published private(set) var currentPageIndex = 0
-    @Published private(set) var zoomPercent = 100
-    @Published private(set) var isLocked = false
-    @Published private(set) var isSinglePageMode = false
-    @Published private(set) var thumbnailCache: [Int: NSImage] = [:]
-    @Published private(set) var outlineRoot: PDFOutline?
-    @Published private(set) var searchMatches: [PDFSelection] = []
-    @Published private(set) var currentMatchIndex: Int = -1
+    private(set) var pageCount = 0
+    private(set) var currentPageIndex = 0
+    private(set) var zoomPercent = 100
+    private(set) var isLocked = false
+    private(set) var isSinglePageMode = false
+    private(set) var thumbnailCache: [Int: NSImage] = [:]
+    private(set) var outlineRoot: PDFOutline?
+    private(set) var searchMatches: [PDFSelection] = []
+    private(set) var currentMatchIndex: Int = -1
 
-    let pdfView = PDFView()
+    @ObservationIgnored let pdfView = PDFView()
 
     private(set) var document: PDFDocument?
-    private var containerWidth: CGFloat = 0
-    private var lastFitTargetWidth: CGFloat = 0
-    private var pendingThumbnails: Set<Int> = []
+    @ObservationIgnored private var containerWidth: CGFloat = 0
+    @ObservationIgnored private var lastFitTargetWidth: CGFloat = 0
+    @ObservationIgnored private var pendingThumbnails: Set<Int> = []
 
     var zoomPercentText: String { "\(zoomPercent)%" }
     var canZoomIn: Bool { document != nil && pdfView.scaleFactor < Self.maxScale }

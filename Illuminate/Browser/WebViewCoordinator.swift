@@ -48,30 +48,15 @@ extension WebViewRepresentable {
             }
         }
 
-        private static func colorSchemeScript(for scheme: String) -> String {
-            let safeScheme = WebScriptBridge.jsStringLiteral(scheme, fallback: "\"light\"")
-            return """
-            (() => {
-                const scheme = \(safeScheme);
-                const id = "illuminate-force-color-scheme";
-                let el = document.getElementById(id) ?? document.createElement("style");
-                el.id = id;
-                el.textContent = ":root, html { color-scheme: " + scheme + " !important; }";
-                if (!el.parentNode) document.documentElement.appendChild(el);
-                const prefersDark = scheme === "dark";
-                if (window.__illuminateThemeSync) {
-                    window.__illuminateThemeSync.prefersDark = prefersDark;
-                    const entries = window.__illuminateThemeSync.entries;
-                    if (entries && typeof entries.forEach === "function") {
-                        entries.forEach((entry) => {
-                            if (typeof entry.dispatch === "function") entry.dispatch();
-                        });
-                    }
-                }
-                document.documentElement.style.colorScheme = scheme;
-                window.dispatchEvent(new CustomEvent("illuminatecolorschemechange", { detail: { scheme } }));
-            })();
-            """
+        static func resolvedAppearance(for style: TabManager.UIStyle) -> NSAppearance? {
+            switch style {
+            case .dark:
+                return NSAppearance(named: .darkAqua)
+            case .light:
+                return NSAppearance(named: .aqua)
+            case .system:
+                return nil
+            }
         }
 
         private static let videoDetectionScript = """

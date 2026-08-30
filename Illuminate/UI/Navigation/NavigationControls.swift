@@ -7,9 +7,10 @@
 
 import SwiftUI
 import WebKit
+import Observation
 
 struct NavigationControls: View {
-    @ObservedObject var tab: Tab
+    var tab: Tab
     @Environment(\.colorScheme) private var colorScheme
     let themeColor: Color
     let windowThemeColor: Color

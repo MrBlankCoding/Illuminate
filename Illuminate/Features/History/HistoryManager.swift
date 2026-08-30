@@ -5,8 +5,8 @@
 //  Created by Illuminate on 8/10/26.
 //
 
-import Combine
 import Foundation
+import Observation
 import SwiftData
 import SwiftUI
 
@@ -37,7 +37,8 @@ struct HistorySuggestion: Identifiable, Equatable {
 }
 
 @MainActor
-final class HistoryManager: ObservableObject {
+@Observable
+final class HistoryManager {
 
     private struct SuggestionCandidate {
         let id: UUID
@@ -61,35 +62,35 @@ final class HistoryManager: ObservableObject {
         }
     }
 
-    @Published private(set) var recentEntries: [HistoryEntry] = []
-    private var suggestionCandidates: [SuggestionCandidate] = []
-    @Published private(set) var topSites: [HistoryEntry] = []
+    private(set) var recentEntries: [HistoryEntry] = []
+    @ObservationIgnored private var suggestionCandidates: [SuggestionCandidate] = []
+    private(set) var topSites: [HistoryEntry] = []
 
-    @Published var isSavingEnabled: Bool {
+    var isSavingEnabled: Bool {
         didSet { 
             AppLog.info("HistoryManager: Setting changed isSavingEnabled=\(isSavingEnabled)")
             persist(isSavingEnabled, forKey: settingsKey("historySavingEnabled")) 
         }
     }
 
-    @Published var showTopSites: Bool {
+    var showTopSites: Bool {
         didSet { persist(showTopSites, forKey: settingsKey("historyShowTopSites")) }
     }
 
-    @Published var showHistorySuggestions: Bool {
+    var showHistorySuggestions: Bool {
         didSet { persist(showHistorySuggestions, forKey: settingsKey("historyShowSuggestions")) }
     }
 
-    private let modelContainer: ModelContainer
-    private let profileID: UUID?
-    private let isGuestSession: Bool
-    private let userDefaults: UserDefaults
-    private var lastRecordedURL: [UUID: String] = [:]
-    private var pendingRefreshTask: Task<Void, Never>?
-    private static let refreshDebounceNs: UInt64 = 300_000_000 // 300 ms
+    @ObservationIgnored private let modelContainer: ModelContainer
+    @ObservationIgnored private let profileID: UUID?
+    @ObservationIgnored private let isGuestSession: Bool
+    @ObservationIgnored private let userDefaults: UserDefaults
+    @ObservationIgnored private var lastRecordedURL: [UUID: String] = [:]
+    @ObservationIgnored private var pendingRefreshTask: Task<Void, Never>?
+    @ObservationIgnored private static let refreshDebounceNs: UInt64 = 300_000_000 // 300 ms
 
-    private static let searchFetchLimit = 1000
-    private let actor: HistoryModelActor
+    @ObservationIgnored private static let searchFetchLimit = 1000
+    @ObservationIgnored private let actor: HistoryModelActor
 
     init(
         modelContainer: ModelContainer,

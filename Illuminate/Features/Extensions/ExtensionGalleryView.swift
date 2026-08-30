@@ -9,9 +9,9 @@
 // way to overcomplicated
 // Need to simplify
 
-import Combine
 import SwiftUI
 import WebKit
+import Observation
 
 struct ExtensionGalleryItem: Identifiable {
     let id: String
@@ -42,7 +42,8 @@ struct ExtensionGalleryItem: Identifiable {
 }
 
 @MainActor
-final class RemoteGalleryCatalog: ObservableObject {
+@Observable
+final class RemoteGalleryCatalog {
     private static let remoteCatalogURL: URL? = nil
     static let ublock = ExtensionGalleryItem(
         id: "ublock-origin-lite",
@@ -69,8 +70,8 @@ final class RemoteGalleryCatalog: ObservableObject {
 
     enum FetchState { case idle, loading, done, failed }
 
-    @Published private(set) var items: [ExtensionGalleryItem] = hardcodedItems
-    @Published private(set) var fetchState: FetchState = .idle
+    private(set) var items: [ExtensionGalleryItem] = hardcodedItems
+    private(set) var fetchState: FetchState = .idle
 
     func load() {
         guard case .idle = fetchState else { return }
@@ -137,8 +138,8 @@ private struct RemoteGalleryEntry: Decodable {
 }
 
 struct ExtensionGalleryView: View {
-    @EnvironmentObject var profileEnvironment: ProfileEnvironment
-    @StateObject private var catalog = RemoteGalleryCatalog()
+    @Environment(ProfileEnvironment.self) var profileEnvironment: ProfileEnvironment
+    @State private var catalog = RemoteGalleryCatalog()
 
     var body: some View {
         galleryGrid
@@ -165,7 +166,7 @@ struct ExtensionGalleryView: View {
                 ) {
                     ForEach(catalog.items) { item in
                         ExtensionGalleryCard(item: item)
-                            .environmentObject(profileEnvironment)
+                            .environment(profileEnvironment)
                     }
                 }
 
@@ -188,7 +189,7 @@ struct ExtensionGalleryView: View {
 
 struct ExtensionGalleryCard: View {
     let item: ExtensionGalleryItem
-    @EnvironmentObject var profileEnvironment: ProfileEnvironment
+    @Environment(ProfileEnvironment.self) var profileEnvironment: ProfileEnvironment
 
     @State private var installState: InstallState = .idle
     @State private var installedContext: WKWebExtensionContext?
@@ -249,10 +250,10 @@ struct ExtensionGalleryCard: View {
             Button("OK") { errorMessage = nil }
         } message: { msg in Text(msg) }
         .onAppear(perform: syncInstalledState)
-        .onReceive(profileEnvironment.extensionManager.$installedExtensions) { _ in
+        .onChange(of: profileEnvironment.extensionManager.enabledStateVersion) { _ in
             syncInstalledState()
         }
-        .onReceive(profileEnvironment.extensionManager.$pinnedExtensions) { _ in
+        .onChange(of: profileEnvironment.extensionManager.pinnedExtensions) { _ in
             syncInstalledState()
         }
     }

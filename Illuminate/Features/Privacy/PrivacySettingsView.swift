@@ -9,11 +9,11 @@ import SwiftUI
 
 struct PrivacySettingsView: View {
     let isEmbedded: Bool
-    @EnvironmentObject private var historyManager: HistoryManager
-    @EnvironmentObject private var tabManager: TabManager
-    @EnvironmentObject private var canvasFingerprintingService: CanvasFingerprintingService
-    @EnvironmentObject private var environment: ProfileEnvironment
-    @EnvironmentObject private var webKitManager: WebKitManager
+    @Environment(HistoryManager.self) private var historyManager: HistoryManager
+    @Environment(TabManager.self) private var tabManager: TabManager
+    @Environment(CanvasFingerprintingService.self) private var canvasFingerprintingService: CanvasFingerprintingService
+    @Environment(ProfileEnvironment.self) private var environment: ProfileEnvironment
+    @Environment(WebKitManager.self) private var webKitManager: WebKitManager
     @Environment(\.colorScheme) private var colorScheme
 
     @State private var showClearCookiesConfirmation = false
@@ -49,7 +49,10 @@ struct PrivacySettingsView: View {
     }
 
     private var settingsContent: some View {
-        VStack(alignment: .leading, spacing: 24) {
+        @Bindable var historyManager = historyManager
+        @Bindable var webKitManager = webKitManager
+        @Bindable var canvasFingerprintingService = canvasFingerprintingService
+        return VStack(alignment: .leading, spacing: 24) {
                 settingsSection(title: "Browsing History") {
                     VStack(spacing: 0) {
                         toggleRow(

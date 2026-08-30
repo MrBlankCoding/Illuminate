@@ -7,15 +7,16 @@
 
 
 import Foundation
+import Observation
 import WebKit
-import Combine
 import ObjectiveC
 
 @MainActor
-final class WebKitManager: ObservableObject {
-    private static var hasConfiguredGlobalCache = false
+@Observable
+final class WebKitManager {
+    @ObservationIgnored private static var hasConfiguredGlobalCache = false
     
-    @Published var cookiesEnabled: Bool = true {
+    var cookiesEnabled: Bool = true {
         didSet {
             guard oldValue != cookiesEnabled else { return }
             sharedWebsiteDataStore = nil
@@ -25,7 +26,7 @@ final class WebKitManager: ObservableObject {
         }
     }
 
-    @Published var httpsOnlyEnabled: Bool = false {
+    var httpsOnlyEnabled: Bool = false {
         didSet {
             guard !isLoadingProfile, isPersistenceEnabled else { return }
             AppLog.info("WebKitManager: Setting changed httpsOnlyEnabled=\(httpsOnlyEnabled)")
@@ -33,14 +34,14 @@ final class WebKitManager: ObservableObject {
         }
     }
 
-    private let userDefaults: UserDefaults
-    private var activeProfileID: UUID?
-    private var isLoadingProfile = false
-    private let isPersistenceEnabled: Bool
-    private var cachedUserAgent: String?
-    private let extensionManager: ExtensionManager
+    @ObservationIgnored private let userDefaults: UserDefaults
+    @ObservationIgnored private var activeProfileID: UUID?
+    @ObservationIgnored private var isLoadingProfile = false
+    @ObservationIgnored private let isPersistenceEnabled: Bool
+    @ObservationIgnored private var cachedUserAgent: String?
+    @ObservationIgnored private let extensionManager: ExtensionManager
     
-    private var sharedWebsiteDataStore: WKWebsiteDataStore?
+    @ObservationIgnored private var sharedWebsiteDataStore: WKWebsiteDataStore?
 
     var currentUserAgent: String? {
         cachedUserAgent
@@ -129,9 +130,7 @@ final class WebKitManager: ObservableObject {
 
         webView.layer?.drawsAsynchronously = true
 
-        #if DEBUG
         webView.isInspectable = true
-        #endif
 
         if let cachedUA = cachedUserAgent {
             webView.customUserAgent = cachedUA

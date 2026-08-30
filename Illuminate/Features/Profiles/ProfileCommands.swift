@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct ProfileCommands: Commands {
-    @ObservedObject var profileManager: ProfileManager
+    var profileManager: ProfileManager
 
     var body: some Commands {
         CommandGroup(replacing: .newItem) {

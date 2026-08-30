@@ -10,8 +10,8 @@ import AppKit
 import WebKit
 
 struct WindowConfigurator: NSViewRepresentable {
-    @EnvironmentObject var tabManager: TabManager
-    @EnvironmentObject var profileEnvironment: ProfileEnvironment
+    @Environment(TabManager.self) var tabManager: TabManager
+    @Environment(ProfileEnvironment.self) var profileEnvironment: ProfileEnvironment
 
     func makeCoordinator() -> Coordinator {
         Coordinator(

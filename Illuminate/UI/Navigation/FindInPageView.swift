@@ -8,12 +8,13 @@
 import SwiftUI
 
 struct FindInPageView: View {
-    @EnvironmentObject private var tabManager: TabManager
-    @ObservedObject var viewModel: FindViewModel
+    @Environment(TabManager.self) private var tabManager: TabManager
+    var viewModel: FindViewModel
     let theme: BrowserTheme
     @FocusState private var isSearchFocused: Bool
 
     var body: some View {
+        @Bindable var viewModel = viewModel
         HStack(spacing: 8) {
             Image(systemName: "magnifyingglass")
                 .foregroundStyle(Color.textSecondary)

@@ -10,7 +10,7 @@ import WebKit
 
 struct PermissionRequestView: View {
     let request: Extensions.PermissionPrompt
-    @EnvironmentObject var profileEnvironment: ProfileEnvironment
+    @Environment(ProfileEnvironment.self) var profileEnvironment: ProfileEnvironment
     
     var body: some View {
         VStack(spacing: 24) {

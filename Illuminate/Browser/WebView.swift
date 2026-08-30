@@ -10,15 +10,15 @@ import SwiftUI
 import WebKit
 
 struct WebView: View {
-    @ObservedObject var tab: Tab
+    var tab: Tab
 
-    @EnvironmentObject private var tabManager: TabManager
-    @EnvironmentObject private var webKitManager: WebKitManager
-    @EnvironmentObject private var passwordService: PasswordService
-    @EnvironmentObject private var trackerBlockingService: TrackerBlockingService
-    @EnvironmentObject private var historyManager: HistoryManager
-    @EnvironmentObject private var websitePermissionService: WebsitePermissionService
-    @EnvironmentObject private var canvasFingerprintingService: CanvasFingerprintingService
+    @Environment(TabManager.self) private var tabManager: TabManager
+    @Environment(WebKitManager.self) private var webKitManager: WebKitManager
+    @Environment(PasswordService.self) private var passwordService: PasswordService
+    @Environment(TrackerBlockingService.self) private var trackerBlockingService: TrackerBlockingService
+    @Environment(HistoryManager.self) private var historyManager: HistoryManager
+    @Environment(WebsitePermissionService.self) private var websitePermissionService: WebsitePermissionService
+    @Environment(CanvasFingerprintingService.self) private var canvasFingerprintingService: CanvasFingerprintingService
 
     var body: some View {
         ZStack {

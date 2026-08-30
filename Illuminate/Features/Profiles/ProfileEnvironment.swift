@@ -5,37 +5,38 @@
 //  Created by MrBlankCoding on 4/1/26.
 //
 
-import Combine
 import Foundation
+import Observation
 import SwiftData
 import SwiftUI
 
 
 @MainActor
-final class ProfileEnvironment: ObservableObject {
-    let profile: BrowserProfile
-    let isGuestSession: Bool
-    let sessionIdentifier: UUID?
+@Observable
+final class ProfileEnvironment {
+    @ObservationIgnored let profile: BrowserProfile
+    @ObservationIgnored let isGuestSession: Bool
+    @ObservationIgnored let sessionIdentifier: UUID?
 
-    var windowRoute: BrowserWindowRoute {
+    @ObservationIgnored var windowRoute: BrowserWindowRoute {
         isGuestSession ? .guest(sessionIdentifier ?? UUID()) : .profile(profile.id)
     }
 
-    let tabManager: TabManager
-    let webKitManager: WebKitManager
-    let passwordService: PasswordService
-    let trackerBlockingService: TrackerBlockingService
-    let websitePermissionService: WebsitePermissionService
-    let canvasFingerprintingService: CanvasFingerprintingService
-    let urlSynchronizer: URLSynchronizer
-    let viewModel: ContentViewModel
-    let historyManager: HistoryManager
-    let extensionManager: ExtensionManager
-    let downloadHistoryStore: DownloadHistoryStore
+    @ObservationIgnored let tabManager: TabManager
+    @ObservationIgnored let webKitManager: WebKitManager
+    @ObservationIgnored let passwordService: PasswordService
+    @ObservationIgnored let trackerBlockingService: TrackerBlockingService
+    @ObservationIgnored let websitePermissionService: WebsitePermissionService
+    @ObservationIgnored let canvasFingerprintingService: CanvasFingerprintingService
+    @ObservationIgnored let urlSynchronizer: URLSynchronizer
+    @ObservationIgnored let viewModel: ContentViewModel
+    @ObservationIgnored let historyManager: HistoryManager
+    @ObservationIgnored let extensionManager: ExtensionManager
+    @ObservationIgnored let downloadHistoryStore: DownloadHistoryStore
 
-    let modelContainer: ModelContainer
+    @ObservationIgnored let modelContainer: ModelContainer
 
-    private(set) var isTornDown = false
+    var isTornDown = false
 
     init(
         profile: BrowserProfile,

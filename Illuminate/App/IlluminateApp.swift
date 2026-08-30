@@ -5,7 +5,6 @@
 //  Created by MrBlankCoding on 3/8/26.
 //
 
-import Combine
 import SwiftUI
 import SwiftData
 
@@ -21,7 +20,6 @@ struct IlluminateApp: App {
     private let backgroundResourceManager: BackgroundResourceManager
     private let runtimeSecurityMonitor: RuntimeSecurityMonitor
     private let menuRefreshTrigger = MenuRefreshTrigger()
-    private var cancellables = Set<AnyCancellable>()
 
     let modelContainer: ModelContainer
 
@@ -45,11 +43,19 @@ struct IlluminateApp: App {
             }
         }
 
-        profileManager.objectWillChange
-            .sink { [menuRefreshTrigger] _ in
-                menuRefreshTrigger.value &+= 1
+        let pm = profileManager
+        let trigger = menuRefreshTrigger
+        func observeProfiles() {
+            withObservationTracking {
+                _ = pm.profiles
+            } onChange: { [pm, trigger] in
+                Task { @MainActor in
+                    trigger.value &+= 1
+                    observeProfiles()
+                }
             }
-            .store(in: &cancellables)
+        }
+        observeProfiles()
     }
 
     private static func resetStore() {
@@ -68,7 +74,7 @@ struct IlluminateApp: App {
     var body: some Scene {
         WindowGroup(id: Self.profileSelectionWindowID) {
             AppRootView(route: .constant(nil), isStandalone: true, modelContainer: modelContainer)
-                .environmentObject(profileManager)
+                .environment(profileManager)
                 .frame(
                     width: Self.profileWindowSize.width,
                     height: Self.profileWindowSize.height
@@ -88,7 +94,7 @@ struct IlluminateApp: App {
 
         WindowGroup(for: BrowserWindowRoute.self) { $route in
             AppRootView(route: $route, modelContainer: modelContainer)
-                .environmentObject(profileManager)
+                .environment(profileManager)
                 .frame(minWidth: 600, minHeight: 450)
                 .onOpenURL { url in
                     guard let request = BrowserWindowOpenRequest(url: url) else { return }

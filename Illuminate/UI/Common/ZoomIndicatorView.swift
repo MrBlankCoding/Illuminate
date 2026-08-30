@@ -8,8 +8,8 @@
 import SwiftUI
 
 struct ZoomIndicatorView: View {
-    @EnvironmentObject private var tabManager: TabManager
-    @ObservedObject var viewModel: ZoomViewModel
+    @Environment(TabManager.self) private var tabManager: TabManager
+    var viewModel: ZoomViewModel
     
     var body: some View {
         HStack(spacing: 8) {

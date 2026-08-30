@@ -10,14 +10,14 @@ import SwiftUI
 import WebKit
 
 struct WebViewRepresentable: NSViewRepresentable {
-    @ObservedObject var tab: Tab
+    var tab: Tab
     let webKitManager: WebKitManager
     let passwordService: PasswordService
     let tabManager: TabManager
     let trackerBlockingService: TrackerBlockingService
     let historyManager: HistoryManager
     let websitePermissionService: WebsitePermissionService
-    @ObservedObject var canvasFingerprintingService: CanvasFingerprintingService
+    var canvasFingerprintingService: CanvasFingerprintingService
     let userInterfaceStyle: TabManager.UIStyle
 
     func makeCoordinator() -> Coordinator {
@@ -50,6 +50,7 @@ struct WebViewRepresentable: NSViewRepresentable {
         webView.uiDelegate = context.coordinator
         webView.allowsLinkPreview = true
         webView.allowsBackForwardNavigationGestures = tab.id == tabManager.activeTabID
+        webView.appearance = Coordinator.resolvedAppearance(for: userInterfaceStyle)
         if let illuminateWebView = webView as? IlluminateWebView {
             illuminateWebView.onIlluminateDownload = { [weak tab, weak webView] event in
                 guard let tab, let webView else { return }
@@ -72,6 +73,11 @@ struct WebViewRepresentable: NSViewRepresentable {
         let shouldEnableGestures = tab.id == tabManager.activeTabID
         if nsView.allowsBackForwardNavigationGestures != shouldEnableGestures {
             nsView.allowsBackForwardNavigationGestures = shouldEnableGestures
+        }
+
+        let newAppearance = Coordinator.resolvedAppearance(for: userInterfaceStyle)
+        if nsView.appearance != newAppearance {
+            nsView.appearance = newAppearance
         }
 
         let resolvedScheme = Coordinator.resolvedScheme(for: userInterfaceStyle)

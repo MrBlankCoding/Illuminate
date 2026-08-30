@@ -14,8 +14,8 @@ struct URLBar: View {
     let themeColor: Color
     let onNavigate: (String) -> Void
 
-    @EnvironmentObject private var viewModel: ContentViewModel
-    @EnvironmentObject private var tabManager: TabManager
+    @Environment(ContentViewModel.self) private var viewModel: ContentViewModel
+    @Environment(TabManager.self) private var tabManager: TabManager
     @Environment(\.colorScheme) private var colorScheme
     @FocusState private var isFocused: Bool
     @State private var addressText = ""
@@ -51,13 +51,17 @@ struct URLBar: View {
         }
         .onChange(of: activeTab?.id) { oldID, newID in
             guard newID != oldID else { return }
+            
+            // kick out!!!!!!
+            // GRAAAAH
             if isFocused {
                 isFocused = false
                 viewModel.setAddressBarEditing(false)
             }
-            if !isFocused {
-                addressText = ContentViewModel.addressBarDisplayText(for: activeTab?.url)
-            }
+            
+            // update bar regardless of focus just in case
+            addressText = ContentViewModel.addressBarDisplayText(for: activeTab?.url)
+            
             if newID != nil && activeTab?.url == nil {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
                     focusURLBar()
@@ -65,8 +69,7 @@ struct URLBar: View {
             }
         }
         .onChange(of: activeTab?.url) { _, newURL in
-            // Keep the bar in sync with redirects/in-page navigations while
-            // the user isn't typing.
+            // try to keep the user out during updates
             guard !isFocused else { return }
             let display = ContentViewModel.addressBarDisplayText(for: newURL)
             if addressText != display {

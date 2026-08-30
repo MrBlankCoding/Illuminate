@@ -9,6 +9,7 @@ import AppKit
 import Combine
 import Foundation
 import ObjectiveC
+import Observation
 import SwiftUI
 import WebKit
 
@@ -122,26 +123,27 @@ struct PasswordAutofillData: Equatable {
 }
 
 @MainActor
-final class Tab: NSObject, ObservableObject, Identifiable, WKWebExtensionTab {
-    weak var tabManager: TabManager?
+@Observable
+final class Tab: NSObject, Identifiable, WKWebExtensionTab {
+    @ObservationIgnored weak var tabManager: TabManager?
     
-    @Published var passwordAutofillData: PasswordAutofillData?
+    var passwordAutofillData: PasswordAutofillData?
     
-    var window: (any WKWebExtensionWindow)? {
+    @ObservationIgnored var window: (any WKWebExtensionWindow)? {
         tabManager
     }
     
-    var index: Int {
+    @ObservationIgnored var index: Int {
         tabManager?.indexOfTab(withID: id) ?? 0
     }
     
-    @Published var parentTab: (any WKWebExtensionTab)?
+    var parentTab: (any WKWebExtensionTab)?
     
-    var isSelected: Bool {
+    @ObservationIgnored var isSelected: Bool {
         tabManager?.activeTabID == id
     }
     
-    @Published var isPinned: Bool = false {
+    var isPinned: Bool = false {
         didSet {
             if oldValue != isPinned {
                 notifyExtensions(properties: .pinned)
@@ -150,7 +152,7 @@ final class Tab: NSObject, ObservableObject, Identifiable, WKWebExtensionTab {
         }
     }
     
-    var isAudible: Bool {
+    @ObservationIgnored var isAudible: Bool {
         false // webView?.isAudible is missing in this environment
     }
 
@@ -195,7 +197,7 @@ final class Tab: NSObject, ObservableObject, Identifiable, WKWebExtensionTab {
 
     let id: UUID
 
-    @Published var url: URL? {
+    var url: URL? {
         didSet {
             if oldValue != url {
                 if let url, let page = IlluminatePage(url: url) {
@@ -208,7 +210,7 @@ final class Tab: NSObject, ObservableObject, Identifiable, WKWebExtensionTab {
             }
         }
     }
-    @Published var title: String {
+    var title: String {
         didSet {
             if oldValue != title {
                 scheduleMetadataSave()
@@ -216,43 +218,43 @@ final class Tab: NSObject, ObservableObject, Identifiable, WKWebExtensionTab {
             }
         }
     }
-    @Published var favicon: NSImage? {
+    var favicon: NSImage? {
         didSet { 
             if oldValue != favicon { 
                 saveFavicon()
             } 
         }
     }
-    @Published var themeColor: Color?
-    @Published var isLoading: Bool {
+    var themeColor: Color?
+    var isLoading: Bool {
         didSet {
             if oldValue != isLoading {
                 notifyExtensions(properties: .loading)
             }
         }
     }
-    @Published var hasMixedContentWarning: Bool
-    @Published var networkError: NetworkErrorKind?
-    @Published var hoveredLinkURLString: String?
-    @Published var canGoBack: Bool = false
+    var hasMixedContentWarning: Bool
+    var networkError: NetworkErrorKind?
+    var hoveredLinkURLString: String?
+    var canGoBack: Bool = false
 
-    var isDNSError: Bool {
+    @ObservationIgnored var isDNSError: Bool {
         if case .dns = networkError { return true }
         return false
     }
 
-    var lastNetworkErrorMessage: String? {
+    @ObservationIgnored var lastNetworkErrorMessage: String? {
         networkError?.detail
     }
 
-    var lastNavigationHadNetworkError: Bool {
+    @ObservationIgnored var lastNavigationHadNetworkError: Bool {
         networkError != nil
     }
-    @Published var canGoForward: Bool = false
-    @Published var estimatedProgress: Double = 0
-    @Published var zoomLevel: Double = 1.0
-    @Published var hasPiPCandidate: Bool = false
-    @Published var isMuted: Bool = false {
+    var canGoForward: Bool = false
+    var estimatedProgress: Double = 0
+    var zoomLevel: Double = 1.0
+    var hasPiPCandidate: Bool = false
+    var isMuted: Bool = false {
         didSet {
             if oldValue != isMuted {
                 notifyExtensions(properties: .muted)
@@ -264,21 +266,21 @@ final class Tab: NSObject, ObservableObject, Identifiable, WKWebExtensionTab {
         tabManager?.extensionManager.controller.didChangeTabProperties(properties, for: self)
     }
 
-    private(set) var webView: WKWebView?
-    private var isFetchingAssets = false
-    private var isFetchingMetadata = false
-    private var hasLoadedMetadata = false
-    private var isRestoringState = false
-    private var isClosed = false
-    private var pendingMetadataSaveTask: Task<Void, Never>?
+    @ObservationIgnored private(set) var webView: WKWebView?
+    @ObservationIgnored private var isFetchingAssets = false
+    @ObservationIgnored private var isFetchingMetadata = false
+    @ObservationIgnored private var hasLoadedMetadata = false
+    @ObservationIgnored private var isRestoringState = false
+    @ObservationIgnored private var isClosed = false
+    @ObservationIgnored private var pendingMetadataSaveTask: Task<Void, Never>?
 
-    private(set) var lastActivatedAt: Date
-    private(set) var lastAccessed: Date
+    @ObservationIgnored private(set) var lastActivatedAt: Date
+    @ObservationIgnored private(set) var lastAccessed: Date
 
-    private let assetsBaseURL: URL
-    private let ownershipToken: String
-    private var cancellables = Set<AnyCancellable>()
-    var customWebViewConfiguration: WKWebViewConfiguration?
+    @ObservationIgnored private let assetsBaseURL: URL
+    @ObservationIgnored private let ownershipToken: String
+    @ObservationIgnored private var cancellables = Set<AnyCancellable>()
+    @ObservationIgnored var customWebViewConfiguration: WKWebViewConfiguration?
 
     private var assetsURLWithoutCreating: URL {
         assetsBaseURL

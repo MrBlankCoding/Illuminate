@@ -11,7 +11,7 @@ struct ProfileSelectionView: View {
     @Binding var route: BrowserWindowRoute?
     var isStandalone: Bool = false
     var prewarmProfile: (UUID) -> Void = { _ in }
-    @EnvironmentObject private var profileManager: ProfileManager
+    @Environment(ProfileManager.self) private var profileManager: ProfileManager
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openWindow) private var openWindow
@@ -59,7 +59,7 @@ struct ProfileSelectionView: View {
                 let profile = profileManager.createProfile(named: name, iconName: icon)
                 handleSelection(.profile(profile.id))
             }
-            .environmentObject(profileManager)
+            .environment(profileManager)
             .accessibilityIdentifier("profileSelection.addProfileSheet")
         }
         .alert("Rename Profile", isPresented: renamingProfileBinding) {

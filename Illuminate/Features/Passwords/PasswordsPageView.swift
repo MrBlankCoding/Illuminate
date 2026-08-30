@@ -7,12 +7,13 @@
 
 import SwiftData
 import SwiftUI
+import Observation
 
 // illuminate://passwords
 
 struct PasswordsPageView: View {
-    @EnvironmentObject private var tabManager: TabManager
-    @EnvironmentObject private var environment: ProfileEnvironment
+    @Environment(TabManager.self) private var tabManager: TabManager
+    @Environment(ProfileEnvironment.self) private var environment: ProfileEnvironment
     @Environment(\.modelContext) private var modelContext
     @Query private var passwords: [Password]
     @Environment(\.colorScheme) private var colorScheme

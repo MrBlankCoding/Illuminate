@@ -5,8 +5,8 @@
 //  Created by MrBlankCoding on 3/8/26.
 //
 
-import Combine
 import Foundation
+import Observation
 import SwiftUI
 
 enum TabGroupColor: String, Codable, CaseIterable, Identifiable, Sendable {
@@ -32,15 +32,16 @@ enum TabGroupColor: String, Codable, CaseIterable, Identifiable, Sendable {
 
 
 @MainActor
-final class TabGroup: ObservableObject, Identifiable {
+@Observable
+final class TabGroup: Identifiable {
     let id: UUID
     let createdDate: Date
 
-    @Published var name: String
-    @Published var groupColor: TabGroupColor
-    @Published var isCollapsed: Bool
-    @Published var isNew: Bool = false
-    @Published private(set) var tabIDs: [UUID] = []
+    var name: String
+    var groupColor: TabGroupColor
+    var isCollapsed: Bool
+    var isNew: Bool = false
+    private(set) var tabIDs: [UUID] = []
 
     init(
         id: UUID = UUID(),

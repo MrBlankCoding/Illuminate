@@ -9,8 +9,8 @@ import SwiftData
 import SwiftUI
 
 struct NewTabView: View {
-    @EnvironmentObject private var tabManager: TabManager
-    @EnvironmentObject private var environment: ProfileEnvironment
+    @Environment(TabManager.self) private var tabManager: TabManager
+    @Environment(ProfileEnvironment.self) private var environment: ProfileEnvironment
 
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.modelContext) private var modelContext
@@ -50,7 +50,7 @@ struct NewTabView: View {
 
             if isCustomizePanelShown {
                 NewTabCustomizePanel()
-                    .environmentObject(tabManager)
+                    .environment(tabManager)
                     .transition(.move(edge: .trailing).combined(with: .opacity))
             }
         }

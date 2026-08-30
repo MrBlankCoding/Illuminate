@@ -6,7 +6,6 @@
 //
 
 import AppKit
-import Combine
 import PDFKit
 import SwiftUI
 

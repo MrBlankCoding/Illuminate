@@ -10,16 +10,17 @@ import SwiftData
 import AppKit
 
 struct ContentView: View {
-    @EnvironmentObject private var tabManager: TabManager
-    @EnvironmentObject private var environment: ProfileEnvironment
-    @EnvironmentObject private var viewModel: ContentViewModel
-    @EnvironmentObject private var permissionService: WebsitePermissionService
+    @Environment(TabManager.self) private var tabManager: TabManager
+    @Environment(ProfileEnvironment.self) private var environment: ProfileEnvironment
+    @Environment(ContentViewModel.self) private var viewModel: ContentViewModel
+    @Environment(WebsitePermissionService.self) private var permissionService: WebsitePermissionService
     @Environment(\.colorScheme) private var colorScheme
-    @StateObject private var findViewModel = FindViewModel()
-    @StateObject private var zoomViewModel = ZoomViewModel()
-    @StateObject private var popupCoordinator = ExtensionPopupCoordinator()
+    @State private var findViewModel = FindViewModel()
+    @State private var zoomViewModel = ZoomViewModel()
+    @State private var popupCoordinator = ExtensionPopupCoordinator()
 
     var body: some View {
+        @Bindable var permissionService = permissionService
         GeometryReader { windowGeo in
         ZStack {
             BackgroundLayer(
@@ -50,9 +51,9 @@ struct ContentView: View {
                             payload: payload,
                             windowWidth: windowGeo.size.width
                         )
-                        .environmentObject(tabManager)
-                        .environmentObject(environment)
-                        .environmentObject(popupCoordinator)
+                        .environment(tabManager)
+                        .environment(environment)
+                        .environment(popupCoordinator)
                         .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
                     }
                 }
@@ -74,13 +75,13 @@ struct ContentView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(WindowConfigurator())
         .preferredColorScheme(tabManager.userInterfaceStyle.colorScheme)
-        .environmentObject(popupCoordinator)
+        .environment(popupCoordinator)
         .onAppear {
             DispatchQueue.main.async {
                 AppFileOpening.shared.drain(into: tabManager)
             }
         }
-        .onReceive(AppFileOpening.shared.$pendingURLs) { _ in
+        .onChange(of: AppFileOpening.shared.pendingURLs) { _, _ in
             AppFileOpening.shared.drain(into: tabManager)
         }
         .onReceive(NotificationCenter.default.publisher(for: .findInPage)) { _ in
@@ -125,9 +126,9 @@ struct BrowserContentView: View {
     let activeTabID: UUID?
     let windowThemeColor: Color
     let colorScheme: ColorScheme
-    @ObservedObject var findViewModel: FindViewModel
-    @ObservedObject var zoomViewModel: ZoomViewModel
-    @EnvironmentObject private var viewModel: ContentViewModel
+    var findViewModel: FindViewModel
+    var zoomViewModel: ZoomViewModel
+    @Environment(ContentViewModel.self) private var viewModel: ContentViewModel
 
     private var activeTab: Tab? {
         guard let activeTabID else { return nil }
@@ -170,7 +171,7 @@ struct BrowserContentView: View {
 
                         WebView(tab: tab)
                             .transaction { $0.animation = nil }
-                            .environmentObject(viewModel)
+                            .environment(viewModel)
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                             .opacity(isActive ? 1 : 0)
                             .allowsHitTesting(isActive)

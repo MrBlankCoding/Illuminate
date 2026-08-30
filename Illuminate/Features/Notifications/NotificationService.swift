@@ -5,9 +5,9 @@
 //  Created by MrBlankCoding on 8/29/26.
 //
 
-import Combine
 import Foundation
 import UserNotifications
+import Observation
 
 protocol NotificationServiceProtocol: Sendable {
     func requestAuthorization() async throws -> Bool
@@ -16,12 +16,13 @@ protocol NotificationServiceProtocol: Sendable {
 }
 
 @MainActor
-final class NotificationService: NSObject, ObservableObject, NotificationServiceProtocol {
+@Observable
+final class NotificationService: NSObject, NotificationServiceProtocol {
     
     static let shared = NotificationService()
     
-    private let center: UNUserNotificationCenter
-    private let statusProvider: @MainActor () async -> UNAuthorizationStatus
+    @ObservationIgnored private let center: UNUserNotificationCenter
+    @ObservationIgnored private let statusProvider: @MainActor () async -> UNAuthorizationStatus
     
     init(
         center: UNUserNotificationCenter = .current(),

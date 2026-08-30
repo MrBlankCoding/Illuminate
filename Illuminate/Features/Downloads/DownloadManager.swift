@@ -6,8 +6,8 @@
 //
 
 import AppKit
-import Combine
 import Foundation
+import Observation
 import WebKit
 
 @MainActor
@@ -17,19 +17,20 @@ final class WeakWKWebViewBox {
 }
 
 @MainActor
-final class DownloadManager: NSObject, ObservableObject {
+@Observable
+final class DownloadManager: NSObject {
     static let shared = DownloadManager()
 
 
     var downloads: [DownloadTask] = []
-    var downloadIndexMap: [UUID: Int] = [:]
-    @Published var preferences: DownloadPreferences
-    @Published var downloadDirectoryURL: URL
-    @Published private(set) var hasRecentCompletedDownload = false
-    @Published private(set) var hasSessionDownload = false
-    var notificationThrottleTask: Task<Void, Never>?
+    @ObservationIgnored var downloadIndexMap: [UUID: Int] = [:]
+    var preferences: DownloadPreferences
+    var downloadDirectoryURL: URL
+    private(set) var hasRecentCompletedDownload = false
+    private(set) var hasSessionDownload = false
+    @ObservationIgnored var notificationThrottleTask: Task<Void, Never>?
 
-    lazy var session: URLSession = {
+    @ObservationIgnored lazy var session: URLSession = {
         let configuration = URLSessionConfiguration.default
         configuration.waitsForConnectivity = true
         configuration.timeoutIntervalForRequest = 60
@@ -38,14 +39,14 @@ final class DownloadManager: NSObject, ObservableObject {
         return URLSession(configuration: configuration, delegate: self, delegateQueue: nil)
     }()
 
-    var sessionTaskIDs: [Int: UUID] = [:]
-    var sessionTasksByID: [UUID: URLSessionDownloadTask] = [:]
-    var webKitDownloadIDs: [ObjectIdentifier: UUID] = [:]
-    var webKitDownloadsByID: [UUID: WKDownload] = [:]
-    var webKitDownloadWebViews: [UUID: WeakWKWebViewBox] = [:]
-    var webKitStagingURLsByID: [UUID: URL] = [:]
-    var taskProfileIDs: [UUID: UUID] = [:]
-    private var completionIndicatorResetTask: Task<Void, Never>?
+    @ObservationIgnored var sessionTaskIDs: [Int: UUID] = [:]
+    @ObservationIgnored var sessionTasksByID: [UUID: URLSessionDownloadTask] = [:]
+    @ObservationIgnored var webKitDownloadIDs: [ObjectIdentifier: UUID] = [:]
+    @ObservationIgnored var webKitDownloadsByID: [UUID: WKDownload] = [:]
+    @ObservationIgnored var webKitDownloadWebViews: [UUID: WeakWKWebViewBox] = [:]
+    @ObservationIgnored var webKitStagingURLsByID: [UUID: URL] = [:]
+    @ObservationIgnored var taskProfileIDs: [UUID: UUID] = [:]
+    @ObservationIgnored private var completionIndicatorResetTask: Task<Void, Never>?
 
     let preferencesKey = "download.preferences"
 

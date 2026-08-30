@@ -6,7 +6,6 @@
 //
 
 import AppKit
-import Combine
 import Foundation
 import SwiftUI
 import WebKit
@@ -89,12 +88,18 @@ extension TabManager {
         }
         tokens.append(pendingFilesToken)
 
-        extensionObserverCancellable = extensionManager.$installedExtensions
-            .sink { [weak self] _ in
-                Task { @MainActor [weak self] in
-                    self?.handleExtensionListChanged()
+        func observeExtensions() {
+            withObservationTracking {
+                _ = extensionManager.installedExtensions
+            } onChange: { [weak self] in
+                Task { @MainActor in
+                    guard let self, !self.extensionObserverCancelled else { return }
+                    self.handleExtensionListChanged()
+                    observeExtensions()
                 }
             }
+        }
+        observeExtensions()
 
         observerTokens = tokens
     }

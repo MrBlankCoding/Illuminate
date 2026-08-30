@@ -8,8 +8,8 @@
 import SwiftUI
 
 struct PermissionsPageView: View {
-    @EnvironmentObject private var tabManager: TabManager
-    @EnvironmentObject private var permissionService: WebsitePermissionService
+    @Environment(TabManager.self) private var tabManager: TabManager
+    @Environment(WebsitePermissionService.self) private var permissionService: WebsitePermissionService
 
     var body: some View {
         InternalPage(icon: "hand.raised.fill", title: "Permissions", accentColor: tabManager.windowThemeColor) {

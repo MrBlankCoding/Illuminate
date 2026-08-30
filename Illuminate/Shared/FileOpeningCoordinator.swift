@@ -6,17 +6,17 @@
 //
 
 import AppKit
-import Combine
 import Foundation
 import SwiftUI
-
+import Observation
 
 @MainActor
-final class AppFileOpening: ObservableObject {
+@Observable
+final class AppFileOpening {
     static let shared = AppFileOpening()
 
-    @Published private(set) var pendingURLs: [URL] = []
-    @Published var needsBrowserWindow = false
+    private(set) var pendingURLs: [URL] = []
+    var needsBrowserWindow = false
 
     private var accessedURLs = Set<URL>()
 
@@ -53,11 +53,12 @@ final class AppFileOpening: ObservableObject {
 }
 
 @MainActor
-final class BrowserWindowRegistry: ObservableObject {
+@Observable
+final class BrowserWindowRegistry {
     static let shared = BrowserWindowRegistry()
 
-    private var windows: [ObjectIdentifier: WeakWindow] = [:]
-    private var pendingOpens: [UUID: Date] = [:]
+    @ObservationIgnored private var windows: [ObjectIdentifier: WeakWindow] = [:]
+    @ObservationIgnored private var pendingOpens: [UUID: Date] = [:]
     private static let pendingOpenLifetime: TimeInterval = 5
 
     var activeCount: Int {

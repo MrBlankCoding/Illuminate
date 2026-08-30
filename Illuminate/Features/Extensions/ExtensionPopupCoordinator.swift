@@ -5,13 +5,14 @@
 //  Created by MrBlankCoding on 3/8/26.
 //
 
-import Combine
 import Foundation
 import SwiftUI
 import WebKit
+import Observation
 
 @MainActor
-final class ExtensionPopupCoordinator: ObservableObject {
+@Observable
+final class ExtensionPopupCoordinator {
 
     struct PopupPayload {
         let popupWebView: WKWebView
@@ -19,7 +20,7 @@ final class ExtensionPopupCoordinator: ObservableObject {
         let anchorX: CGFloat
     }
 
-    @Published private(set) var activePopup: PopupPayload?
+    private(set) var activePopup: PopupPayload?
 
     func open(_ payload: PopupPayload) {
         activePopup = payload

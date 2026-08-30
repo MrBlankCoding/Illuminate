@@ -6,12 +6,13 @@
 //
 
 
-import Combine
 import Foundation
+import Observation
 
 @MainActor
-final class URLSynchronizer: ObservableObject {
-    @Published private(set) var currentURL: URL?
+@Observable
+final class URLSynchronizer {
+    private(set) var currentURL: URL?
 
     init() {}
 

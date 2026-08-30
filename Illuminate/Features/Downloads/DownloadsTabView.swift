@@ -8,8 +8,8 @@
 import SwiftUI
 
 struct DownloadsTabView: View {
-    @EnvironmentObject private var tabManager: TabManager
-    @ObservedObject private var downloadManager = DownloadManager.shared
+    @Environment(TabManager.self) private var tabManager: TabManager
+    private var downloadManager = DownloadManager.shared
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {

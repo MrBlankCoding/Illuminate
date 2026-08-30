@@ -5,7 +5,6 @@
 // Created by MrBlankCoding on 4/4/26.
 //
 
-import Combine
 import Foundation
 import UniformTypeIdentifiers
 
@@ -275,7 +274,6 @@ extension DownloadManager {
     }
 
     private func dispatchNotification() {
-        self.objectWillChange.send()
         NotificationCenter.default.post(
             name: .downloadsDidChange,
             object: self,

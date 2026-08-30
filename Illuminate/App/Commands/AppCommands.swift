@@ -5,16 +5,17 @@
 //  Created by MrBlankCoding on 3/8/26.
 //
 
-import Combine
 import SwiftUI
+import Observation
 
-final class MenuRefreshTrigger: ObservableObject {
-    @Published var value = 0
+@Observable
+final class MenuRefreshTrigger {
+    var value = 0
 }
 
 struct AppCommands: Commands {
     let shortcutHandler: KeyboardShortcutHandler
-    @ObservedObject var menuRefreshTrigger: MenuRefreshTrigger
+    var menuRefreshTrigger: MenuRefreshTrigger
 
     var body: some Commands {
 
@@ -55,6 +56,10 @@ struct AppCommands: Commands {
 
             BrowserCommand("Find in Page",    shortcut: "f")                          { .findInPage }
             BrowserCommand("Toggle Full Screen", shortcut: "f", modifiers: [.command, .shift]) { .toggleFullScreen }
+
+            Divider()
+
+            BrowserCommand("Developer Tools", shortcut: "i", modifiers: [.command, .option]) { .openDevTools }
         }
 
         CommandMenu("History") {
@@ -81,10 +86,6 @@ struct AppCommands: Commands {
             BrowserCommand("Zoom In",     shortcut: "+") { .zoomIn }
             BrowserCommand("Zoom Out",    shortcut: "-") { .zoomOut }
             BrowserCommand("Actual Size", shortcut: "0") { .resetZoom }
-
-            Divider()
-
-            BrowserCommand("Developer Tools", shortcut: "i", modifiers: [.command, .shift]) { .openDevTools }
         }
 
         CommandGroup(replacing: .printItem) {

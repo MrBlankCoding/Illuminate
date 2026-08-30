@@ -5,8 +5,8 @@
 //  Created by MrBlankCoding on 4/1/26.
 //
 
-import Combine
 import Foundation
+import Observation
 
 enum WebsitePermissionType: String, CaseIterable, Codable, Identifiable {
     case camera
@@ -52,15 +52,16 @@ struct PendingWebsitePermission: Identifiable {
 }
 
 @MainActor
-final class WebsitePermissionService: ObservableObject {
-    @Published var pendingRequest: PendingWebsitePermission?
-    @Published private(set) var sites: [WebsitePermissionSite] = []
+@Observable
+final class WebsitePermissionService {
+    var pendingRequest: PendingWebsitePermission?
+    private(set) var sites: [WebsitePermissionSite] = []
 
-    private let userDefaults: UserDefaults
-    private let storageKey: String
-    private let persists: Bool
-    private var decisions: [String: [WebsitePermissionType: WebsitePermissionDecision]] = [:]
-    private var pendingCompletion: ((WebsitePermissionDecision) -> Void)?
+    @ObservationIgnored private let userDefaults: UserDefaults
+    @ObservationIgnored private let storageKey: String
+    @ObservationIgnored private let persists: Bool
+    @ObservationIgnored private var decisions: [String: [WebsitePermissionType: WebsitePermissionDecision]] = [:]
+    @ObservationIgnored private var pendingCompletion: ((WebsitePermissionDecision) -> Void)?
 
     init(profileID: UUID?, userDefaults: UserDefaults = .standard, persists: Bool = true) {
         self.userDefaults = userDefaults

@@ -31,6 +31,6 @@ struct NativeSettingsView: View {
                 }
         }
         .frame(minWidth: 520, minHeight: 440)
-        .environmentObject(tabManager)
+        .environment(tabManager)
     }
 }

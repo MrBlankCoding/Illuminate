@@ -9,7 +9,7 @@ import SwiftUI
 import WebKit
 
 struct ExtensionSettingsView: View {
-    @EnvironmentObject var profileEnvironment: ProfileEnvironment
+    @Environment(ProfileEnvironment.self) var profileEnvironment: ProfileEnvironment
     @State private var selectedExtension: IdentifiableContext?
     @State private var showGallery = false
     @State private var installedExtensions: [WKWebExtensionContext] = []
@@ -87,12 +87,9 @@ struct ExtensionSettingsView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .sheet(item: $selectedExtension) { wrapper in
             ExtensionDetailView(context: wrapper.context)
-                .environmentObject(profileEnvironment)
+                .environment(profileEnvironment)
         }
-        .onReceive(manager.$installedExtensions) { extensions in
-            installedExtensions = extensions
-        }
-        .onReceive(manager.$enabledStateVersion) { _ in
+        .onChange(of: manager.enabledStateVersion) { _ in
             installedExtensions = manager.installedExtensions
         }
         .onAppear {
@@ -229,7 +226,7 @@ struct ExtensionSettingsView: View {
 
 struct ExtensionSettingsRow: View {
     let context: WKWebExtensionContext
-    @EnvironmentObject var profileEnvironment: ProfileEnvironment
+    @Environment(ProfileEnvironment.self) var profileEnvironment: ProfileEnvironment
     @State private var isEnabled: Bool = false
     @State private var isPinned: Bool = false
 
@@ -305,10 +302,10 @@ struct ExtensionSettingsRow: View {
         .animation(.easeInOut(duration: 0.15), value: isEnabled)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(context.webExtension.displayName ?? "Extension"), \(isEnabled ? "enabled" : "disabled")")
-        .onReceive(profileEnvironment.extensionManager.$enabledStateVersion) { _ in
+        .onChange(of: profileEnvironment.extensionManager.enabledStateVersion) { _ in
             isEnabled = currentEnabledState
         }
-        .onReceive(profileEnvironment.extensionManager.$pinnedExtensions) { _ in
+        .onChange(of: profileEnvironment.extensionManager.pinnedExtensions) { _ in
             isPinned = currentPinnedState
         }
         .onAppear {
@@ -362,7 +359,7 @@ private struct ExtensionErrorRow: View {
 
 struct ExtensionDetailView: View {
     let context: WKWebExtensionContext
-    @EnvironmentObject var profileEnvironment: ProfileEnvironment
+    @Environment(ProfileEnvironment.self) var profileEnvironment: ProfileEnvironment
     @Environment(\.dismiss) var dismiss
     @State private var isUninstalling = false
     @State private var showUninstallConfirm = false

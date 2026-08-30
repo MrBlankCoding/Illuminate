@@ -8,32 +8,33 @@
 //
 
 import AppKit
-import Combine
 import Foundation
+import Observation
 import SwiftUI
 import UniformTypeIdentifiers
 import WebKit
 
 
 @MainActor
-final class TabManager: NSObject, ObservableObject, WKWebExtensionWindow {
+@Observable
+final class TabManager: NSObject, WKWebExtensionWindow {
 
-    var windowState: WKWebExtension.WindowState {
+    @ObservationIgnored var windowState: WKWebExtension.WindowState {
         if isFullScreen { return .fullscreen }
         return .normal
     }
 
-    var windowType: WKWebExtension.WindowType {
+    @ObservationIgnored var windowType: WKWebExtension.WindowType {
         .normal
     }
 
-    var isPrivate: Bool {
+    @ObservationIgnored var isPrivate: Bool {
         activeProfileID == nil // Assuming nil profile ID means guest/private
     }
 
-    weak var window: NSWindow?
+    @ObservationIgnored weak var window: NSWindow?
 
-    var isFocused: Bool {
+    @ObservationIgnored var isFocused: Bool {
         window?.isKeyWindow ?? false
     }
 
@@ -51,15 +52,15 @@ final class TabManager: NSObject, ObservableObject, WKWebExtensionWindow {
         static let rapidSwitchDebounceNs: UInt64 = 1_000_000_000
     }
 
-    @Published var tabs: [Tab] = []
-    @Published var activeTabID: UUID?
-    @Published var isResizing: Bool = false
-    @Published var isFullScreen: Bool = false
-    @Published var backgroundImagePalette: [Color] = []
-    @Published private var initialPreloadingTabIDs: Set<UUID> = []
-    let tabGroupManager: TabGroupManager
+    var tabs: [Tab] = []
+    var activeTabID: UUID?
+    var isResizing: Bool = false
+    var isFullScreen: Bool = false
+    var backgroundImagePalette: [Color] = []
+    private var initialPreloadingTabIDs: Set<UUID> = []
+    @ObservationIgnored let tabGroupManager: TabGroupManager
 
-    @Published var theme: IlluminateTheme {
+    var theme: IlluminateTheme {
         didSet {
             guard isPersistenceEnabled, !isInitializing else { return }
             if let data = try? JSONEncoder().encode(theme),
@@ -74,7 +75,7 @@ final class TabManager: NSObject, ObservableObject, WKWebExtensionWindow {
         }
     }
 
-    @Published var windowThemeColor: Color {
+    var windowThemeColor: Color {
         didSet {
             if let hex = windowThemeColor.toHex() {
                 persistIfEnabled(hex, forKey: "windowThemeColor")
@@ -82,7 +83,7 @@ final class TabManager: NSObject, ObservableObject, WKWebExtensionWindow {
         }
     }
 
-    @Published var backgroundImageURL: String {
+    var backgroundImageURL: String {
         didSet {
             guard isPersistenceEnabled, !isInitializing else { return }
             persistIfEnabled(backgroundImageURL, forKey: "backgroundImageURL")
@@ -90,20 +91,20 @@ final class TabManager: NSObject, ObservableObject, WKWebExtensionWindow {
         }
     }
 
-    @Published var showSidebar: Bool {
+    var showSidebar: Bool {
         didSet { persistIfEnabled(showSidebar, forKey: "showSidebar") }
     }
 
-    @Published var showBackgroundBehindSidebar: Bool {
+    var showBackgroundBehindSidebar: Bool {
         didSet { persistIfEnabled(showBackgroundBehindSidebar, forKey: "showBackgroundBehindSidebar") }
     }
 
-    @Published var userInterfaceStyle: UIStyle {
+    var userInterfaceStyle: UIStyle {
         didSet { persistIfEnabled(userInterfaceStyle.rawValue, forKey: "userInterfaceStyle") }
     }
 
 
-    var activeTab: Tab? {
+    @ObservationIgnored var activeTab: Tab? {
         guard let activeTabID else { return nil }
         return tabIndex[activeTabID]
     }
@@ -121,38 +122,38 @@ final class TabManager: NSObject, ObservableObject, WKWebExtensionWindow {
         initialPreloadingTabIDs.remove(tabID)
     }
 
-    var canReopenTab: Bool { !recentlyClosed.isEmpty }
+    @ObservationIgnored var canReopenTab: Bool { !recentlyClosed.isEmpty }
 
-    let notificationCenter: NotificationCenter
-    let urlSynchronizer: URLSynchronizer
-    let userDefaults: UserDefaults
-    let isPersistenceEnabled: Bool
-    let sessionURL: URL
-    let faviconCache: FaviconCache
-    let sessionWriter = SessionWriter()
+    @ObservationIgnored let notificationCenter: NotificationCenter
+    @ObservationIgnored let urlSynchronizer: URLSynchronizer
+    @ObservationIgnored let userDefaults: UserDefaults
+    @ObservationIgnored let isPersistenceEnabled: Bool
+    @ObservationIgnored let sessionURL: URL
+    @ObservationIgnored let faviconCache: FaviconCache
+    @ObservationIgnored let sessionWriter = SessionWriter()
     // not private ahh!
-    let extensionManager: ExtensionManager
+    @ObservationIgnored let extensionManager: ExtensionManager
 
-    var activeProfileID: UUID?
-    var profileID: UUID? { activeProfileID }
-    var tabIndex: [UUID: Tab] = [:]
-    private var tabPositionIndex: [UUID: Int] = [:]
+    @ObservationIgnored var activeProfileID: UUID?
+    @ObservationIgnored var profileID: UUID? { activeProfileID }
+    @ObservationIgnored var tabIndex: [UUID: Tab] = [:]
+    @ObservationIgnored private var tabPositionIndex: [UUID: Int] = [:]
 
     private struct ClosedTabSnapshot {
         let payload: TabTransferPayload
     }
 
-    private var recentlyClosed: [ClosedTabSnapshot] = []
-    private var isInitializing = true
-    var pristineBlankTabID: UUID?
-    var pendingSaveTask: Task<Void, Never>?
-    var backgroundThemeTask: Task<Void, Never>?
-    private var pendingFocusTask: Task<Void, Never>?
-    var saveVersion: UInt64 = 0
-    var observerTokens: [NSObjectProtocol] = []
-    var extensionObserverCancellable: AnyCancellable?
-    var lastReloadedExtensionIDs: [String] = []
-    var lastSwitchTime: Date?
+    @ObservationIgnored private var recentlyClosed: [ClosedTabSnapshot] = []
+    @ObservationIgnored private var isInitializing = true
+    @ObservationIgnored var pristineBlankTabID: UUID?
+    @ObservationIgnored var pendingSaveTask: Task<Void, Never>?
+    @ObservationIgnored var backgroundThemeTask: Task<Void, Never>?
+    @ObservationIgnored private var pendingFocusTask: Task<Void, Never>?
+    @ObservationIgnored var saveVersion: UInt64 = 0
+    @ObservationIgnored var observerTokens: [NSObjectProtocol] = []
+    @ObservationIgnored var extensionObserverCancelled = false
+    @ObservationIgnored var lastReloadedExtensionIDs: [String] = []
+    @ObservationIgnored var lastSwitchTime: Date?
 
     enum UIStyle: String, CaseIterable {
         case dark, light, system
@@ -290,7 +291,7 @@ final class TabManager: NSObject, ObservableObject, WKWebExtensionWindow {
             em.unregisterTabManager(withIdentifier: identifier)
         }
         observerTokens.forEach { notificationCenter.removeObserver($0) }
-        extensionObserverCancellable?.cancel()
+        extensionObserverCancelled = true
         pendingSaveTask?.cancel()
         backgroundThemeTask?.cancel()
         pendingFocusTask?.cancel()
@@ -437,14 +438,15 @@ final class TabManager: NSObject, ObservableObject, WKWebExtensionWindow {
         updateProtectedFaviconURLs()
 
         if activeTabID == id {
+            let nextID = (tabs[safe: index] ?? tabs.last)?.id
             withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-                let nextID = (tabs[safe: index] ?? tabs.last)?.id
-                activeTabID = nextID
-                syncActiveTabURL()
+                setActiveTab(nextID)
             }
         }
 
         if tabs.isEmpty {
+            // Ensure we have at least one tab for the next time the browser opens
+            createTab()
             NSApp.keyWindow?.performClose(nil)
         }
 

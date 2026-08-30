@@ -5,21 +5,22 @@
 //  Created by MrBlankCoding on 3/18/26.
 //
 
-import Combine
 import Foundation
+import Observation
 
 @MainActor
-final class CanvasFingerprintingService: ObservableObject {
-    @Published var isEnabled: Bool {
+@Observable
+final class CanvasFingerprintingService {
+    var isEnabled: Bool {
         didSet {
             guard persists else { return }
             userDefaults.set(isEnabled, forKey: storageKey)
         }
     }
 
-    private let userDefaults: UserDefaults
-    private let storageKey: String
-    private let persists: Bool
+    @ObservationIgnored private let userDefaults: UserDefaults
+    @ObservationIgnored private let storageKey: String
+    @ObservationIgnored private let persists: Bool
 
     init(profileID: UUID?, userDefaults: UserDefaults = .standard, persists: Bool = true) {
         self.userDefaults = userDefaults

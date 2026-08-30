@@ -6,7 +6,6 @@
 //
 
 import AppKit
-import Combine
 import PDFKit
 import SwiftUI
 
@@ -16,7 +15,7 @@ struct PdfViewerPageView: View {
     let sourceURL: URL
     var accentColor: Color = .accentColor
 
-    @StateObject private var controller = PDFViewerController()
+    @State private var controller = PDFViewerController()
     @State private var loadFailed = false
     @State private var isLoading = true
     @State private var sidebarMode: SidebarMode = .none

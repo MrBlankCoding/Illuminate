@@ -9,7 +9,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct NewTabCustomizePanel: View {
-    @EnvironmentObject private var tabManager: TabManager
+    @Environment(TabManager.self) private var tabManager: TabManager
     @Environment(\.colorScheme) private var colorScheme
     @State private var showThemeEditor = false
     private static let contentWidth: CGFloat = 228
@@ -70,7 +70,7 @@ struct NewTabCustomizePanel: View {
                                 }
                                 .buttonStyle(.plain)
                                 .popover(isPresented: $showThemeEditor, arrowEdge: .leading) {
-                                    ThemeEditorView(theme: $tabManager.theme)
+                                    ThemeEditorView(theme: Binding(get: { tabManager.theme }, set: { tabManager.theme = $0 }))
                                         .frame(width: 378, height: 512)
                                 }
                             } else {

@@ -10,9 +10,9 @@
 import SwiftUI
 
 struct HistoryPageView: View {
-    @EnvironmentObject private var tabManager: TabManager
-    @EnvironmentObject private var historyManager: HistoryManager
-    @EnvironmentObject private var viewModel: ContentViewModel
+    @Environment(TabManager.self) private var tabManager: TabManager
+    @Environment(HistoryManager.self) private var historyManager: HistoryManager
+    @Environment(ContentViewModel.self) private var viewModel: ContentViewModel
     @Environment(\.colorScheme) private var colorScheme
 
     @State private var searchText = ""
@@ -269,7 +269,7 @@ private struct HistoryRowView: View {
     let entry: HistoryEntry
     let onAction: (HistoryRowAction) -> Void
 
-    @EnvironmentObject private var tabManager: TabManager
+    @Environment(TabManager.self) private var tabManager: TabManager
     @State private var isHovered = false
     @State private var showDeleteConfirm = false
 

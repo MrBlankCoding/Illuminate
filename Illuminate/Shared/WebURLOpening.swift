@@ -6,18 +6,19 @@
 //
 
 import AppKit
-import Combine
 import Foundation
+import Observation
 
 @MainActor
-final class WebURLOpening: ObservableObject {
+@Observable
+final class WebURLOpening {
     static let shared = WebURLOpening()
 
-    @Published private(set) var queuedURLs: [URL] = []
-    @Published var needsBrowserWindow = false
+    private(set) var queuedURLs: [URL] = []
+    var needsBrowserWindow = false
 
-    private var registrations: [ObjectIdentifier: Registration] = [:]
-    private var registrationOrder: [ObjectIdentifier] = []
+    @ObservationIgnored private var registrations: [ObjectIdentifier: Registration] = [:]
+    @ObservationIgnored private var registrationOrder: [ObjectIdentifier] = []
 
     private struct Registration {
         let tabManager: TabManager

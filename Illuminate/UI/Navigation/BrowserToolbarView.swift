@@ -90,9 +90,9 @@ private enum ToolbarMetrics {
 }
 
 struct BrowserToolbarView: View {
-    @EnvironmentObject private var tabManager: TabManager
-    @EnvironmentObject private var profileEnvironment: ProfileEnvironment
-    @EnvironmentObject private var profileManager: ProfileManager
+    @Environment(TabManager.self) private var tabManager: TabManager
+    @Environment(ProfileEnvironment.self) private var profileEnvironment: ProfileEnvironment
+    @Environment(ProfileManager.self) private var profileManager: ProfileManager
     @Environment(\.colorScheme) private var colorScheme
 
     let onNavigate: (String) -> Void

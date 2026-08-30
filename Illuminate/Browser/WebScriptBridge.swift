@@ -101,7 +101,6 @@ final class WebScriptBridge {
         canvasFingerprintingProtectionEnabled: Bool
     ) -> [WKUserScript] {
         var scripts = [
-            browserThemeSyncScript(colorScheme: colorScheme),
             hoverTrackingScript(),
             passwordScript(colorScheme: colorScheme),
             locationPermissionScript(),
@@ -175,88 +174,6 @@ final class WebScriptBridge {
         return WKUserScript(
             source: source,
             injectionTime: .atDocumentEnd,
-            forMainFrameOnly: true
-        )
-    }
-
-    private func browserThemeSyncScript(colorScheme: String) -> WKUserScript {
-        let safeScheme = Self.jsStringLiteral(colorScheme, fallback: "\"light\"")
-
-        let source = """
-        (() => {
-            'use strict';
-            const scheme     = \(safeScheme);
-            const prefersDark = scheme === "dark";
-
-            const sync = window.__illuminateThemeSync;
-
-            if (!sync) {
-                const originalMatchMedia = window.matchMedia.bind(window);
-                const entries = new Set();
-                function makeEntry(query, isDarkQuery) {
-                    const entry = {
-                        media:           query,
-                        onchange:        null,
-                        _listeners:      new Set(),
-
-                        get matches() {
-                            return isDarkQuery
-                                ? window.__illuminateThemeSync.prefersDark
-                                : !window.__illuminateThemeSync.prefersDark;
-                        },
-
-                        addEventListener(type, listener, _opts) {
-                            if (type === "change" && typeof listener === "function")
-                                this._listeners.add(listener);
-                        },
-                        removeEventListener(type, listener) {
-                            if (type === "change") this._listeners.delete(listener);
-                        },
-
-                        dispatch() {
-                            const event = { matches: this.matches, media: this.media };
-                            for (const fn of this._listeners) {
-                                try { fn.call(this, event); } catch (_) {}
-                            }
-                            if (typeof this.onchange === "function") {
-                                try { this.onchange.call(this, event); } catch (_) {}
-                            }
-                        }
-                    };
-
-                    entries.add(entry);
-                    return entry;
-                }
-
-                window.__illuminateThemeSync = {
-                    originalMatchMedia,
-                    entries,
-                    prefersDark
-                };
-
-                window.matchMedia = (query) => {
-                    if (typeof query !== "string") return originalMatchMedia(query);
-                    const n = query.replace(/\\s+/g, "").toLowerCase();
-                    if (n === "(prefers-color-scheme:dark)")  return makeEntry(query, true);
-                    if (n === "(prefers-color-scheme:light)") return makeEntry(query, false);
-                    return originalMatchMedia(query);
-                };
-
-            } else {
-                sync.prefersDark = prefersDark;
-                for (const entry of sync.entries) entry.dispatch();
-            }
-
-            document.documentElement.style.colorScheme = scheme;
-            window.dispatchEvent(
-                new CustomEvent("illuminatecolorschemechange", { detail: { scheme } })
-            );
-        })();
-        """
-
-        return WKUserScript(
-            source: source,
-            injectionTime: .atDocumentStart,
             forMainFrameOnly: true
         )
     }

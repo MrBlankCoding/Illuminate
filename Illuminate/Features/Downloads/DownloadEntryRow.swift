@@ -102,7 +102,7 @@ struct DownloadEntryRow: View {
         _fileExistsOnDisk = State(initialValue: item.fileExistsOnDisk)
     }
 
-    @ObservedObject private var downloadManager = DownloadManager.shared
+    private var downloadManager = DownloadManager.shared
     @State private var isHovering = false
     @State private var fileExistsOnDisk = false
 

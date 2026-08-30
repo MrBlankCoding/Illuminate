@@ -9,9 +9,9 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct DownloadsToolbarButton: View {
-    @EnvironmentObject private var tabManager: TabManager
-    @EnvironmentObject private var environment: ProfileEnvironment
-    @ObservedObject private var downloadManager = DownloadManager.shared
+    @Environment(TabManager.self) private var tabManager: TabManager
+    @Environment(ProfileEnvironment.self) private var environment: ProfileEnvironment
+    private var downloadManager = DownloadManager.shared
     @Environment(\.colorScheme) private var colorScheme
     @State private var isPopoverPresented = false
     @State private var isHovered = false
@@ -57,8 +57,8 @@ struct DownloadsToolbarButton: View {
         .accessibilityHint("Opens downloads popover")
         .popover(isPresented: $isPopoverPresented, arrowEdge: .bottom) {
             DownloadsPopoverContent()
-                .environmentObject(tabManager)
-                .environmentObject(environment)
+                .environment(tabManager)
+                .environment(environment)
                 .frame(width: 340)
                 .macPopover(cornerRadius: MacDesign.Radius.large)
         }
@@ -66,9 +66,9 @@ struct DownloadsToolbarButton: View {
 }
 
 private struct DownloadsPopoverContent: View {
-    @EnvironmentObject private var tabManager: TabManager
-    @EnvironmentObject private var environment: ProfileEnvironment
-    @ObservedObject private var downloadManager = DownloadManager.shared
+    @Environment(TabManager.self) private var tabManager: TabManager
+    @Environment(ProfileEnvironment.self) private var environment: ProfileEnvironment
+    private var downloadManager = DownloadManager.shared
 
     private var items: [DownloadHistoryItem] {
         downloadManager.downloads.map { DownloadHistoryItem(task: $0) }

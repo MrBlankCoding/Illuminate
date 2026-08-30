@@ -9,7 +9,7 @@ import SwiftUI
 import WebKit
 
 struct BrowserErrorPageView: View {
-    @EnvironmentObject private var tabManager: TabManager
+    @Environment(TabManager.self) private var tabManager: TabManager
     @Environment(\.colorScheme) private var colorScheme
 
     let error: NetworkErrorKind

@@ -44,7 +44,7 @@ private enum TabBarElement: Identifiable, Equatable {
 }
 
 struct TabBarView: View {
-    @EnvironmentObject private var tabManager: TabManager
+    @Environment(TabManager.self) private var tabManager: TabManager
     @Environment(\.colorScheme) private var colorScheme
 
     @State private var dragSession: TabDragSession?
@@ -92,7 +92,7 @@ struct TabBarView: View {
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("browser.tabbar")
         .accessibilityLabel("Tab strip, \(tabManager.tabs.count) \(tabManager.tabs.count == 1 ? "tab" : "tabs")")
-        .onReceive(tabManager.tabGroupManager.$groups) { _ in
+        .onChange(of: tabManager.tabGroupManager.groups.map { $0.id }) { _ in
             groupChangeToken = UUID()
         }
     }

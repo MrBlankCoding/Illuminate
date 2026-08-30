@@ -6,14 +6,15 @@
 //
 
 import SwiftUI
-import Combine
+import Observation
 
 @MainActor
-final class ZoomViewModel: ObservableObject {
-    @Published var isPresented = false
-    @Published var zoomLevel: Double = 1.0
+@Observable
+final class ZoomViewModel {
+    var isPresented = false
+    var zoomLevel: Double = 1.0
     
-    private var dismissTask: Task<Void, Never>?
+    @ObservationIgnored private var dismissTask: Task<Void, Never>?
     
     func updateZoom(_ level: Double) {
         zoomLevel = level

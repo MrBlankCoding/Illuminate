@@ -11,7 +11,7 @@ import WebKit
 
 enum Extensions {}
 @MainActor
-protocol ExtensionManaging: AnyObject, ObservableObject {
+protocol ExtensionManaging: AnyObject {
     var installedExtensions: [WKWebExtensionContext] { get }
     var isLoadingExtensions: Bool { get }
     var loadingErrors: [ExtensionManager.ExtensionLoadingError] { get }

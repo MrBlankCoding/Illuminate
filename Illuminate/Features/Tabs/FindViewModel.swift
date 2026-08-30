@@ -8,12 +8,18 @@
 import SwiftUI
 import WebKit
 import Combine
+import Observation
 
 @MainActor
-final class FindViewModel: ObservableObject {
+@Observable
+final class FindViewModel {
 
-    @Published var searchText: String = ""
-    @Published var isPresented: Bool = false {
+    var searchText: String = "" {
+        didSet {
+            searchSubject.send(searchText)
+        }
+    }
+    var isPresented: Bool = false {
         didSet {
             if !isPresented {
                 clearHighlights()
@@ -23,8 +29,8 @@ final class FindViewModel: ObservableObject {
             }
         }
     }
-    @Published private(set) var currentMatchIndex: Int = 0
-    @Published private(set) var totalMatches: Int = 0
+    private(set) var currentMatchIndex: Int = 0
+    private(set) var totalMatches: Int = 0
 
     #if DEBUG
     var matchFound: Bool {
@@ -36,12 +42,13 @@ final class FindViewModel: ObservableObject {
     #endif
     var accentColor: Color = .accentColor
 
-    private weak var webView: WKWebView?
-    private var didInjectScript = false
-    private var cancellables = Set<AnyCancellable>()
+    @ObservationIgnored private weak var webView: WKWebView?
+    @ObservationIgnored private var didInjectScript = false
+    @ObservationIgnored private let searchSubject = PassthroughSubject<String, Never>()
+    @ObservationIgnored private var cancellables = Set<AnyCancellable>()
 
     init() {
-        $searchText
+        searchSubject
             .removeDuplicates()
             .debounce(for: .milliseconds(250), scheduler: DispatchQueue.main)
             .sink { [weak self] text in

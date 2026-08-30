@@ -9,8 +9,8 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct MoreOptionsMenu: View {
-    @EnvironmentObject private var tabManager: TabManager
-    @EnvironmentObject private var profileEnvironment: ProfileEnvironment
+    @Environment(TabManager.self) private var tabManager: TabManager
+    @Environment(ProfileEnvironment.self) private var profileEnvironment: ProfileEnvironment
     @State private var isHovered = false
 
     var body: some View {

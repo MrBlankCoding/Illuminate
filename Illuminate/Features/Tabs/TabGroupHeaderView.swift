@@ -18,7 +18,7 @@ private enum GroupHeaderMetrics {
 }
 
 struct TabGroupHeaderView: View {
-    @ObservedObject var group: TabGroup
+    var group: TabGroup
     let onToggleCollapse: () -> Void
     let onRename: (String) -> Void
     let onChangeColor: (TabGroupColor) -> Void
@@ -162,7 +162,7 @@ struct TabGroupHeaderView: View {
 }
 
 private struct GroupEditPopover: View {
-    @ObservedObject var group: TabGroup
+    var group: TabGroup
     let onChangeColor: (TabGroupColor) -> Void
     let onDismiss: () -> Void
 
