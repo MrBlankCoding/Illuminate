@@ -2,6 +2,8 @@
 //  DownloadsPageView.swift
 //  Illuminate
 //
+//  Created by MrBlankCoding on 8/30/26.
+//
 
 import SwiftUI
 
@@ -100,5 +102,6 @@ struct DownloadsHistoryList: View {
     private func clearAll() {
         store.clearAll()
         downloadManager.clearFinishedDownloads()
+        HapticFeedback.destructiveAction()
     }
 }

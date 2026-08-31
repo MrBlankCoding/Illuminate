@@ -96,6 +96,7 @@ extension DownloadManager {
         if let updated = downloads.first(where: { $0.id == id }) {
             recordInProfileHistory(updated)
         }
+        HapticFeedback.downloadCompleted()
         noteCompletedDownload()
 
         if preferences.revealInFinderWhenFinished,

@@ -7,6 +7,7 @@
 
 import SwiftUI
 import UniformTypeIdentifiers
+import AppKit
 
 struct DownloadHistoryItem: Identifiable {
     let id: UUID
@@ -195,6 +196,34 @@ struct DownloadEntryRow: View {
         .animation(.easeOut(duration: 0.12), value: isHovering)
         .task(id: item.destinationURL) {
             fileExistsOnDisk = item.fileExistsOnDisk
+        }
+        .onDrag {
+            guard isRowInteractive, let url = item.destinationURL else {
+                return NSItemProvider()
+            }
+            // Finder/Desktop drag — fileURL provider so Finder accepts drop
+            let provider = NSItemProvider(object: url as NSURL)
+            provider.suggestedName = url.lastPathComponent
+            return provider
+        } preview: {
+            // Glass-styled drag preview matching native Safari/ Finder feel
+            HStack(spacing: 8) {
+                Image(nsImage: resolvedIcon)
+                    .resizable().scaledToFit()
+                    .frame(width: 32, height: 32)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(item.filename).font(.system(size: 12, weight: .medium)).lineLimit(1)
+                    if let host = item.sourceURL?.host {
+                        Text(host).font(.system(size: 10)).foregroundStyle(.secondary).lineLimit(1)
+                    }
+                }
+                .frame(maxWidth: 180, alignment: .leading)
+            }
+            .padding(.horizontal, 10).padding(.vertical, 8)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.primary.opacity(0.08), lineWidth: 0.5))
+            .shadow(color: .black.opacity(0.18), radius: 10, y: 4)
+            .frame(width: 240)
         }
     }
 

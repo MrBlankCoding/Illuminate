@@ -15,6 +15,11 @@ struct NativeSettingsView: View {
 
     var body: some View {
         TabView {
+            GeneralSettingsView()
+                .tabItem {
+                    Label("General", systemImage: "gearshape")
+                }
+
             SearchSettingsView()
                 .tabItem {
                     Label("Search", systemImage: "magnifyingglass")

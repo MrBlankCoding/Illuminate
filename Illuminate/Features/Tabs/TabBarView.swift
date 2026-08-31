@@ -51,6 +51,7 @@ struct TabBarView: View {
     @State private var isNewTabHovered = false
     @State private var groupChangeToken = UUID()
     @State private var previousActiveTabID: UUID?
+    @State private var hasTriggeredDetachHaptic = false
     @Namespace private var activeTabNamespace
 
     private var theme: BrowserTheme {
@@ -274,13 +275,27 @@ struct TabBarView: View {
                         translation: 0,
                         tabWidth: tabWidth
                     )
+                    hasTriggeredDetachHaptic = false
                 }
 
                 guard dragSession?.isSettling != true else { return }
                 dragSession?.translation = value.translation.width
+
+                // Hapticcc timeeeee
+                // gotta be scarce abou this
+                if !hasTriggeredDetachHaptic && abs(value.translation.height) > 72 {
+                    hasTriggeredDetachHaptic = true
+                    HapticFeedback.tabDetached()
+                }
+                // Reset haptic
+                if hasTriggeredDetachHaptic && abs(value.translation.height) < 32 {
+                    hasTriggeredDetachHaptic = false
+                }
+
                 updateCurrentIndex()
             }
             .onEnded { value in
+                hasTriggeredDetachHaptic = false
                 commitReorder(predictedEndTranslation: value.predictedEndTranslation.width)
             }
     }
@@ -299,6 +314,7 @@ struct TabBarView: View {
 
         let clamped = min(max(target, 0), tabManager.tabs.count - 1)
         if clamped != session.currentIndex {
+            HapticFeedback.tabReordered()
             withAnimation(TabBarMetrics.reorderSpring) {
                 dragSession?.currentIndex = clamped
             }
@@ -358,6 +374,7 @@ struct TabBarView: View {
 
     private var newTabButton: some View {
         Button {
+            HapticFeedback.newTabButtonPressed()
             withAnimation(MacDesign.springAnimation) { _ = tabManager.createTab() }
         } label: {
             Image(systemName: "plus")

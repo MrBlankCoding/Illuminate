@@ -216,6 +216,7 @@ struct HistoryPageView: View {
         case .allTime:
             historyManager.clearAll()
         }
+        HapticFeedback.destructiveAction()
     }
 
     private func handleRowAction(_ action: HistoryRowAction, entry: HistoryEntry) {

@@ -38,6 +38,9 @@ struct TabItemView: View {
     
     @State private var isHovered = false
     @State private var isCloseHovered = false
+    @State private var showHoverPreview = false
+    @State private var hoverPreviewTask: Task<Void, Never>?
+    @State private var hoverDismissTask: Task<Void, Never>?
 
     private var showClose: Bool { isHovered || isActive }
     private var showsLoadingIndicator: Bool {
@@ -98,6 +101,33 @@ struct TabItemView: View {
                     style: .continuous
                 )
             )
+            .overlay(alignment: .bottom) {
+                if showHoverPreview && !isActive {
+                    TabHoverPreview(
+                        tab: tab,
+                        themeColor: themeColor,
+                        onTogglePiP: { showHoverPreview = false },
+                        onKeepAlive: {
+                            hoverPreviewTask?.cancel()
+                            hoverDismissTask?.cancel()
+                        },
+                        onDismiss: {
+                            hoverDismissTask?.cancel()
+                            hoverDismissTask = Task {
+                                try? await Task.sleep(nanoseconds: 80_000_000)
+                                guard !Task.isCancelled else { return }
+                                await MainActor.run { showHoverPreview = false }
+                            }
+                        }
+                    )
+                    .frame(width: 320)
+                    // Unrestricted 320pt (not geo.size.width) so long URLs aren't cut off on narrow tabs.
+                    // Still centered under tab via .bottom alignment, pushed past entire top bar.
+                    .offset(y: 72)
+                    .zIndex(100)
+                    .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)).combined(with: .move(edge: .top)))
+                }
+            }
         }
         .frame(height: TabItemMetrics.height)
         .overlay(alignment: .trailing) {
@@ -110,9 +140,35 @@ struct TabItemView: View {
         .contentShape(Rectangle())
         .onHover { hovering in
             withAnimation(MacDesign.fastAnimation) { isHovered = hovering }
+            if hovering {
+                hoverDismissTask?.cancel()
+                hoverPreviewTask?.cancel()
+                // Long-hover 700ms — deliberate, not instant
+                hoverPreviewTask = Task {
+                    try? await Task.sleep(nanoseconds: 700_000_000)
+                    guard !Task.isCancelled else { return }
+                    await MainActor.run { showHoverPreview = true }
+                }
+            } else {
+                hoverPreviewTask?.cancel()
+                // Small grace period so mouse can travel to preview (bridges 6pt gap)
+                // and so tiny gaps between tabs don't flicker
+                hoverDismissTask?.cancel()
+                hoverDismissTask = Task {
+                    try? await Task.sleep(nanoseconds: 120_000_000)
+                    guard !Task.isCancelled else { return }
+                    await MainActor.run { showHoverPreview = false }
+                }
+            }
         }
         .hoverCursor(.pointingHand)
         .contextMenu { contextMenuItems }
+        .onDisappear {
+            hoverPreviewTask?.cancel()
+            hoverDismissTask?.cancel()
+            showHoverPreview = false
+        }
+        .zIndex(showHoverPreview ? 100 : 0)
     }
 
     @ViewBuilder
@@ -164,14 +220,21 @@ struct TabItemView: View {
     }
 
     private var titleLabel: some View {
-        Text(tab.title.isEmpty ? "New Tab" : tab.title)
-            .font(isActive ? .webMicroMedium : .webMicro)
-            .foregroundStyle(isActive ? Color.textPrimary : Color.textSecondary)
-            .lineLimit(1)
-            .truncationMode(.tail)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .layoutPriority(1)
+        HStack(spacing: 4) {
+            Text(tab.title.isEmpty ? "New Tab" : tab.title)
+                .font(isActive ? .webMicroMedium : .webMicro)
+                .foregroundStyle(isActive ? Color.textPrimary : Color.textSecondary)
+                .lineLimit(1)
+                .truncationMode(.tail)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .layoutPriority(1)
+
+            if tab.hasPiPCandidate {
+                TabPipInlineAffordance(tab: tab, themeColor: themeColor, isActive: isActive)
+            }
+        }
     }
+
 
     @ViewBuilder
     private var tabBackground: some View {

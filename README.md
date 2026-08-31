@@ -56,7 +56,6 @@ xcodebuild -project Illuminate.xcodeproj \
 * [ ] Expand extension support
 * [ ] KeychainAccess for password management
 * [ ] Write an actual onboarding view instead of AI 
-* [ ] Haptic feedback for actions like reordering tabs
 * [ ] Build in whiteboard
 
 ## Known Issues

@@ -41,6 +41,7 @@ struct PrivacySettingsView: View {
         ) {
             Button("Clear All", role: .destructive) {
                 CookieViewModel().clearAllCookies(with: environment.webKitManager)
+                HapticFeedback.destructiveAction()
             }
             Button("Cancel", role: .cancel) {}
         } message: {

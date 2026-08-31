@@ -145,6 +145,7 @@ struct BrowserToolbarView: View {
                 .frame(width: ToolbarMetrics.trailingPad - MacDesign.Spacing.control)
         }
         .frame(height: ToolbarMetrics.tabRowHeight)
+        .zIndex(10)
     }
 
     private var separatorLine: some View {
