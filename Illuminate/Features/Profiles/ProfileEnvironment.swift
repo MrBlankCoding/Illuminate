@@ -33,6 +33,7 @@ final class ProfileEnvironment {
     @ObservationIgnored let historyManager: HistoryManager
     @ObservationIgnored let extensionManager: ExtensionManager
     @ObservationIgnored let downloadHistoryStore: DownloadHistoryStore
+    @ObservationIgnored let easelManager: EaselManager
 
     @ObservationIgnored let modelContainer: ModelContainer
 
@@ -65,12 +66,17 @@ final class ProfileEnvironment {
             modelContainer: modelContainer
         )
         DownloadHistoryRegistry.shared.register(self.downloadHistoryStore)
+        self.easelManager = EaselManager(
+            profileID: isGuestSession ? nil : profile.id,
+            isPersistenceEnabled: !isGuestSession
+        )
         self.tabManager = TabManager(
             profileID: isGuestSession ? nil : profile.id,
             urlSynchronizer: self.urlSynchronizer,
             isPersistenceEnabled: !isGuestSession,
             extensionManager: self.extensionManager
         )
+        self.tabManager.easelManager = self.easelManager
         self.webKitManager = WebKitManager(
             profileID: isGuestSession ? nil : profile.id,
             isPersistenceEnabled: !isGuestSession,

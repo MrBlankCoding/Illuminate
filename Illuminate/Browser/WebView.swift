@@ -13,6 +13,7 @@ struct WebView: View {
     var tab: Tab
 
     @Environment(TabManager.self) private var tabManager: TabManager
+    @Environment(ProfileEnvironment.self) private var profileEnvironment: ProfileEnvironment
     @Environment(WebKitManager.self) private var webKitManager: WebKitManager
     @Environment(PasswordService.self) private var passwordService: PasswordService
     @Environment(TrackerBlockingService.self) private var trackerBlockingService: TrackerBlockingService
@@ -83,6 +84,17 @@ struct WebView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .ignoresSafeArea(.container, edges: .bottom)
+            }
+        case .easel:
+            if let easelID = Easel.id(from: url),
+               profileEnvironment.easelManager.easel(for: easelID) != nil {
+                EaselView(easelID: easelID, easelManager: profileEnvironment.easelManager, tab: tab)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .ignoresSafeArea(.container, edges: .bottom)
+            } else {
+                EaselListView()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .ignoresSafeArea(.container, edges: .bottom)
             }
         case nil:
             WebViewRepresentable(

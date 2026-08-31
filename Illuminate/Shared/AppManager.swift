@@ -46,6 +46,7 @@ extension Notification.Name {
     static let closeCurrentGroup = Notification.Name("app.closeCurrentGroup")
     static let moveTabToLeftGroup  = Notification.Name("app.moveTabToLeftGroup")
     static let moveTabToRightGroup = Notification.Name("app.moveTabToRightGroup")
+    static let newEasel            = Notification.Name("app.newEasel")
 }
 
 

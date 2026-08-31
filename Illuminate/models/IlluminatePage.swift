@@ -17,6 +17,7 @@ enum IlluminatePage: String, CaseIterable, Equatable {
     case info
     case extensions
     case pdf
+    case easel
 
     static let urlScheme = "illuminate"
     private static let pdfSourceQueryKey = "src"
@@ -66,7 +67,15 @@ enum IlluminatePage: String, CaseIterable, Equatable {
         if self == .pdf, let source = pdfSourceFileURL(from: url) {
             return source.lastPathComponent
         }
+        if self == .easel {
+            // title will be overridden by EaselManager; keep generic fallback
+            return "Easel"
+        }
         return tabTitle
+    }
+
+    static func easelID(from url: URL) -> UUID? {
+        Easel.id(from: url)
     }
 
     var title: String {
@@ -79,6 +88,7 @@ enum IlluminatePage: String, CaseIterable, Equatable {
         case .info: return "Browser Info & Diagnostics"
         case .extensions: return "Extensions"
         case .pdf: return "PDF"
+        case .easel: return "Easel"
         }
     }
 
@@ -92,6 +102,7 @@ enum IlluminatePage: String, CaseIterable, Equatable {
         case .info: return "Browser Info"
         case .extensions: return "Extensions"
         case .pdf: return "PDF"
+        case .easel: return "Easel"
         }
     }
 
@@ -105,6 +116,7 @@ enum IlluminatePage: String, CaseIterable, Equatable {
         case .info: return "info.circle.fill"
         case .extensions: return "puzzlepiece.fill"
         case .pdf: return "doc.richtext.fill"
+        case .easel: return "paintbrush.pointed.fill"
         }
     }
 
@@ -118,6 +130,7 @@ enum IlluminatePage: String, CaseIterable, Equatable {
         case .info: return ["info", "about", "diagnostics", "user agent", "profile", "debug", "version", "system"]
         case .extensions: return ["extensions", "plugins", "addons", "webextensions", "gallery", "store"]
         case .pdf: return ["pdf", "viewer", "document"]
+        case .easel: return ["easel", "whiteboard", "canvas", "draw", "sketch", "board"]
         }
     }
 }

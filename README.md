@@ -48,6 +48,12 @@ xcodebuild -project Illuminate.xcodeproj \
   -destination 'platform=macOS' build
 ```
 
+## Packages Used
+
+* [Nuke](https://github.com/kean/Nuke) — image loading, caching and favicon pipeline for native browser UI
+* [Fabric.js](https://github.com/fabricjs/fabric.js) — canvas engine for Illuminate Easel whiteboard (offline, local `WKWebView`)
+
+
 ## Features to implement
 
 * [ ] Add redirect blocking
@@ -56,7 +62,6 @@ xcodebuild -project Illuminate.xcodeproj \
 * [ ] Expand extension support
 * [ ] KeychainAccess for password management
 * [ ] Write an actual onboarding view instead of AI 
-* [ ] Build in whiteboard
 
 ## Known Issues
 
@@ -72,6 +77,13 @@ Illuminate is open-source for a reason, and any contributions from anyone is wel
 ## AI Disclosure
 
 AI tools were used during development to assist with implementation and code generation. Generated code was reviewed, tested, and integrated responsibly.
+
+## Acknowledgments
+
+* [Nuke](https://github.com/kean/Nuke) by Alexander Grebenyuk — image pipeline
+* [Fabric.js](https://github.com/fabricjs/fabric.js) — whiteboard canvas engine
+
+
 
 ## License
 

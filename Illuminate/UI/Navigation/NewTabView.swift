@@ -16,6 +16,7 @@ struct NewTabView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Bookmark.title) private var allBookmarks: [Bookmark]
     @State private var isCustomizePanelShown = false
+    @State private var isEaselSidebarVisible = true
     @State private var hasAppeared = false
 
     private var theme: BrowserTheme {
@@ -29,6 +30,14 @@ struct NewTabView: View {
 
     var body: some View {
         HStack(spacing: 0) {
+            if isEaselSidebarVisible {
+                easelSidebar
+                    .frame(width: 280)
+                    .background(.ultraThinMaterial)
+                    .overlay(Rectangle().fill(Color.primary.opacity(0.06)).frame(width: 0.5), alignment: .trailing)
+                    .transition(.move(edge: .leading).combined(with: .opacity))
+            }
+
             ZStack(alignment: .bottomTrailing) {
                 ScrollView {
                     VStack(spacing: MacDesign.Size.toolbarRowHeight) {
@@ -42,9 +51,14 @@ struct NewTabView: View {
                 }
                 .scrollIndicators(.hidden)
 
-                customizeButton
-                    .padding(.trailing, MacDesign.Spacing.section)
-                    .padding(.bottom, MacDesign.Spacing.section)
+                HStack {
+                    easelSidebarToggleButton
+                        .padding(.leading, MacDesign.Spacing.section)
+                    Spacer()
+                    customizeButton
+                        .padding(.trailing, MacDesign.Spacing.section)
+                }
+                .padding(.bottom, MacDesign.Spacing.section)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
@@ -76,6 +90,65 @@ struct NewTabView: View {
         }
         .opacity(hasAppeared ? 1 : 0)
         .offset(y: hasAppeared ? 0 : MacDesign.Spacing.tight)
+    }
+
+    private var easelSidebar: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                Label("Easels", systemImage: "paintbrush.pointed.fill")
+                    .font(.webCaptionBold)
+                    .foregroundStyle(.white)
+                Spacer()
+                Button {
+                    withAnimation(MacDesign.springAnimation) { isEaselSidebarVisible = false }
+                } label: {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 10, weight: .semibold))
+                        .frame(width: 22, height: 22)
+                        .background(.ultraThinMaterial, in: Circle())
+                        .overlay(Circle().stroke(Color.white.opacity(0.15), lineWidth: 0.5))
+                }
+                .buttonStyle(.plain)
+                .help("Hide Easels")
+                Button {
+                    let easel = environment.easelManager.createEasel()
+                    tabManager.createTab(url: easel.url)
+                } label: {
+                    Image(systemName: "plus")
+                        .font(.system(size: 12, weight: .semibold))
+                        .frame(width: 22, height: 22)
+                        .background(.ultraThinMaterial, in: Circle())
+                        .overlay(Circle().stroke(Color.white.opacity(0.15), lineWidth: 0.5))
+                }
+                .buttonStyle(.plain)
+                .help("New Easel (⇧⌘E)")
+                .accessibilityIdentifier("browser.newTab.newEasel.sidebar")
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+
+            Divider().opacity(0.12)
+
+            if environment.easelManager.easels.isEmpty {
+                VStack(spacing: 8) {
+                    Image(systemName: "paintbrush.pointed.fill").font(.system(size: 24, weight: .light)).foregroundStyle(.white.opacity(0.6))
+                    Text("No easels yet").font(.webSmall).foregroundStyle(.white.opacity(0.7))
+                    Text("Create your first whiteboard").font(.caption2).foregroundStyle(.white.opacity(0.5))
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                .padding(.top, 40)
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: 10) {
+                        ForEach(environment.easelManager.easels) { easel in
+                            EaselSidebarCard(easel: easel)
+                        }
+                    }
+                    .padding(10)
+                }
+            }
+        }
+        .frame(maxHeight: .infinity)
     }
 
     @ViewBuilder
@@ -151,6 +224,35 @@ struct NewTabView: View {
         .accessibilityIdentifier("browser.newTab.customizeButton")
         .accessibilityHint(isCustomizePanelShown ? "Closes the customize panel" : "Opens the customize panel")
         .help(isCustomizePanelShown ? "Close" : "Customize")
+    }
+
+    private var easelSidebarToggleButton: some View {
+        Button {
+            withAnimation(MacDesign.springAnimation) {
+                isEaselSidebarVisible.toggle()
+            }
+        } label: {
+            Image(systemName: isEaselSidebarVisible ? "sidebar.leading" : "paintbrush.pointed.fill")
+                .font(.webCaptionBold)
+                .frame(width: MacDesign.Size.floatingButton, height: MacDesign.Size.floatingButton)
+                .background(
+                    isEaselSidebarVisible
+                        ? AnyShapeStyle(.ultraThinMaterial)
+                        : AnyShapeStyle(tabManager.windowThemeColor.opacity(0.85)),
+                    in: Circle()
+                )
+                .foregroundStyle(isEaselSidebarVisible ? .white.opacity(0.9) : .white)
+                .overlay {
+                    Circle().stroke(Color.white.opacity(0.18), lineWidth: MacDesign.Spacing.hairlineThin)
+                }
+                .shadow(color: .black.opacity(0.25), radius: MacDesign.Spacing.mini, y: MacDesign.Spacing.micro)
+                .contentShape(Circle())
+                .padding(MacDesign.Spacing.small)
+        }
+        .buttonStyle(.plain)
+        .help(isEaselSidebarVisible ? "Hide Easels" : "Show Easels")
+        .accessibilityLabel(isEaselSidebarVisible ? "Hide Easels Sidebar" : "Show Easels Sidebar")
+        .accessibilityIdentifier("browser.newTab.easelSidebarToggle")
     }
 
     private var backgroundView: some View {
@@ -332,13 +434,93 @@ private struct NewTabBookmarkCard: View {
         components.host = host
         components.path = "/favicon.ico"
         guard let faviconURL = components.url else { return }
-
-        // Uses Nuke pipeline via FaviconLoader; falls back to legacy cache on failure.
-        if let image = await FaviconLoader.shared.loadFavicon(from: faviconURL) {
-            faviconImage = image
-        } else {
-            faviconImage = await FaviconCache.shared.fetchImage(for: faviconURL)
-        }
+        // error
+        let image = await FaviconLoader.shared.loadFavicon(from: faviconURL)
+        faviconImage = image
     }
 
+}
+
+private struct EaselSidebarCard: View {
+    let easel: Easel
+    @Environment(TabManager.self) private var tabManager: TabManager
+    @Environment(ProfileEnvironment.self) private var environment: ProfileEnvironment
+    @State private var isHovered = false
+
+    var body: some View {
+        Button {
+            tabManager.createTab(url: easel.url)
+        } label: {
+            VStack(alignment: .leading, spacing: 0) {
+                ZStack {
+                    if let preview = environment.easelManager.previewImage(for: easel.id) {
+                        Image(nsImage: preview)
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                            .clipped()
+                    } else {
+                        RoundedRectangle(cornerRadius: 8).fill(Color.primary.opacity(0.05))
+                        Image(systemName: "paintbrush.pointed.fill")
+                            .font(.system(size: 20, weight: .light))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .frame(height: 96)
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.white.opacity(0.08), lineWidth: 0.5))
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(easel.title).font(.webSmall.weight(.semibold)).lineLimit(1).foregroundStyle(.white)
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 6)
+            }
+            .padding(6)
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
+            .overlay(RoundedRectangle(cornerRadius: 12).stroke(isHovered ? Color.white.opacity(0.18) : Color.white.opacity(0.08), lineWidth: 0.5))
+            .shadow(color: .black.opacity(isHovered ? 0.14 : 0.08), radius: isHovered ? 6 : 4, y: 2)
+        }
+        .buttonStyle(.plain)
+        .opacity(isHovered ? 1 : 0.96)
+        .animation(.easeOut(duration: 0.12), value: isHovered)
+        .onHover { isHovered = $0 }
+        .contextMenu {
+            Button("Open") { tabManager.createTab(url: easel.url) }
+            Button("Rename…") {
+                // Quick rename via prompt — uses simple alert
+                let alert = NSAlert()
+                alert.messageText = "Rename Easel"
+                alert.informativeText = "Enter new title:"
+                let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 220, height: 24))
+                field.stringValue = easel.title
+                alert.accessoryView = field
+                alert.addButton(withTitle: "OK")
+                alert.addButton(withTitle: "Cancel")
+                if alert.runModal() == .alertFirstButtonReturn, !field.stringValue.trimmingCharacters(in: .whitespaces).isEmpty {
+                    environment.easelManager.renameEasel(id: easel.id, to: field.stringValue)
+                }
+            }
+            Divider()
+            Button("Delete Easel", role: .destructive) {
+                environment.easelManager.deleteEasel(id: easel.id)
+            }
+        }
+        .overlay(alignment: .topTrailing) {
+            if isHovered {
+                Button {
+                    environment.easelManager.deleteEasel(id: easel.id)
+                } label: {
+                    Image(systemName: "trash")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .frame(width: 22, height: 22)
+                        .background(Color.red.opacity(0.9), in: Circle())
+                }
+                .buttonStyle(.plain)
+                .padding(6)
+                .transition(.scale.combined(with: .opacity))
+            }
+        }
+        .help("Open \(easel.title)")
+    }
 }

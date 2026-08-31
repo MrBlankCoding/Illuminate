@@ -130,6 +130,7 @@ final class TabManager: NSObject, WKWebExtensionWindow {
     @ObservationIgnored let sessionWriter = SessionWriter()
     // not private ahh!
     @ObservationIgnored let extensionManager: ExtensionManager
+    @ObservationIgnored var easelManager: EaselManager?
 
     @ObservationIgnored var activeProfileID: UUID?
     @ObservationIgnored var profileID: UUID? { activeProfileID }
@@ -417,6 +418,17 @@ final class TabManager: NSObject, WKWebExtensionWindow {
         updateProtectedFaviconURLs()
 
         return tab
+    }
+
+    func createEasel() {
+        guard let manager = easelManager else {
+            // fallback: open easel gallery
+            createTab(url: URL(string: "illuminate://easel")!)
+            return
+        }
+        let easel = manager.createEasel()
+        let tab = createTab(url: easel.url)
+        tab.title = easel.title
     }
 
     func closeTab(id: UUID) {
