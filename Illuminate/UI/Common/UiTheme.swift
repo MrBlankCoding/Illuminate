@@ -343,10 +343,24 @@ struct FocusRingModifier: ViewModifier {
 
 private struct HoverCursorModifier: ViewModifier {
     let cursor: NSCursor
+    @State private var isHovering = false
     func body(content: Content) -> some View {
-        content.onHover { hovering in
-            hovering ? cursor.push() : NSCursor.pop()
-        }
+        content
+            .onHover { hovering in
+                if hovering, !isHovering {
+                    isHovering = true
+                    cursor.push()
+                } else if !hovering, isHovering {
+                    isHovering = false
+                    NSCursor.pop()
+                }
+            }
+            .onDisappear {
+                if isHovering {
+                    NSCursor.pop()
+                    isHovering = false
+                }
+            }
     }
 }
 
