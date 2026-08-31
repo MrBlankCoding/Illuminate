@@ -4,7 +4,7 @@ A lightweight browser built for MacOS that uses webkit and includes no arbitrary
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Version](https://img.shields.io/badge/version-1.0.0-green.svg)
-![Swift](https://img.shields.io/badge/Swift-5-orange.svg)
+![Swift](https://img.shields.io/badge/Swift-6-orange.svg)
 
 ## Features
 
