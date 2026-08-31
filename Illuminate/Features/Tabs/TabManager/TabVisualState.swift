@@ -82,14 +82,16 @@ extension TabManager {
     func updateThemeFromBackground(applyTheme: Bool) {
         backgroundThemeTask?.cancel()
 
-        guard !backgroundImageURL.isEmpty, let url = URL(string: backgroundImageURL) else {
-            backgroundImagePalette = []
-            return
-        }
-
         let expectedURLString = backgroundImageURL
         backgroundThemeTask = Task { [weak self] in
-            let palette = await ImageColorExtractor.shared.extractPalette(from: url)
+            let palette: [Color]
+            if !expectedURLString.isEmpty, let url = URL(string: expectedURLString) {
+                palette = await ImageColorExtractor.shared.extractPalette(from: url)
+            } else if let defaultImage = NSImage(named: "Background Image") {
+                palette = await ImageColorExtractor.shared.extractPalette(from: defaultImage)
+            } else {
+                palette = []
+            }
             await MainActor.run {
                 guard let self else { return }
                 guard !Task.isCancelled else { return }

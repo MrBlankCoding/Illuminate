@@ -35,13 +35,22 @@ final class ImageColorExtractor {
 
         guard let data else { return [] }
         return await Task.detached(priority: .userInitiated) { [self] in
-            await processPalette(from: data, count: count)
+            processPalette(from: data, count: count)
         }.value
     }
 
-    private func processPalette(from data: Data, count: Int) -> [Color] {
-        guard let image = NSImage(data: data) else { return [] }
+    func extractPalette(from image: NSImage, count: Int = 6) async -> [Color] {
+        await Task.detached(priority: .userInitiated) { [self] in
+            processPalette(from: image, count: count)
+        }.value
+    }
 
+    private nonisolated func processPalette(from data: Data, count: Int) -> [Color] {
+        guard let image = NSImage(data: data) else { return [] }
+        return processPalette(from: image, count: count)
+    }
+
+    private nonisolated func processPalette(from image: NSImage, count: Int) -> [Color] {
         // Downscale for performance
         let thumbSize = NSSize(width: 40, height: 40)
         guard let thumb = resize(image: image, to: thumbSize) else { return [] }
@@ -110,7 +119,7 @@ final class ImageColorExtractor {
         return result
     }
     
-    private func score(bucket: ColorBucket, count: Int) -> Double {
+    private nonisolated func score(bucket: ColorBucket, count: Int) -> Double {
         let r = Double(bucket.r) / 255.0
         let g = Double(bucket.g) / 255.0
         let b = Double(bucket.b) / 255.0
@@ -123,7 +132,7 @@ final class ImageColorExtractor {
         return Double(count) * (1.0 + saturation * 5.0)
     }
     
-    private func isSimilar(_ c1: Color, _ c2: Color) -> Bool {
+    private nonisolated func isSimilar(_ c1: Color, _ c2: Color) -> Bool {
         let ns1 = NSColor(c1)
         let ns2 = NSColor(c2)
         return abs(ns1.redComponent - ns2.redComponent) < 0.12 &&
@@ -136,7 +145,7 @@ final class ImageColorExtractor {
         return palette.first
     }
     
-    private func resize(image: NSImage, to size: NSSize) -> NSImage? {
+    private nonisolated func resize(image: NSImage, to size: NSSize) -> NSImage? {
         let frame = NSRect(origin: .zero, size: size)
         guard let representation = image.bestRepresentation(for: frame, context: nil, hints: nil) else {
             return nil

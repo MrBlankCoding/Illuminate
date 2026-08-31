@@ -51,6 +51,11 @@ struct NewTabView: View {
                 }
                 .padding(.bottom, MacDesign.Spacing.section)
             }
+            .overlay(alignment: .bottomLeading) {
+                shelfToggleButton
+                    .padding(.leading, MacDesign.Spacing.section)
+                    .padding(.bottom, MacDesign.Spacing.section)
+            }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             if isCustomizePanelShown {
@@ -80,6 +85,32 @@ struct NewTabView: View {
         }
         .opacity(hasAppeared ? 1 : 0)
         .offset(y: hasAppeared ? 0 : MacDesign.Spacing.tight)
+    }
+
+    private var shelfToggleButton: some View {
+        Button {
+            withAnimation(MacDesign.springAnimation) {
+                isShelfVisible.toggle()
+            }
+        } label: {
+            Image(systemName: "sidebar.left")
+                .font(.webCaptionBold)
+                .frame(width: MacDesign.Size.floatingButton, height: MacDesign.Size.floatingButton)
+                .background(AnyShapeStyle(.ultraThinMaterial), in: Circle())
+                .foregroundStyle(.white.opacity(0.9))
+                .overlay {
+                    Circle()
+                        .stroke(Color.white.opacity(0.18), lineWidth: MacDesign.Spacing.hairlineThin)
+                }
+                .shadow(color: .black.opacity(0.25), radius: MacDesign.Spacing.mini, y: MacDesign.Spacing.micro)
+                .contentShape(Circle())
+                .padding(MacDesign.Spacing.small)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(isShelfVisible ? "Hide shelf sidebar" : "Show shelf sidebar")
+        .accessibilityIdentifier("browser.newTab.shelfToggleButton")
+        .accessibilityHint(isShelfVisible ? "Hides the shelf sidebar" : "Shows the shelf sidebar")
+        .help(isShelfVisible ? "Hide Shelf" : "Show Shelf")
     }
 
     private var customizeButton: some View {
@@ -126,13 +157,16 @@ struct NewTabView: View {
 
     private var backgroundView: some View {
         ZStack {
-            if backgroundImageURL == nil {
-                tabManager.windowThemeColor
-                    .ignoresSafeArea()
-            }
-
             if let backgroundImageURL {
                 CachedBackgroundImageView(url: backgroundImageURL)
+            } else {
+                GeometryReader { geo in
+                    Image("Background Image")
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(width: geo.size.width, height: geo.size.height)
+                        .clipped()
+                }
             }
 
             LinearGradient(

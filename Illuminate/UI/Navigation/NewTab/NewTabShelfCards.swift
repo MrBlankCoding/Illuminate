@@ -58,7 +58,7 @@ struct EaselSidebarCard: View {
                 .padding(.horizontal, MacDesign.Spacing.small)
                 .padding(.vertical, MacDesign.Spacing.small)
             }
-            .aspectRatio(1, contentMode: .fit)
+            .aspectRatio(16.0 / 9.0, contentMode: .fit)
             .clipShape(RoundedRectangle(cornerRadius: MacDesign.Radius.medium, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: MacDesign.Radius.medium).stroke(Color.white.opacity(0.10), lineWidth: MacDesign.Spacing.hairlineThin))
             .shadow(color: .black.opacity(isHovered ? 0.22 : 0.10), radius: isHovered ? MacDesign.Spacing.regular : MacDesign.Spacing.small, y: isHovered ? MacDesign.Spacing.small : MacDesign.Spacing.micro)

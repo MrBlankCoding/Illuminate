@@ -194,12 +194,7 @@ struct NewTabShelfSidebar: View {
                             LazyVGrid(
                                 columns: [
                                     GridItem(
-                                        .fixed(120),
-                                        spacing: MacDesign.Spacing.small,
-                                        alignment: .top
-                                    ),
-                                    GridItem(
-                                        .fixed(120),
+                                        .fixed(200),
                                         spacing: MacDesign.Spacing.small,
                                         alignment: .top
                                     )
@@ -209,7 +204,6 @@ struct NewTabShelfSidebar: View {
                             ) {
                                 ForEach(filteredEasels) { easel in
                                     EaselSidebarCard(easel: easel)
-                                        .frame(width: 120, height: 120)
                                 }
                             }
                             .frame(maxWidth: .infinity)
