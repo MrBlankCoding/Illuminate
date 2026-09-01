@@ -27,7 +27,7 @@ final class EaselManager {
 
     @discardableResult
     func createEasel(title: String = "Untitled Easel") -> Easel {
-        var easel = Easel(title: title)
+        let easel = Easel(title: title)
         easels.insert(easel, at: 0)
         persistIndex()
         // create blank document

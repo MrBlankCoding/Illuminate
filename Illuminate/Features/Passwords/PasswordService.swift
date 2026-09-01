@@ -27,6 +27,7 @@ final class PasswordService {
         self.authService = authService
     }
 
+    @MainActor
     convenience init(profile: BrowserProfile, container: ModelContainer, authService: AuthenticationServiceProtocol = LocalAuthenticationService()) {
         self.init(profileID: profile.id, container: container, authService: authService)
     }
@@ -128,7 +129,7 @@ final class PasswordService {
     }
 
     func hasPasswords(for url: String) -> Bool {
-        guard let context = container?.mainContext, let activeProfileID else { return false }
+        guard let context = container?.mainContext, let _ = activeProfileID else { return false }
         let host = URL(string: url)?.host ?? url
         
         let descriptor = FetchDescriptor<Password>(

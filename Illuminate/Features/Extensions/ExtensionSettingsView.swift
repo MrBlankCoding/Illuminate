@@ -89,7 +89,7 @@ struct ExtensionSettingsView: View {
             ExtensionDetailView(context: wrapper.context)
                 .environment(profileEnvironment)
         }
-        .onChange(of: manager.enabledStateVersion) { _ in
+        .onChange(of: manager.enabledStateVersion) { _, _ in
             installedExtensions = manager.installedExtensions
         }
         .onAppear {
@@ -302,10 +302,10 @@ struct ExtensionSettingsRow: View {
         .animation(.easeInOut(duration: 0.15), value: isEnabled)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(context.webExtension.displayName ?? "Extension"), \(isEnabled ? "enabled" : "disabled")")
-        .onChange(of: profileEnvironment.extensionManager.enabledStateVersion) { _ in
+        .onChange(of: profileEnvironment.extensionManager.enabledStateVersion) { _, _ in
             isEnabled = currentEnabledState
         }
-        .onChange(of: profileEnvironment.extensionManager.pinnedExtensions) { _ in
+        .onChange(of: profileEnvironment.extensionManager.pinnedExtensions) { _, _ in
             isPinned = currentPinnedState
         }
         .onAppear {

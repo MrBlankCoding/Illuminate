@@ -48,7 +48,7 @@ struct IlluminateApp: App {
         func observeProfiles() {
             withObservationTracking {
                 _ = pm.profiles
-            } onChange: { [pm, trigger] in
+            } onChange: { [trigger] in
                 Task { @MainActor in
                     trigger.value &+= 1
                     observeProfiles()

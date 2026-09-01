@@ -380,7 +380,7 @@ final class FaviconCache: @unchecked Sendable {
             try? FileManager.default.removeItem(at: file)
         }
     }
-    nonisolated(unsafe) private static let lockPrune = NSLock()
+    private static let lockPrune = NSLock()
 
     nonisolated private func loadFromDisk(_ key: URL) -> NSImage? {
         let url = diskURL(for: key)

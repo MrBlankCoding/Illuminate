@@ -94,7 +94,7 @@ extension TabManager {
                 _ = extensionManager.installedExtensions
             } onChange: { [weak self] in
                 Task { @MainActor in
-                    guard let self, !self.extensionObserverCancelled else { return }
+                    guard let self = self, !self.extensionObserverCancelled else { return }
                     self.handleExtensionListChanged()
                     observeExtensions()
                 }

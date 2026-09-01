@@ -16,7 +16,7 @@ final class EaselURLSchemeHandler: NSObject, WKURLSchemeHandler {
         }
 
         let path = url.path // "/index.html" or "/bridge.js" etc.
-        let host = url.host ?? "easel"
+        let _ = url.host ?? "easel"
         let resourceURL = Bundle.main.resourceURL!
         let candidates: [URL] = [
             resourceURL.appendingPathComponent(String(path.dropFirst())), // Resources/<path>

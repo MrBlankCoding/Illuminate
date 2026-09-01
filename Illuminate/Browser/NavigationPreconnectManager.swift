@@ -64,7 +64,7 @@ final class NavigationPreconnectManager {
         pruneStaleWebViews(now: now)
 
         guard let script = preconnectScript(origin: origin, host: host) else { return }
-        webView.evaluateJavaScript(script) { [weak self] _, error in
+        webView.evaluateJavaScript(script) { _, error in
             if let error {
                 AppLog.debug("Preconnect injection failed for \(origin): \(error.localizedDescription)")
             }

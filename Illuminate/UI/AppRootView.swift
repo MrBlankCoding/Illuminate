@@ -63,13 +63,13 @@ struct AppRootView: View {
         .onAppear {
             presentOnboardingIfNeeded()
         }
-        .onChange(of: AppFileOpening.shared.needsBrowserWindow) { _ in
+        .onChange(of: AppFileOpening.shared.needsBrowserWindow) { _, _ in
             openBrowserWindowForPendingFilesIfNeeded()
         }
-        .onChange(of: WebURLOpening.shared.needsBrowserWindow) { _ in
+        .onChange(of: WebURLOpening.shared.needsBrowserWindow) { _, _ in
             openBrowserWindowForPendingWebURLsIfNeeded()
         }
-        .onChange(of: profileManager.profiles) { _ in
+        .onChange(of: profileManager.profiles) { _, _ in
             openBrowserWindowForPendingFilesIfNeeded()
         }
     }

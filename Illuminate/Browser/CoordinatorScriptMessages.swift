@@ -221,8 +221,8 @@ extension WebViewRepresentable.Coordinator {
                  guard let username = body["username"] as? String else { return }
                  let email = body["email"] as? String
                  let service = passwordService
-                 Task { @MainActor [weak self] in
-                     guard let self, let webView = message.webView else { return }
+                 Task { @MainActor [weak _] in
+                     guard let webView = message.webView else { return }
                      
                      // 1. get auth
                      let authenticated = await service.authenticate()

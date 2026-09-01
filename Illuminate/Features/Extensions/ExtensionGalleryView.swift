@@ -250,10 +250,10 @@ struct ExtensionGalleryCard: View {
             Button("OK") { errorMessage = nil }
         } message: { msg in Text(msg) }
         .onAppear(perform: syncInstalledState)
-        .onChange(of: profileEnvironment.extensionManager.installedExtensions) { _ in
+        .onChange(of: profileEnvironment.extensionManager.installedExtensions) { _, _ in
             syncInstalledState()
         }
-        .onChange(of: profileEnvironment.extensionManager.pinnedExtensions) { _ in
+        .onChange(of: profileEnvironment.extensionManager.pinnedExtensions) { _, _ in
             syncInstalledState()
         }
     }

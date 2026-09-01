@@ -93,7 +93,7 @@ struct TabBarView: View {
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("browser.tabbar")
         .accessibilityLabel("Tab strip, \(tabManager.tabs.count) \(tabManager.tabs.count == 1 ? "tab" : "tabs")")
-        .onChange(of: tabManager.tabGroupManager.groups.map { $0.id }) { _ in
+        .onChange(of: tabManager.tabGroupManager.groups.map { $0.id }) { _, _ in
             groupChangeToken = UUID()
         }
     }

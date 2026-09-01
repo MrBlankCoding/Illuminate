@@ -156,7 +156,7 @@ final class ImageColorExtractor {
         return imageResized
     }
     
-    private struct ColorBucket: Hashable {
+    private struct ColorBucket: Hashable, @unchecked Sendable {
         let r, g, b: UInt8
     }
 }
