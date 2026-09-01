@@ -62,6 +62,7 @@ xcodebuild -project Illuminate.xcodeproj \
 * [ ] Expand extension support
 * [ ] KeychainAccess for password management
 * [ ] Write an actual onboarding view instead of AI 
+* [ ] Make it so you can split panes for browser windows ;) -> didnt think I would need this but now it seems helpful 
 
 ## Known Issues
 
