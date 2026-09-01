@@ -195,7 +195,8 @@ final class ContentViewModel {
     }
 
     private nonisolated static func fetchWebSuggestions(for query: String, engine: SearchEngine) async -> [String] {
-        guard let url = await MainActor.run { engine.suggestionURL(for: query) } else { return [] }
+        let url = await MainActor.run { engine.suggestionURL(for: query) }
+        guard let url else { return [] }
 
         do {
             let (data, _) = try await URLSession.shared.data(from: url)

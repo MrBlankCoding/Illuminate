@@ -9,6 +9,10 @@
 import AppKit
 import SwiftUI
 
+private struct ColorBucket: Hashable, Sendable {
+    let r, g, b: UInt8
+}
+
 final class ImageColorExtractor {
     static let shared = ImageColorExtractor()
     
@@ -154,9 +158,5 @@ final class ImageColorExtractor {
             return representation.draw(in: rect)
         }
         return imageResized
-    }
-    
-    private struct ColorBucket: Hashable, @unchecked Sendable {
-        let r, g, b: UInt8
     }
 }

@@ -523,6 +523,16 @@ final class TabManager: NSObject, WKWebExtensionWindow {
     func switchTo(_ id: UUID) {
         guard activeTabID != id else { return }
 
+        // debounce rapid tab switching
+        if let lastSwitch = lastSwitchTime, Date().timeIntervalSince(lastSwitch) < 0.1 {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+                guard let self, self.activeTabID != id else { return }
+                self.lastSwitchTime = Date()
+                self.setActiveTab(id)
+            }
+            return
+        }
+
         lastSwitchTime = Date()
         setActiveTab(id)
     }

@@ -21,14 +21,25 @@ final class PasswordService {
     @ObservationIgnored private var lastAuthTime: Date?
     @ObservationIgnored private let authTimeout: TimeInterval = 300 // 5 minutes
 
-    init(profileID: UUID? = nil, container: ModelContainer, authService: AuthenticationServiceProtocol = LocalAuthenticationService()) {
+    @MainActor
+    init(profileID: UUID? = nil, container: ModelContainer, authService: AuthenticationServiceProtocol) {
         self.activeProfileID = profileID
         self.container = container
         self.authService = authService
     }
 
     @MainActor
-    convenience init(profile: BrowserProfile, container: ModelContainer, authService: AuthenticationServiceProtocol = LocalAuthenticationService()) {
+    convenience init(profileID: UUID? = nil, container: ModelContainer) {
+        self.init(profileID: profileID, container: container, authService: LocalAuthenticationService())
+    }
+
+    @MainActor
+    convenience init(profile: BrowserProfile, container: ModelContainer) {
+        self.init(profileID: profile.id, container: container, authService: LocalAuthenticationService())
+    }
+
+    @MainActor
+    convenience init(profile: BrowserProfile, container: ModelContainer, authService: AuthenticationServiceProtocol) {
         self.init(profileID: profile.id, container: container, authService: authService)
     }
     
@@ -59,12 +70,7 @@ final class PasswordService {
         guard let context = container?.mainContext, let activeProfileID else { return }
         
         let host = URL(string: url)?.host ?? url
-        
-        // Normalize email: if it's empty string, treat as nil
         let normalizedEmail = (email?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true) ? nil : email
-        
-        // Prevent duplicate logins across sites: check if this exact credential set exists for this host
-        // We check for matching host AND (username OR email) to avoid duplicate accounts for the same person
         let descriptor = FetchDescriptor<Password>(
             predicate: #Predicate<Password> { 
                 $0.url == host && ($0.username == username || (normalizedEmail != nil && $0.email == normalizedEmail))
@@ -76,7 +82,6 @@ final class PasswordService {
         }
 
         if let existing = existingPasswords?.first {
-            // If the credentials match, just update the password if it changed
             existing.profileID = activeProfileID
             existing.passwordData = passwordData
             if let normalizedEmail {

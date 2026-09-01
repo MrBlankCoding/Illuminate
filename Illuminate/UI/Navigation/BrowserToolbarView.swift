@@ -112,7 +112,7 @@ struct BrowserToolbarView: View {
     }
 
     private var effectiveThemeColor: Color {
-        profileEnvironment.isGuestSession ? theme.guestAccent : tabManager.windowThemeColor
+        profileEnvironment.isGuestSession ? Color(hex: "7B52CC") : tabManager.windowThemeColor
     }
 
     private var topContent: some View {

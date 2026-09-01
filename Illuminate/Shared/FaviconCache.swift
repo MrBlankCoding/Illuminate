@@ -85,7 +85,7 @@ final class FaviconCache: @unchecked Sendable {
                 switch url.scheme?.lowercased() {
                 case "http", "https":
                     if let nukeImage = try? await BrowserImageLoader.shared.loadImage(from: url) {
-                        if let png = await MainActor.run { nukeImage.pngData() } {
+                        if let png = await MainActor.run(body: { nukeImage.pngData() }) {
                             return png
                         }
                     }

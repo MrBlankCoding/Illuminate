@@ -65,9 +65,6 @@ xcodebuild -project Illuminate.xcodeproj \
 * [ ] Make it so you can split panes for browser windows ;) -> didnt think I would need this but now it seems helpful 
 
 ## Known Issues
-
-* [ ] Internal links can cause the website to load wrong and URL bar doesnt update -> preconnecting error?
-* [ ] Guest windows can show an infinite spinner
 * [ ] When saving PDF's the whole page is not captured
 
 ## Contributing

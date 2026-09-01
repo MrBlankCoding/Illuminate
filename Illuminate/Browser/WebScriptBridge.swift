@@ -169,6 +169,7 @@ final class WebScriptBridge {
                 };
             }
             window.addEventListener('popstate', () => post(currentSnapshot()));
+            window.addEventListener('hashchange', () => post(currentSnapshot()));
         })();
         """
         return WKUserScript(

@@ -22,6 +22,9 @@ extension WebViewRepresentable.Coordinator {
         }
 
         func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+            // Guard against messages arriving during tab transition
+            guard tab != nil else { return }
+
             switch message.name {
             case webScriptBridge.passwordBridgeName:
                 guard message.frameInfo.isMainFrame else { return }
@@ -112,7 +115,8 @@ extension WebViewRepresentable.Coordinator {
         private func handleMetadataMessage(_ message: WKScriptMessage) {
             guard
                 let body = message.body as? [String: Any],
-                let kind = MetadataMessageKind(rawValue: body["type"] as? String ?? "")
+                let kind = MetadataMessageKind(rawValue: body["type"] as? String ?? ""),
+                tab != nil
             else { return }
 
             switch kind {
@@ -143,12 +147,15 @@ extension WebViewRepresentable.Coordinator {
                 guard let self, let tab = self.tab else { return }
 
                 if let pageURLString = body["pageURL"] as? String,
-                   let pageURL = URL(string: pageURLString),
-                   tab.url != pageURL {
-                    tab.url = pageURL
-                    if tab.id == self.tabManager.activeTabID {
-                        self.tabManager.syncActiveTabURL()
+                   let pageURL = URL(string: pageURLString) {
+                    if tab.url != pageURL {
+                        tab.url = pageURL
+                        if tab.id == self.tabManager.activeTabID {
+                            self.tabManager.syncActiveTabURL()
+                        }
                     }
+                    // Preconnect to the current page's origin for faster subsequent loads
+                    self.preconnectManager.preconnect(to: pageURL, in: webView)
                 }
 
                 if let title = body["title"] as? String, !title.isEmpty, tab.title != title {
@@ -221,7 +228,7 @@ extension WebViewRepresentable.Coordinator {
                  guard let username = body["username"] as? String else { return }
                  let email = body["email"] as? String
                  let service = passwordService
-                 Task { @MainActor [weak _] in
+                 Task { @MainActor in
                      guard let webView = message.webView else { return }
                      
                      // 1. get auth

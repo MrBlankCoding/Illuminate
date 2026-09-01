@@ -119,7 +119,6 @@ struct NewTabShelfSidebar: View {
         }
     }
 
-    /// A modern animated capsule switcher, replacing the stock segmented control.
     private var shelfTabPicker: some View {
         HStack(spacing: MacDesign.Spacing.tiny) {
             ForEach(ShelfTab.allCases) { tab in

@@ -28,23 +28,17 @@ actor SessionWriter {
 enum StateFilePrefetcher {
     private static let cache = Mutex<[URL: Data]>([:])
 
-    @MainActor
-    nonisolated static func prefetch(_ urls: [URL]) {
+    static func prefetch(_ urls: [URL]) {
         Task.detached(priority: .userInitiated) {
             for url in urls {
                 guard let data = try? Data(contentsOf: url) else { continue }
-                await MainActor.run {
-                    cache.withLock { $0[url] = data }
-                }
+                await cache.withLock { $0[url] = data }
             }
         }
     }
 
-    @MainActor
-    nonisolated static func consume(_ url: URL) -> Data? {
-        await MainActor.run {
-            cache.withLock { $0.removeValue(forKey: url) }
-        }
+    static func consume(_ url: URL) -> Data? {
+        cache.withLock { $0.removeValue(forKey: url) }
     }
 }
 

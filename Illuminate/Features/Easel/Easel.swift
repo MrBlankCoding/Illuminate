@@ -40,7 +40,6 @@ struct Easel: Identifiable, Codable, Equatable, Sendable, Hashable {
 }
 
 struct EaselDocument: Codable, Sendable {
-    /// Fabric.js canvas JSON (canvas.toJSON()). Nil = blank canvas.
     var canvasJSON: String?
     var version: Int = 1
 }
