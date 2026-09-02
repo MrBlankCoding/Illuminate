@@ -21,4 +21,30 @@ struct WebProcessCircuitBreakerTests {
 
         #expect(breaker.canReloadAfterTermination() == true)
     }
+
+    @Test func zeroCooldownAllowsASecondAttemptAfterTheFirstExpires() {
+        let breaker = WebProcessCircuitBreaker(maxReloads: 1, cooldown: 0)
+
+        #expect(breaker.canReloadAfterTermination())
+        #expect(breaker.canReloadAfterTermination())
+    }
+
+    @Test func resetClearsEveryRecordedReload() {
+        let breaker = WebProcessCircuitBreaker(maxReloads: 1, cooldown: 60)
+
+        #expect(breaker.canReloadAfterTermination())
+        #expect(!breaker.canReloadAfterTermination())
+        breaker.reset()
+
+        #expect(breaker.canReloadAfterTermination())
+        #expect(!breaker.canReloadAfterTermination())
+    }
+
+    @Test func singleReloadLimitRejectsFurtherAttemptsWithinCooldown() {
+        let breaker = WebProcessCircuitBreaker(maxReloads: 1, cooldown: 60)
+
+        #expect(breaker.canReloadAfterTermination())
+        #expect(!breaker.canReloadAfterTermination())
+        #expect(!breaker.canReloadAfterTermination())
+    }
 }

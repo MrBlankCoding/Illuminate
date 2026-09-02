@@ -243,4 +243,41 @@ struct WebsitePermissionServiceTests {
 
         #expect(secondService.decision(for: origin, type: .camera) == .prompt)
     }
+
+    @Test func clearingOverrideRestoresPromptForAnUnseenOrigin() {
+        let service = WebsitePermissionService(profileID: nil, persists: false)
+        let origin = "https://temporary.example"
+
+        service.set(.allow, for: origin, type: .camera)
+        service.clearPermissions(for: origin)
+
+        #expect(service.decision(for: origin, type: .camera) == .prompt)
+        #expect(service.sites.isEmpty)
+    }
+
+    @Test func duplicateRequestedCapabilitiesAreResolvedWithoutDuplicateSiteEntries() {
+        let service = WebsitePermissionService(profileID: nil, persists: false)
+        let origin = "https://duplicate.example"
+        var result: WebsitePermissionDecision?
+
+        service.requestPermission(for: origin, types: [.camera, .camera]) { result = $0 }
+        service.resolvePendingRequest(as: .allow)
+
+        #expect(result == .allow)
+        #expect(service.sites.count == 1)
+        #expect(service.sites.first?.decisions.count == 1)
+    }
+
+    @Test func clearingOneCapabilityKeepsTheOtherDecisionForThatOrigin() {
+        let service = WebsitePermissionService(profileID: nil, persists: false)
+        let origin = "https://partial-clear.example"
+        service.set(.allow, for: origin, type: .camera)
+        service.set(.deny, for: origin, type: .microphone)
+
+        service.set(.prompt, for: origin, type: .camera)
+
+        #expect(service.decision(for: origin, type: .camera) == .prompt)
+        #expect(service.decision(for: origin, type: .microphone) == .deny)
+        #expect(service.sites.first?.decisions.count == 1)
+    }
 }

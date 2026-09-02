@@ -343,4 +343,59 @@ struct HistoryManagerLogicTests {
         #expect(!label(for: monthAgo).hasPrefix("Visited \(monthAgo.formatted())"))
         #expect(label(for: monthAgo).contains("Visited"))
     }
+
+    @Test func clearingHistoryThroughManagerRefreshesSuggestionCandidates() async throws {
+        let container = try makeContainer()
+        let manager = makeManager(container: container)
+        manager.record(url: URL(string: "https://clear.example/page")!, title: "Clear Me")
+
+        let recorded = try await eventually {
+            manager.suggestions(for: "clear").count == 1
+        }
+        #expect(recorded)
+
+        manager.clearAll()
+        let cleared = try await eventually {
+            let suggestionsEmpty = manager.suggestions(for: "clear").isEmpty
+            let entriesEmpty = await manager.allEntries().isEmpty
+            return suggestionsEmpty && entriesEmpty
+        }
+
+        #expect(cleared)
+    }
+
+    @Test func searchWithBlankQueryReturnsAllEntriesInRecentOrder() async throws {
+        let container = try makeContainer()
+        let manager = makeManager(container: container)
+        manager.record(url: URL(string: "https://one.example")!, title: "One")
+        manager.record(url: URL(string: "https://two.example")!, title: "Two")
+
+        let settled = try await eventually {
+            await manager.allEntries().count == 2
+        }
+        #expect(settled)
+
+        let results = await manager.search(query: "   ")
+        #expect(results.count == 2)
+        #expect(results.first?.lastVisited ?? .distantPast >= results.last?.lastVisited ?? .distantPast)
+    }
+
+    @Test func disablingSavingClearsOnlyFutureWrites() async throws {
+        let container = try makeContainer()
+        let manager = makeManager(container: container)
+        manager.record(url: URL(string: "https://saved.example")!, title: "Saved")
+
+        let recorded = try await eventually {
+            await manager.allEntries().count == 1
+        }
+        #expect(recorded)
+
+        manager.isSavingEnabled = false
+        manager.record(url: URL(string: "https://ignored.example")!, title: "Ignored")
+        try await Task.sleep(nanoseconds: 500_000_000)
+
+        let entries = await manager.allEntries()
+        #expect(entries.count == 1)
+        #expect(entries.first?.urlString == "https://saved.example")
+    }
 }

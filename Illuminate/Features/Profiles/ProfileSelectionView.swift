@@ -99,7 +99,8 @@ struct ProfileSelectionView: View {
     }
 
     private var isAwaitingLaunchRoute: Bool {
-        isStandalone && !selectionWasExplicit && (!didRouteLaunchWindow || isRedirectingToProfile)
+        isStandalone && !selectionWasExplicit && !profileManager.isRunningUITests
+            && (!didRouteLaunchWindow || isRedirectingToProfile)
     }
 
     private var profileSelectionContent: some View {
@@ -122,7 +123,8 @@ struct ProfileSelectionView: View {
     }
 
     private func routeLaunchWindow() {
-        guard isStandalone, !selectionWasExplicit, !didRouteLaunchWindow else { return }
+        guard isStandalone, !selectionWasExplicit, !profileManager.isRunningUITests,
+              !didRouteLaunchWindow else { return }
         guard !profileManager.profiles.isEmpty else { return }
 
         didRouteLaunchWindow = true
@@ -181,7 +183,8 @@ struct ProfileSelectionView: View {
     }
 
     private func dismissIfRedundant() {
-        guard isStandalone, !selectionWasExplicit, !isRedirectingToProfile else { return }
+        guard isStandalone, !selectionWasExplicit, !profileManager.isRunningUITests,
+              !isRedirectingToProfile else { return }
         guard BrowserWindowRegistry.shared.activeCount > 0 else { return }
 
         AppLog.ui("Dismissing redundant profile window; a browser window is already open.")

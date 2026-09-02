@@ -14,7 +14,7 @@ struct NewTabView: View {
 
     @Environment(\.colorScheme) private var colorScheme
     @State private var isCustomizePanelShown = false
-    @State private var isShelfVisible = true
+    @State private var isShelfVisible = false
     @State private var shelfTab: ShelfTab = .easels
     @State private var hasAppeared = false
 

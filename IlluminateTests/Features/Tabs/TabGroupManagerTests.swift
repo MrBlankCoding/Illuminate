@@ -242,4 +242,39 @@ struct TabGroupManagerTests {
         #expect(manager.restoreLatestGroup() == nil)
         #expect(manager.restoreGroup(at: 0) == nil)
     }
+
+    @Test func creatingGroupWithDuplicateTabIDsStoresEachTabOnce() {
+        let manager = makeManager()
+        let tabID = UUID()
+
+        let group = manager.createGroup(tabIDs: [tabID, tabID, tabID])
+
+        #expect(group.tabIDs == [tabID])
+        #expect(group.tabCount == 1)
+        #expect(manager.group(for: tabID)?.id == group.id)
+    }
+
+    @Test func orderedTabIDsDoesNotReturnGroupedIDsMissingFromVisibleTabs() {
+        let manager = makeManager()
+        let visibleTabID = UUID()
+        let staleTabID = UUID()
+        manager.createGroup(tabIDs: [staleTabID, visibleTabID])
+        let visibleTab = Tab(id: visibleTabID, url: nil, title: "Visible")
+
+        let ordered = manager.orderedTabIDs(allTabs: [visibleTab])
+
+        #expect(ordered == [visibleTabID])
+    }
+
+    @Test func restoringGroupAtInvalidIndexDoesNotConsumeClosedGroup() {
+        let manager = makeManager()
+        let group = manager.createGroup(name: "Restore me", tabIDs: [UUID()])
+        manager.closeGroup(group.id, tabs: [])
+
+        let restored = manager.restoreGroup(at: manager.closedGroups.count)
+
+        #expect(restored == nil)
+        #expect(manager.closedGroups.count == 1)
+        #expect(manager.group(byID: group.id) == nil)
+    }
 }

@@ -128,6 +128,10 @@ final class ProfileManager {
         return profileID
     }
 
+    var isRunningUITests: Bool {
+        usesUITestProfiles
+    }
+
     var preferredProfileID: UUID? {
         launchProfileID ?? profiles.first?.id
     }

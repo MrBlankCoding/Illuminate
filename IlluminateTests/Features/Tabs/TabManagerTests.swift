@@ -178,4 +178,40 @@ struct TabManagerTests {
         for backup in backups { try? FileManager.default.removeItem(at: backup) }
         try? FileManager.default.removeItem(at: sessionURL)
     }
+
+    @Test func closingInactiveTabKeepsActiveTabAndSynchronizerURL() {
+        let tabManager = makeTabManager()
+        let activeTab = tabManager.createTab(url: URL(string: "https://active.example"))
+        let inactiveTab = tabManager.createTab(url: URL(string: "https://inactive.example"), inBackground: true)
+        tabManager.switchTo(activeTab.id)
+
+        tabManager.closeTab(id: inactiveTab.id)
+
+        #expect(tabManager.activeTabID == activeTab.id)
+        #expect(tabManager.activeTab?.url == activeTab.url)
+        #expect(tabManager.urlSynchronizer.currentURL == activeTab.url)
+    }
+
+    @Test func clearingActiveSelectionClearsSynchronizerURLWithoutDeletingTabs() {
+        let tabManager = makeTabManager()
+        let tab = tabManager.createTab(url: URL(string: "https://selected.example"))
+
+        tabManager.setActiveTab(nil)
+
+        #expect(tabManager.activeTabID == nil)
+        #expect(tabManager.activeTab == nil)
+        #expect(tabManager.tabs.contains { $0.id == tab.id })
+        #expect(tabManager.urlSynchronizer.currentURL == nil)
+    }
+
+    @Test func closingUnknownTabIsANoOp() {
+        let tabManager = makeTabManager()
+        let originalIDs = tabManager.tabs.map(\.id)
+        let originalActiveID = tabManager.activeTabID
+
+        tabManager.closeTab(id: UUID())
+
+        #expect(tabManager.tabs.map(\.id) == originalIDs)
+        #expect(tabManager.activeTabID == originalActiveID)
+    }
 }
