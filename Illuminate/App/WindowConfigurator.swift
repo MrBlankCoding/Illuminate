@@ -23,33 +23,35 @@ struct WindowConfigurator: NSViewRepresentable {
 
     func makeNSView(context: Context) -> NSView {
         let view = NSView()
-        DispatchQueue.main.async { [weak view] in
-            guard let view, let window = view.window,
-                  !context.coordinator.didConfigure else { return }
-            context.coordinator.didConfigure = true
+        if let window = view.window,
+           context.coordinator.window !== window {
             context.coordinator.window = window
             tabManager.window = window
             WebURLOpening.shared.register(tabManager)
-            configure(window: window)
+            if !context.coordinator.didConfigure {
+                context.coordinator.didConfigure = true
+                configure(window: window)
+            }
             update(window: window)
         }
         return view
     }
 
     func updateNSView(_ nsView: NSView, context: Context) {
-        DispatchQueue.main.async { [weak nsView] in
-            guard let window = nsView?.window else { return }
-            if context.coordinator.window !== window {
-                context.coordinator.window = window
-                tabManager.window = window
-                WebURLOpening.shared.register(tabManager)
-                if !context.coordinator.didConfigure {
-                    context.coordinator.didConfigure = true
-                    configure(window: window)
-                }
-            }
-            update(window: window)
+        guard let window = nsView.window else { return }
+
+        if context.coordinator.window !== window {
+            context.coordinator.window = window
+            tabManager.window = window
+            WebURLOpening.shared.register(tabManager)
         }
+
+        if !context.coordinator.didConfigure {
+            context.coordinator.didConfigure = true
+            configure(window: window)
+        }
+
+        update(window: window)
     }
 
     private func configure(window: NSWindow) {

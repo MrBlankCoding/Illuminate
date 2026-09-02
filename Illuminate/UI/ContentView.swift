@@ -128,6 +128,7 @@ struct BrowserContentView: View {
     let colorScheme: ColorScheme
     var findViewModel: FindViewModel
     var zoomViewModel: ZoomViewModel
+    @Environment(TabManager.self) private var tabManager: TabManager
     @Environment(ContentViewModel.self) private var viewModel: ContentViewModel
 
     private var activeTab: Tab? {
@@ -169,24 +170,14 @@ struct BrowserContentView: View {
                     ForEach(tabsWithActiveFirst) { tab in
                         let isActive = tab.id == activeTabID
 
-                        Group {
-                            if isActive {
-                                WebView(tab: tab)
-                                    .transaction { $0.animation = nil }
-                                    .environment(viewModel)
-                                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                            } else {
-                                WebView(tab: tab)
-                                    .transaction { $0.animation = nil }
-                                    .environment(viewModel)
-                                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                                    .hidden()
-                                    .allowsHitTesting(false)
-                            }
-                        }
-                        .opacity(isActive ? 1 : 0)
-                        .accessibilityHidden(!isActive)
-                        .zIndex(isActive ? 1 : 0)
+                        WebView(tab: tab)
+                            .transaction { $0.animation = nil }
+                            .environment(viewModel)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .opacity(isActive ? 1 : 0)
+                            .allowsHitTesting(isActive)
+                            .accessibilityHidden(!isActive)
+                            .zIndex(isActive ? 1 : 0)
                     }
 
                     if let activeTab = activeTab,

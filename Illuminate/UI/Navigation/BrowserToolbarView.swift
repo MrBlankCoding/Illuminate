@@ -30,9 +30,25 @@ struct WindowDragArea: NSViewRepresentable {
 }
 
 final class TabStripContainerNSView: NSView {
+    private var hostingView: NSHostingView<AnyView>?
+
     override var isFlipped: Bool { true }
 
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
+    func configure(with rootView: AnyView) {
+        if hostingView == nil {
+            let hosting = NSHostingView(rootView: rootView)
+            hosting.translatesAutoresizingMaskIntoConstraints = true
+            hosting.autoresizingMask = [.width, .height]
+            hosting.frame = bounds
+            hosting.safeAreaRegions = []
+            addSubview(hosting)
+            hostingView = hosting
+        } else {
+            hostingView?.rootView = rootView
+        }
+    }
 
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
@@ -64,19 +80,12 @@ struct TabStripContainer<Content: View>: NSViewRepresentable {
 
     func makeNSView(context: Context) -> TabStripContainerNSView {
         let container = TabStripContainerNSView()
-
-        let hosting = NSHostingView(rootView: content)
-        hosting.translatesAutoresizingMaskIntoConstraints = true
-        hosting.autoresizingMask = [.width, .height]
-        hosting.frame = container.bounds
-        hosting.safeAreaRegions = []
-        container.addSubview(hosting)
+        container.configure(with: AnyView(content))
         return container
     }
 
     func updateNSView(_ container: TabStripContainerNSView, context: Context) {
-        guard let hosting = container.subviews.first as? NSHostingView<Content> else { return }
-        hosting.rootView = content
+        container.configure(with: AnyView(content))
     }
 }
 

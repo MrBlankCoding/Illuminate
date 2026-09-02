@@ -63,6 +63,8 @@ struct WebViewRepresentable: NSViewRepresentable {
             colorScheme: Coordinator.resolvedScheme(for: userInterfaceStyle),
             canvasFingerprintingProtectionEnabled: canvasFingerprintingService.isEnabled
         )
+        context.coordinator.lastAppliedScheme = Coordinator.resolvedScheme(for: userInterfaceStyle)
+        context.coordinator.lastFingerprintingEnabled = canvasFingerprintingService.isEnabled
 
         loadIfNeeded(webView, coordinator: context.coordinator)
 
@@ -106,7 +108,8 @@ struct WebViewRepresentable: NSViewRepresentable {
             }
         }
 
-        if tab.id == tabManager.activeTabID {
+        if tab.id == tabManager.activeTabID,
+           context.coordinator.lastRequestedLoadURLString != tab.url?.absoluteString {
             loadIfNeeded(nsView, coordinator: context.coordinator)
         }
     }
@@ -114,7 +117,6 @@ struct WebViewRepresentable: NSViewRepresentable {
     private func loadIfNeeded(_ webView: WKWebView, coordinator: Coordinator) {
         guard
             let url = tab.url,
-            webView.url == nil,
             coordinator.lastRequestedLoadURLString != url.absoluteString
         else { return }
 

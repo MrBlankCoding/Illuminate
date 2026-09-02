@@ -52,11 +52,18 @@ final class TabManager: NSObject, WKWebExtensionWindow {
         static let rapidSwitchDebounceNs: UInt64 = 1_000_000_000
     }
 
+    static let keepInactiveTabsLoadedKey = "general.keepInactiveTabsLoaded"
+    static let autoRestorePreviousTabsKey = "general.autoStartPreviousTabs"
+
     var tabs: [Tab] = []
     var activeTabID: UUID?
     var isResizing: Bool = false
     var isFullScreen: Bool = false
     var backgroundImagePalette: [Color] = []
+    var keepInactiveTabsLoaded: Bool {
+        get { UserDefaults.standard.object(forKey: Self.keepInactiveTabsLoadedKey) as? Bool ?? true }
+        set { UserDefaults.standard.set(newValue, forKey: Self.keepInactiveTabsLoadedKey) }
+    }
     private var initialPreloadingTabIDs: Set<UUID> = []
     @ObservationIgnored let tabGroupManager: TabGroupManager
 
@@ -219,7 +226,7 @@ final class TabManager: NSObject, WKWebExtensionWindow {
             defaultTheme.colorScheme = ThemeScheme.fromUIStyle(style)
             
             // Start with a neutral grey theme if no image is present
-            let grey = Color(hex: Defaults.themeColor).resolvedHSL
+            let grey = Color.AppColor.hslComponents(of: Color(hex: Defaults.themeColor))
             if let firstIdx = defaultTheme.colors.indices.first {
                 defaultTheme.colors[firstIdx].hue = grey.h
                 defaultTheme.colors[firstIdx].saturation = grey.s
@@ -237,7 +244,12 @@ final class TabManager: NSObject, WKWebExtensionWindow {
         }
 
         if isPersistenceEnabled {
-            restoreSession()
+            let autoRestorePreviousTabs = userDefaults.object(forKey: Self.autoRestorePreviousTabsKey) as? Bool ?? true
+            if autoRestorePreviousTabs {
+                restoreSession()
+            } else {
+                startFreshSession()
+            }
         }
 
         hydrateRestoredTabs()
@@ -539,7 +551,14 @@ final class TabManager: NSObject, WKWebExtensionWindow {
 
     func setActiveTab(_ id: UUID?) {
         let oldTab = activeTab
+        let oldID = oldTab?.id
+
         activeTabID = id
+
+        if let oldID, oldID != id, !keepInactiveTabsLoaded {
+            tabIndex[oldID]?.detachWebView()
+        }
+
         if let id, let tab = tabIndex[id] {
             finishInitialTabPreloading(for: id)
             tab.markActivated()

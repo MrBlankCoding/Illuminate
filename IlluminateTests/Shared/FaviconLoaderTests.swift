@@ -25,9 +25,7 @@ struct FaviconLoaderTests {
         #expect(FaviconLoader.resolveFaviconURL(from: "/icon.png", pageURL: page)?.absoluteString == "https://example.com/icon.png")
         #expect(FaviconLoader.resolveFaviconURL(from: "https://cdn.example.com/fav.ico", pageURL: page)?.absoluteString == "https://cdn.example.com/fav.ico")
         #expect(FaviconLoader.resolveFaviconURL(from: "   ", pageURL: page) == nil)
-        // data URL passthrough
         #expect(FaviconLoader.resolveFaviconURL(from: "data:image/png;base64,abcd", pageURL: page)?.scheme == "data")
-        // unsupported scheme rejected
         #expect(FaviconLoader.resolveFaviconURL(from: "ftp://example.com/icon.ico", pageURL: page) == nil)
     }
 
@@ -53,7 +51,6 @@ struct FaviconLoaderTests {
     }
 
     @Test func negativeCachePreventsRepeatedFailures() async {
-        // Use localhost with closed port for fast connection-refused failure.
         let loader = FaviconLoader()
         let url = URL(string: "https://127.0.0.1:1/favicon.ico")!
         let first = await loader.loadFavicon(from: url)
@@ -62,7 +59,6 @@ struct FaviconLoaderTests {
         let second = await loader.loadFavicon(from: url)
         let elapsed = CFAbsoluteTimeGetCurrent() - start
         #expect(second == nil)
-        // Second call should be served from negative cache — under 200ms.
         #expect(elapsed < 0.2)
     }
 
@@ -72,7 +68,7 @@ struct FaviconLoaderTests {
         for url in urls {
             cache.performInline_set(NSImage(size: NSSize(width: 8, height: 8)), for: url)
         }
-        // First inserted should be evicted.
+
         #expect(cache.image(for: urls[0]) == nil)
         #expect(cache.image(for: urls[4]) != nil)
     }

@@ -100,10 +100,10 @@ extension TabManager {
                 withAnimation(.easeInOut(duration: 0.35)) {
                     self.backgroundImagePalette = palette
                     if applyTheme, let first = palette.first {
-                        let hsl = first.resolvedHSL
+                        let hsl = Color.AppColor.hslComponents(of: first)
                         // Slightly darker logic: reduce lightness by 12%
                         let darkerL = max(0, hsl.l - 0.12)
-                        let darkerColor = Color(hslHue: hsl.h, saturation: hsl.s, lightness: darkerL)
+                        let darkerColor = Color.AppColor.hsl(h: hsl.h, s: hsl.s, l: darkerL)
 
                         self.windowThemeColor = darkerColor
 

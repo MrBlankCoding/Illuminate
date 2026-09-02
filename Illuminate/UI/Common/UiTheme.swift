@@ -15,7 +15,7 @@ struct ThemeColor: Codable, Identifiable {
     var position: CGPoint
 
     var color: Color {
-        Color(hslHue: hue, saturation: saturation, lightness: lightness)
+        Color.AppColor.hsl(h: hue, s: saturation, l: lightness)
     }
 }
 
@@ -67,6 +67,64 @@ extension Color {
     static let accentBeam = Color.accentColor
     static let accentSoft = Color.accentColor.opacity(0.14)
     static let suggestionRowHover = Color.primary.opacity(0.07)
+
+    enum AppColor {
+        static func hsl(h: Double, s: Double, l: Double, opacity: Double = 1.0) -> Color {
+            let h = (h.truncatingRemainder(dividingBy: 1.0) + 1.0).truncatingRemainder(dividingBy: 1.0)
+            let s = max(0.0, min(1.0, s))
+            let l = max(0.0, min(1.0, l))
+
+            let chroma = (1.0 - abs(2.0 * l - 1.0)) * s
+            let x = chroma * (1.0 - abs((h * 6.0).truncatingRemainder(dividingBy: 2.0) - 1.0))
+            let m = l - chroma / 2.0
+
+            let (r, g, b): (Double, Double, Double)
+            switch Int(floor(h * 6.0)) % 6 {
+            case 0: (r, g, b) = (chroma, x, 0)
+            case 1: (r, g, b) = (x, chroma, 0)
+            case 2: (r, g, b) = (0, chroma, x)
+            case 3: (r, g, b) = (0, x, chroma)
+            case 4: (r, g, b) = (x, 0, chroma)
+            default: (r, g, b) = (chroma, 0, x)
+            }
+
+            return Color(red: r + m, green: g + m, blue: b + m, opacity: opacity)
+        }
+
+        static func hsb(h: Double, s: Double, b: Double, opacity: Double = 1.0) -> Color {
+            Color(hue: h, saturation: s, brightness: b, opacity: opacity)
+        }
+
+        static func hslComponents(of color: Color) -> (h: Double, s: Double, l: Double) {
+            guard let nsColor = NSColor(color).usingColorSpace(.deviceRGB)
+                ?? NSColor(color).usingColorSpace(.sRGB)
+            else { return (0, 0, 0.5) }
+
+            var h: CGFloat = 0
+            var s: CGFloat = 0
+            var b: CGFloat = 0
+            var a: CGFloat = 0
+            nsColor.getHue(&h, saturation: &s, brightness: &b, alpha: &a)
+
+            let l = (2.0 - s) * b / 2.0
+            var sL = s * b / (l < 0.5 ? (l * 2.0) : (2.0 - l * 2.0))
+            if sL.isNaN { sL = 0 }
+            return (Double(h), Double(sL), Double(l))
+        }
+
+        static func hsbComponents(of color: Color) -> (h: Double, s: Double, b: Double) {
+            guard let nsColor = NSColor(color).usingColorSpace(.deviceRGB)
+                ?? NSColor(color).usingColorSpace(.sRGB)
+            else { return (0, 0, 0.5) }
+
+            var h: CGFloat = 0
+            var s: CGFloat = 0
+            var b: CGFloat = 0
+            var a: CGFloat = 0
+            nsColor.getHue(&h, saturation: &s, brightness: &b, alpha: &a)
+            return (Double(h), Double(s), Double(b))
+        }
+    }
 }
 
 struct BrowserTheme {
@@ -91,6 +149,11 @@ struct BrowserTheme {
     var selectionIndicator: Color { accent }
     var textOnAccent: Color { .white }
     var guestAccent: Color { Color(hex: "7B52CC") }
+}
+
+enum BrowserAppearanceSettings {
+    static let compactModeKey = "appearance.compactMode"
+    static let animationsEnabledKey = "appearance.animationsEnabled"
 }
 
 enum MacDesign {
@@ -521,26 +584,6 @@ extension Color {
     }
 
     var resolvedHSL: (h: Double, s: Double, l: Double) {
-        let nsColor = NSColor(self).usingColorSpace(.deviceRGB) ?? .white
-        var h: CGFloat = 0
-        var s: CGFloat = 0
-        var b: CGFloat = 0
-        var a: CGFloat = 0
-        nsColor.getHue(&h, saturation: &s, brightness: &b, alpha: &a)
-
-        // HSB to HSL
-        let l = (2 - s) * b / 2
-        var sL = s * b / (l < 0.5 ? l * 2 : 2 - l * 2)
-        if sL.isNaN { sL = 0 }
-
-        return (h: Double(h), s: Double(sL), l: Double(l))
-    }
-
-    init(hslHue: Double, saturation: Double, lightness: Double) {
-        // HSL to HSB
-        let t = saturation * (lightness < 0.5 ? lightness : 1 - lightness)
-        let b = lightness + t
-        let s = lightness > 0 ? 2 * t / b : 0
-        self.init(hue: hslHue, saturation: s, brightness: b)
+        Color.AppColor.hslComponents(of: self)
     }
 }

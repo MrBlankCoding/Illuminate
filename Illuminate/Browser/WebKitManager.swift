@@ -14,6 +14,8 @@ import ObjectiveC
 @MainActor
 @Observable
 final class WebKitManager {
+    static let javascriptEnabledKey = "browser.javascriptEnabled"
+
     @ObservationIgnored private static var hasConfiguredGlobalCache = false
     
     var cookiesEnabled: Bool = true {
@@ -100,7 +102,8 @@ final class WebKitManager {
         configuration.mediaTypesRequiringUserActionForPlayback = []
 
         configuration.websiteDataStore = activeWebsiteDataStore()
-        configuration.defaultWebpagePreferences.allowsContentJavaScript = true
+        let javascriptEnabled = UserDefaults.standard.object(forKey: Self.javascriptEnabledKey) as? Bool ?? true
+        configuration.defaultWebpagePreferences.allowsContentJavaScript = javascriptEnabled
         configuration.defaultWebpagePreferences.preferredContentMode = .desktop
 
         let preferences = WKPreferences()

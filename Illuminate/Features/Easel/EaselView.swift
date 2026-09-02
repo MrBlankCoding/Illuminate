@@ -31,7 +31,7 @@ struct EaselView: NSViewRepresentable {
 
         if let tab = tab {
             try? tab.attachWebView(webView)
-            tab.title = easelManager.easel(for: easelID)?.title ?? "Easel"
+            context.coordinator.applyEaselTitle(to: tab)
         }
 
         let easelURL = URL(string: "easel://easel/index.html")!
@@ -41,11 +41,13 @@ struct EaselView: NSViewRepresentable {
     }
 
     func updateNSView(_ nsView: WKWebView, context: Context) {
+        let identityChanged = context.coordinator.easelID != easelID ||
+            context.coordinator.easelManager !== easelManager
         context.coordinator.easelManager = easelManager
         context.coordinator.easelID = easelID
         context.coordinator.tab = tab
-        if let tab, let easel = easelManager.easel(for: easelID), tab.title != easel.title {
-            tab.title = easel.title
+        if identityChanged, let tab {
+            context.coordinator.applyEaselTitle(to: tab)
         }
     }
 
@@ -66,6 +68,8 @@ struct EaselView: NSViewRepresentable {
         weak var webView: WKWebView?
         private var pendingSaveTask: Task<Void, Never>?
         private var lastSentJSON: String?
+        private var lastAppliedEaselID: UUID?
+        private var lastAppliedEaselTitle: String?
 
         init(easelID: UUID, easelManager: EaselManager, tab: Tab? = nil) {
             self.easelID = easelID
@@ -73,6 +77,14 @@ struct EaselView: NSViewRepresentable {
             self.tab = tab
             super.init()
             bridge.delegate = self
+        }
+
+        func applyEaselTitle(to tab: Tab) {
+            let title = easelManager.easel(for: easelID)?.title ?? "Easel"
+            guard lastAppliedEaselID != easelID || lastAppliedEaselTitle != title || tab.title != title else { return }
+            lastAppliedEaselID = easelID
+            lastAppliedEaselTitle = title
+            tab.title = title
         }
 
         static func makeConfiguration(bridge: EaselBridge) -> WKWebViewConfiguration {
@@ -162,6 +174,9 @@ struct EaselView: NSViewRepresentable {
 
         func easelDidRequestTitleChange(_ bridge: EaselBridge, title: String) {
             easelManager.renameEasel(id: easelID, to: title)
+            if let tab {
+                applyEaselTitle(to: tab)
+            }
         }
 
         func easelDidReceivePreview(_ bridge: EaselBridge, dataURL: String) {

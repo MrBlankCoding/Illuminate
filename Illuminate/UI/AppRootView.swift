@@ -34,6 +34,7 @@ struct AppRootView: View {
                     .focusedSceneValue(\.activeEnvironment, env)
                     .id(route)
                     .onAppear {
+                        env.ensureStartupServicesAreReady()
                         env.tabManager.ensureHasAtLeastOneTab()
                         registerDockMenuRoutes()
                     }
