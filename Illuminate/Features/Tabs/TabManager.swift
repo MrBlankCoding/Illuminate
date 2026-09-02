@@ -413,7 +413,7 @@ final class TabManager: NSObject, WKWebExtensionWindow {
 
         if !inBackground {
             withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-                switchTo(tab.id)
+                setActiveTab(tab.id)
             }
         }
 
@@ -463,12 +463,6 @@ final class TabManager: NSObject, WKWebExtensionWindow {
             withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
                 setActiveTab(nextID)
             }
-        }
-
-        if tabs.isEmpty {
-            // Ensure we have at least one tab for the next time the browser opens
-            createTab()
-            NSApp.keyWindow?.performClose(nil)
         }
 
         scheduleSave()
@@ -526,7 +520,13 @@ final class TabManager: NSObject, WKWebExtensionWindow {
         guard let activeTabID else { return }
         guard let mostRecentTab = tabs
             .filter({ $0.id != activeTabID })
-            .max(by: { $0.lastActivatedAt < $1.lastActivatedAt })
+            .enumerated()
+            .max(by: {
+                if $0.element.lastActivatedAt != $1.element.lastActivatedAt {
+                    return $0.element.lastActivatedAt < $1.element.lastActivatedAt
+                }
+                return $0.offset < $1.offset
+            })?.element
         else { return }
 
         switchTo(mostRecentTab.id)
@@ -601,8 +601,7 @@ final class TabManager: NSObject, WKWebExtensionWindow {
         else { return }
 
         let nextIndex = (index + delta + tabs.count) % tabs.count
-        lastSwitchTime = Date()
-        switchTo(tabs[nextIndex].id)
+        setActiveTab(tabs[nextIndex].id)
     }
 
     private func ensureValidActiveTabSelection(persist: Bool = true) {

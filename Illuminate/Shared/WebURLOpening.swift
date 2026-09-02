@@ -50,11 +50,7 @@ final class WebURLOpening {
         if let target = frontmostTabManager() {
             NSApp.activate(ignoringOtherApps: true)
             target.window?.makeKeyAndOrderFront(nil)
-            if let activeTab = target.activeTab, activeTab.url == nil {
-                activeTab.load(url: url)
-            } else {
-                target.createTab(url: url)
-            }
+            target.createTab(url: url)
         } else {
             queuedURLs.append(url)
             needsBrowserWindow = true

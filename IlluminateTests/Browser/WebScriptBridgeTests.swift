@@ -30,21 +30,21 @@ struct WebScriptBridgeTests {
             colorScheme: "dark",
             canvasFingerprintingProtectionEnabled: true
         )
-        #expect(controller.userScripts.count == 7)
+        #expect(controller.userScripts.count == 6)
         bridge.installScripts(
             on: controller,
             handler: handler,
             colorScheme: "dark",
             canvasFingerprintingProtectionEnabled: true
         )
-        #expect(controller.userScripts.count == 7)
+        #expect(controller.userScripts.count == 6)
         bridge.installScripts(
             on: controller,
             handler: handler,
             colorScheme: "light",
             canvasFingerprintingProtectionEnabled: false
         )
-        #expect(controller.userScripts.count == 6)
+        #expect(controller.userScripts.count == 5)
         bridge.removeAll(from: controller)
         #expect(controller.userScripts.isEmpty)
     }

@@ -62,24 +62,17 @@ public final class TabGroupManager {
 
     func orderedTabIDs(allTabs: [Tab]) -> [UUID] {
         var result: [UUID] = []
-        var processedTabIDs = Set<UUID>()
         let visibleTabIDs = Set(allTabs.map(\.id))
 
-        for tab in allTabs {
-            guard !processedTabIDs.contains(tab.id) else { continue }
-
-            if let group = group(for: tab.id) {
-                for gTabID in group.tabIDs {
-                    if visibleTabIDs.contains(gTabID), !processedTabIDs.contains(gTabID) {
-                        result.append(gTabID)
-                        processedTabIDs.insert(gTabID)
-                    }
-                }
-            } else {
-                result.append(tab.id)
-                processedTabIDs.insert(tab.id)
+        for group in groups {
+            for tabID in group.tabIDs where visibleTabIDs.contains(tabID) {
+                result.append(tabID)
             }
         }
+
+        result.append(contentsOf: allTabs.compactMap { tab in
+            group(for: tab.id) == nil ? tab.id : nil
+        })
         return result
     }
 

@@ -66,7 +66,7 @@ final class FaviconCache: @unchecked Sendable {
         cacheDirectory: URL? = nil,
         fetchData: (@Sendable (String) async throws -> Data)? = nil
     ) {
-        self.capacity = max(8, capacity)
+        self.capacity = max(1, capacity) // 8?
         if let fetchData {
             self.fetchData = fetchData
         } else {

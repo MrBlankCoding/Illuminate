@@ -60,7 +60,7 @@ struct TabZoomBehaviorTests {
 
         tab.resetZoom()
 
-        #expect(webView.pageZoom == Tab.ZoomBounds.default)
+        #expect(webView.pageZoom == CGFloat(Tab.ZoomBounds.default))
         #expect(tab.zoomLevel == Tab.ZoomBounds.default)
     }
 }

@@ -13,6 +13,10 @@ import SwiftData
 @MainActor
 struct PasswordServiceTests {
 
+    private struct SuccessfulAuthenticationService: AuthenticationServiceProtocol {
+        func authenticate(reason: String) async throws -> Bool { true }
+    }
+
     private func createInMemoryContainer() throws -> ModelContainer {
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
         return try ModelContainer(
@@ -23,7 +27,11 @@ struct PasswordServiceTests {
 
     @Test func testSaveAndFetchPassword() async throws {
         let container = try createInMemoryContainer()
-        let service = PasswordService(profile: BrowserProfile(name: "Test Profile"), container: container)
+        let service = PasswordService(
+            profile: BrowserProfile(name: "Test Profile"),
+            container: container,
+            authService: SuccessfulAuthenticationService()
+        )
         service.savePassword(
             url: "https://example.com",
             username: "testuser",
@@ -40,7 +48,11 @@ struct PasswordServiceTests {
 
     @Test func testPasswordUpdate() async throws {
         let container = try createInMemoryContainer()
-        let service = PasswordService(profile: BrowserProfile(name: "Test Profile"), container: container)
+        let service = PasswordService(
+            profile: BrowserProfile(name: "Test Profile"),
+            container: container,
+            authService: SuccessfulAuthenticationService()
+        )
         
         service.savePassword(
             url: "https://updatesite.com",
@@ -63,7 +75,11 @@ struct PasswordServiceTests {
 
     @Test func testMultiplePasswordsForSameSite() async throws {
         let container = try createInMemoryContainer()
-        let service = PasswordService(profile: BrowserProfile(name: "Test Profile"), container: container)
+        let service = PasswordService(
+            profile: BrowserProfile(name: "Test Profile"),
+            container: container,
+            authService: SuccessfulAuthenticationService()
+        )
         
         service.savePassword(
             url: "https://multilogin.com",
@@ -94,7 +110,11 @@ struct PasswordServiceTests {
 
     @Test func testHostExtraction() async throws {
         let container = try createInMemoryContainer()
-        let service = PasswordService(profile: BrowserProfile(name: "Test Profile"), container: container)
+        let service = PasswordService(
+            profile: BrowserProfile(name: "Test Profile"),
+            container: container,
+            authService: SuccessfulAuthenticationService()
+        )
         
         service.savePassword(
             url: "https://login.example.com/signin",

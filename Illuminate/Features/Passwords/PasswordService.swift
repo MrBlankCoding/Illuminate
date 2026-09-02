@@ -72,13 +72,12 @@ final class PasswordService {
         let host = URL(string: url)?.host ?? url
         let normalizedEmail = (email?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true) ? nil : email
         let descriptor = FetchDescriptor<Password>(
-            predicate: #Predicate<Password> { 
-                $0.url == host && ($0.username == username || (normalizedEmail != nil && $0.email == normalizedEmail))
-            }
+            predicate: #Predicate<Password> { $0.url == host }
         )
-        
+
         let existingPasswords = (try? context.fetch(descriptor))?.filter {
-            $0.profileID == activeProfileID || $0.profileID == nil
+            ($0.username == username || (normalizedEmail != nil && $0.email == normalizedEmail)) &&
+            ($0.profileID == activeProfileID || $0.profileID == nil)
         }
 
         if let existing = existingPasswords?.first {
