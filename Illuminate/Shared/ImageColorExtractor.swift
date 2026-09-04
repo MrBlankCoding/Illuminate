@@ -9,8 +9,18 @@
 import AppKit
 import SwiftUI
 
-private struct ColorBucket: Hashable, Sendable {
+private nonisolated struct ColorBucket: Hashable, Sendable {
     let r, g, b: UInt8
+
+    nonisolated static func == (lhs: ColorBucket, rhs: ColorBucket) -> Bool {
+        lhs.r == rhs.r && lhs.g == rhs.g && lhs.b == rhs.b
+    }
+
+    nonisolated func hash(into hasher: inout Hasher) {
+        hasher.combine(r)
+        hasher.combine(g)
+        hasher.combine(b)
+    }
 }
 
 final class ImageColorExtractor {
