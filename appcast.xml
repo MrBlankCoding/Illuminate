@@ -7,6 +7,16 @@
     <language>en</language>
 
     <!-- Releases are prepended here by the release CLI -->
+    <item>
+      <title>Version 1.0 (Build 1)</title>
+      <pubDate>Fri, 04 Sep 2026 03:26:59 +0000</pubDate>
+      <version xmlns="http://www.andymatuschak.org/xml-namespaces/sparkle">1</version>
+      <shortVersionString xmlns="http://www.andymatuschak.org/xml-namespaces/sparkle">1.0</shortVersionString>
+      <minimumSystemVersion xmlns="http://www.andymatuschak.org/xml-namespaces/sparkle">26.0</minimumSystemVersion>
+      <description><![CDATA[<ul><li>Initial Test Release</li><li>Still full of bugs and not done</li><li>Just testing release & updates</li></ul>]]></description>
+      <enclosure url="https://github.com/MrBlankCoding/Illuminate/releases/download/v1.0/Illuminate.dmg" type="application/octet-stream" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" sparkle:edSignature="uLS3tIFp2ouWC+DPOAkJW6xmn1SiJhyOVufWSOJE0f+2tFvdRjee8ictNuURXg4aT6629s7hUhi49s/eZI0+AQ==" length="12993729"></enclosure>
+    </item>
+
 
   </channel>
 </rss>
