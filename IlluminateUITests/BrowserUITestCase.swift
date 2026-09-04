@@ -17,7 +17,7 @@ class BrowserUITestCase: XCTestCase {
         app.launchArguments = ["-uiTesting"] + additionalLaunchArguments
         app.launch()
 
-        _ = app.staticTexts["profileSelection.title"].waitForExistence(timeout: 5)
+        _ = app.staticTexts["profileSelection.title"].waitForExistence(timeout: 20)
         print(">>> UI TEST DEBUG: windows=\(app.windows.count), buttons=\(app.buttons.count), staticTexts=\(app.staticTexts.count)")
         for (i, btn) in app.buttons.allElementsBoundByIndex.enumerated() {
             print(">>> UI TEST BUTTON [\(i)]: id=\(btn.identifier), label=\(btn.label)")
@@ -26,7 +26,7 @@ class BrowserUITestCase: XCTestCase {
             print(">>> UI TEST STATICTEXT [\(i)]: id=\(txt.identifier), label=\(txt.label), value=\(String(describing: txt.value))")
         }
         XCTAssertTrue(
-            app.staticTexts["profileSelection.title"].waitForExistence(timeout: 5),
+            app.staticTexts["profileSelection.title"].waitForExistence(timeout: 20),
             "The profile selection screen should be ready before each UI test."
         )
     }

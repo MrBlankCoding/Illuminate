@@ -171,7 +171,7 @@ struct ProfileSelectionView: View {
     private func registerDockMenuRoutes() {
         DockMenuWindowRouter.shared.openProfileSelection = {
             DockMenuWindowRouter.shared.requestProfileSelection {
-                NSApp.sendAction(#selector(NSDocumentController.newDocument(_:)), to: nil, from: nil)
+                openWindow(id: "profile-selection-window")
             }
         }
         DockMenuWindowRouter.shared.openProfile = { profileID in

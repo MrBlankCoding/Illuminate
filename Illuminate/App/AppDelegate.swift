@@ -41,13 +41,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         guard isRunningUITests() else { return }
         Task { @MainActor in
-            if NSApp.windows.filter({ $0.isVisible && !$0.className.contains("StatusBar") && !self.windowClassNameIsInternal($0) }).isEmpty {
-                // Use an in-process action instead of NSWorkspace.shared.open so
-                // we don't hit the "no application set to open illuminate://" OS
-                // dialog — the illuminate:// scheme is handled internally and is
-                // not registered with the system URL dispatcher.
-                NSApp.sendAction(#selector(NSDocumentController.newDocument(_:)), to: nil, from: nil)
-            }
             await bringAppToFrontForUITests()
         }
     }
@@ -143,10 +136,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         } else {
             AppLog.ui("Warning: openGuest closure not registered.")
         }
-    }
-
-    func applicationShouldOpenUntitledFile(_ sender: NSApplication) -> Bool {
-        return true
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {

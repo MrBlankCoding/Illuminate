@@ -15,6 +15,7 @@ DERIVED_DATA="$OUTPUT_DIR/DerivedData"
 TEST_RESULT="$OUTPUT_DIR/Illuminate-tests.xcresult"
 
 mkdir -p "$OUTPUT_DIR"
+rm -rf "$TEST_RESULT"
 
 echo "==> Running tests with coverage (unit + UI)..."
 xcodebuild test \
@@ -29,7 +30,7 @@ xcodebuild test \
   CODE_SIGN_STYLE=Manual \
   CODE_SIGN_IDENTITY=- \
   -resultBundlePath "$TEST_RESULT" \
-  2>&1 | xcbeautify || true
+  2>&1 | xcbeautify
 
 echo "==> Exporting coverage report..."
 xcrun xccov view --report --json "$TEST_RESULT" > "$OUTPUT_DIR/coverage.json"
