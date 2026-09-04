@@ -96,6 +96,8 @@ struct URLBar: View {
         HStack(spacing: MacDesign.Spacing.control) {
             // search icon
             Image(systemName: statusIcon)
+                .motionAwareSymbolRotation(isActive: activeTab?.isLoading ?? false)
+                .motionAwareSymbolReplacement()
                 .buttonStyle(.plain)
                 .background(Color.clear)
                 .allowsHitTesting(false) 
@@ -129,6 +131,7 @@ struct URLBar: View {
                 } label: {
                     Image(systemName: didCopyURL ? "checkmark.circle.fill" : "doc.on.doc")
                         .font(.webMicroMedium)
+                        .motionAwareSymbolReplacement()
                         .foregroundStyle(didCopyURL ? Color.green : Color.textSecondary)
                         .frame(width: MacDesign.Size.urlBarIcon, height: MacDesign.Size.urlBarIcon)
                         .macControlBackground(isHovered: isCopyHovered, tint: didCopyURL ? .green : themeColor, radius: MacDesign.Radius.small)
@@ -237,6 +240,7 @@ struct URLBar: View {
     }
 
     private var statusIcon: String {
+        if activeTab?.isLoading == true { return "arrow.clockwise" }
         if activeTab?.url?.scheme?.localizedCaseInsensitiveCompare("illuminate") == .orderedSame {
             return "gearshape.fill"
         }

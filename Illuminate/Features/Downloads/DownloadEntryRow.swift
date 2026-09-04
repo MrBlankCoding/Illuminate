@@ -106,6 +106,7 @@ struct DownloadEntryRow: View {
     private var downloadManager = DownloadManager.shared
     @State private var isHovering = false
     @State private var fileExistsOnDisk = false
+    @State private var didComplete = false
 
     private var isCompact: Bool { style == .popover }
     private var isMissingFromDisk: Bool {
@@ -188,6 +189,13 @@ struct DownloadEntryRow: View {
         .onTapGesture {
             revealInFinder()
         }
+        .onChange(of: item.state) { oldState, newState in
+            guard oldState != .completed, newState == .completed else { return }
+            didComplete = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.55) {
+                didComplete = false
+            }
+        }
         .onHover { hovering in
             guard isRowInteractive else { return }
             isHovering = hovering
@@ -245,12 +253,41 @@ struct DownloadEntryRow: View {
     }
 
     private var fileIcon: some View {
-        Image(nsImage: resolvedIcon)
-            .resizable()
-            .interpolation(.high)
-            .scaledToFit()
-            .frame(width: isCompact ? MacDesign.Size.iconButton : 36, height: isCompact ? MacDesign.Size.iconButton : 36)
-            .opacity(isMissingFromDisk ? 0.35 : 1)
+        ZStack(alignment: .bottomTrailing) {
+            Image(nsImage: resolvedIcon)
+                .resizable()
+                .interpolation(.high)
+                .scaledToFit()
+                .frame(width: isCompact ? MacDesign.Size.iconButton : 36, height: isCompact ? MacDesign.Size.iconButton : 36)
+                .opacity(isMissingFromDisk ? 0.35 : 1)
+
+            Image(systemName: statusIcon)
+                .font(.system(size: isCompact ? 11 : 13, weight: .semibold))
+                .symbolRenderingMode(.hierarchical)
+                .foregroundStyle(statusTint)
+                .background(Color(nsColor: .windowBackgroundColor), in: Circle())
+                .scaleEffect(didComplete ? 1.18 : 1)
+                .accessibilityHidden(true)
+                .motionAwareAnimation(.spring(response: 0.22, dampingFraction: 0.7), value: didComplete)
+        }
+        .frame(width: isCompact ? MacDesign.Size.iconButton : 36, height: isCompact ? MacDesign.Size.iconButton : 36)
+    }
+
+    private var statusIcon: String {
+        switch item.state {
+        case .preparing, .downloading: return "arrow.down.circle.fill"
+        case .completed: return isMissingFromDisk ? "exclamationmark.triangle.fill" : "checkmark.circle.fill"
+        case .failed: return "exclamationmark.circle.fill"
+        case .cancelled: return "xmark.circle.fill"
+        }
+    }
+
+    private var statusTint: Color {
+        switch item.state {
+        case .preparing, .downloading: return accentColor
+        case .completed: return isMissingFromDisk ? .orange : .green
+        case .failed, .cancelled: return .red
+        }
     }
 
     private var resolvedIcon: NSImage {

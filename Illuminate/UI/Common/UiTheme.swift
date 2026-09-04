@@ -251,6 +251,18 @@ struct LiquidGlassCapsuleModifier: ViewModifier {
 }
 
 extension View {
+    func motionAwareAnimation<Value: Equatable>(_ animation: Animation?, value: Value) -> some View {
+        modifier(MotionAwareAnimationModifier(animation: animation, value: value))
+    }
+
+    func motionAwareSymbolReplacement() -> some View {
+        modifier(MotionAwareSymbolReplacementModifier())
+    }
+
+    func motionAwareSymbolRotation(isActive: Bool) -> some View {
+        modifier(MotionAwareSymbolRotationModifier(isActive: isActive))
+    }
+
     func glassBackground(cornerRadius: CGFloat = 8) -> some View {
         modifier(MacMaterialModifier(cornerRadius: cornerRadius, style: .regular, strokeOpacity: 0.10))
     }
@@ -314,6 +326,33 @@ extension View {
 
     func navClusterBackground() -> some View {
         modifier(NavClusterBackgroundModifier())
+    }
+}
+
+private struct MotionAwareAnimationModifier<Value: Equatable>: ViewModifier {
+    let animation: Animation?
+    let value: Value
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func body(content: Content) -> some View {
+        content.animation(reduceMotion ? nil : animation, value: value)
+    }
+}
+
+private struct MotionAwareSymbolReplacementModifier: ViewModifier {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func body(content: Content) -> some View {
+        content.contentTransition(reduceMotion ? .identity : .symbolEffect(.replace))
+    }
+}
+
+private struct MotionAwareSymbolRotationModifier: ViewModifier {
+    let isActive: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func body(content: Content) -> some View {
+        content.symbolEffect(.rotate, options: .repeating, isActive: isActive && !reduceMotion)
     }
 }
 
