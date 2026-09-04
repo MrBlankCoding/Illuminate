@@ -11,6 +11,7 @@
 		F76B1F8A2F5E21590043FEAE /* WebKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F76B1F832F5E21300043FEAE /* WebKit.framework */; };
 		F7B8307C3044D59B00AC1471 /* Nuke in Frameworks */ = {isa = PBXBuildFile; productRef = F7B000022F5E99010043FEAE /* Nuke */; };
 		F7B8307D3044D59B00AC1471 /* Nuke in Frameworks */ = {isa = PBXBuildFile; productRef = F7B000022F5E99010043FEAE /* Nuke */; };
+		F7D6B940304A523F006B2010 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = F7D6B93F304A523F006B2010 /* Sparkle */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -62,6 +63,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				F7B8307C3044D59B00AC1471 /* Nuke in Frameworks */,
+				F7D6B940304A523F006B2010 /* Sparkle in Frameworks */,
 				F76B1F8A2F5E21590043FEAE /* WebKit.framework in Frameworks */,
 				F76B1F872F5E21580043FEAE /* SwiftData.framework in Frameworks */,
 			);
@@ -144,6 +146,7 @@
 			name = Illuminate;
 			packageProductDependencies = (
 				F7B000022F5E99010043FEAE /* Nuke */,
+				F7D6B93F304A523F006B2010 /* Sparkle */,
 			);
 			productName = Illuminate;
 			productReference = F76B1DFC2F5E1A520043FEAE /* Illuminate.app */;
@@ -230,6 +233,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				F7B000012F5E99000043FEAE /* XCRemoteSwiftPackageReference "Nuke" */,
+				F7D6B93E304A523F006B2010 /* XCRemoteSwiftPackageReference "Sparkle" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = F76B1DFD2F5E1A520043FEAE /* Products */;
@@ -462,6 +466,8 @@
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Illuminate uses your location only when you allow a website to access it.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Illuminate uses the microphone only when you allow a website to access it.";
+				INFOPLIST_KEY_SUFeedURL = "https://raw.githubusercontent.com/MrBlankCoding/Illuminate/master/appcast.xml";
+				INFOPLIST_KEY_SUPublicEDKey = "4qhSk7/JsYc0AgV0bYdZdnBwkBLkmbhKTKKvGsmS4A8=";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -513,6 +519,8 @@
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Illuminate uses your location only when you allow a website to access it.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Illuminate uses the microphone only when you allow a website to access it.";
+				INFOPLIST_KEY_SUFeedURL = "https://raw.githubusercontent.com/MrBlankCoding/Illuminate/master/appcast.xml";
+				INFOPLIST_KEY_SUPublicEDKey = "4qhSk7/JsYc0AgV0bYdZdnBwkBLkmbhKTKKvGsmS4A8=";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -661,6 +669,14 @@
 				minimumVersion = 12.0.0;
 			};
 		};
+		F7D6B93E304A523F006B2010 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.9.6;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -668,6 +684,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = F7B000012F5E99000043FEAE /* XCRemoteSwiftPackageReference "Nuke" */;
 			productName = Nuke;
+		};
+		F7D6B93F304A523F006B2010 /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = F7D6B93E304A523F006B2010 /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
