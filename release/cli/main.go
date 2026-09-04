@@ -99,14 +99,22 @@ func findSignUpdate(prefixes []string) (string, error) {
 		if !matched {
 			continue
 		}
-		// walk for sign_update
+		// Walk for sign_update, skipping legacy old_dsa_scripts directories.
+		// Prefer the modern EdDSA binary under artifacts/sparkle/Sparkle/bin/.
 		var found string
 		_ = filepath.Walk(filepath.Join(ddBase, e.Name()), func(path string, info os.FileInfo, err error) error {
-			if err != nil || found != "" {
+			if err != nil {
 				return nil
 			}
+			// Skip the legacy DSA helper directory entirely
+			if info.IsDir() && info.Name() == "old_dsa_scripts" {
+				return filepath.SkipDir
+			}
 			if !info.IsDir() && info.Name() == "sign_update" {
-				found = path
+				// Prefer the artifacts/sparkle bin path over checkouts
+				if found == "" || strings.Contains(path, "artifacts/sparkle") {
+					found = path
+				}
 			}
 			return nil
 		})
