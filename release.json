@@ -1,0 +1,8 @@
+{
+  "app_name": "Illuminate",
+  "github_repo": "MrBlankCoding/Illuminate",
+  "git_branch": "master",
+  "min_system_version": "26.0",
+  "appcast_file": "appcast.xml",
+  "derived_data_prefixes": ["Illuminate-"]
+}
