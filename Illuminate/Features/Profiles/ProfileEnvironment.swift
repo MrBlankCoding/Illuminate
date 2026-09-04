@@ -213,7 +213,7 @@ final class ProfileEnvironment {
 
     deinit {
         #if DEBUG
-        print("ProfileEnvironment deallocated (profile: \(profile.id))")
+        AppLog.debug("ProfileEnvironment deallocated (profile: \(profile.id))")
         #endif
     }
 }

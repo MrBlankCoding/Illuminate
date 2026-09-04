@@ -22,17 +22,20 @@ enum HapticFeedback {
     }
 
     static func tabDetached() {
+        guard isEnabled else { return }
         log("tabDetached", pattern: .alignment)
         perform(.alignment, performanceTime: .now)
     }
 
     static func tabReordered() {
+        guard isEnabled else { return }
         log("tabReordered", pattern: .alignment)
         perform(.alignment, performanceTime: .now)
     }
 
     // Careful with mutiple downloads
     static func downloadCompleted() {
+        guard isEnabled else { return }
         let now = CFAbsoluteTimeGetCurrent()
         if now - lastDownloadHaptic < 0.8 {
             AppLog.debug("Haptic coalesced: downloadCompleted (generic) — within 0.8s window")
@@ -44,11 +47,13 @@ enum HapticFeedback {
     }
 
     static func destructiveAction() {
+        guard isEnabled else { return }
         log("destructiveAction", pattern: .levelChange)
         perform(.levelChange, performanceTime: .now)
     }
 
     static func newTabButtonPressed() {
+        guard isEnabled else { return }
         log("newTabButtonPressed", pattern: .alignment)
         perform(.alignment, performanceTime: .now)
     }
@@ -69,18 +74,14 @@ enum HapticFeedback {
         @unknown default: patternName = "unknown(\(pattern))"
         }
         AppLog.debug("Haptic triggered: \(event) (pattern: \(patternName)) — enabled: \(isEnabled)")
-        print("[HAPTIC] \(event) → \(patternName) (enabled=\(isEnabled))")
     }
 
     private static func perform(
         _ pattern: NSHapticFeedbackManager.FeedbackPattern,
         performanceTime: NSHapticFeedbackManager.PerformanceTime
     ) {
-        guard isEnabled else {
-            AppLog.debug("Haptic skipped (disabled): \(pattern)")
-            return
-        }
-        // main thread 
+        guard isEnabled else { return }
+        // main thread
         if Thread.isMainThread {
             NSHapticFeedbackManager.defaultPerformer.perform(pattern, performanceTime: performanceTime)
         } else {

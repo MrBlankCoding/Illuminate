@@ -72,7 +72,7 @@ struct IlluminateApp: App {
     }
 
     var body: some Scene {
-        WindowGroup(id: Self.profileSelectionWindowID) {
+        WindowGroup {
             AppRootView(route: .constant(nil), isStandalone: true, modelContainer: modelContainer)
                 .environment(profileManager)
                 .frame(
@@ -80,6 +80,7 @@ struct IlluminateApp: App {
                     height: Self.profileWindowSize.height
                 )
                 .onAppear {
+                    NSApp.activate(ignoringOtherApps: true)
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                         runtimeSecurityMonitor.startMonitoring()
                         backgroundResourceManager.start()
@@ -90,7 +91,6 @@ struct IlluminateApp: App {
         .modelContainer(modelContainer)
         .defaultSize(Self.profileWindowSize)
         .windowResizability(.contentSize)
-        .restorationBehavior(.disabled)
 
         WindowGroup(for: BrowserWindowRoute.self) { $route in
             AppRootView(route: $route, modelContainer: modelContainer)
@@ -107,7 +107,6 @@ struct IlluminateApp: App {
         .windowStyle(.hiddenTitleBar)
         .modelContainer(modelContainer)
         .defaultSize(Self.browserWindowSize)
-        .restorationBehavior(.disabled)
         .commands {
             AppCommands(shortcutHandler: keyboardShortcutHandler, menuRefreshTrigger: menuRefreshTrigger)
             BookmarksCommands(modelContainer: modelContainer)

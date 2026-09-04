@@ -122,8 +122,8 @@ final class ContentViewModel {
             return
         }
 
-        webSuggestionTask = Task(priority: .utility) { [weak self] in
-            try? await Task.sleep(nanoseconds: 150_000_000) // 150ms
+        webSuggestionTask = Task(priority: .userInitiated) { [weak self] in
+            try? await Task.sleep(nanoseconds: 50_000_000) // 50ms — coalesces mid-composition without feeling laggy
             guard !Task.isCancelled, let self else { return }
 
             let engine = self.defaultSearchEngine

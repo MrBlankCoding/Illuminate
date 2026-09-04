@@ -34,12 +34,20 @@ final class DockMenuWindowRouter {
 
 class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
+        AppLog.info("AppDelegate: applicationDidFinishLaunching (uiTesting=\(isRunningUITests()))")
         _ = BrowserImagePipeline.shared
         observeExtensionWindowRequests()
         prewarmSessionStateFiles()
 
         guard isRunningUITests() else { return }
         Task { @MainActor in
+            if NSApp.windows.filter({ $0.isVisible && !$0.className.contains("StatusBar") && !self.windowClassNameIsInternal($0) }).isEmpty {
+                // Use an in-process action instead of NSWorkspace.shared.open so
+                // we don't hit the "no application set to open illuminate://" OS
+                // dialog — the illuminate:// scheme is handled internally and is
+                // not registered with the system URL dispatcher.
+                NSApp.sendAction(#selector(NSDocumentController.newDocument(_:)), to: nil, from: nil)
+            }
             await bringAppToFrontForUITests()
         }
     }
@@ -137,6 +145,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    func applicationShouldOpenUntitledFile(_ sender: NSApplication) -> Bool {
+        return true
+    }
+
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         return true
     }
@@ -182,19 +194,24 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func bringAppToFrontForUITests() async {
-        for _ in 0..<10 {
+        for _ in 0..<30 {
             NSApp.activate(ignoringOtherApps: true)
 
-            for window in NSApp.windows {
+            for window in NSApp.windows where !window.className.contains("StatusBar") {
                 window.makeKeyAndOrderFront(nil)
                 window.orderFrontRegardless()
             }
 
-            if NSApp.windows.contains(where: \.isVisible) {
+            if NSApp.windows.contains(where: { $0.isVisible && !$0.className.contains("StatusBar") && !windowClassNameIsInternal($0) }) {
                 return
             }
 
             try? await Task.sleep(nanoseconds: 100_000_000)
         }
+    }
+
+    private func windowClassNameIsInternal(_ window: NSWindow) -> Bool {
+        let name = window.className
+        return name.contains("StatusBar") || name.contains("Menu") || name.contains("Panel")
     }
 }

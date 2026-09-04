@@ -31,10 +31,8 @@ final class ProfileManager {
         self.fileManager = fileManager
         self.userDefaults = userDefaults
         self.profilesURL = fileManager.illuminateProfilesCatalogURL()
-        self.usesUITestProfiles = ProcessInfo.processInfo.arguments.contains("-uiTesting")
-        Task {
-            await loadProfilesAsync()
-        }
+        self.usesUITestProfiles = ProcessInfo.processInfo.arguments.contains(where: { $0.caseInsensitiveCompare("-uiTesting") == .orderedSame })
+        loadProfiles()
     }
 
     @discardableResult
@@ -149,7 +147,7 @@ final class ProfileManager {
         return env
     }
 
-    private func loadProfilesAsync() async {
+    private func loadProfiles() {
         if usesUITestProfiles {
             profiles = [
                 BrowserProfile(name: "UI Test Personal"),
@@ -159,17 +157,13 @@ final class ProfileManager {
         }
 
         let url = profilesURL
-        let loadedProfiles: [BrowserProfile] = await Task.detached(priority: .userInitiated) { () -> [BrowserProfile] in
-            if let data = try? Data(contentsOf: url),
-               let savedProfiles = try? JSONDecoder().decode([BrowserProfile].self, from: data),
-               !savedProfiles.isEmpty {
-                return savedProfiles.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
-            }
-            return [BrowserProfile(name: "Personal")]
-        }.value
-
-        profiles = loadedProfiles
-        if loadedProfiles.count == 1 && loadedProfiles[0].name == "Personal" {
+        let data = StateFilePrefetcher.consume(url) ?? (try? Data(contentsOf: url))
+        if let data,
+           let savedProfiles = try? JSONDecoder().decode([BrowserProfile].self, from: data),
+           !savedProfiles.isEmpty {
+            profiles = savedProfiles.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        } else {
+            profiles = [BrowserProfile(name: "Personal")]
             saveProfiles()
         }
     }

@@ -95,19 +95,19 @@ struct NukeIntegrationTests {
 
     @Test func faviconLoaderHandlesDataURLWithoutNetwork() async {
         let url = makeTinyPNGDataURL(color: .blue)
-        let loader = FaviconLoader()
+        let loader = await FaviconLoader()
         let image = await loader.loadFavicon(from: url)
         #expect(image != nil)
     }
 
     @Test func faviconLoaderRejectsUnsupportedScheme() async {
-        let loader = FaviconLoader()
+        let loader = await FaviconLoader()
         let url = URL(string: "ftp://example.com/favicon.ico")!
         #expect(await loader.loadFavicon(from: url) == nil)
     }
 
     @Test func faviconLoaderNegativeCacheIsEffective() async {
-        let loader = FaviconLoader()
+        let loader = await FaviconLoader()
         let url = URL(string: "https://127.0.0.1:9/favicon.ico")!
         #expect(await loader.loadFavicon(from: url) == nil)
         let start = CFAbsoluteTimeGetCurrent()
@@ -119,9 +119,9 @@ struct NukeIntegrationTests {
 
     @Test func imageTaskCanBeCancelled() async {
         let url = makeTinyPNGDataURL()
-        let loader = BrowserImageLoader.shared
-        let imageView = NSImageView()
-        let task = loader.loadImage(from: url, into: imageView)
+        let loader = await BrowserImageLoader.shared
+        let imageView = await NSImageView()
+        let task = await loader.loadImage(from: url, into: imageView)
         // Task should either be nil (synchronous completion) or cancellable
         task?.cancel()
         #expect(true) // just verifies the NSImageView adapter compiles and runs
