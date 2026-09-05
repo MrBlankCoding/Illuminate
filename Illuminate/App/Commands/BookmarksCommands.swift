@@ -65,18 +65,7 @@ struct BookmarksMenuContent: View {
     }
     
     private func toggleBookmark() {
-        guard let environment,
-              let activeTab = environment.tabManager.activeTab,
-              let currentURL = activeTab.url?.absoluteString,
-              environment.isGuestSession == false,
-              !currentURL.isEmpty else { return }
-
-        if let bookmarkToRemove = bookmarks.first(where: { $0.url == currentURL }) {
-            modelContext.delete(bookmarkToRemove)
-            return
-        }
-
-        let title = activeTab.title.isEmpty ? currentURL : activeTab.title
-        modelContext.insert(Bookmark(profileID: environment.profile.id, title: title, url: currentURL))
+        guard let environment, environment.isGuestSession == false else { return }
+        environment.tabManager.toggleBookmark(context: modelContext)
     }
 }

@@ -26,6 +26,7 @@ A lightweight browser built for MacOS that uses webkit and includes no arbitrary
 * Bookmarks and shortcuts
 * Cookie management
 * History system
+* Liquid Glass toast notifications for action confirmation
 
 ## Privacy
 
@@ -68,7 +69,6 @@ Illuminate is designed with privacy in mind:
 * [ ] Warn before quitting?
 * [ ] Sync passwords with apple passwords
 * [ ] Command Shift T to open closed tab
-* [ ] Toast Notifcation for certain things (Copying tab URL CTR shift C)
 
 
 ## Known Issues
@@ -92,6 +92,8 @@ AI tools were used during development to assist with implementation and code gen
 ## Acknowledgments
 
 * [Nuke](https://github.com/kean/Nuke) by Alexander Grebenyuk — image pipeline
+* [KeyboardShortcuts](https://github.com/sindresorhus/KeyboardShortcuts) by Sindre Sorhus - Keyboard Shortcuts
+* [Sparkle](https://github.com/sparkle-project/Sparkle) by Kornel - App updates
 
 ## License
 

@@ -9,6 +9,7 @@ import AppKit
 import Foundation
 import SwiftUI
 import WebKit
+import SwiftData
 
 @MainActor
 extension TabManager {
@@ -17,28 +18,59 @@ extension TabManager {
 
         let pairs: [(Notification.Name, Handler)] = [
             (.newTab,          { [weak self] in self?.createTab() }),
-            (.reloadActiveTab, { [weak self] in self?.activeTab?.reload() }),
+            (.reloadActiveTab, { [weak self] in
+                self?.activeTab?.reload()
+                ToastEvent.post(icon: "arrow.clockwise", message: "Page reloaded")
+            }),
             (.copyCurrentURL,  { [weak self] in self?.copyCurrentURL() }),
             (.goBack,          { [weak self] in self?.activeTab?.webView?.goBack() }),
             (.goForward,       { [weak self] in self?.activeTab?.webView?.goForward() }),
-            (.reopenTab,       { [weak self] in self?.reopenLastClosedTab() }),
+            (.reopenTab,       { [weak self] in
+                self?.reopenLastClosedTab()
+                ToastEvent.post(icon: "arrow.uturn.backward", message: "Reopened closed tab")
+            }),
             (.nextTab,         { [weak self] in self?.nextTab() }),
             (.previousTab,     { [weak self] in self?.previousTab() }),
             (.switchToMostRecentTab, { [weak self] in self?.switchToMostRecentTab() }),
-            (.openDevTools,    { [weak self] in self?.activeTab?.openDevTools() }),
-            (.zoomIn,          { [weak self] in self?.activeTab?.zoomIn() }),
-            (.zoomOut,         { [weak self] in self?.activeTab?.zoomOut() }),
-            (.resetZoom,       { [weak self] in self?.activeTab?.resetZoom() }),
-            (.printPage,        { [weak self] in self?.activeTab?.printPage() }),
-            (.savePageAsPDF,    { [weak self] in self?.saveActiveTabAsPDF() }),
+            (.openDevTools,    { [weak self] in
+                self?.activeTab?.openDevTools()
+                ToastEvent.post(icon: "wrench.and.screwdriver", message: "Developer Tools opened")
+            }),
+            (.zoomIn,          { [weak self] in
+                self?.activeTab?.zoomIn()
+                ToastEvent.post(icon: "plus.magnifyingglass", message: "Zoomed in")
+            }),
+            (.zoomOut,         { [weak self] in
+                self?.activeTab?.zoomOut()
+                ToastEvent.post(icon: "minus.magnifyingglass", message: "Zoomed out")
+            }),
+            (.resetZoom,       { [weak self] in
+                self?.activeTab?.resetZoom()
+                ToastEvent.post(icon: "1.magnifyingglass", message: "Zoom reset")
+            }),
+            (.printPage,        { [weak self] in
+                self?.activeTab?.printPage()
+                ToastEvent.post(icon: "printer", message: "Print dialog opened")
+            }),
+            (.savePageAsPDF,    { [weak self] in
+                self?.saveActiveTabAsPDF()
+                ToastEvent.post(icon: "square.and.arrow.down", message: "Saved as PDF")
+            }),
             (.toggleFullScreen, { NSApp.keyWindow?.toggleFullScreen(nil) }),
-            (.showHistory,     { [weak self] in self?.navigateActiveTab(to: IlluminatePage.history.url) }),
+            (.showHistory,     { [weak self] in
+                self?.navigateActiveTab(to: IlluminatePage.history.url)
+                ToastEvent.post(icon: "clock.arrow.circlepath", message: "Showing history")
+            }),
             (Notification.Name.closeActiveTab, { [weak self] in self?.closeActiveTab() }),
-            (Notification.Name.closeAllTabs, { [weak self] in self?.clearAllTabs() }),
+            (Notification.Name.closeAllTabs, { [weak self] in
+                self?.clearAllTabs()
+                ToastEvent.post(icon: "xmark.square", message: "Closed all tabs")
+            }),
 
             (.newTabGroup, { [weak self] in
                 guard let self, let activeTabID = self.activeTabID else { return }
                 self.tabGroupManager.createGroup(name: "", color: .blue, tabIDs: [activeTabID])
+                ToastEvent.post(icon: "folder.badge.plus", message: "New tab group")
             }),
             (.closeCurrentGroup, { [weak self] in
                 guard let self else { return }
@@ -49,6 +81,7 @@ extension TabManager {
                 for tabID in tabIDs {
                     self.closeTab(id: tabID)
                 }
+                ToastEvent.post(icon: "folder", message: "Closed tab group")
             }),
             (.moveTabToLeftGroup, { [weak self] in
                 guard let self else { return }
@@ -122,5 +155,27 @@ extension TabManager {
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
         pasteboard.setString(url.absoluteString, forType: .string)
+        ToastEvent.post(icon: "doc.on.doc", message: "URL copied")
+    }
+
+    @discardableResult
+    func toggleBookmark(context: ModelContext) -> Bookmark? {
+        guard let profileID,
+              let activeTab,
+              let currentURL = activeTab.url?.absoluteString,
+              !currentURL.isEmpty else { return nil }
+
+        let existing = try? context.fetch(FetchDescriptor<Bookmark>(predicate: #Predicate { $0.url == currentURL && $0.profileID == profileID })).first
+        if let existing {
+            context.delete(existing)
+            ToastEvent.post(icon: "bookmark.slash", message: "Bookmark removed")
+            return nil
+        }
+
+        let title = activeTab.title.isEmpty ? currentURL : activeTab.title
+        let new = Bookmark(profileID: profileID, title: title, url: currentURL)
+        context.insert(new)
+        ToastEvent.post(icon: "bookmark", message: "Bookmarked")
+        return new
     }
 }

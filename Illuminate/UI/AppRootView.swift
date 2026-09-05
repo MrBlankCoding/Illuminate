@@ -61,6 +61,12 @@ struct AppRootView: View {
         .onReceive(NotificationCenter.default.publisher(for: .newPrivateWindow)) { _ in
             openWindow(value: BrowserWindowRoute.guest(UUID()))
         }
+        .onReceive(NotificationCenter.default.publisher(for: .bookmarkTab)) { _ in
+            guard let route,
+                  let env = profileManager.environment(for: route, container: modelContainer),
+                  !env.isGuestSession else { return }
+            env.tabManager.toggleBookmark(context: modelContainer.mainContext)
+        }
         .onAppear {
             presentOnboardingIfNeeded()
         }
@@ -74,6 +80,7 @@ struct AppRootView: View {
             openBrowserWindowForPendingFilesIfNeeded()
         }
         .background(ShortcutHotkeyBridge())
+        .overlay(alignment: .top) { ToastOverlay() }
     }
 
     @Environment(\.openWindow) private var openWindow
