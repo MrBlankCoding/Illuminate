@@ -68,6 +68,13 @@ xcodebuild -project Illuminate.xcodeproj \
 * [ ] When saving PDF's the whole page is not captured
 * [ ] Favicons dont always update (cache issue)
 * [ ] Cannot drag and drop tabs into groups
+* [ ] /Containers/com.MrBlankCoding.Illuminate -> folder gets really big super quick (5gb +)
+* [ ] Initial background color is grey and doesnt match inital bg image
+* [ ] Recent searches shouldnt show when already on webpage 
+* [ ] Window should auto take up full width & height of screen 
+* [ ] Recent searches shouldnt show unless URL bar is explictly clicked
+* [ ] Not a bug but a nicer font  
+* [ ] Same background style between customise bg image and sidebar on new tab page
 
 ## Contributing
 If you'd like to report a bug, please do under issues
