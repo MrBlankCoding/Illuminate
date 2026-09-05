@@ -26,7 +26,6 @@ final class ProfileEnvironment {
     @ObservationIgnored private var historyManagerStorage: HistoryManager?
     @ObservationIgnored private var extensionManagerStorage: ExtensionManager?
     @ObservationIgnored private var downloadHistoryStoreStorage: DownloadHistoryStore?
-    @ObservationIgnored private var easelManagerStorage: EaselManager?
     @ObservationIgnored private var tabManagerStorage: TabManager?
     @ObservationIgnored private var webKitManagerStorage: WebKitManager?
     @ObservationIgnored private var passwordServiceStorage: PasswordService?
@@ -76,16 +75,6 @@ final class ProfileEnvironment {
         return value
     }
 
-    var easelManager: EaselManager {
-        if let existing = easelManagerStorage { return existing }
-        let value = EaselManager(
-            profileID: isGuestSession ? nil : profile.id,
-            isPersistenceEnabled: !isGuestSession
-        )
-        easelManagerStorage = value
-        return value
-    }
-
     var tabManager: TabManager {
         if let existing = tabManagerStorage { return existing }
         let value = TabManager(
@@ -94,7 +83,6 @@ final class ProfileEnvironment {
             isPersistenceEnabled: !isGuestSession,
             extensionManager: self.extensionManager
         )
-        value.easelManager = self.easelManager
         tabManagerStorage = value
         return value
     }
@@ -186,7 +174,6 @@ final class ProfileEnvironment {
         _ = extensionManager
         _ = historyManager
         _ = downloadHistoryStore
-        _ = easelManager
         _ = tabManager
         _ = webKitManager
         _ = passwordService

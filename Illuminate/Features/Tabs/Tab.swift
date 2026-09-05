@@ -773,8 +773,6 @@ final class Tab: NSObject, Identifiable, WKWebExtensionTab {
             .throttle(for: .milliseconds(100), scheduler: RunLoop.main, latest: true)
             .sink { [weak self] v in
                 guard let self, let url = v, self.url != url else { return }
-                // Don't let internal easel:// loads overwrite the tab's illuminate://easel/<id> URL
-                if url.scheme?.lowercased() == "easel" { return }
                 self.url = url
             }
             .store(in: &cancellables)
@@ -794,7 +792,6 @@ final class Tab: NSObject, Identifiable, WKWebExtensionTab {
             if self.canGoForward      != webView.canGoForward      { self.canGoForward      = webView.canGoForward }
             if self.estimatedProgress != webView.estimatedProgress { self.estimatedProgress = webView.estimatedProgress }
             if self.isLoading         != webView.isLoading         { self.isLoading         = webView.isLoading }
-            if let currentURL = webView.url, currentURL.scheme?.lowercased() != "easel", self.url != currentURL { self.url = currentURL }
         }
     }
 }

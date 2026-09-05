@@ -22,7 +22,6 @@ struct AppCommands: Commands {
         CommandMenu("Browser") {
             Group {
                 BrowserCommand("New Tab",            shortcut: "t")                     { .newTab }
-                BrowserCommand("New Easel",          shortcut: "e", modifiers: [.command, .shift]) { .newEasel }
                 BrowserCommand("Reopen Closed Tab") { .reopenTab }
                 BrowserCommand("Focus URL Bar",      shortcut: "l")                     { .focusURLBar }
                 BrowserCommand("Copy Current URL",    shortcut: "c", modifiers: [.command, .shift]) { .copyCurrentURL }

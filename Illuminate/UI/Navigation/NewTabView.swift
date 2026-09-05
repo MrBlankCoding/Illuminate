@@ -14,8 +14,6 @@ struct NewTabView: View {
 
     @Environment(\.colorScheme) private var colorScheme
     @State private var isCustomizePanelShown = false
-    @State private var isShelfVisible = false
-    @State private var shelfTab: ShelfTab = .easels
     @State private var hasAppeared = false
 
     private var theme: BrowserTheme {
@@ -24,14 +22,6 @@ struct NewTabView: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            if isShelfVisible {
-                NewTabShelfSidebar(selectedTab: $shelfTab, isVisible: $isShelfVisible)
-                    .frame(width: MacDesign.Size.sidePanelWidth)
-                    .glassEffect(.regular, in: .rect())
-                    .overlay(Rectangle().fill(Color.primary.opacity(0.06)).frame(width: MacDesign.Spacing.hairlineThin), alignment: .trailing)
-                    .transition(.move(edge: .leading).combined(with: .opacity))
-            }
-
             ZStack(alignment: .bottomTrailing) {
                 ScrollView {
                     VStack(spacing: MacDesign.Size.toolbarRowHeight) {
@@ -51,12 +41,6 @@ struct NewTabView: View {
                 }
                 .padding(.bottom, MacDesign.Spacing.section)
             }
-            .overlay(alignment: .bottomLeading) {
-                shelfToggleButton
-                    .padding(.leading, MacDesign.Spacing.section)
-                    .padding(.bottom, MacDesign.Spacing.section)
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             if isCustomizePanelShown {
                 NewTabCustomizePanel()
@@ -88,33 +72,6 @@ struct NewTabView: View {
         }
         .opacity(hasAppeared ? 1 : 0)
         .offset(y: hasAppeared ? 0 : MacDesign.Spacing.tight)
-    }
-
-    private var shelfToggleButton: some View {
-        Button {
-            withAnimation(MacDesign.springAnimation) {
-                isShelfVisible.toggle()
-            }
-        } label: {
-            Image(systemName: "sidebar.left")
-                .font(.webCaptionBold)
-                .frame(width: MacDesign.Size.floatingButton, height: MacDesign.Size.floatingButton)
-                .frame(width: MacDesign.Size.floatingButton, height: MacDesign.Size.floatingButton)
-                .glassEffect(.regular, in: Circle())
-                .foregroundStyle(.white.opacity(0.9))
-                .overlay {
-                    Circle()
-                        .stroke(Color.white.opacity(0.18), lineWidth: MacDesign.Spacing.hairlineThin)
-                }
-                .shadow(color: .black.opacity(0.25), radius: MacDesign.Spacing.mini, y: MacDesign.Spacing.micro)
-                .contentShape(Circle())
-                .padding(MacDesign.Spacing.small)
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(isShelfVisible ? "Hide shelf sidebar" : "Show shelf sidebar")
-        .accessibilityIdentifier("browser.newTab.shelfToggleButton")
-        .accessibilityHint(isShelfVisible ? "Hides the shelf sidebar" : "Shows the shelf sidebar")
-        .help(isShelfVisible ? "Hide Shelf" : "Show Shelf")
     }
 
     private var customizeButton: some View {

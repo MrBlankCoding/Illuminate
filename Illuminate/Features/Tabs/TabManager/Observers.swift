@@ -17,7 +17,6 @@ extension TabManager {
 
         let pairs: [(Notification.Name, Handler)] = [
             (.newTab,          { [weak self] in self?.createTab() }),
-            (.newEasel,        { [weak self] in self?.createEasel() }),
             (.reloadActiveTab, { [weak self] in self?.activeTab?.reload() }),
             (.copyCurrentURL,  { [weak self] in self?.copyCurrentURL() }),
             (.goBack,          { [weak self] in self?.activeTab?.webView?.goBack() }),

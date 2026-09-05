@@ -66,17 +66,6 @@ struct WebView: View {
             ExtensionSettingsView()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .ignoresSafeArea(.container, edges: .bottom)
-        case .easel:
-            if let easelID = Easel.id(from: url),
-               profileEnvironment.easelManager.easel(for: easelID) != nil {
-                EaselView(easelID: easelID, easelManager: profileEnvironment.easelManager, tab: tab)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .ignoresSafeArea(.container, edges: .bottom)
-            } else {
-                EaselListView()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .ignoresSafeArea(.container, edges: .bottom)
-            }
         case nil:
             WebViewRepresentable(
                 tab: tab,

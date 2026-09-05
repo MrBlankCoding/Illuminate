@@ -1,10 +1,20 @@
-# Illuminate
+<div align="center">
 
-A lightweight browser built for MacOS that uses webkit and includes no arbitrary features or user tracking.
+# Illuminate
+<img alt="Illuminate Icon" src="screenshots/icon.png" width="200" height="200" />
+
+### A lightweight modern browser built for MacOS 
+</div>
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Version](https://img.shields.io/badge/version-1.0.0-green.svg)
 ![Swift](https://img.shields.io/badge/Swift-6-orange.svg)
+
+## About 
+
+A lightweight browser built for MacOS that uses webkit and includes no arbitrary features or user tracking. Illuminate is still in development, although since its only me, bug fixes will be slow. 
+
+<img width="1512" height="981" alt="Browser newtab" src="screenshots/image2.png" />
 
 ## Features
 
@@ -30,8 +40,8 @@ Illuminate is designed with privacy in mind:
 
 ## Screenshots
 
-![Browser Window](screenshots/image1.png)
-![Website Example](screenshots/image2.png)
+![New Tab](screenshots/image1.png)
+![Browser Window](screenshots/image3.png)
 
 ## Requirements
 
@@ -39,19 +49,10 @@ Illuminate is designed with privacy in mind:
 * Xcode 26 or later
 * Swift 6
 
-## Build
-
-```bash
-xcodebuild -project Illuminate.xcodeproj \
-  -scheme Illuminate \
-  -configuration Debug \
-  -destination 'platform=macOS' build
-```
 
 ## Packages Used
 
 * [Nuke](https://github.com/kean/Nuke) — image loading, caching and favicon pipeline for native browser UI
-* [Fabric.js](https://github.com/fabricjs/fabric.js) — canvas engine for Illuminate Easel whiteboard (offline, local `WKWebView`)
 
 
 ## Features to implement
@@ -62,9 +63,12 @@ xcodebuild -project Illuminate.xcodeproj \
 * [ ] Expand extension support
 * [ ] KeychainAccess for password management
 * [ ] Write an actual onboarding view instead of AI 
-* [ ] Make it so you can split panes for browser windows ;) -> didnt think I would need this but now it seems helpful 
 * [ ] Localise app 
-* [ ] Widget??
+* [ ] Open picture in picture auto
+* [ ] Warn before quitting?
+* [ ] Sync passwords with apple passwords
+* [ ] Custimisable shortcuts with https://github.com/sindresorhus/KeyboardShortcuts
+* [ ] Command Shift T to open closed tab
 
 
 ## Known Issues
@@ -72,6 +76,9 @@ xcodebuild -project Illuminate.xcodeproj \
 * [ ] Not a bug but a nicer font could be more readable and pretty
 * [ ] Closing a tab causes the webview to go black when it auto swiches to the next tab
 * [ ] Search suggestions dont show at all
+* [ ] When too many tabs are open tab group title isnt shown
+* [ ] Extracted background color needs a cap on how bright it can be
+* [ ] Issues with staying signed in (Could be for memory dumping)
 
 ## Contributing
 If you'd like to report a bug, please do under issues
@@ -85,9 +92,6 @@ AI tools were used during development to assist with implementation and code gen
 ## Acknowledgments
 
 * [Nuke](https://github.com/kean/Nuke) by Alexander Grebenyuk — image pipeline
-* [Fabric.js](https://github.com/fabricjs/fabric.js) — whiteboard canvas engine
-
-
 
 ## License
 

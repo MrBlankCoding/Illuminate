@@ -16,7 +16,6 @@ enum IlluminatePage: String, CaseIterable, Equatable {
     case permissions
     case info
     case extensions
-    case easel
 
     static let urlScheme = "illuminate"
     static var suggestiblePages: [IlluminatePage] {
@@ -37,18 +36,16 @@ enum IlluminatePage: String, CaseIterable, Equatable {
     }
 
     func displayTitle(for url: URL) -> String {
-        if self == .easel {
-            // title will be overridden by EaselManager; keep generic fallback
-            return "Easel"
-        }
+        // wow quite the function
+        // :)
         return tabTitle
     }
 
-    static func easelID(from url: URL) -> UUID? {
-        Easel.id(from: url)
-    }
-
     var title: String {
+        // oooooo
+        // idk just coding
+        // why is this and tab title the same shit
+        // im too tired 
         switch self {
         case .passwords: return "Passwords"
         case .protection: return "Privacy & Protection"
@@ -57,7 +54,6 @@ enum IlluminatePage: String, CaseIterable, Equatable {
         case .permissions: return "Permissions"
         case .info: return "Browser Info & Diagnostics"
         case .extensions: return "Extensions"
-        case .easel: return "Easel"
         }
     }
 
@@ -70,7 +66,6 @@ enum IlluminatePage: String, CaseIterable, Equatable {
         case .permissions: return "Permissions"
         case .info: return "Browser Info"
         case .extensions: return "Extensions"
-        case .easel: return "Easel"
         }
     }
 
@@ -83,7 +78,6 @@ enum IlluminatePage: String, CaseIterable, Equatable {
         case .permissions: return "hand.raised.fill"
         case .info: return "info.circle.fill"
         case .extensions: return "puzzlepiece.fill"
-        case .easel: return "paintbrush.pointed.fill"
         }
     }
 
@@ -96,7 +90,6 @@ enum IlluminatePage: String, CaseIterable, Equatable {
         case .permissions: return ["permissions", "camera", "microphone", "location", "notifications", "sites"]
         case .info: return ["info", "about", "diagnostics", "user agent", "profile", "debug", "version", "system"]
         case .extensions: return ["extensions", "plugins", "addons", "webextensions", "gallery", "store"]
-        case .easel: return ["easel", "whiteboard", "canvas", "draw", "sketch", "board"]
         }
     }
 }
