@@ -67,8 +67,8 @@ Illuminate is designed with privacy in mind:
 * [ ] Open picture in picture auto
 * [ ] Warn before quitting?
 * [ ] Sync passwords with apple passwords
-* [ ] Custimisable shortcuts with https://github.com/sindresorhus/KeyboardShortcuts
 * [ ] Command Shift T to open closed tab
+* [ ] Toast Notifcation for certain things (Copying tab URL CTR shift C)
 
 
 ## Known Issues

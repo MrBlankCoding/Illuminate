@@ -73,6 +73,7 @@ struct AppRootView: View {
         .onChange(of: profileManager.profiles) { _, _ in
             openBrowserWindowForPendingFilesIfNeeded()
         }
+        .background(ShortcutHotkeyBridge())
     }
 
     @Environment(\.openWindow) private var openWindow

@@ -5,61 +5,53 @@
 //  Created by MrBlankCoding on 3/8/26.
 //
 
+import KeyboardShortcuts
 import SwiftUI
-import Observation
-
-@Observable
-final class MenuRefreshTrigger {
-    var value = 0
-}
 
 struct AppCommands: Commands {
-    let shortcutHandler: KeyboardShortcutHandler
-    var menuRefreshTrigger: MenuRefreshTrigger
-
     var body: some Commands {
 
         CommandMenu("Browser") {
             Group {
-                BrowserCommand("New Tab",            shortcut: "t")                     { .newTab }
-                BrowserCommand("Reopen Closed Tab") { .reopenTab }
-                BrowserCommand("Focus URL Bar",      shortcut: "l")                     { .focusURLBar }
-                BrowserCommand("Copy Current URL",    shortcut: "c", modifiers: [.command, .shift]) { .copyCurrentURL }
-                BrowserCommand("Refresh Page",       shortcut: "r")                     { .reloadActiveTab }
+                BrowserCommand("New Tab",             name: .newTab)            { .newTab }
+                BrowserCommand("Reopen Closed Tab",  name: .reopenClosedTab)   { .reopenTab }
+                BrowserCommand("Focus URL Bar",      name: .focusURLBar)       { .focusURLBar }
+                BrowserCommand("Copy Current URL",   name: .copyCurrentURL)    { .copyCurrentURL }
+                BrowserCommand("Refresh Page",       name: .reloadPage)        { .reloadActiveTab }
             }
 
             Divider()
 
             Group {
-                BrowserCommand("Go Back",    shortcut: .leftArrow)  { .goBack }
-                BrowserCommand("Go Forward", shortcut: .rightArrow) { .goForward }
+                BrowserCommand("Go Back",    name: .goBack)    { .goBack }
+                BrowserCommand("Go Forward", name: .goForward) { .goForward }
             }
 
             Divider()
 
             Group {
-                BrowserCommand("Next Tab",                shortcut: .downArrow) { .nextTab }
-                BrowserCommand("Previous Tab",            shortcut: .upArrow)   { .previousTab }
-                BrowserCommand("Switch to Most Recent Tab", shortcut: .tab, modifiers: .control) { .switchToMostRecentTab }
+                BrowserCommand("Next Tab",                  name: .nextTab)               { .nextTab }
+                BrowserCommand("Previous Tab",              name: .previousTab)           { .previousTab }
+                BrowserCommand("Switch to Most Recent Tab", name: .switchToMostRecentTab) { .switchToMostRecentTab }
             }
 
             Divider()
 
             Group {
-                BrowserCommand("New Tab Group", shortcut: "g", modifiers: [.command, .option]) { .newTabGroup }
-                BrowserCommand("Close Current Group", shortcut: "w", modifiers: [.command, .option, .shift]) { .closeCurrentGroup }
-                BrowserCommand("Move Tab to Left Group", shortcut: .leftArrow, modifiers: [.command, .option]) { .moveTabToLeftGroup }
-                BrowserCommand("Move Tab to Right Group", shortcut: .rightArrow, modifiers: [.command, .option]) { .moveTabToRightGroup }
+                BrowserCommand("New Tab Group",            name: .newTabGroup)         { .newTabGroup }
+                BrowserCommand("Close Current Group",      name: .closeCurrentGroup)   { .closeCurrentGroup }
+                BrowserCommand("Move Tab to Left Group",   name: .moveTabToLeftGroup)  { .moveTabToLeftGroup }
+                BrowserCommand("Move Tab to Right Group",  name: .moveTabToRightGroup) { .moveTabToRightGroup }
             }
 
             Divider()
 
-            BrowserCommand("Find in Page",    shortcut: "f")                          { .findInPage }
-            BrowserCommand("Toggle Full Screen", shortcut: "f", modifiers: [.command, .shift]) { .toggleFullScreen }
+            BrowserCommand("Find in Page",        name: .findInPage)       { .findInPage }
+            BrowserCommand("Toggle Full Screen", name: .toggleFullScreen) { .toggleFullScreen }
 
             Divider()
 
-            BrowserCommand("Developer Tools", shortcut: "i", modifiers: [.command, .option]) { .openDevTools }
+            BrowserCommand("Developer Tools", name: .developerTools) { .openDevTools }
         }
 
         CommandMenu("History") {
@@ -67,15 +59,15 @@ struct AppCommands: Commands {
 
             Divider()
 
-            BrowserCommand("Reopen Closed Tab", shortcut: "t", modifiers: [.command, .shift]) { .reopenTab }
+            BrowserCommand("Reopen Closed Tab", name: .reopenClosedTab) { .reopenTab }
 
             Divider()
 
-            BrowserCommand("Clear History…", shortcut: "\u{08}", modifiers: [.command, .shift]) { .clearHistory }
+            BrowserCommand("Clear History\u{2026}", name: .clearHistory) { .clearHistory }
 
             Divider()
 
-            BrowserCommand("Show All History", shortcut: "y") { .showHistory }
+            BrowserCommand("Show All History", name: .showAllHistory) { .showHistory }
         }
 
         CommandGroup(replacing: .saveItem) {
@@ -83,14 +75,14 @@ struct AppCommands: Commands {
         }
 
         CommandGroup(replacing: .toolbar) {
-            BrowserCommand("Zoom In",     shortcut: "+") { .zoomIn }
-            BrowserCommand("Zoom Out",    shortcut: "-") { .zoomOut }
-            BrowserCommand("Actual Size", shortcut: "0") { .resetZoom }
+            BrowserCommand("Zoom In",     name: .zoomIn)    { .zoomIn }
+            BrowserCommand("Zoom Out",    name: .zoomOut)   { .zoomOut }
+            BrowserCommand("Actual Size", name: .resetZoom) { .resetZoom }
         }
 
         CommandGroup(replacing: .printItem) {
-            BrowserCommand("Save Page as PDF", shortcut: "s", modifiers: [.command, .shift]) { .savePageAsPDF }
-            BrowserCommand("Print Page", shortcut: "p") { .printPage }
+            BrowserCommand("Save Page as PDF", name: .savePageAsPDF) { .savePageAsPDF }
+            BrowserCommand("Print Page",       name: .printPage)     { .printPage }
         }
 
         CommandGroup(replacing: .sidebar) {}
@@ -99,31 +91,16 @@ struct AppCommands: Commands {
 
 private struct BrowserCommand: View {
     private let title: String
+    private let shortcutName: KeyboardShortcuts.Name?
     private let notification: () -> Notification.Name
-    private let keyEquivalent: KeyEquivalent?
-    private let modifiers: EventModifiers
 
     init(
         _ title: String,
-        shortcut: String,
-        modifiers: EventModifiers = .command,
+        name: KeyboardShortcuts.Name,
         _ notification: @escaping () -> Notification.Name
     ) {
         self.title = title
-        self.keyEquivalent = KeyEquivalent(shortcut.first ?? " ")
-        self.modifiers = modifiers
-        self.notification = notification
-    }
-
-    init(
-        _ title: String,
-        shortcut: KeyEquivalent,
-        modifiers: EventModifiers = .command,
-        _ notification: @escaping () -> Notification.Name
-    ) {
-        self.title = title
-        self.keyEquivalent = shortcut
-        self.modifiers = modifiers
+        self.shortcutName = name
         self.notification = notification
     }
 
@@ -132,22 +109,29 @@ private struct BrowserCommand: View {
         _ notification: @escaping () -> Notification.Name
     ) {
         self.title = title
-        self.keyEquivalent = nil
-        self.modifiers = []
+        self.shortcutName = nil
         self.notification = notification
     }
 
     var body: some View {
-        if let keyEquivalent {
-            Button(title) { post() }
-                .keyboardShortcut(keyEquivalent, modifiers: modifiers)
-        } else {
-            Button(title) { post() }
-        }
+        Button(title, action: post)
+            .modifier(GlobalShortcutModifier(name: shortcutName))
     }
 
     private func post() {
         NotificationCenter.default.post(name: notification(), object: nil)
+    }
+}
+
+private struct GlobalShortcutModifier: ViewModifier {
+    let name: KeyboardShortcuts.Name?
+
+    func body(content: Content) -> some View {
+        if let name {
+            content.globalKeyboardShortcut(name)
+        } else {
+            content
+        }
     }
 }
 
@@ -158,7 +142,7 @@ private struct CloseTabCommand: View {
         Button("Close Tab") {
             environment?.tabManager.closeActiveTab()
         }
-        .keyboardShortcut("w", modifiers: .command)
+        .globalKeyboardShortcut(.closeTab)
         .disabled(environment?.tabManager.activeTabID == nil)
     }
 }
@@ -193,8 +177,8 @@ struct OpenFileCommand: View {
     @FocusedValue(\.activeEnvironment) private var environment
 
     var body: some View {
-        Button("Open File…") { presentOpenPanel() }
-            .keyboardShortcut("o", modifiers: .command)
+        Button("Open File\u{2026}", action: presentOpenPanel)
+            .globalKeyboardShortcut(.openFile)
     }
 
     private func presentOpenPanel() {

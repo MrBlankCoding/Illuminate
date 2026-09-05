@@ -18,7 +18,6 @@ struct IlluminateApp: App {
     private let keyboardShortcutHandler: KeyboardShortcutHandler
     private let backgroundResourceManager: BackgroundResourceManager
     private let runtimeSecurityMonitor: RuntimeSecurityMonitor
-    private let menuRefreshTrigger = MenuRefreshTrigger()
 
     let modelContainer: ModelContainer
 
@@ -26,7 +25,7 @@ struct IlluminateApp: App {
         profileManager = ProfileManager()
 
         let center = NotificationCenter.default
-        keyboardShortcutHandler    = KeyboardShortcutHandler(notificationCenter: center)
+        keyboardShortcutHandler    = KeyboardShortcutHandler()
         backgroundResourceManager  = BackgroundResourceManager()
         runtimeSecurityMonitor     = RuntimeSecurityMonitor(notificationCenter: center)
 
@@ -41,20 +40,6 @@ struct IlluminateApp: App {
                 fatalError("Failed to create ModelContainer after reset: \(error)")
             }
         }
-
-        let pm = profileManager
-        let trigger = menuRefreshTrigger
-        func observeProfiles() {
-            withObservationTracking {
-                _ = pm.profiles
-            } onChange: { [trigger] in
-                Task { @MainActor in
-                    trigger.value &+= 1
-                    observeProfiles()
-                }
-            }
-        }
-        observeProfiles()
     }
 
     private static func resetStore() {
@@ -109,7 +94,7 @@ struct IlluminateApp: App {
         .defaultSize(Self.browserWindowSize)
         .restorationBehavior(.disabled)
         .commands {
-            AppCommands(shortcutHandler: keyboardShortcutHandler, menuRefreshTrigger: menuRefreshTrigger)
+            AppCommands()
             BookmarksCommands(modelContainer: modelContainer)
             ProfileCommands(profileManager: profileManager)
         }

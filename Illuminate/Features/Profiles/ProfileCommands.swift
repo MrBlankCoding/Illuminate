@@ -5,6 +5,7 @@
 //  Created by MrBlankCoding on 4/1/26.
 //
 
+import KeyboardShortcuts
 import SwiftUI
 
 struct ProfileCommands: Commands {
@@ -50,7 +51,7 @@ struct NewWindowButton: View {
                 openWindow(id: "profile-selection-window")
             }
         }
-        .keyboardShortcut("n", modifiers: .command)
+        .globalKeyboardShortcut(.newWindow)
     }
 
     @MainActor
@@ -77,7 +78,7 @@ struct NewPrivateWindowMenuButton: View {
         Button("New Private Window") {
             openWindow(value: BrowserWindowRoute.guest(UUID()))
         }
-        .keyboardShortcut("n", modifiers: [.command, .shift])
+        .globalKeyboardShortcut(.newPrivateWindow)
     }
 }
 

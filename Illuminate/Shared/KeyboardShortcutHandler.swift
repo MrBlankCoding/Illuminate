@@ -6,120 +6,89 @@
 //
 
 import AppKit
-import Foundation
+import KeyboardShortcuts
+import SwiftUI
 
-final class KeyboardShortcutHandler {
-    private struct Shortcut {
-        enum Trigger {
-            case character(String)
-            case keyCode(UInt16)
-        }
-        let modifiers: NSEvent.ModifierFlags
-        let trigger: Trigger
-        let action: Notification.Name
-    }
-
-    private enum KeyCode {
-        static let leftArrow:  UInt16 = 123
-        static let rightArrow: UInt16 = 124
-        static let downArrow:  UInt16 = 125
-        static let upArrow:    UInt16 = 126
-        static let tab:        UInt16 = 48
-    }
-
-    private let shortcuts: [Shortcut]
-
-    private let notificationCenter: NotificationCenter
-
-    init(notificationCenter: NotificationCenter = .default) {
-        self.shortcuts = Self.makeShortcuts()
-        self.notificationCenter = notificationCenter
-    }
-
-    private static func makeShortcuts() -> [Shortcut] {
-        [
-            Shortcut(modifiers: .command, trigger: .character("t"), action: .newTab),
-            Shortcut(modifiers: .command, trigger: .character("w"), action: .closeActiveTab),
-            Shortcut(modifiers: .command, trigger: .character("l"), action: .focusURLBar),
-            Shortcut(modifiers: .command, trigger: .character("r"), action: .reloadActiveTab),
-            Shortcut(modifiers: .command, trigger: .character("b"), action: .bookmarkTab),
-            Shortcut(modifiers: .command, trigger: .character("f"), action: .findInPage),
-            Shortcut(modifiers: .command, trigger: .character("+"), action: .zoomIn),
-            Shortcut(modifiers: .command, trigger: .character("="), action: .zoomIn),
-            Shortcut(modifiers: .command, trigger: .character("-"), action: .zoomOut),
-            Shortcut(modifiers: .command, trigger: .character("0"), action: .resetZoom),
-            Shortcut(modifiers: .command, trigger: .character("p"), action: .printPage),
-            Shortcut(modifiers: .command, trigger: .keyCode(KeyCode.leftArrow), action: .goBack),
-            Shortcut(modifiers: .command, trigger: .keyCode(KeyCode.rightArrow), action: .goForward),
-            Shortcut(modifiers: .command, trigger: .keyCode(KeyCode.downArrow), action: .nextTab),
-            Shortcut(modifiers: .command, trigger: .keyCode(KeyCode.upArrow), action: .previousTab),
-            Shortcut(modifiers: .control, trigger: .keyCode(KeyCode.tab), action: .switchToMostRecentTab),
-            Shortcut(modifiers: [.command, .shift], trigger: .character("i"), action: .openDevTools),
-            Shortcut(modifiers: [.command, .shift], trigger: .character("c"), action: .copyCurrentURL),
-            Shortcut(modifiers: [.command, .shift], trigger: .character("t"), action: .reopenTab),
-            Shortcut(modifiers: [.command, .shift], trigger: .character("w"), action: .closeAllTabs),
-            Shortcut(modifiers: [.command, .shift], trigger: .character("f"), action: .toggleFullScreen),
-        ]
-    }
-
-    func bookmarkTab() {
-        post(.bookmarkTab)
-    }
-
-    func openNewTab() { post(.newTab) }
-    func closeActiveTab() { post(.closeActiveTab) }
-    func closeAllTabs() { post(.closeAllTabs) }
-    func reopenTab() { post(.reopenTab) }
-    func focusURLBar() { post(.focusURLBar) }
-    func copyCurrentURL() { post(.copyCurrentURL) }
-    func reloadActiveTab() { post(.reloadActiveTab) }
-    func goBack() { post(.goBack) }
-    func goForward() { post(.goForward) }
-    func nextTab() { post(.nextTab) }
-    func previousTab() { post(.previousTab) }
-    func switchToMostRecentTab() { post(.switchToMostRecentTab) }
-    func findInPage() { post(.findInPage) }
-    func openDevTools() { post(.openDevTools) }
-    func toggleFullScreen() { post(.toggleFullScreen) }
-    func zoomIn() { post(.zoomIn) }
-    func zoomOut() { post(.zoomOut) }
-    func resetZoom() { post(.resetZoom) }
-    func printPage() { post(.printPage) }
-
-    nonisolated func lookupShortcutBy(character: String, modifiers: NSEvent.ModifierFlags) -> Notification.Name? {
-        let key = character.lowercased()
-        for shortcut in shortcuts where shortcut.modifiers == modifiers {
-            if case .character(let match) = shortcut.trigger, match.lowercased() == key {
-                return shortcut.action
+struct ShortcutHotkeyBridge: View {
+    var body: some View {
+        Group {
+            bind(.newTab)                { post(.newTab) }
+            bind(.closeTab)              { post(.closeActiveTab) }
+            bind(.closeAllTabs)          { post(.closeAllTabs) }
+            bind(.reopenClosedTab)       { post(.reopenTab) }
+            bind(.nextTab)               { post(.nextTab) }
+            bind(.previousTab)           { post(.previousTab) }
+            bind(.switchToMostRecentTab) { post(.switchToMostRecentTab) }
+            bind(.newWindow)             { DockMenuWindowRouter.shared.openProfileSelection?() }
+            bind(.newPrivateWindow)      { post(.newPrivateWindow) }
+            bind(.openFile)              {
+                let urls = FilePanels.chooseFiles(
+                    allowsMultipleSelection: true,
+                    message: "Open a file in Illuminate",
+                    prompt: "Open"
+                )
+                guard !urls.isEmpty else { return }
+                Task { @MainActor in
+                    let needsWindow = BrowserWindowRegistry.shared.activeCount == 0
+                    for url in urls { AppFileOpening.shared.enqueue(url) }
+                    if needsWindow { AppFileOpening.shared.markNeedsBrowserWindow() }
+                }
             }
+
+            bind(.newTabGroup)           { post(.newTabGroup) }
+            bind(.closeCurrentGroup)     { post(.closeCurrentGroup) }
+            bind(.moveTabToLeftGroup)    { post(.moveTabToLeftGroup) }
+            bind(.moveTabToRightGroup)   { post(.moveTabToRightGroup) }
+
+            bind(.focusURLBar)           { post(.focusURLBar) }
+            bind(.copyCurrentURL)        { post(.copyCurrentURL) }
+            bind(.reloadPage)            { post(.reloadActiveTab) }
+            bind(.goBack)                { post(.goBack) }
+            bind(.goForward)             { post(.goForward) }
+            bind(.toggleFullScreen)      { NSApp.keyWindow?.toggleFullScreen(nil) }
+
+            bind(.showAllHistory)        { post(.showHistory) }
+            bind(.clearHistory)          { post(.clearHistory) }
+
+            bind(.findInPage)            { post(.findInPage) }
+            bind(.savePageAsPDF)         { post(.savePageAsPDF) }
+            bind(.printPage)             { post(.printPage) }
+            bind(.zoomIn)                { post(.zoomIn) }
+            bind(.zoomOut)               { post(.zoomOut) }
+            bind(.resetZoom)             { post(.resetZoom) }
+            bind(.developerTools)        { post(.openDevTools) }
+
+            bind(.bookmarkTab)           { post(.bookmarkTab) }
         }
-        return nil
+        .frame(width: 0, height: 0)
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 
-    nonisolated func lookupShortcutBy(keyCode: UInt16, modifiers: NSEvent.ModifierFlags) -> Notification.Name? {
-        for shortcut in shortcuts where shortcut.modifiers == modifiers {
-            if case .keyCode(let match) = shortcut.trigger, match == keyCode {
-                return shortcut.action
+    private func bind(_ name: KeyboardShortcuts.Name, action: @escaping () -> Void) -> some View {
+        Color.clear
+            .frame(width: 0, height: 0)
+            .onGlobalKeyboardShortcut(name) { _ in
+                AppLog.ui("Shortcut fired: \(name.rawValue)")
+                action()
             }
-        }
-        return nil
     }
 
     private func post(_ name: Notification.Name) {
-        AppLog.ui("Shortcut fired: \(name.rawValue)")
-        notificationCenter.post(name: name, object: nil)
+        NotificationCenter.default.post(name: name, object: nil)
     }
 }
 
+final class KeyboardShortcutHandler {
+    init() {}
+}
 
-// TODO: create an actual manager
 final class BackgroundResourceManager {
     func start() {
         AppLog.info("BackgroundResourceManager started")
     }
 }
 
-// TODO: replace logging stub with real integrity/policy checks.
 final class RuntimeSecurityMonitor {
 
     private let notificationCenter: NotificationCenter

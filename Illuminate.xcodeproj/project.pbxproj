@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		F701394F304CD90200D9E7C8 /* KeyboardShortcuts in Frameworks */ = {isa = PBXBuildFile; productRef = F701394E304CD90200D9E7C8 /* KeyboardShortcuts */; };
 		F76B1F872F5E21580043FEAE /* SwiftData.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F76B1F852F5E213A0043FEAE /* SwiftData.framework */; };
 		F76B1F8A2F5E21590043FEAE /* WebKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F76B1F832F5E21300043FEAE /* WebKit.framework */; };
 		F7B8307C3044D59B00AC1471 /* Nuke in Frameworks */ = {isa = PBXBuildFile; productRef = F7B000022F5E99010043FEAE /* Nuke */; };
@@ -64,6 +65,7 @@
 			files = (
 				F7B8307C3044D59B00AC1471 /* Nuke in Frameworks */,
 				F7D6B940304A523F006B2010 /* Sparkle in Frameworks */,
+				F701394F304CD90200D9E7C8 /* KeyboardShortcuts in Frameworks */,
 				F76B1F8A2F5E21590043FEAE /* WebKit.framework in Frameworks */,
 				F76B1F872F5E21580043FEAE /* SwiftData.framework in Frameworks */,
 			);
@@ -147,6 +149,7 @@
 			packageProductDependencies = (
 				F7B000022F5E99010043FEAE /* Nuke */,
 				F7D6B93F304A523F006B2010 /* Sparkle */,
+				F701394E304CD90200D9E7C8 /* KeyboardShortcuts */,
 			);
 			productName = Illuminate;
 			productReference = F76B1DFC2F5E1A520043FEAE /* Illuminate.app */;
@@ -234,6 +237,7 @@
 			packageReferences = (
 				F7B000012F5E99000043FEAE /* XCRemoteSwiftPackageReference "Nuke" */,
 				F7D6B93E304A523F006B2010 /* XCRemoteSwiftPackageReference "Sparkle" */,
+				F701394D304CD90200D9E7C8 /* XCRemoteSwiftPackageReference "KeyboardShortcuts" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = F76B1DFD2F5E1A520043FEAE /* Products */;
@@ -663,6 +667,14 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		F701394D304CD90200D9E7C8 /* XCRemoteSwiftPackageReference "KeyboardShortcuts" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sindresorhus/KeyboardShortcuts";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 3.0.1;
+			};
+		};
 		F7B000012F5E99000043FEAE /* XCRemoteSwiftPackageReference "Nuke" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/kean/Nuke";
@@ -682,6 +694,11 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		F701394E304CD90200D9E7C8 /* KeyboardShortcuts */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = F701394D304CD90200D9E7C8 /* XCRemoteSwiftPackageReference "KeyboardShortcuts" */;
+			productName = KeyboardShortcuts;
+		};
 		F7B000022F5E99010043FEAE /* Nuke */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = F7B000012F5E99000043FEAE /* XCRemoteSwiftPackageReference "Nuke" */;

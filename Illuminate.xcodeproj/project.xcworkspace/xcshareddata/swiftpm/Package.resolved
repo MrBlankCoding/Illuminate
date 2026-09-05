@@ -1,6 +1,15 @@
 {
-  "originHash" : "cceabd744dd3e8ed37f9ad76d59b8ea508f5f01d5a49af4d795113d2a7227ee9",
+  "originHash" : "22dea3948e9cf7d3afa8e1e2311ba1ca5e7efb667375ce790b0c47b21d48b3c3",
   "pins" : [
+    {
+      "identity" : "keyboardshortcuts",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/sindresorhus/KeyboardShortcuts",
+      "state" : {
+        "revision" : "49c3fc04ea827f816df67843bfcc57286b47ff06",
+        "version" : "3.0.1"
+      }
+    },
     {
       "identity" : "nuke",
       "kind" : "remoteSourceControl",

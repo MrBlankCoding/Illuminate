@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import KeyboardShortcuts
 import SwiftData
 
 struct BookmarksCommands: Commands {
@@ -41,7 +42,7 @@ struct BookmarksMenuContent: View {
                 toggleBookmark()
             }
             .disabled(environment?.isGuestSession == true)
-            .keyboardShortcut("b", modifiers: .command)
+            .globalKeyboardShortcut(.bookmarkTab)
 
             Divider()
 
