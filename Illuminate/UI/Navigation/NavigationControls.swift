@@ -77,7 +77,6 @@ private struct NavigationControlButton: View {
         Button(action: action) {
             Image(systemName: systemName)
                 .font(.webMicroMedium)
-                .motionAwareSymbolReplacement()
                 .foregroundStyle(symbolColor)
                 .frame(width: MacDesign.Size.iconButton, height: MacDesign.Size.iconButton)
                 .macControlBackground(isHovered: isEnabled && isHovered && !isGreyedOut, tint: theme.accent, radius: MacDesign.Radius.full)
@@ -93,7 +92,6 @@ private struct NavigationControlButton: View {
         .help(helpText)
         .accessibilityIdentifier(identifier)
         .accessibilityLabel(accessibilityLabel.isEmpty ? helpText : accessibilityLabel)
-        .accessibilityValue(systemName == "xmark" ? "Loading" : "")
     }
 
     private var symbolColor: Color {

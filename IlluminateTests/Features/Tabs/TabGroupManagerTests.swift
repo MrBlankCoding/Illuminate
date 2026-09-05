@@ -95,6 +95,24 @@ struct TabGroupManagerTests {
         #expect(manager.group(for: insertedTabID)?.id == group.id)
     }
 
+    @Test func reorderingTabWithinSameGroupPreservesGroupAndUpdatesOrder() {
+        let manager = makeManager()
+        let firstTabID = UUID()
+        let middleTabID = UUID()
+        let lastTabID = UUID()
+        let group = manager.createGroup(
+            name: "Work",
+            color: .orange,
+            tabIDs: [firstTabID, middleTabID, lastTabID]
+        )
+
+        manager.handleTabsReordered([lastTabID, middleTabID, firstTabID])
+
+        #expect(group.tabIDs == [lastTabID, middleTabID, firstTabID])
+        #expect(manager.group(for: middleTabID)?.id == group.id)
+        #expect(manager.group(for: lastTabID)?.id == group.id)
+    }
+
     @Test func createsEmptyGroupWithRequestedMetadata() {
         let manager = makeManager()
 

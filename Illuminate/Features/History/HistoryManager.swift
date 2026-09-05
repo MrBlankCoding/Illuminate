@@ -251,6 +251,28 @@ final class HistoryManager {
         lastRecordedURL.removeValue(forKey: tabID)
     }
 
+    func recentSearchQueries(limit: Int = 5) -> [String] {
+        guard !isGuestSession, showHistorySuggestions else { return [] }
+        let engines = SearchEngine.allCases
+        let sorted = suggestionCandidates.sorted { $0.lastVisited > $1.lastVisited }
+        var result: [String] = []
+        var seen = Set<String>()
+        for cand in sorted {
+            guard let url = URL(string: cand.urlString),
+                  let comp = URLComponents(url: url, resolvingAgainstBaseURL: false),
+                  engines.contains(where: { url.absoluteString.hasPrefix($0.searchURL) })
+            else { continue }
+            guard let q = comp.queryItems?.first(where: { $0.name == "q" })?.value,
+                  !q.isEmpty,
+                  !seen.contains(q)
+            else { continue }
+            seen.insert(q)
+            result.append(q)
+            if result.count == limit { return result }
+        }
+        return result
+    }
+
     private func scheduleDebouncedRefresh() {
         pendingRefreshTask?.cancel()
         pendingRefreshTask = Task { [weak self] in

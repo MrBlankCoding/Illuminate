@@ -27,6 +27,7 @@ final class ContentViewModel {
     var illuminatePageSuggestions: [IlluminatePageSuggestion] = []
     var historySuggestions: [HistorySuggestion] = []
     var webSuggestions: [String] = []
+    var recentSearchSuggestions: [String] = []
 
     @ObservationIgnored private let tabManager: TabManager
     @ObservationIgnored private let urlSynchronizer: URLSynchronizer
@@ -186,6 +187,13 @@ final class ContentViewModel {
         webSuggestionTask?.cancel()
         lastSuggestionQuery = nil
         clearLocalSuggestionsIfNeeded()
+    }
+
+    func refreshRecentSearchSuggestions() {
+        let queries = historyManager?.recentSearchQueries(limit: 5) ?? []
+        if !recentSearchSuggestions.elementsEqual(queries) {
+            recentSearchSuggestions = queries
+        }
     }
 
     private func clearLocalSuggestionsIfNeeded() {

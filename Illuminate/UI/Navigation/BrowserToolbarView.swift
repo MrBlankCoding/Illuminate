@@ -154,6 +154,7 @@ struct BrowserToolbarView: View {
                 .frame(width: ToolbarMetrics.trailingPad - MacDesign.Spacing.control)
         }
         .frame(height: ToolbarMetrics.tabRowHeight)
+        .background(theme.tabStripBackground)
         .zIndex(10)
     }
 

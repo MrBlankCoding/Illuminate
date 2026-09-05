@@ -59,8 +59,9 @@ final class TabGroup: Identifiable {
         self.createdDate = createdDate
     }
 
-    var tabCount: Int { tabIDs.count }
+var tabCount: Int { tabIDs.count }
     var isEmpty: Bool { tabIDs.isEmpty }
+    var displayName: String { name.isEmpty ? "Group" : name }
 
     func contains(_ tabID: UUID) -> Bool {
         tabIDs.contains(tabID)

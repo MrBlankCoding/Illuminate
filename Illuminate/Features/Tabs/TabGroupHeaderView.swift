@@ -31,6 +31,10 @@ struct TabGroupHeaderView: View {
     @State private var isEditing = false
 
     private var groupColor: Color { group.groupColor.color }
+    private var titleText: String {
+        let trimmed = group.displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? "Untitled Group" : trimmed
+    }
 
     var body: some View {
         Button {
@@ -44,12 +48,13 @@ struct TabGroupHeaderView: View {
                     .fill(groupColor)
                     .frame(width: GroupHeaderMetrics.dotSize, height: GroupHeaderMetrics.dotSize)
 
-                if !group.name.isEmpty {
-                    Text(group.name)
-                        .font(.system(size: GroupHeaderMetrics.nameFontSize, weight: .medium))
-                        .foregroundStyle(isHovered ? Color.textPrimary : groupColor)
-                        .lineLimit(1)
-                }
+                Text(titleText)
+                    .font(.system(size: GroupHeaderMetrics.nameFontSize, weight: isHovered ? .semibold : .medium))
+                    .foregroundStyle(Color.textPrimary)
+                    .opacity(isHovered || group.isCollapsed ? 1.0 : 0.85)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .layoutPriority(1)
 
                 if group.isCollapsed {
                     Text("\(group.tabCount)")
@@ -58,6 +63,7 @@ struct TabGroupHeaderView: View {
                         .padding(.horizontal, 4)
                         .padding(.vertical, 1)
                         .background(groupColor.opacity(0.15), in: Capsule())
+                        .layoutPriority(0)
                 }
 
                 // Collapse indicator
@@ -98,6 +104,7 @@ struct TabGroupHeaderView: View {
         .popover(isPresented: $isEditing, arrowEdge: .bottom) {
             GroupEditPopover(
                 group: group,
+                onRename: onRename,
                 onChangeColor: onChangeColor,
                 onDismiss: { isEditing = false }
             )
@@ -110,6 +117,10 @@ struct TabGroupHeaderView: View {
         }
         .animation(MacDesign.fastAnimation, value: isHovered)
         .animation(MacDesign.springAnimation, value: group.isCollapsed)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text("\(titleText), tab group, \(group.tabCount) tabs, \(group.isCollapsed ? "collapsed" : "expanded")"))
+        .accessibilityAddTraits(.isButton)
+        .accessibilityHint(Text("Double tap to toggle collapse. Use the context menu for more options."))
     }
 
     @ViewBuilder
@@ -163,6 +174,7 @@ struct TabGroupHeaderView: View {
 
 private struct GroupEditPopover: View {
     var group: TabGroup
+    let onRename: (String) -> Void
     let onChangeColor: (TabGroupColor) -> Void
     let onDismiss: () -> Void
 
@@ -175,11 +187,14 @@ private struct GroupEditPopover: View {
                 .textFieldStyle(.roundedBorder)
                 .focused($isFocused)
                 .onSubmit {
-                    group.name = nameText
+                    onRename(nameText)
                     onDismiss()
                 }
                 .onChange(of: nameText) { _, newValue in
-                    group.name = newValue
+                    onRename(newValue)
+                }
+                .onExitCommand {
+                    onDismiss()
                 }
 
             HStack(spacing: 8) {
@@ -199,6 +214,7 @@ private struct GroupEditPopover: View {
                     }
                     .buttonStyle(.plain)
                     .hoverCursor(.pointingHand)
+                    .accessibilityLabel(Text(color.displayName))
                 }
             }
         }

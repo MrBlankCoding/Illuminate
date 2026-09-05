@@ -27,6 +27,26 @@ struct UiThemeTests {
         _ = Color.red.blended(with: .blue, fraction: 0.5)
     }
 
+    @Test func slightlyDarkerProducesDarkerVariant() {
+        let base = Color.AppColor.hsl(h: 0.3, s: 0.8, l: 0.6)
+        let darker = base.slightlyDarker
+        let baseL = Color.AppColor.hslComponents(of: base).l
+        let darkerL = Color.AppColor.hslComponents(of: darker).l
+        #expect(darkerL < baseL)
+        #expect(abs(darkerL - max(0.0, baseL - 0.12)) < 1e-3)
+    }
+
+    @Test func browserThemeExposesTabStripBackground() {
+        let light = BrowserTheme(accent: .blue, colorScheme: .light, windowThemeColor: Color(hex: "808080"))
+        let dark = BrowserTheme(accent: .orange, colorScheme: .dark, windowThemeColor: Color(hex: "404040"))
+        let lightBgL = Color.AppColor.hslComponents(of: light.tabStripBackground).l
+        let lightBaseL = Color.AppColor.hslComponents(of: light.windowThemeColor).l
+        let darkBgL = Color.AppColor.hslComponents(of: dark.tabStripBackground).l
+        let darkBaseL = Color.AppColor.hslComponents(of: dark.windowThemeColor).l
+        #expect(lightBgL < lightBaseL)
+        #expect(darkBgL < darkBaseL)
+    }
+
     @Test func designSystemModifiersAndConstantsAreConstructible() {
         _ = MacDesign.Size.iconButton
         _ = MacDesign.Radius.medium

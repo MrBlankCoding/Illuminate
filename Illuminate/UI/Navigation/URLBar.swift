@@ -33,7 +33,8 @@ struct URLBar: View {
         (isFocused || isHoveringSuggestions) && (
             !viewModel.illuminatePageSuggestions.isEmpty ||
             !viewModel.historySuggestions.isEmpty ||
-            !viewModel.webSuggestions.isEmpty
+            !viewModel.webSuggestions.isEmpty ||
+            !viewModel.recentSearchSuggestions.isEmpty
         )
     }
 
@@ -48,6 +49,9 @@ struct URLBar: View {
         .zIndex(100)
         .onReceive(NotificationCenter.default.publisher(for: .focusURLBar)) { _ in
             focusURLBar()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .blurURLBar)) { _ in
+            isFocused = false
         }
         .onChange(of: activeTab?.id) { oldID, newID in
             guard newID != oldID else { return }
@@ -78,7 +82,13 @@ struct URLBar: View {
         }
         .onChange(of: isFocused) { _, focused in
             viewModel.setAddressBarEditing(focused)
-            if !focused {
+            if focused {
+                NotificationCenter.default.post(name: .focusURLBar, object: nil)
+                if addressText.isEmpty {
+                    viewModel.refreshRecentSearchSuggestions()
+                }
+            } else {
+                NotificationCenter.default.post(name: .blurURLBar, object: nil)
                 if !isHoveringSuggestions {
                     viewModel.cancelSuggestions()
                 }
@@ -96,8 +106,6 @@ struct URLBar: View {
         HStack(spacing: MacDesign.Spacing.control) {
             // search icon
             Image(systemName: statusIcon)
-                .motionAwareSymbolRotation(isActive: activeTab?.isLoading ?? false)
-                .motionAwareSymbolReplacement()
                 .buttonStyle(.plain)
                 .background(Color.clear)
                 .allowsHitTesting(false) 
@@ -131,7 +139,6 @@ struct URLBar: View {
                 } label: {
                     Image(systemName: didCopyURL ? "checkmark.circle.fill" : "doc.on.doc")
                         .font(.webMicroMedium)
-                        .motionAwareSymbolReplacement()
                         .foregroundStyle(didCopyURL ? Color.green : Color.textSecondary)
                         .frame(width: MacDesign.Size.urlBarIcon, height: MacDesign.Size.urlBarIcon)
                         .macControlBackground(isHovered: isCopyHovered, tint: didCopyURL ? .green : themeColor, radius: MacDesign.Radius.small)
@@ -179,6 +186,7 @@ struct URLBar: View {
 
     private var suggestionsDropdown: some View {
         VStack(alignment: .leading, spacing: MacDesign.Spacing.micro) {
+            recentSearchSuggestionsSection
             ForEach(viewModel.illuminatePageSuggestions) { suggestion in
                 IlluminatePageSuggestionRowView(suggestion: suggestion, accentColor: themeColor) {
                     selectIlluminatePageSuggestion(suggestion)
@@ -204,6 +212,21 @@ struct URLBar: View {
         .accessibilityLabel("Search suggestions")
         .onHover { hovering in
             isHoveringSuggestions = hovering
+        }
+    }
+
+@ViewBuilder
+    private var recentSearchSuggestionsSection: some View {
+        if addressText.isEmpty, !viewModel.recentSearchSuggestions.isEmpty {
+            Text("Recent Searches")
+                .font(.webMicroMedium)
+                .foregroundStyle(Color.textTertiary)
+                .padding(.leading, MacDesign.Spacing.small)
+            ForEach(viewModel.recentSearchSuggestions, id: \.self) { query in
+                WebSuggestionRowView(text: query, accentColor: themeColor) {
+                    selectWebSuggestion(query)
+                }
+            }
         }
     }
 
@@ -240,7 +263,6 @@ struct URLBar: View {
     }
 
     private var statusIcon: String {
-        if activeTab?.isLoading == true { return "arrow.clockwise" }
         if activeTab?.url?.scheme?.localizedCaseInsensitiveCompare("illuminate") == .orderedSame {
             return "gearshape.fill"
         }
@@ -431,7 +453,9 @@ private struct URLBarShellGlassModifier: ViewModifier {
             .glassEffect(.regular, in: .rect(cornerRadius: MacDesign.Radius.urlBar))
             .background {
                 RoundedRectangle(cornerRadius: MacDesign.Radius.urlBar, style: .continuous)
-                    .fill(themeColor.opacity(isFocused ? 0.10 : 0.035))
+                    .fill(isFocused
+                        ? themeColor.opacity(0.38)
+                        : themeColor.slightlyDarker.opacity(0.42))
             }
             .overlay {
                 RoundedRectangle(cornerRadius: MacDesign.Radius.urlBar, style: .continuous)

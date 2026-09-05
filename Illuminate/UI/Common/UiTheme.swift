@@ -140,6 +140,7 @@ struct BrowserTheme {
 
     var toolbarBase: Color { windowThemeColor }
     var sidebarBase: Color { windowThemeColor }
+    var tabStripBackground: Color { windowThemeColor.slightlyDarker }
     var pageBase: Color { isDark ? Color(hex: "1C1C1E") : Color.white }
     var itemHover: Color { isDark ? Color.white.opacity(0.075) : Color.black.opacity(0.055) }
     var itemActive: Color { accent.opacity(isDark ? 0.22 : 0.16) }
@@ -624,5 +625,10 @@ extension Color {
 
     var resolvedHSL: (h: Double, s: Double, l: Double) {
         Color.AppColor.hslComponents(of: self)
+    }
+
+    var slightlyDarker: Color {
+        let hsl = Color.AppColor.hslComponents(of: self)
+        return Color.AppColor.hsl(h: hsl.h, s: hsl.s, l: max(0, hsl.l - 0.12))
     }
 }

@@ -11,6 +11,7 @@ import Darwin
 extension Notification.Name {
     static let newTab = Notification.Name("app.newTab")
     static let focusURLBar = Notification.Name("app.focusURLBar")
+    static let blurURLBar = Notification.Name("app.blurURLBar")
     static let copyCurrentURL = Notification.Name("app.copyCurrentURL")
     static let switchToMostRecentTab = Notification.Name("app.switchToMostRecentTab")
 

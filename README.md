@@ -66,6 +66,8 @@ xcodebuild -project Illuminate.xcodeproj \
 
 ## Known Issues
 * [ ] When saving PDF's the whole page is not captured
+* [ ] Favicons dont always update (cache issue)
+* [ ] Cannot drag and drop tabs into groups
 
 ## Contributing
 If you'd like to report a bug, please do under issues

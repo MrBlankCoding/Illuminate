@@ -68,6 +68,9 @@ struct NewTabView: View {
         .background(backgroundView)
         .ignoresSafeArea()
         .preferredColorScheme(tabManager.userInterfaceStyle.colorScheme)
+        .onTapGesture {
+            NotificationCenter.default.post(name: .blurURLBar, object: nil)
+        }
         .onAppear {
             guard !hasAppeared else { return }
             hasAppeared = true

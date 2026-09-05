@@ -139,7 +139,7 @@ struct ShelfGroupCard: View {
                         .frame(width: MacDesign.Spacing.mini + 2, height: MacDesign.Spacing.mini + 2)
                         .shadow(color: group.groupColor.color.opacity(0.6), radius: MacDesign.Spacing.tiny)
 
-                    Text(group.name.isEmpty ? "Untitled Group" : group.name)
+                    Text(group.displayName)
                         .font(.webSmallRegularMedium)
                         .lineLimit(1)
                         .foregroundStyle(.white)

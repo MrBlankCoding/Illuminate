@@ -2,7 +2,7 @@
 //  TabGroupTests.swift
 //  IlluminateTests
 //
-//  Created by MrBlankCoding on 3/11/26.
+//  Created by MrBlankCoding on 8/11/26.
 //
 
 import Foundation
@@ -133,5 +133,46 @@ struct TabGroupTests {
         group.moveTab(fromIndex: -1, toIndex: 0)
 
         #expect(group.tabIDs == [tabID])
+    }
+
+    @Test func newGroupIsExpandedAndBlueByDefault() {
+        let group = TabGroup()
+
+        #expect(group.isCollapsed == false)
+        #expect(group.groupColor == .blue)
+        #expect(group.tabCount == 0)
+    }
+
+    @Test func displayNameFallsBackWhenUnnamed() {
+        #expect(TabGroup().displayName == "Group")
+        #expect(TabGroup(name: "Work").displayName == "Work")
+    }
+
+    @Test func collapseStateIsMutable() {
+        let group = TabGroup()
+
+        group.isCollapsed = true
+        #expect(group.isCollapsed)
+
+        group.isCollapsed.toggle()
+        #expect(!group.isCollapsed)
+    }
+
+    @Test func payloadRoundTripsGroupMetadata() {
+        let first = UUID()
+        let second = UUID()
+        let group = TabGroup(
+            name: "Shelf",
+            groupColor: .purple,
+            isCollapsed: true,
+            tabIDs: [first, second]
+        )
+
+        let payload = group.toPayload()
+
+        #expect(payload.name == "Shelf")
+        #expect(payload.isCollapsed == true)
+        #expect(payload.color == "purple")
+        #expect(payload.tabIDs == [first, second])
     }
 }

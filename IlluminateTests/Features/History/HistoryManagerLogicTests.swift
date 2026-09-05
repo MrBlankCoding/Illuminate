@@ -398,4 +398,20 @@ struct HistoryManagerLogicTests {
         #expect(entries.count == 1)
         #expect(entries.first?.urlString == "https://saved.example")
     }
+
+    @Test func recentSearchQueriesExtractsTypedSearchesFromHistory() async throws {
+        let container = try makeContainer()
+        let manager = makeManager(container: container)
+        manager.record(url: URL(string: "https://www.google.com/search?q=cats%20dogs")!, title: "cats dogs - Google")
+        manager.record(url: URL(string: "https://www.bing.com/search?q=swift%20ui")!, title: "swift ui - Bing")
+        manager.record(url: URL(string: "https://www.google.com/search?q=cats%20dogs")!, title: "cats dogs - Google (again)")
+        manager.record(url: URL(string: "https://example.com/article")!, title: "Article")
+
+        var result: [String] = []
+        let found = try await eventually {
+            result = manager.recentSearchQueries(limit: 5)
+            return result.count == 2 && Set(result) == Set(["cats dogs", "swift ui"])
+        }
+        #expect(found)
+    }
 }

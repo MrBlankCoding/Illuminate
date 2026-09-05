@@ -209,12 +209,12 @@ struct TabItemView: View {
         } else if let url = tab.url, let page = IlluminatePage(url: url) {
             Image(systemName: page.icon)
                 .font(.webSmallRegular)
-                .foregroundStyle(isActive ? themeColor : Color.textSecondary)
+                .foregroundStyle(isActive ? Color.white : Color.textSecondary)
                 .frame(width: 16, height: 16)
         } else {
             Image(systemName: "globe")
                 .font(.webSmallRegular)
-                .foregroundStyle(isActive ? themeColor : Color.textSecondary)
+                .foregroundStyle(isActive ? Color.white : Color.textSecondary)
                 .frame(width: 16, height: 16)
         }
     }
@@ -240,11 +240,7 @@ struct TabItemView: View {
     private var tabBackground: some View {
         if isActive {
             RoundedRectangle(cornerRadius: TabItemMetrics.cornerRadius, style: .continuous)
-                .glassEffect(.regular.interactive(), in: .rect(cornerRadius: TabItemMetrics.cornerRadius))
-                .overlay {
-                    RoundedRectangle(cornerRadius: TabItemMetrics.cornerRadius, style: .continuous)
-                        .fill(themeColor.opacity(colorScheme == .dark ? 0.14 : 0.10))
-                }
+                .fill(themeColor)
                 .overlay {
                     RoundedRectangle(cornerRadius: TabItemMetrics.cornerRadius, style: .continuous)
                         .stroke(
@@ -261,11 +257,7 @@ struct TabItemView: View {
                 .transition(.opacity)
         } else if isHovered {
             RoundedRectangle(cornerRadius: TabItemMetrics.cornerRadius, style: .continuous)
-                .glassEffect(.regular.interactive(), in: .rect(cornerRadius: TabItemMetrics.cornerRadius))
-                .overlay {
-                    RoundedRectangle(cornerRadius: TabItemMetrics.cornerRadius, style: .continuous)
-                        .fill(theme.itemHover)
-                }
+                .fill(theme.itemHover)
                 .overlay {
                     RoundedRectangle(cornerRadius: TabItemMetrics.cornerRadius, style: .continuous)
                         .stroke(Color.primary.opacity(0.07), lineWidth: MacDesign.Spacing.hairlineThin)
@@ -373,7 +365,7 @@ struct TabItemView: View {
                             Circle()
                                 .fill(group.groupColor.color)
                                 .frame(width: 10, height: 10)
-                            Text(group.name.isEmpty ? "Unnamed Group" : group.name)
+                            Text(group.displayName)
                         }
                     }
                 }
