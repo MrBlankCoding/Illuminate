@@ -27,9 +27,9 @@ struct PermissionsPageView: View {
                                         .buttonStyle(InternalPageChipButtonStyle(color: .secondary))
                                 }
                                 ForEach(WebsitePermissionType.allCases) { type in
-                                    HStack(spacing: 10) {
+                                     HStack(spacing: MacDesign.Spacing.medium) {
                                         Image(systemName: type.icon).frame(width: 16)
-                                        Text(type.title).font(.system(size: 13))
+                                        Text(type.title).font(.webCaption)
                                         Spacer()
                                         Picker(type.title, selection: binding(for: site.origin, type: type)) {
                                             Text("Ask").tag(WebsitePermissionDecision.prompt)
@@ -62,7 +62,7 @@ struct WebsitePermissionPromptView: View {
     let resolve: (WebsitePermissionDecision) -> Void
 
     var body: some View {
-        VStack(spacing: 20) {
+        VStack(spacing: MacDesign.Spacing.section) {
             Image(systemName: request.types.count == 1 ? request.types[0].icon : "hand.raised.fill")
                 .font(.system(size: 32, weight: .medium))
                 .foregroundStyle(.tint)
@@ -80,7 +80,7 @@ struct WebsitePermissionPromptView: View {
                     .buttonStyle(.borderedProminent)
             }
         }
-        .padding(24)
+        .padding(MacDesign.Spacing.page)
         .frame(width: 360)
     }
 }

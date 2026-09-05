@@ -220,7 +220,7 @@ struct ExtensionPopupPanel: View {
                     .fill(.regularMaterial)
                     .overlay {
                         RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                            .strokeBorder(Color.borderSubtle, lineWidth: 0.5)
+                            .strokeBorder(Color.borderSubtle, lineWidth: MacDesign.Spacing.hairlineThin)
                     }
             }
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))

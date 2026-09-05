@@ -2,21 +2,35 @@
 //  UiThemeTests.swift
 //  IlluminateTests
 //
-//  Created by MrBlankCoding on 3/11/26.
+//  Created by MrBlankCode on 3/11/26.
 //
 
 import SwiftUI
 import Testing
+
 @testable import Illuminate
 
 struct UiThemeTests {
+
     @Test func browserThemesExposeLightAndDarkValues() {
         let light = BrowserTheme(accent: .blue, colorScheme: .light, windowThemeColor: .white)
         let dark = BrowserTheme(accent: .orange, colorScheme: .dark, windowThemeColor: .black)
         #expect(light.isDark == false)
         #expect(dark.isDark == true)
-        _ = [light.windowBase, light.toolbarBase, light.sidebarBase, light.pageBase, light.itemHover, light.itemActive, light.separator, light.controlFill, light.elevatedFill, light.selectionIndicator, light.textOnAccent]
-        _ = [dark.windowBase, dark.toolbarBase, dark.sidebarBase, dark.pageBase, dark.itemHover, dark.itemActive, dark.separator, dark.controlFill, dark.elevatedFill, dark.selectionIndicator, dark.textOnAccent]
+        _ = [
+            light.windowBase, light.windowThemeColor, light.tabStripBackground,
+            light.itemHover, light.textOnAccent, BrowserTheme.guestAccent
+        ]
+        _ = [
+            dark.windowBase, dark.windowThemeColor, dark.tabStripBackground,
+            dark.itemHover, dark.textOnAccent, BrowserTheme.guestAccent
+        ]
+    }
+
+    @Test func defaultAccentConstantsAreConsistent() {
+        #expect(BrowserTheme.defaultAccentHex == "4A90D9")
+        #expect(BrowserTheme.defaultAccent == Color(hex: BrowserTheme.defaultAccentHex))
+        #expect(BrowserTheme.guestAccent == Color(hex: "7B52CC"))
     }
 
     @Test func colorsRoundTripThroughHexFormats() {
@@ -57,11 +71,12 @@ struct UiThemeTests {
         _ = Text("content").liquidGlassCapsule(tint: .blue, padding: 4)
         _ = Text("content").browserPanel()
         _ = Text("content").insetPanel()
-        _ = Text("content").accentGlassPanel(accent: .blue)
         _ = Text("content").floatingGlassPanel()
         _ = Text("content").macPopover()
         _ = Text("content").macControlBackground(isActive: true, isHovered: true, tint: .blue)
         _ = Text("content").focusRing(true)
+        _ = Text("content").navClusterBackground()
+        _ = Text("content").hoverCursor(.arrow)
         _ = CavedDivider().body
     }
 }

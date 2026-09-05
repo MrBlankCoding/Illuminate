@@ -1,8 +1,6 @@
 //
-//
 //  TabManager.swift
 //  Illuminate
-//
 //
 //  Created by MrBlankCoding on 4/8/26.
 //
@@ -45,7 +43,6 @@ final class TabManager: NSObject, WKWebExtensionWindow {
     }
 
     enum Defaults {
-        static let themeColor        = "808080"
         static let maxRecentlyClosed = 25
         static let saveDebounceNs: UInt64 = 500_000_000
         static let tabCreationDelay: TimeInterval = 0.05
@@ -194,8 +191,8 @@ final class TabManager: NSObject, WKWebExtensionWindow {
         self.extensionManager   = resolvedExtensionManager
 
         let savedHex = isPersistenceEnabled
-            ? (userDefaults.string(forKey: Self.scopedKey("windowThemeColor", profileID: profileID)) ?? Defaults.themeColor)
-            : Defaults.themeColor
+            ? (userDefaults.string(forKey: Self.scopedKey("windowThemeColor", profileID: profileID)) ?? BrowserTheme.defaultAccentHex)
+            : BrowserTheme.defaultAccentHex
         self.windowThemeColor = Color(hex: savedHex)
 
         self.backgroundImageURL = isPersistenceEnabled
@@ -226,12 +223,12 @@ final class TabManager: NSObject, WKWebExtensionWindow {
             defaultTheme.colorScheme = ThemeScheme.fromUIStyle(style)
             
             // Start with a neutral grey theme if no image is present
-            let grey = Color.AppColor.hslComponents(of: Color(hex: Defaults.themeColor))
+            let grey = Color.AppColor.hslComponents(of: BrowserTheme.defaultAccent)
             if let firstIdx = defaultTheme.colors.indices.first {
                 defaultTheme.colors[firstIdx].hue = grey.h
                 defaultTheme.colors[firstIdx].saturation = grey.s
                 defaultTheme.colors[firstIdx].lightness = grey.l
-                defaultTheme.colors[firstIdx].position = ThemeColorMath.colorToPoint(hue: grey.h, saturation: grey.s)
+                defaultTheme.colors[firstIdx].position = CGPoint(x: grey.h, y: grey.s)
             }
             
             self.theme = defaultTheme
@@ -465,6 +462,11 @@ final class TabManager: NSObject, WKWebExtensionWindow {
             }
         }
 
+        if tabs.isEmpty {
+            persistSessionStateImmediately()
+            window?.close()
+        }
+
         scheduleSave()
     }
 
@@ -626,30 +628,6 @@ final class TabManager: NSObject, WKWebExtensionWindow {
 
 
     func saveActiveTabAsPDF() {
-        // If the active tab is showing a PDF in the viewer, offer to save the
-        // original file with a save panel so the user can choose the destination.
-        if let sourceURL = activeTab?.url,
-           let page = IlluminatePage(url: sourceURL),
-           let pdfFileURL = page.pdfSourceFileURL(from: sourceURL) {
-            let panel = NSSavePanel()
-            panel.nameFieldStringValue = pdfFileURL.lastPathComponent
-            panel.directoryURL = pdfFileURL.deletingLastPathComponent()
-            panel.allowedContentTypes = [.pdf]
-            panel.canCreateDirectories = true
-            guard panel.runModal() == .OK, let destination = panel.url else { return }
-            do {
-                if pdfFileURL != destination {
-                    if FileManager.default.fileExists(atPath: destination.path) {
-                        try FileManager.default.removeItem(at: destination)
-                    }
-                    try FileManager.default.copyItem(at: pdfFileURL, to: destination)
-                }
-            } catch {
-                AppLog.error("[TabManager] Failed to save PDF", error: error)
-            }
-            return
-        }
-
         guard
             let webView = activeTab?.webView,
             let sourceURL = activeTab?.url
@@ -669,45 +647,32 @@ final class TabManager: NSObject, WKWebExtensionWindow {
         (() => {
             const doc = document.documentElement;
             const body = document.body;
-            const w = Math.max(
-                doc ? doc.scrollWidth : 0,
-                doc ? doc.offsetWidth : 0,
-                doc ? doc.clientWidth : 0,
-                body ? body.scrollWidth : 0,
-                body ? body.offsetWidth : 0,
-                body ? body.clientWidth : 0
-            );
-            const h = Math.max(
-                doc ? doc.scrollHeight : 0,
-                doc ? doc.offsetHeight : 0,
-                doc ? doc.clientHeight : 0,
-                body ? body.scrollHeight : 0,
-                body ? body.offsetHeight : 0,
-                body ? body.clientHeight : 0
-            );
+            if (!doc || !body) return null;
+            const w = Math.max(doc.scrollWidth, doc.offsetWidth, body.scrollWidth, body.offsetWidth);
+            const h = Math.max(doc.scrollHeight, doc.offsetHeight, body.scrollHeight, body.offsetHeight);
             return { w: w, h: h };
         })()
         """
         webView.evaluateJavaScript(js) { [weak self] result, _ in
             guard let self else { return }
-            if let dict = result as? [String: Any],
-               let wNumber = dict["w"] as? NSNumber,
-               let hNumber = dict["h"] as? NSNumber {
-                let w = CGFloat(wNumber.doubleValue)
-                let h = CGFloat(hNumber.doubleValue)
-                if w > 0 && h > 0 {
-                    configuration.rect = CGRect(x: 0, y: 0, width: w, height: h)
-                }
+            var w: CGFloat = 0
+            var h: CGFloat = 0
+            if let dict = result as? [String: Any] {
+                w = CGFloat((dict["w"] as? NSNumber)?.doubleValue ?? 0)
+                h = CGFloat((dict["h"] as? NSNumber)?.doubleValue ?? 0)
             } else if let jsonStr = result as? String,
                       let data = jsonStr.data(using: .utf8),
-                      let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                      let wNumber = obj["w"] as? NSNumber,
-                      let hNumber = obj["h"] as? NSNumber {
-                let w = CGFloat(wNumber.doubleValue)
-                let h = CGFloat(hNumber.doubleValue)
-                if w > 0 && h > 0 {
-                    configuration.rect = CGRect(x: 0, y: 0, width: w, height: h)
-                }
+                      let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                w = CGFloat((obj["w"] as? NSNumber)?.doubleValue ?? 0)
+                h = CGFloat((obj["h"] as? NSNumber)?.doubleValue ?? 0)
+            }
+
+            // scrollview is ios only
+            w = max(w, webView.bounds.width)
+            h = max(h, webView.bounds.height)
+
+            if w > 0 && h > 0 {
+                configuration.rect = CGRect(x: 0, y: 0, width: w, height: h)
             }
             webView.createPDF(configuration: configuration) { [weak self] result in
                 guard let self else { return }

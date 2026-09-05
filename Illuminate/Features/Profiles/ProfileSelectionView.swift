@@ -8,6 +8,7 @@
 import SwiftUI
 
 struct ProfileSelectionView: View {
+    static let windowID = "profile-selection-window"
     @Binding var route: BrowserWindowRoute?
     var isStandalone: Bool = false
     var prewarmProfile: (UUID) -> Void = { _ in }
@@ -363,7 +364,7 @@ struct AddProfileSheet: View {
                         .font(.system(size: 13, weight: .medium))
                         .foregroundStyle(Color.textSecondary)
                         .padding(MacDesign.Spacing.control)
-                        .glassBackground(cornerRadius: 999)
+                        .glassBackground(cornerRadius: MacDesign.Radius.full)
                 }
                 .buttonStyle(.plain)
                 .hoverCursor(.pointingHand)

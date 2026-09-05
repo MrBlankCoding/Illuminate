@@ -27,7 +27,7 @@ struct NewTabView: View {
             if isShelfVisible {
                 NewTabShelfSidebar(selectedTab: $shelfTab, isVisible: $isShelfVisible)
                     .frame(width: MacDesign.Size.sidePanelWidth)
-                    .background(.ultraThinMaterial)
+                    .glassEffect(.regular, in: .rect())
                     .overlay(Rectangle().fill(Color.primary.opacity(0.06)).frame(width: MacDesign.Spacing.hairlineThin), alignment: .trailing)
                     .transition(.move(edge: .leading).combined(with: .opacity))
             }
@@ -99,7 +99,8 @@ struct NewTabView: View {
             Image(systemName: "sidebar.left")
                 .font(.webCaptionBold)
                 .frame(width: MacDesign.Size.floatingButton, height: MacDesign.Size.floatingButton)
-                .background(AnyShapeStyle(.ultraThinMaterial), in: Circle())
+                .frame(width: MacDesign.Size.floatingButton, height: MacDesign.Size.floatingButton)
+                .glassEffect(.regular, in: Circle())
                 .foregroundStyle(.white.opacity(0.9))
                 .overlay {
                     Circle()
@@ -122,15 +123,19 @@ struct NewTabView: View {
                 isCustomizePanelShown.toggle()
             }
         } label: {
-            Image(systemName: isCustomizePanelShown ? "xmark" : "pencil")
-                .font(.webCaptionBold)
-                .frame(width: MacDesign.Size.floatingButton, height: MacDesign.Size.floatingButton)
-                .background(
-                    isCustomizePanelShown
-                        ? AnyShapeStyle(tabManager.windowThemeColor.opacity(0.85))
-                        : AnyShapeStyle(.ultraThinMaterial),
-                    in: Circle()
-                )
+                 Image(systemName: isCustomizePanelShown ? "xmark" : "pencil")
+                     .font(.webCaptionBold)
+                     .frame(width: MacDesign.Size.floatingButton, height: MacDesign.Size.floatingButton)
+                     .background(
+                        Group {
+                            if isCustomizePanelShown {
+                                Circle().fill(tabManager.windowThemeColor.opacity(0.85))
+                            } else {
+                                Circle().fill(Color.clear)
+                                    .glassEffect(.regular, in: Circle())
+                            }
+                        }
+                     )
                 .foregroundStyle(isCustomizePanelShown ? .white : .white.opacity(0.9))
                 .overlay {
                     Circle()

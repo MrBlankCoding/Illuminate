@@ -102,7 +102,7 @@ struct TabHoverPreview: View {
         ZStack {
             RoundedRectangle(cornerRadius: MacDesign.Radius.groupHeader, style: .continuous)
                 .fill(Color.primary.opacity(0.06))
-                .frame(width: 32, height: 32)
+                .frame(width: MacDesign.Size.largeIconButton, height: MacDesign.Size.largeIconButton)
 
             if let img = tab.favicon {
                 Image(nsImage: img)

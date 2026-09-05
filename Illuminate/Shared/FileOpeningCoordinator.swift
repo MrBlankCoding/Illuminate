@@ -40,8 +40,8 @@ final class AppFileOpening {
         let urls = pendingURLs
         pendingURLs.removeAll()
         for url in urls {
-            if let viewerURL = IlluminatePage.pdfViewerURL(for: url) {
-                tabManager.createTab(url: viewerURL)
+            if url.pathExtension.lowercased() == "pdf" {
+                FinderReveal.open(url)
             } else {
                 tabManager.createTab(url: url)
             }

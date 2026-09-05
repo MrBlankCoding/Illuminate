@@ -260,7 +260,7 @@ struct TabItemView: View {
                 .fill(theme.itemHover)
                 .overlay {
                     RoundedRectangle(cornerRadius: TabItemMetrics.cornerRadius, style: .continuous)
-                        .stroke(Color.primary.opacity(0.07), lineWidth: MacDesign.Spacing.hairlineThin)
+                        .stroke(Color.suggestionRowHover, lineWidth: MacDesign.Spacing.hairlineThin)
                 }
                 .shadow(
                     color: .black.opacity(colorScheme == .dark ? 0.14 : 0.05),

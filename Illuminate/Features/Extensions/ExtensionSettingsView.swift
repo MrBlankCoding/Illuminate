@@ -57,13 +57,13 @@ struct ExtensionSettingsView: View {
                         .frame(width: 20, height: 20)
                     }
                     .buttonStyle(.plain)
-                    .disabled(manager.isCheckingForUpdates || manager.isLoadingExtensions)
-                    .help(manager.isCheckingForUpdates ? "Checking for updates…" : "Check for Updates")
+                    .disabled(manager.isCheckingForUpdates || manager.isLoadingExtensions || profileEnvironment.isGuestSession)
+                    .help(profileEnvironment.isGuestSession ? "Not available in private mode" : (manager.isCheckingForUpdates ? "Checking for updates…" : "Check for Updates"))
                     .transition(.opacity)
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
+            .padding(.horizontal, MacDesign.Spacing.roomy)
+            .padding(.vertical, MacDesign.Spacing.medium)
             .background(.bar)
 
             Divider()
@@ -101,6 +101,8 @@ struct ExtensionSettingsView: View {
     private var extensionBody: some View {
         if manager.isLoadingExtensions {
             loadingState
+        } else if profileEnvironment.isGuestSession {
+            guestSessionView
         } else if installedExtensions.isEmpty {
             emptyState
         } else {
@@ -109,7 +111,7 @@ struct ExtensionSettingsView: View {
     }
 
     private var loadingState: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: MacDesign.Spacing.roomy) {
             ProgressView()
                 .scaleEffect(1.2)
             Text("Loading Extensions…")
@@ -119,14 +121,36 @@ struct ExtensionSettingsView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
+    private var guestSessionView: some View {
+        VStack(spacing: MacDesign.Spacing.roomy) {
+            Image(systemName: "lock.shield")
+                .font(.system(size: 52, weight: .light))
+                .foregroundStyle(.tertiary)
+                .symbolRenderingMode(.hierarchical)
+
+            VStack(spacing: MacDesign.Spacing.tight) {
+                Text("Extensions Disabled in Private Mode")
+                    .font(.title3)
+                    .fontWeight(.semibold)
+                Text("Extensions are not available during private browsing to protect your privacy.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: 300)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding()
+    }
+
     private var emptyState: some View {
-        VStack(spacing: 20) {
+        VStack(spacing: MacDesign.Spacing.section) {
             Image(systemName: "puzzlepiece.extension")
                 .font(.system(size: 52, weight: .light))
                 .foregroundStyle(.tertiary)
                 .symbolRenderingMode(.hierarchical)
 
-            VStack(spacing: 6) {
+            VStack(spacing: MacDesign.Spacing.tight) {
                 Text("No Extensions Installed")
                     .font(.title3)
                     .fontWeight(.semibold)
@@ -153,9 +177,9 @@ struct ExtensionSettingsView: View {
 
     private var extensionList: some View {
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: 20) {
+            LazyVStack(alignment: .leading, spacing: MacDesign.Spacing.section) {
                 if manager.isCheckingForUpdates {
-                    HStack(spacing: 8) {
+                    HStack(spacing: MacDesign.Spacing.small) {
                         ProgressView().controlSize(.small)
                         Text("Checking for updates…")
                             .font(.subheadline)
@@ -164,7 +188,7 @@ struct ExtensionSettingsView: View {
                     .padding(.horizontal, 14)
                     .padding(.vertical, 12)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: MacDesign.Radius.medium, style: .continuous))
                 }
 
                 VStack(alignment: .leading, spacing: 6) {
@@ -172,7 +196,7 @@ struct ExtensionSettingsView: View {
                         .font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(.tertiary)
                         .textCase(.uppercase)
-                        .padding(.horizontal, 4)
+                        .padding(.horizontal, MacDesign.Spacing.small)
 
                     LazyVStack(spacing: 1) {
                         ForEach(installedExtensions, id: \.self) { context in
@@ -183,7 +207,7 @@ struct ExtensionSettingsView: View {
                                 }
                         }
                     }
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: MacDesign.Radius.medium, style: .continuous))
                 }
 
                 if !manager.loadingErrors.isEmpty {
@@ -192,18 +216,18 @@ struct ExtensionSettingsView: View {
                             .font(.system(size: 11, weight: .semibold))
                             .foregroundStyle(.orange)
                             .textCase(.uppercase)
-                            .padding(.horizontal, 4)
+                            .padding(.horizontal, MacDesign.Spacing.small)
 
                         LazyVStack(spacing: 1) {
                             ForEach(manager.loadingErrors) { error in
                                 ExtensionErrorRow(error: error)
                             }
                         }
-                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .clipShape(RoundedRectangle(cornerRadius: MacDesign.Radius.medium, style: .continuous))
                     }
                 }
 
-                HStack(spacing: 10) {
+                HStack(spacing: MacDesign.Spacing.medium) {
                     Button {
                         withAnimation(.spring(response: 0.28, dampingFraction: 0.8)) {
                             showGallery = true
@@ -216,7 +240,7 @@ struct ExtensionSettingsView: View {
                     Spacer()
                 }
             }
-            .padding(24)
+            .padding(MacDesign.Spacing.page)
             .frame(maxWidth: 720, alignment: .leading)
             .frame(maxWidth: .infinity, alignment: .center)
         }

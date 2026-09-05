@@ -121,7 +121,7 @@ struct BrowserToolbarView: View {
     }
 
     private var effectiveThemeColor: Color {
-        profileEnvironment.isGuestSession ? Color(hex: "7B52CC") : tabManager.windowThemeColor
+        profileEnvironment.isGuestSession ? BrowserTheme.guestAccent : tabManager.windowThemeColor
     }
 
     private var topContent: some View {
@@ -133,9 +133,9 @@ struct BrowserToolbarView: View {
         .frame(maxWidth: .infinity)
         .ignoresSafeArea()
         .overlay(alignment: .bottom) {
-            Rectangle()
-                .fill(theme.separator)
-                .frame(height: MacDesign.Spacing.hairline)
+                Rectangle()
+                    .fill(Color.borderSubtle)
+                    .frame(height: MacDesign.Spacing.hairline)
         }
     }
 
@@ -160,7 +160,7 @@ struct BrowserToolbarView: View {
 
     private var separatorLine: some View {
         Rectangle()
-            .fill(theme.separator.opacity(0.45))
+            .fill(Color.borderSubtle.opacity(0.45))
             .frame(height: MacDesign.Spacing.hairlineThin)
     }
 
@@ -246,7 +246,7 @@ struct BrowserToolbarView: View {
                 if profileEnvironment.isGuestSession {
                     Image(systemName: "eyeglasses")
                         .font(.webCaptionBold)
-                        .foregroundStyle(theme.guestAccent)
+                        .foregroundStyle(BrowserTheme.guestAccent)
                 } else {
                     Image(systemName: profileEnvironment.profile.iconName)
                         .font(.webCaptionBold)
@@ -269,7 +269,7 @@ struct BrowserToolbarView: View {
 
     private var toolbarBackground: some View {
         Rectangle()
-            .fill(theme.toolbarBase)
+            .fill(theme.windowThemeColor)
             .ignoresSafeArea(edges: .top)
     }
 

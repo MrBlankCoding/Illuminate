@@ -149,8 +149,8 @@ struct ExtensionGalleryView: View {
 
     private var galleryGrid: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                HStack(spacing: 8) {
+            VStack(alignment: .leading, spacing: MacDesign.Spacing.section) {
+                HStack(spacing: MacDesign.Spacing.small) {
                     Text("\(catalog.items.count) extension\(catalog.items.count == 1 ? "" : "s") available")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
@@ -161,8 +161,8 @@ struct ExtensionGalleryView: View {
                 }
 
                 LazyVGrid(
-                    columns: [GridItem(.adaptive(minimum: 300, maximum: 440), spacing: 16)],
-                    spacing: 16
+                    columns: [GridItem(.adaptive(minimum: 300, maximum: 440), spacing: MacDesign.Spacing.roomy)],
+                    spacing: MacDesign.Spacing.roomy
                 ) {
                     ForEach(catalog.items) { item in
                         ExtensionGalleryCard(item: item)
@@ -178,7 +178,7 @@ struct ExtensionGalleryView: View {
                         .padding(.top, 4)
                 }
             }
-            .padding(24)
+            .padding(MacDesign.Spacing.page)
             .frame(maxWidth: 960)
             .frame(maxWidth: .infinity)
         }
@@ -200,15 +200,17 @@ struct ExtensionGalleryCard: View {
         case idle, installing, installed, failed, unavailable
     }
 
+    private var isGuestSession: Bool { profileEnvironment.isGuestSession }
+
     private var isInstalled: Bool { installedContext != nil }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack(alignment: .top, spacing: 14) {
+            HStack(alignment: .top, spacing: MacDesign.Spacing.toolbarPadding) {
                 iconView
                     .frame(width: 56, height: 56)
 
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: MacDesign.Spacing.small) {
                     Text(item.name)
                         .font(.headline)
                         .fontWeight(.semibold)
@@ -226,7 +228,7 @@ struct ExtensionGalleryCard: View {
             Spacer(minLength: 12)
 
             Divider()
-                .padding(.horizontal, 18)
+            .padding(.horizontal, MacDesign.Spacing.grid)
 
             HStack {
                 statusBadge
@@ -237,9 +239,9 @@ struct ExtensionGalleryCard: View {
             .padding(.vertical, 12)
         }
         .frame(height: 190)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: MacDesign.Radius.card, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
+            RoundedRectangle(cornerRadius: MacDesign.Radius.card, style: .continuous)
                 .strokeBorder(
                     isInstalled ? Color.accentColor.opacity(0.35) : Color.secondary.opacity(0.12),
                     lineWidth: 1
@@ -266,9 +268,9 @@ struct ExtensionGalleryCard: View {
             },
             failureView: { iconFallback }
         )
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: MacDesign.Radius.medium, style: .continuous))
         .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
+            RoundedRectangle(cornerRadius: MacDesign.Radius.medium, style: .continuous)
                 .fill(Color.secondary.opacity(0.08))
         )
     }
@@ -302,7 +304,13 @@ struct ExtensionGalleryCard: View {
 
     @ViewBuilder
     private var actionButton: some View {
-        if isInstalled {
+        if isGuestSession {
+            Label("Not Available", systemImage: "lock.shield")
+                .font(.subheadline)
+                .fontWeight(.medium)
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity)
+        } else if isInstalled {
             Button(role: .destructive, action: uninstall) {
                 Label("Uninstall", systemImage: "trash")
                     .font(.subheadline)
@@ -373,6 +381,7 @@ struct ExtensionGalleryCard: View {
     }
 
     private func install() {
+        guard !isGuestSession else { return }
         guard installState != .installing else { return }
         withAnimation { installState = .installing }
         Task {

@@ -31,16 +31,16 @@ struct BrowserErrorPageView: View {
             VStack(alignment: .leading, spacing: 28) {
                 HStack(spacing: 14) {
                     ZStack {
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        RoundedRectangle(cornerRadius: MacDesign.Radius.medium, style: .continuous)
                             .fill(accentColor.opacity(0.18))
                             .frame(width: 48, height: 48)
                         Image(systemName: error.icon)
-                            .font(.system(size: 22, weight: .semibold))
+                            .font(.webInternalPageIcon)
                             .foregroundStyle(accentColor)
                     }
 
                     Text(error.title)
-                        .font(.system(size: 26, weight: .bold, design: .rounded))
+                        .font(.webInternalPageTitle)
                         .foregroundStyle(Color.textPrimary)
                 }
 
@@ -53,7 +53,7 @@ struct BrowserErrorPageView: View {
                             .tracking(0.4)
 
                         Text(error.detail)
-                            .font(.system(size: 13))
+                            .font(.webCaption)
                             .foregroundStyle(Color.textPrimary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
@@ -69,14 +69,14 @@ struct BrowserErrorPageView: View {
                                 .tracking(0.4)
 
                             Text(guidance)
-                                .font(.system(size: 13))
+                                .font(.webCaption)
                                 .foregroundStyle(Color.textPrimary)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                     }
                 }
 
-                HStack(spacing: 10) {
+                HStack(spacing: MacDesign.Spacing.medium) {
                     Button("Try Again") {
                         tabManager.activeTab?.reload()
                     }
@@ -91,8 +91,8 @@ struct BrowserErrorPageView: View {
                 }
                 .padding(.top, 4)
             }
-            .padding(32)
-            .frame(maxWidth: 680, alignment: .leading)
+            .padding(MacDesign.Spacing.pageHeaderPadding)
+            .frame(maxWidth: MacDesign.Size.internalPageMax, alignment: .leading)
             .frame(maxWidth: .infinity, alignment: .center)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)

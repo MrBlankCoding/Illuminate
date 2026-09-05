@@ -218,18 +218,18 @@ struct DownloadEntryRow: View {
             HStack(spacing: 8) {
                 Image(nsImage: resolvedIcon)
                     .resizable().scaledToFit()
-                    .frame(width: 32, height: 32)
+                    .frame(width: MacDesign.Size.largeIconButton, height: MacDesign.Size.largeIconButton)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(item.filename).font(.system(size: 12, weight: .medium)).lineLimit(1)
                     if let host = item.sourceURL?.host {
-                        Text(host).font(.system(size: 10)).foregroundStyle(.secondary).lineLimit(1)
+                        Text(host).font(.webSmall).foregroundStyle(.secondary).lineLimit(1)
                     }
                 }
                 .frame(maxWidth: 180, alignment: .leading)
             }
-            .padding(.horizontal, 10).padding(.vertical, 8)
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.primary.opacity(0.08), lineWidth: 0.5))
+            .padding(.horizontal, MacDesign.Spacing.medium).padding(.vertical, MacDesign.Spacing.control)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: MacDesign.Radius.control, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: MacDesign.Radius.control).stroke(Color.primary.opacity(0.08), lineWidth: MacDesign.Spacing.hairlineThin))
             .shadow(color: .black.opacity(0.18), radius: 10, y: 4)
             .frame(width: 240)
         }
@@ -258,7 +258,7 @@ struct DownloadEntryRow: View {
                 .resizable()
                 .interpolation(.high)
                 .scaledToFit()
-                .frame(width: isCompact ? MacDesign.Size.iconButton : 36, height: isCompact ? MacDesign.Size.iconButton : 36)
+                .frame(width: isCompact ? MacDesign.Size.iconButton : MacDesign.Size.floatingButton, height: isCompact ? MacDesign.Size.iconButton : MacDesign.Size.floatingButton)
                 .opacity(isMissingFromDisk ? 0.35 : 1)
 
             Image(systemName: statusIcon)
@@ -270,7 +270,7 @@ struct DownloadEntryRow: View {
                 .accessibilityHidden(true)
                 .motionAwareAnimation(.spring(response: 0.22, dampingFraction: 0.7), value: didComplete)
         }
-        .frame(width: isCompact ? MacDesign.Size.iconButton : 36, height: isCompact ? MacDesign.Size.iconButton : 36)
+        .frame(width: isCompact ? MacDesign.Size.iconButton : MacDesign.Size.floatingButton, height: isCompact ? MacDesign.Size.iconButton : MacDesign.Size.floatingButton)
     }
 
     private var statusIcon: String {

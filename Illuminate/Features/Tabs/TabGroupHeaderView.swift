@@ -7,15 +7,15 @@
 
 import SwiftUI
 
-private enum GroupHeaderMetrics {
-    static let height: CGFloat = 22
-    static let cornerRadius: CGFloat = 6
-    static let dotSize: CGFloat = 8
-    static let horizontalPadding: CGFloat = 8
-    static let verticalPadding: CGFloat = 2
-    static let nameFontSize: CGFloat = 11
-    static let countFontSize: CGFloat = 10
-}
+    private enum GroupHeaderMetrics {
+        static let height: CGFloat = 22
+        static let cornerRadius: CGFloat = MacDesign.Radius.groupHeader
+        static let dotSize: CGFloat = 8
+        static let horizontalPadding: CGFloat = MacDesign.Spacing.small
+        static let verticalPadding: CGFloat = MacDesign.Spacing.micro
+        static let nameFontSize: CGFloat = 11
+        static let countFontSize: CGFloat = 10
+    }
 
 struct TabGroupHeaderView: View {
     var group: TabGroup
@@ -60,8 +60,8 @@ struct TabGroupHeaderView: View {
                     Text("\(group.tabCount)")
                         .font(.system(size: GroupHeaderMetrics.countFontSize, weight: .semibold, design: .rounded))
                         .foregroundStyle(groupColor)
-                        .padding(.horizontal, 4)
-                        .padding(.vertical, 1)
+                        .padding(.horizontal, MacDesign.Spacing.small)
+                        .padding(.vertical, MacDesign.Spacing.hairline)
                         .background(groupColor.opacity(0.15), in: Capsule())
                         .layoutPriority(0)
                 }
@@ -69,7 +69,7 @@ struct TabGroupHeaderView: View {
                 // Collapse indicator
                 if !group.isCollapsed && isHovered {
                     Image(systemName: "chevron.down")
-                        .font(.system(size: 8, weight: .bold))
+                         .font(.webTinyBold)
                         .foregroundStyle(Color.textSecondary)
                         .transition(.opacity)
                 }
@@ -86,7 +86,7 @@ struct TabGroupHeaderView: View {
             }
             .overlay {
                 RoundedRectangle(cornerRadius: GroupHeaderMetrics.cornerRadius, style: .continuous)
-                    .stroke(groupColor.opacity(colorScheme == .dark ? 0.30 : 0.22), lineWidth: 0.5)
+                    .stroke(groupColor.opacity(colorScheme == .dark ? 0.30 : 0.22), lineWidth: MacDesign.Spacing.hairlineThin)
             }
             .contentShape(RoundedRectangle(cornerRadius: GroupHeaderMetrics.cornerRadius, style: .continuous))
         }
@@ -218,7 +218,7 @@ private struct GroupEditPopover: View {
                 }
             }
         }
-        .padding(16)
+        .padding(MacDesign.Spacing.roomy)
         .frame(width: 220)
         .onAppear {
             nameText = group.name

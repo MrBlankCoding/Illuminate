@@ -16,13 +16,11 @@ enum IlluminatePage: String, CaseIterable, Equatable {
     case permissions
     case info
     case extensions
-    case pdf
     case easel
 
     static let urlScheme = "illuminate"
-    private static let pdfSourceQueryKey = "src"
     static var suggestiblePages: [IlluminatePage] {
-        allCases.filter { $0 != .pdf }
+        allCases
     }
 
     init?(url: URL) {
@@ -38,35 +36,7 @@ enum IlluminatePage: String, CaseIterable, Equatable {
         URL(string: "\(Self.urlScheme)://\(rawValue)")!
     }
 
-    static func pdfViewerURL(for fileURL: URL) -> URL? {
-        guard isPDFFile(fileURL) else { return nil }
-        var components = URLComponents(url: IlluminatePage.pdf.url, resolvingAgainstBaseURL: false)
-        components?.queryItems = [
-            URLQueryItem(name: pdfSourceQueryKey, value: fileURL.absoluteString)
-        ]
-        return components?.url
-    }
-
-    static func isPDFFile(_ url: URL) -> Bool {
-        url.isFileURL && url.pathExtension.lowercased() == "pdf"
-    }
-
-    func pdfSourceFileURL(from viewerURL: URL) -> URL? {
-        guard
-            self == .pdf,
-            let components = URLComponents(url: viewerURL, resolvingAgainstBaseURL: false),
-            let item = components.queryItems?.first(where: { $0.name == Self.pdfSourceQueryKey }),
-            let value = item.value,
-            let source = URL(string: value),
-            Self.isPDFFile(source)
-        else { return nil }
-        return source
-    }
-
     func displayTitle(for url: URL) -> String {
-        if self == .pdf, let source = pdfSourceFileURL(from: url) {
-            return source.lastPathComponent
-        }
         if self == .easel {
             // title will be overridden by EaselManager; keep generic fallback
             return "Easel"
@@ -87,7 +57,6 @@ enum IlluminatePage: String, CaseIterable, Equatable {
         case .permissions: return "Permissions"
         case .info: return "Browser Info & Diagnostics"
         case .extensions: return "Extensions"
-        case .pdf: return "PDF"
         case .easel: return "Easel"
         }
     }
@@ -101,7 +70,6 @@ enum IlluminatePage: String, CaseIterable, Equatable {
         case .permissions: return "Permissions"
         case .info: return "Browser Info"
         case .extensions: return "Extensions"
-        case .pdf: return "PDF"
         case .easel: return "Easel"
         }
     }
@@ -115,7 +83,6 @@ enum IlluminatePage: String, CaseIterable, Equatable {
         case .permissions: return "hand.raised.fill"
         case .info: return "info.circle.fill"
         case .extensions: return "puzzlepiece.fill"
-        case .pdf: return "doc.richtext.fill"
         case .easel: return "paintbrush.pointed.fill"
         }
     }
@@ -129,7 +96,6 @@ enum IlluminatePage: String, CaseIterable, Equatable {
         case .permissions: return ["permissions", "camera", "microphone", "location", "notifications", "sites"]
         case .info: return ["info", "about", "diagnostics", "user agent", "profile", "debug", "version", "system"]
         case .extensions: return ["extensions", "plugins", "addons", "webextensions", "gallery", "store"]
-        case .pdf: return ["pdf", "viewer", "document"]
         case .easel: return ["easel", "whiteboard", "canvas", "draw", "sketch", "board"]
         }
     }

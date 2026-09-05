@@ -200,22 +200,49 @@ final class WebKitManager {
 
     private func configureGlobalCache() {
         let physicalMemory = ProcessInfo.processInfo.physicalMemory
-        
-        // Memory Cache: ~2% of RAM, capped between 128MB and 512MB
-        let memoryLimit = min(max(physicalMemory / 50, 128 * 1024 * 1024), 512 * 1024 * 1024)
-        
-        // Disk Cache: ~5% of free space, capped between 512MB and 2GB
-        let diskLimit: UInt64
-        if let attributes = try? FileManager.default.attributesOfFileSystem(forPath: NSHomeDirectory()),
-           let freeSpace = attributes[.systemFreeSize] as? UInt64 {
-            diskLimit = min(max(freeSpace / 20, 512 * 1024 * 1024), 2 * 1024 * 1024 * 1024)
-        } else {
-            diskLimit = 1000 * 1024 * 1024 // Fallback to 1GB
-        }
-        
+
+        // Memory Cache: ~3% of RAM, capped between 256MB and 2GB
+        let memoryLimit = min(
+            max(UInt64(Double(physicalMemory) * 0.03), 256 * 1024 * 1024),
+            2 * 1024 * 1024 * 1024
+        )
+
+        // Disk Cache: ~2% of available space, capped between 512MB and 8GB.
+        // Additionally never exceed 10% of available space, so near-full
+        // disks don't get pushed further toward capacity by the floor.
+        let diskLimit = computeDiskCacheLimit()
+
         URLCache.shared.memoryCapacity = Int(memoryLimit)
         URLCache.shared.diskCapacity = Int(diskLimit)
-        
+
         AppLog.info("Dynamic cache configured: Memory=\(memoryLimit / 1024 / 1024)MB, Disk=\(diskLimit / 1024 / 1024)MB")
+    }
+
+    private func computeDiskCacheLimit() -> UInt64 {
+        let minLimit: UInt64 = 512 * 1024 * 1024      // 512MB
+        let maxLimit: UInt64 = 8 * 1024 * 1024 * 1024  // 8GB
+        let fallback: UInt64 = 2 * 1024 * 1024 * 1024  // 2GB
+
+        guard let availableCapacity = volumeAvailableCapacity(), availableCapacity > 0 else {
+            AppLog.warning("Could not read volume capactiy")
+            return fallback
+        }
+
+        let available = UInt64(availableCapacity)
+        let target = min(max(UInt64(Double(available) * 0.02), minLimit), maxLimit)
+
+        let safetyCap = UInt64(Double(available) * 0.10)
+        return min(target, max(safetyCap, 0))
+    }
+
+    private func volumeAvailableCapacity() -> Int64? {
+        let homeURL = URL(fileURLWithPath: NSHomeDirectory())
+        let keys: Set<URLResourceKey> = [.volumeAvailableCapacityForImportantUsageKey]
+        guard let values = try? homeURL.resourceValues(forKeys: keys) else { return nil }
+        return values.volumeAvailableCapacityForImportantUsage
+    }
+
+    nonisolated static func cleanupContainersIfNeeded() {
+        ContainerCleanup.cleanupContainersIfNeeded()
     }
 }

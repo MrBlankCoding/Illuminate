@@ -21,14 +21,6 @@ struct IlluminatePageMetadataTests {
         }
     }
 
-    @Test func suggestiblePagesExcludeBarePdfViewer() {
-        // The PDF viewer requires a `src` parameter, so the bare page
-        // must never appear in address-bar suggestions.
-        #expect(!IlluminatePage.suggestiblePages.contains(.pdf))
-        #expect(IlluminatePage.allCases.contains(.pdf))
-        #expect(IlluminatePage.suggestiblePages.count == IlluminatePage.allCases.count - 1)
-    }
-
     @Test func tabTitlesMatchExpectations() {
         #expect(IlluminatePage.passwords.tabTitle == "Passwords")
         #expect(IlluminatePage.protection.tabTitle == "Protection")
@@ -46,8 +38,7 @@ struct IlluminatePageMetadataTests {
     }
 
     @Test func displayTitleFallsBackToURLHostForEmptyTitle() {
-        let url = URL(string: "illuminate://info")!
-        // Non-PDF pages use their tab title.
-        #expect(IlluminatePage.info.displayTitle(for: url) == IlluminatePage.info.tabTitle)
+        // No longer exists as displayTitle(for:), just use tabTitle
+        #expect(IlluminatePage.info.tabTitle == "Browser Info")
     }
 }

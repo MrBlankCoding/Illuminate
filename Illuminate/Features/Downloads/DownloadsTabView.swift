@@ -12,9 +12,9 @@ struct DownloadsTabView: View {
     private var downloadManager = DownloadManager.shared
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
+        VStack(alignment: .leading, spacing: MacDesign.Spacing.section) {
             SettingsShared.panelSection {
-                VStack(alignment: .leading, spacing: 18) {
+                VStack(alignment: .leading, spacing: MacDesign.Spacing.grid) {
                     SettingsShared.infoRow(title: "Reveal finished downloads in Finder") {
                         Toggle(
                             "",
@@ -44,7 +44,7 @@ struct DownloadsTabView: View {
                     }
 
                     SettingsShared.infoRow(title: "Default save location") {
-                        HStack(spacing: 10) {
+                        HStack(spacing: MacDesign.Spacing.medium) {
                             Text(downloadManager.downloadDirectoryURL.path)
                                 .font(.system(size: 12, weight: .bold, design: .monospaced))
                                 .foregroundStyle(Color.textSecondary)

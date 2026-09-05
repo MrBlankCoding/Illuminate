@@ -128,7 +128,7 @@ struct MoreOptionsMenu: View {
                 .font(.system(size: 13, weight: .medium))
                 .foregroundStyle(isHovered ? Color.textPrimary : Color.textSecondary)
                 .frame(width: MacDesign.Size.iconButton, height: MacDesign.Size.iconButton)
-                .macControlBackground(isHovered: isHovered, tint: tabManager.windowThemeColor, radius: 999)
+                .macControlBackground(isHovered: isHovered, tint: tabManager.windowThemeColor, radius: MacDesign.Radius.full)
                 .contentShape(Circle())
                 .animation(MacDesign.fastAnimation, value: isHovered)
         }

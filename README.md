@@ -37,7 +37,7 @@ Illuminate is designed with privacy in mind:
 
 * macOS 26 (Tahoe) or later
 * Xcode 26 or later
-* Swift 5
+* Swift 6
 
 ## Build
 
@@ -63,18 +63,15 @@ xcodebuild -project Illuminate.xcodeproj \
 * [ ] KeychainAccess for password management
 * [ ] Write an actual onboarding view instead of AI 
 * [ ] Make it so you can split panes for browser windows ;) -> didnt think I would need this but now it seems helpful 
+* [ ] Localise app 
+* [ ] Widget??
+
 
 ## Known Issues
-* [ ] When saving PDF's the whole page is not captured
-* [ ] Favicons dont always update (cache issue)
-* [ ] Cannot drag and drop tabs into groups
-* [ ] /Containers/com.MrBlankCoding.Illuminate -> folder gets really big super quick (5gb +)
-* [ ] Initial background color is grey and doesnt match inital bg image
-* [ ] Recent searches shouldnt show when already on webpage 
-* [ ] Window should auto take up full width & height of screen 
-* [ ] Recent searches shouldnt show unless URL bar is explictly clicked
-* [ ] Not a bug but a nicer font  
-* [ ] Same background style between customise bg image and sidebar on new tab page
+* [ ] Cannot drag and drop tabs into groups that exist (UI)
+* [ ] Not a bug but a nicer font could be more readable and pretty
+* [ ] Closing a tab causes the webview to go black when it auto swiches to the next tab
+* [ ] Search suggestions dont show at all
 
 ## Contributing
 If you'd like to report a bug, please do under issues

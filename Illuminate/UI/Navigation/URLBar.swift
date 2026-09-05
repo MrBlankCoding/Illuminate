@@ -22,6 +22,7 @@ struct URLBar: View {
     @State private var isHoveringSuggestions = false
     @State private var didCopyURL = false
     @State private var isCopyHovered = false
+    @State private var isRecentSearchesEligible = false
     @Namespace private var glassNamespace
     private let barGlassID = "url-bar-shell"
 
@@ -29,12 +30,20 @@ struct URLBar: View {
         BrowserTheme(accent: themeColor, colorScheme: colorScheme, windowThemeColor: themeColor)
     }
 
+    private var isNewTabPage: Bool {
+        activeTab?.url == nil
+    }
+
+    private var showRecentSearches: Bool {
+        isRecentSearchesEligible && isNewTabPage && !viewModel.recentSearchSuggestions.isEmpty
+    }
+
     private var showSuggestions: Bool {
         (isFocused || isHoveringSuggestions) && (
             !viewModel.illuminatePageSuggestions.isEmpty ||
             !viewModel.historySuggestions.isEmpty ||
             !viewModel.webSuggestions.isEmpty ||
-            !viewModel.recentSearchSuggestions.isEmpty
+            showRecentSearches
         )
     }
 
@@ -48,6 +57,7 @@ struct URLBar: View {
             }
         .zIndex(100)
         .onReceive(NotificationCenter.default.publisher(for: .focusURLBar)) { _ in
+            guard !isFocused else { return }
             focusURLBar()
         }
         .onReceive(NotificationCenter.default.publisher(for: .blurURLBar)) { _ in
@@ -55,17 +65,18 @@ struct URLBar: View {
         }
         .onChange(of: activeTab?.id) { oldID, newID in
             guard newID != oldID else { return }
-            
+
             // kick out!!!!!!
             // GRAAAAH
             if isFocused {
                 isFocused = false
                 viewModel.setAddressBarEditing(false)
             }
-            
+            isRecentSearchesEligible = false
+
             // update bar regardless of focus just in case
             addressText = ContentViewModel.addressBarDisplayText(for: activeTab?.url)
-            
+
             if newID != nil && activeTab?.url == nil {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
                     focusURLBar()
@@ -86,9 +97,12 @@ struct URLBar: View {
                 NotificationCenter.default.post(name: .focusURLBar, object: nil)
                 if addressText.isEmpty {
                     viewModel.refreshRecentSearchSuggestions()
+                } else {
+                    viewModel.updateSuggestions(for: addressText)
                 }
             } else {
                 NotificationCenter.default.post(name: .blurURLBar, object: nil)
+                isRecentSearchesEligible = false
                 if !isHoveringSuggestions {
                     viewModel.cancelSuggestions()
                 }
@@ -108,9 +122,8 @@ struct URLBar: View {
             Image(systemName: statusIcon)
                 .buttonStyle(.plain)
                 .background(Color.clear)
-                .allowsHitTesting(false) 
+                .allowsHitTesting(false)
 
-            
             TextField("Search or enter URL", text: $addressText)
                 .font(.webCaption)
                 .textFieldStyle(.plain)
@@ -172,6 +185,14 @@ struct URLBar: View {
         .font(.webCaption)
         .animation(MacDesign.springAnimation, value: isFocused)
         .hoverCursor(.iBeam)
+        // Recent searches should only appear when the user explicitly clicks
+        // the URL bar on a new tab page, never from programmatic focus.
+        .simultaneousGesture(TapGesture().onEnded {
+            isRecentSearchesEligible = true
+            if addressText.isEmpty {
+                viewModel.refreshRecentSearchSuggestions()
+            }
+        })
         .onAppear {
             if addressText.isEmpty {
                 addressText = ContentViewModel.addressBarDisplayText(for: activeTab?.url)
@@ -187,6 +208,7 @@ struct URLBar: View {
     private var suggestionsDropdown: some View {
         VStack(alignment: .leading, spacing: MacDesign.Spacing.micro) {
             recentSearchSuggestionsSection
+
             ForEach(viewModel.illuminatePageSuggestions) { suggestion in
                 IlluminatePageSuggestionRowView(suggestion: suggestion, accentColor: themeColor) {
                     selectIlluminatePageSuggestion(suggestion)
@@ -215,9 +237,9 @@ struct URLBar: View {
         }
     }
 
-@ViewBuilder
+    @ViewBuilder
     private var recentSearchSuggestionsSection: some View {
-        if addressText.isEmpty, !viewModel.recentSearchSuggestions.isEmpty {
+        if addressText.isEmpty, showRecentSearches {
             Text("Recent Searches")
                 .font(.webMicroMedium)
                 .foregroundStyle(Color.textTertiary)
@@ -275,6 +297,8 @@ struct URLBar: View {
     }
 
     private func focusURLBar() {
+        // Programmatic focus (new tab, ⌘L) must not reveal recent searches.
+        isRecentSearchesEligible = false
         isFocused = true
         viewModel.setAddressBarEditing(true)
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
@@ -306,10 +330,6 @@ private struct SuggestionRowView: View {
             HStack(spacing: MacDesign.Spacing.control) {
                 NukeFaviconView(url: suggestion.faviconURL, size: 13)
                     .frame(width: 16, height: 16)
-                    .overlay {
-                        // Fallback clock if favicon never loads is handled inside NukeFaviconView (globe).
-                        // Keep visual size consistent with previous AsyncImage success case.
-                    }
 
                 Text(suggestion.title)
                     .font(.webMicroMedium)
@@ -450,15 +470,17 @@ private struct URLBarShellGlassModifier: ViewModifier {
     @ViewBuilder
     func body(content: Content) -> some View {
         content
-            .glassEffect(.regular, in: .rect(cornerRadius: MacDesign.Radius.urlBar))
+            // Fully capsule-shaped shell instead of a fixed corner radius,
+            // so the bar stays pill-shaped at any height.
+            .glassEffect(.regular, in: .capsule)
             .background {
-                RoundedRectangle(cornerRadius: MacDesign.Radius.urlBar, style: .continuous)
+                Capsule(style: .continuous)
                     .fill(isFocused
                         ? themeColor.opacity(0.38)
                         : themeColor.slightlyDarker.opacity(0.42))
             }
             .overlay {
-                RoundedRectangle(cornerRadius: MacDesign.Radius.urlBar, style: .continuous)
+                Capsule(style: .continuous)
                     .stroke(isFocused ? themeColor.opacity(0.34) : Color.borderSubtle, lineWidth: MacDesign.Spacing.hairlineThin)
             }
     }

@@ -79,7 +79,7 @@ struct NewTabShelfSidebar: View {
                 Image(systemName: "plus")
                     .font(.webMicroMedium)
                     .frame(width: MacDesign.Size.urlBarIcon, height: MacDesign.Size.urlBarIcon)
-                    .background(.ultraThinMaterial, in: Circle())
+                    .glassEffect(.regular, in: Circle())
                     .overlay(Circle().stroke(Color.white.opacity(0.15), lineWidth: MacDesign.Spacing.hairlineThin))
             }
             .buttonStyle(.plain)
@@ -96,7 +96,7 @@ struct NewTabShelfSidebar: View {
                 Image(systemName: "plus")
                     .font(.webMicroMedium)
                     .frame(width: MacDesign.Size.urlBarIcon, height: MacDesign.Size.urlBarIcon)
-                    .background(.ultraThinMaterial, in: Circle())
+                    .glassEffect(.regular, in: Circle())
                     .overlay(Circle().stroke(Color.white.opacity(0.15), lineWidth: MacDesign.Spacing.hairlineThin))
             }
             .buttonStyle(.plain)
@@ -110,7 +110,7 @@ struct NewTabShelfSidebar: View {
                 Image(systemName: "ellipsis")
                     .font(.webSmallBold)
                     .frame(width: MacDesign.Size.urlBarIcon, height: MacDesign.Size.urlBarIcon)
-                    .background(.ultraThinMaterial, in: Circle())
+                    .glassEffect(.regular, in: Circle())
                     .overlay(Circle().stroke(Color.white.opacity(0.15), lineWidth: MacDesign.Spacing.hairlineThin))
             }
             .menuStyle(.borderlessButton)
@@ -149,7 +149,7 @@ struct NewTabShelfSidebar: View {
             }
         }
         .padding(MacDesign.Spacing.micro)
-        .background(.ultraThinMaterial, in: Capsule())
+        .glassEffect(.regular, in: Capsule())
         .overlay(Capsule().stroke(Color.white.opacity(0.08), lineWidth: MacDesign.Spacing.hairlineThin))
         .padding(.horizontal, MacDesign.Spacing.regular)
         .padding(.bottom, MacDesign.Spacing.medium)
@@ -332,7 +332,7 @@ private struct ShelfSearchField: View {
         }
         .padding(.horizontal, MacDesign.Spacing.regular)
         .padding(.vertical, MacDesign.Spacing.control)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: MacDesign.Radius.control, style: .continuous))
+        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: MacDesign.Radius.control, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: MacDesign.Radius.control, style: .continuous)
                 .stroke(isFocused ? Color.white.opacity(0.24) : Color.white.opacity(0.08), lineWidth: MacDesign.Spacing.hairlineThin)

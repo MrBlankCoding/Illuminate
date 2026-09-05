@@ -22,27 +22,21 @@ struct AppFileOpeningQueueTests {
         return url
     }
 
-        @Test func drainingPDFCreatesViewerTabTitledByFilename() throws {
+        @Test func drainingPDFDoesNotCreateTab() throws {
         let synchronizer = URLSynchronizer()
         let tabManager = TabManager(urlSynchronizer: synchronizer, isPersistenceEnabled: false)
         let initialCount = tabManager.tabs.count
 
         let file = makeTemporaryFile(name: "Quarterly Report-\(UUID().uuidString).pdf")
-        let viewerURL = try #require(IlluminatePage.pdfViewerURL(for: file))
 
         AppFileOpening.shared.enqueue(file)
         AppFileOpening.shared.drain(into: tabManager)
 
-        #expect(tabManager.tabs.count == initialCount + 1)
-        let tab = tabManager.tabs.last
-        #expect(tab?.url == viewerURL)
-        #expect(tab?.title == file.lastPathComponent)
-
-        AppFileOpening.shared.drain(into: tabManager) // no double-open
-        #expect(tabManager.tabs.count == initialCount + 1)
+        // PDF is opened externally via NSWorkspace, not a tab
+        #expect(tabManager.tabs.count == initialCount)
     }
 
-        @Test func drainingNonPDFKeepsOriginalFileURL() {
+    @Test func drainingNonPDFKeepsOriginalFileURL() {
         let synchronizer = URLSynchronizer()
         let tabManager = TabManager(urlSynchronizer: synchronizer, isPersistenceEnabled: false)
         let initialCount = tabManager.tabs.count
@@ -73,14 +67,13 @@ struct AppFileOpeningQueueTests {
         let initialCount = tabManager.tabs.count
 
         let file = makeTemporaryFile(name: "Duplicate-\(UUID().uuidString).pdf")
-        let viewerURL = try #require(IlluminatePage.pdfViewerURL(for: file))
 
         AppFileOpening.shared.enqueue(file)
         AppFileOpening.shared.enqueue(file)
         AppFileOpening.shared.drain(into: tabManager)
 
-        let createdTabs = tabManager.tabs.dropFirst(initialCount).filter { $0.url == viewerURL }
-        #expect(createdTabs.count == 1)
+        // PDF is opened externally, not a tab
+        #expect(tabManager.tabs.count == initialCount)
     }
 
         @Test func needsBrowserWindowFlagRoundTrips() {

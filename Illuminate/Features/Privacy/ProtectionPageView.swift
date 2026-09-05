@@ -140,8 +140,8 @@ private struct TrackerDomainListView: View {
                     VStack(spacing: 0) {
                         ForEach(service.domainStats) { stat in
                             TrackerDomainRow(stat: stat, service: service)
-                            if stat.id != service.domainStats.last?.id {
-                                Divider().padding(.leading, 20)
+                if stat.id != service.domainStats.last?.id {
+                    CappedDivider().padding(.leading, MacDesign.Spacing.section)
                             }
                         }
                     }
@@ -169,10 +169,10 @@ private struct TrackerDomainRow: View {
 
             VStack(alignment: .leading, spacing: 1) {
                 Text(stat.domain)
-                    .font(.system(size: 13))
+                    .font(.webCaption)
                     .lineLimit(1)
                 Text("\(stat.firstPartyCount) site\(stat.firstPartyCount == 1 ? "" : "s")")
-                    .font(.system(size: 11))
+                    .font(.webSmallRegular)
                     .foregroundStyle(.secondary)
             }
 
@@ -203,15 +203,15 @@ private struct TrackerDomainRow: View {
                 .disabled(stat.override == .blocked)
             } label: {
                 Image(systemName: overrideIcon)
-                    .font(.system(size: 13))
+                    .font(.webCaption)
                     .foregroundStyle(.secondary)
-                    .frame(width: 28, height: 28)
+                    .frame(width: MacDesign.Size.iconButton, height: MacDesign.Size.iconButton)
             }
             .menuStyle(.borderlessButton)
             .fixedSize()
             .help("Override blocking decision for \(stat.domain)")
         }
-        .padding(.vertical, 6)
+        .padding(.vertical, MacDesign.Spacing.tight)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(stat.domain), seen on \(stat.firstPartyCount) sites, \(statusHelp)")
     }

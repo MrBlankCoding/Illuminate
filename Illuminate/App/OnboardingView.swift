@@ -112,7 +112,7 @@ struct OnboardingView: View {
             controls
         }
         .frame(width: 560, height: 480)
-        .background(.ultraThinMaterial)
+        .glassEffect(.regular, in: .rect())
     }
 
     private var progressDots: some View {

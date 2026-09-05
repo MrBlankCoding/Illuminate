@@ -331,7 +331,7 @@ private struct HistoryRowView: View {
                         Image(systemName: "ellipsis")
                             .font(.webSmallRegular.weight(.semibold))
                             .frame(width: 26, height: 22)
-                            .background(Color.primary.opacity(0.07), in: Capsule())
+                            .background(Color.suggestionRowHover, in: Capsule())
                     }
                     .menuStyle(.borderlessButton)
                     .fixedSize()

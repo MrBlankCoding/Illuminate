@@ -38,6 +38,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         _ = BrowserImagePipeline.shared
         observeExtensionWindowRequests()
         prewarmSessionStateFiles()
+        WebKitManager.cleanupContainersIfNeeded()
+
+        for profile in fetchProfiles() {
+            ContainerCleanup.cleanupWebsiteDataStore(for: profile.id)
+        }
 
         guard isRunningUITests() else { return }
         Task { @MainActor in

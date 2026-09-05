@@ -64,6 +64,14 @@ struct WindowConfigurator: NSViewRepresentable {
         window.isMovableByWindowBackground = false
         window.toolbar = nil
         window.titlebarSeparatorStyle = .none
+
+        // fill the width and height of the screen
+        // this logic may need to be tweaked
+        let screen = window.screen ?? NSScreen.main
+        if let visibleFrame = screen?.visibleFrame,
+           window.frame.width < visibleFrame.width || window.frame.height < visibleFrame.height {
+            window.setFrame(visibleFrame, display: true)
+        }
     }
 
     private func update(window: NSWindow) {

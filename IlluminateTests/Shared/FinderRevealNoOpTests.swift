@@ -2,8 +2,7 @@
 //  FinderRevealNoOpTests.swift
 //  IlluminateTests
 //
-//  Exercises the guard paths that must not touch NSWorkspace:
-//  a missing file whose parent folder is also missing is a pure no-op.
+//  Created by MrBlankCoding on 4/8/26.
 //
 
 import Foundation
@@ -15,7 +14,6 @@ struct FinderRevealNoOpTests {
 
     @Test func revealWithMissingFileAndParentIsSafeNoOp() {
         let missing = URL(fileURLWithPath: "/nonexistent-illuminate-test/\(UUID().uuidString).pdf")
-        // Must not crash or open Finder — the parent doesn't exist either.
         FinderReveal.reveal(missing)
     }
 
@@ -25,8 +23,6 @@ struct FinderRevealNoOpTests {
     }
 
     @Test func existingTempFileRevealDoesNotThrow() {
-        // Reveal on an existing file exercises the security-scope + activate
-        // path; activateFileViewerSelecting is fire-and-forget and safe in tests.
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("illuminate-reveal-\(UUID().uuidString).txt")
         try? Data("probe".utf8).write(to: url)

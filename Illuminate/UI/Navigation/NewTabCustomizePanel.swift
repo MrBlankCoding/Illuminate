@@ -110,7 +110,7 @@ struct NewTabCustomizePanel: View {
         .frame(width: MacDesign.Size.sidePanelWidth)
         .frame(maxHeight: .infinity)
         .accessibilityIdentifier("browser.newTab.customizePanel")
-        .glassEffect(.regular, in: .rect)
+        .glassEffect(.regular, in: .rect())
         .overlay(alignment: .leading) {
             Rectangle()
                 .fill(Color.borderSubtle)

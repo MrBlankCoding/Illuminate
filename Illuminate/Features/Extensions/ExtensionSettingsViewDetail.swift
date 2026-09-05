@@ -105,9 +105,9 @@ struct ExtensionSettingsRow: View {
                 .resizable()
                 .interpolation(.high)
                 .antialiased(true)
-                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: MacDesign.Radius.control, style: .continuous))
         } else {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
+            RoundedRectangle(cornerRadius: MacDesign.Radius.control, style: .continuous)
                 .fill(Color.secondary.opacity(0.12))
                 .overlay(
                     Image(systemName: "puzzlepiece.fill")
@@ -200,7 +200,7 @@ struct ExtensionDetailView: View {
 
     private var headerSection: some View {
         HStack(alignment: .top, spacing: 16) {
-            extensionIcon(size: 64, cornerRadius: 14)
+            extensionIcon(size: 64, cornerRadius: MacDesign.Radius.card)
 
             VStack(alignment: .leading, spacing: 5) {
                 Text(context.webExtension.displayName ?? "Unknown Extension")
@@ -260,7 +260,7 @@ struct ExtensionDetailView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(12)
                     .background(
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        RoundedRectangle(cornerRadius: MacDesign.Radius.control, style: .continuous)
                             .fill(Color.secondary.opacity(0.08))
                     )
             } else {
@@ -388,11 +388,11 @@ private struct PermissionGroup: View {
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
+            RoundedRectangle(cornerRadius: MacDesign.Radius.control, style: .continuous)
                 .fill(color.opacity(0.07))
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
+            RoundedRectangle(cornerRadius: MacDesign.Radius.control, style: .continuous)
                 .strokeBorder(color.opacity(0.2), lineWidth: 1)
         )
     }

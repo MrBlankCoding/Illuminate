@@ -31,7 +31,7 @@ struct PrivacySettingsView: View {
             if isEmbedded {
                 settingsContent
             } else {
-                ScrollView { settingsContent.padding(24) }
+                ScrollView { settingsContent.padding(MacDesign.Spacing.page) }
             }
         }
         .confirmationDialog(
@@ -53,7 +53,7 @@ struct PrivacySettingsView: View {
         @Bindable var historyManager = historyManager
         @Bindable var webKitManager = webKitManager
         @Bindable var canvasFingerprintingService = canvasFingerprintingService
-        return VStack(alignment: .leading, spacing: 24) {
+        return VStack(alignment: .leading, spacing: MacDesign.Spacing.page) {
                 settingsSection(title: "Browsing History") {
                     VStack(spacing: 0) {
                         toggleRow(
@@ -77,10 +77,10 @@ struct PrivacySettingsView: View {
                             isOn: $historyManager.showHistorySuggestions
                         )
                     }
-                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: MacDesign.Radius.control, style: .continuous))
                     .overlay {
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .stroke(Color.primary.opacity(0.08), lineWidth: 0.5)
+                        RoundedRectangle(cornerRadius: MacDesign.Radius.control, style: .continuous)
+                            .stroke(Color.primary.opacity(0.08), lineWidth: MacDesign.Spacing.hairlineThin)
                     }
                 }
 
@@ -98,7 +98,7 @@ struct PrivacySettingsView: View {
                             Image(systemName: "xmark.circle")
                                 .font(.system(size: 15, weight: .medium))
                                 .foregroundStyle(tabManager.windowThemeColor)
-                                .frame(width: 28, height: 28)
+                                .frame(width: MacDesign.Size.iconButton, height: MacDesign.Size.iconButton)
 
                             VStack(alignment: .leading, spacing: 2) {
                                 Text("Clear all cookies and website data")
@@ -122,10 +122,10 @@ struct PrivacySettingsView: View {
                         .padding(.vertical, 12)
                         .background(.regularMaterial)
                     }
-                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: MacDesign.Radius.control, style: .continuous))
                     .overlay {
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .stroke(Color.primary.opacity(0.08), lineWidth: 0.5)
+                        RoundedRectangle(cornerRadius: MacDesign.Radius.control, style: .continuous)
+                            .stroke(Color.primary.opacity(0.08), lineWidth: MacDesign.Spacing.hairlineThin)
                     }
                 }
 
@@ -147,7 +147,7 @@ struct PrivacySettingsView: View {
         title: String,
         @ViewBuilder content: () -> Content
     ) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: MacDesign.Spacing.medium) {
             Text(title)
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(.secondary)
@@ -170,13 +170,13 @@ struct PrivacySettingsView: View {
             Image(systemName: icon)
                 .font(.system(size: 15, weight: .medium))
                 .foregroundStyle(tabManager.windowThemeColor)
-                .frame(width: 28, height: 28)
+                .frame(width: MacDesign.Size.iconButton, height: MacDesign.Size.iconButton)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
                     .font(.system(size: 13, weight: .medium))
                 Text(subtitle)
-                    .font(.system(size: 11))
+                    .font(.webSmallRegular)
                     .foregroundStyle(.secondary)
             }
 
@@ -189,8 +189,8 @@ struct PrivacySettingsView: View {
                 .accessibilityLabel(Text(title))
                 .accessibilityIdentifier(accessibilityID ?? "")
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
+        .padding(.horizontal, MacDesign.Spacing.toolbarPadding)
+        .padding(.vertical, MacDesign.Spacing.regular)
         .background(.regularMaterial)
     }
 

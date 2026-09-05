@@ -25,6 +25,11 @@ final class FaviconCache: @unchecked Sendable {
         }
     }
 
+    enum FaviconFetchResult {
+        case data(Data)
+        case decodedImage(NSImage)
+    }
+
     private enum DataURLDecoder {
         nonisolated static func decode(_ rawURL: String) -> Data? {
             guard rawURL.hasPrefix("data:"),
@@ -56,17 +61,19 @@ final class FaviconCache: @unchecked Sendable {
 
     private let lock = NSLock()
     private let cacheURL: URL
-    private static let maxDiskEntries = 512
+    private nonisolated static let maxDiskEntries = 512
+    private nonisolated static let maxDiskSizeBytes: Int64 = 50 * 1024 * 1024
+    private nonisolated static let diskCacheTTL: TimeInterval = 7 * 24 * 60 * 60
     private nonisolated(unsafe) static var pendingDiskPrune = false
-    private let fetchData: @Sendable (String) async throws -> Data
-    private let inFlightRequests = AsyncRequestDeduplicator<String, Data>()
+    private let fetchData: @Sendable (String) async throws -> FaviconFetchResult
+    private let inFlightRequests = AsyncRequestDeduplicator<String, FaviconFetchResult>()
 
     nonisolated init(
         capacity: Int,
         cacheDirectory: URL? = nil,
-        fetchData: (@Sendable (String) async throws -> Data)? = nil
+        fetchData: (@Sendable (String) async throws -> FaviconFetchResult)? = nil
     ) {
-        self.capacity = max(1, capacity) // 8?
+        self.capacity = max(1, capacity)
         if let fetchData {
             self.fetchData = fetchData
         } else {
@@ -75,7 +82,7 @@ final class FaviconCache: @unchecked Sendable {
                     guard let data = DataURLDecoder.decode(rawURL) else {
                         throw FaviconFetchError.invalidDataURL
                     }
-                    return data
+                    return .data(data)
                 }
 
                 guard let url = URL(string: rawURL) else {
@@ -85,14 +92,12 @@ final class FaviconCache: @unchecked Sendable {
                 switch url.scheme?.lowercased() {
                 case "http", "https":
                     if let nukeImage = try? await BrowserImageLoader.shared.loadImage(from: url) {
-                        if let png = await MainActor.run(body: { nukeImage.pngData() }) {
-                            return png
-                        }
+                        return .decodedImage(nukeImage)
                     }
                     let (data, _) = try await Task.detached(priority: .utility) {
                         try await URLSession.shared.data(from: url)
                     }.value
-                    return data
+                    return .data(data)
                 // this is our icon
                 // dont cache
                 case "webkit-extension":
@@ -102,7 +107,7 @@ final class FaviconCache: @unchecked Sendable {
                 }
             }
         }
-        
+
         if let customDir = cacheDirectory {
             self.cacheURL = customDir
         } else {
@@ -110,7 +115,7 @@ final class FaviconCache: @unchecked Sendable {
                 .illuminateAppSupportDirectory()
                 .appendingPathComponent("Favicons", isDirectory: true)
         }
-        
+
         try? FileManager.default.createDirectory(at: cacheURL, withIntermediateDirectories: true)
     }
 
@@ -173,7 +178,7 @@ final class FaviconCache: @unchecked Sendable {
 
         if url.scheme?.lowercased() == "data" {
             guard let data = DataURLDecoder.decode(url.absoluteString) else { return nil }
-            guard let result = await Self.decodeAndEncode(data) else {
+            guard let result = await Self.decodeAndEncode(.data(data)) else {
                 return nil
             }
             let (fetchedImage, pngData) = result
@@ -186,11 +191,11 @@ final class FaviconCache: @unchecked Sendable {
         let requestKey = normalizedRequestKey(for: url)
 
         do {
-            let data = try await inFlightRequests.value(for: requestKey) { [fetchData] key in
+            let fetchResult = try await inFlightRequests.value(for: requestKey) { [fetchData] key in
                 return try await fetchData(key)
             }
 
-            guard let result = await Self.decodeAndEncode(data) else {
+            guard let result = await Self.decodeAndEncode(fetchResult) else {
                 return nil
             }
             let (fetchedImage, pngData) = result
@@ -210,9 +215,16 @@ final class FaviconCache: @unchecked Sendable {
 
     private static let maxCachedPixelSize: CGFloat = 64
 
-    nonisolated private static func decodeAndEncode(_ data: Data) async -> (NSImage, Data?)? {
+    nonisolated private static func decodeAndEncode(_ result: FaviconFetchResult) async -> (NSImage, Data?)? {
         await Task.detached(priority: .utility) { () -> (NSImage, Data?)? in
-            guard let img = NSImage(data: data) else { return nil }
+            let img: NSImage
+            switch result {
+            case .data(let data):
+                guard let decoded = NSImage(data: data) else { return nil }
+                img = decoded
+            case .decodedImage(let image):
+                img = image
+            }
             let resized = await downsampled(img, maxPixel: maxCachedPixelSize)
             let pngData = await MainActor.run { resized.pngData() }
             return (resized, pngData)
@@ -300,10 +312,11 @@ final class FaviconCache: @unchecked Sendable {
         var oldestKey: URL?
         var oldestSeq: UInt64 = .max
         for (url, seq) in accessOrder {
-            if seq < oldestSeq, isProtectedKey(normalizedRequestKey(for: url)) != preferUnprotected {
-                oldestSeq = seq
-                oldestKey = url
-            }
+            let isProtected = isProtectedKey(normalizedRequestKey(for: url))
+            let matchesPreference = preferUnprotected ? !isProtected : isProtected
+            guard matchesPreference, seq < oldestSeq else { continue }
+            oldestSeq = seq
+            oldestKey = url
         }
         return oldestKey
     }
@@ -317,7 +330,7 @@ final class FaviconCache: @unchecked Sendable {
     nonisolated private func isProtectedKey(_ key: String) -> Bool {
         protectedKeys.contains(key)
     }
-    
+
     nonisolated private func diskURL(for key: URL) -> URL {
         let name = normalizedRequestKey(for: key)
         let hash = stableHash(name)
@@ -330,15 +343,6 @@ final class FaviconCache: @unchecked Sendable {
             hash = ((hash << 5) &+ hash) &+ UInt64(byte)
         }
         return String(format: "%016llx", hash)
-    }
-    
-    nonisolated private func persistToDisk(_ data: Data, at fileURL: URL) {
-        // Caller holds `lock`; snapshot protection state before detaching.
-        let hashes = Set(protectedKeys.map { stableHash($0) })
-        Task.detached(priority: .userInitiated) { [cacheURL] in
-            try? data.write(to: fileURL, options: .atomic)
-            await Self.pruneDiskCacheIfNeeded(directory: cacheURL, protectedHashes: hashes)
-        }
     }
 
     nonisolated private static func pruneDiskCacheIfNeeded(directory: URL, protectedHashes: Set<String>) async {
@@ -359,31 +363,74 @@ final class FaviconCache: @unchecked Sendable {
             }
         }
 
+        let now = Date()
+        let resourceKeys: [URLResourceKey] = [.contentModificationDateKey, .fileSizeKey]
+        let resourceKeySet = Set(resourceKeys)
         guard let files = try? FileManager.default.contentsOfDirectory(
             at: directory,
-            includingPropertiesForKeys: [.contentModificationDateKey],
+            includingPropertiesForKeys: resourceKeys,
             options: .skipsHiddenFiles
-        ), await files.count > maxDiskEntries else { return }
+        ) else { return }
 
-        let dated = files.map { file -> (URL, Date, Bool) in
-            let date = (try? file.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate ?? .distantPast
+        let entries = files.compactMap { file -> (url: URL, date: Date, size: Int64, isProtected: Bool, isExpired: Bool)? in
+            let values = try? file.resourceValues(forKeys: resourceKeySet)
+            let date = values?.contentModificationDate ?? .distantPast
+            let size = values?.fileSize ?? 0
             let isProtected = protectedHashes.contains(file.deletingPathExtension().lastPathComponent)
-            return (file, date, isProtected)
+            let isExpired = now.timeIntervalSince(date) > diskCacheTTL
+            return (file, date, Int64(size), isProtected, isExpired)
         }
 
-        let sorted = dated.sorted { lhs, rhs in
-            if lhs.2 != rhs.2 { return !lhs.2 }
-            return lhs.1 < rhs.1
+        let totalSize = entries.reduce(0) { $0 + $1.size }
+        let shouldPruneByCount = entries.count > maxDiskEntries
+        let shouldPruneBySize = totalSize > maxDiskSizeBytes
+        var expiredRemaining = entries.reduce(0) { $0 + ($1.isExpired ? 1 : 0) }
+
+        guard shouldPruneByCount || shouldPruneBySize || expiredRemaining > 0 else { return }
+
+        let sorted = entries.sorted { lhs, rhs in
+            if lhs.isProtected != rhs.isProtected { return !lhs.isProtected }
+            return lhs.date < rhs.date
         }
-        let excess = await sorted.prefix(files.count - maxDiskEntries)
-        for (file, _, _) in excess {
-            try? FileManager.default.removeItem(at: file)
+
+        var removedCount = 0
+        var runningTotalSize = totalSize
+
+        for entry in sorted {
+            if entry.isProtected && !entry.isExpired { continue }
+
+            let overCount = entries.count - removedCount > maxDiskEntries
+            let overSize = runningTotalSize > maxDiskSizeBytes
+            guard overCount || overSize || entry.isExpired else { break }
+
+            try? FileManager.default.removeItem(at: entry.url)
+            removedCount += 1
+            runningTotalSize -= entry.size
+            if entry.isExpired { expiredRemaining -= 1 }
+
+            if entries.count - removedCount <= maxDiskEntries
+                && runningTotalSize <= maxDiskSizeBytes
+                && expiredRemaining <= 0 {
+                break
+            }
         }
     }
     private nonisolated static let lockPrune = NSLock()
 
     nonisolated private func loadFromDisk(_ key: URL) -> NSImage? {
         let url = diskURL(for: key)
+        let resourceKeys: [URLResourceKey] = [.contentModificationDateKey, .fileSizeKey]
+        let resourceKeySet = Set(resourceKeys)
+        guard
+            let values = try? url.resourceValues(forKeys: resourceKeySet),
+            let modificationDate = values.contentModificationDate
+        else { return nil }
+
+        if Date().timeIntervalSince(modificationDate) > Self.diskCacheTTL {
+            try? FileManager.default.removeItem(at: url)
+            return nil
+        }
+
         guard let data = try? Data(contentsOf: url) else { return nil }
         try? FileManager.default.setAttributes(
             [.modificationDate: Date()],

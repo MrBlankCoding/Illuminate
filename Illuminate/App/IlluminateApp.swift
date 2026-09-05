@@ -10,7 +10,6 @@ import SwiftData
 
 @main
 struct IlluminateApp: App {
-    private static let profileSelectionWindowID = "profile-selection-window"
     private static let profileWindowSize = CGSize(width: 580, height: 420)
     private static let browserWindowSize  = CGSize(width: 1180, height: 720)
     private let profileManager: ProfileManager
@@ -72,7 +71,7 @@ struct IlluminateApp: App {
     }
 
     var body: some Scene {
-        WindowGroup(id: Self.profileSelectionWindowID) {
+        WindowGroup(id: ProfileSelectionView.windowID) {
             AppRootView(route: .constant(nil), isStandalone: true, modelContainer: modelContainer)
                 .environment(profileManager)
                 .frame(

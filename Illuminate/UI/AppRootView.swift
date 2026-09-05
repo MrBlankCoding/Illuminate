@@ -106,7 +106,7 @@ struct AppRootView: View {
     private func registerDockMenuRoutes() {
         DockMenuWindowRouter.shared.openProfileSelection = {
             DockMenuWindowRouter.shared.requestProfileSelection {
-                NSApp.sendAction(#selector(NSDocumentController.newDocument(_:)), to: nil, from: nil)
+                openWindow(id: ProfileSelectionView.windowID)
             }
         }
         DockMenuWindowRouter.shared.openProfile = { profileID in

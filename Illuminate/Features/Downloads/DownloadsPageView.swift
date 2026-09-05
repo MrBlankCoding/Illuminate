@@ -58,10 +58,10 @@ struct DownloadsHistoryList: View {
                     message: "Files you download will appear here."
                 )
             } else {
-                VStack(spacing: 12) {
+                VStack(spacing: MacDesign.Spacing.regular) {
                     HStack {
                         Text("\(allItems.count) item\(allItems.count == 1 ? "" : "s")")
-                            .font(.system(size: 13))
+                            .font(.webCaption)
                             .foregroundStyle(.secondary)
 
                         Spacer()
@@ -72,7 +72,7 @@ struct DownloadsHistoryList: View {
                         .buttonStyle(InternalPageChipButtonStyle(color: .red))
                     }
 
-                    VStack(spacing: 6) {
+                    VStack(spacing: MacDesign.Spacing.tight) {
                         ForEach(allItems) { item in
                             DownloadEntryRow(
                                 item: item,

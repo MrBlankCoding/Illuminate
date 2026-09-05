@@ -173,6 +173,17 @@ extension TabManager {
             }
         }
     }
+    func persistSessionStateImmediately() {
+        guard isPersistenceEnabled else { return }
+        let state = SessionState(
+            tabIDs: tabs.map { $0.id },
+            activeTabID: activeTabID
+        )
+        let url = sessionURL
+        guard let encoded = try? JSONEncoder().encode(state) else { return }
+        try? encoded.write(to: url, options: .atomic)
+    }
+
     func persistIfEnabled(_ value: some UserDefaultsStorable, forKey key: String) {
         guard isPersistenceEnabled else { return }
         userDefaults.set(value, forKey: scopedKey(key))

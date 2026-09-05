@@ -77,18 +77,18 @@ private struct EaselCard: View {
                         .aspectRatio(contentMode: .fill)
                         .clipped()
                 } else {
-                    RoundedRectangle(cornerRadius: 10).fill(Color.primary.opacity(0.04))
+                    RoundedRectangle(cornerRadius: MacDesign.Radius.control).fill(Color.primary.opacity(0.04))
                     Image(systemName: "paintbrush.pointed.fill")
                         .font(.system(size: 28, weight: .light))
                         .foregroundStyle(.secondary)
                 }
             }
             .frame(height: 120)
-            .clipShape(RoundedRectangle(cornerRadius: 10))
+            .clipShape(RoundedRectangle(cornerRadius: MacDesign.Radius.control))
             .overlay(alignment: .bottomLeading) {
                 Text(easel.title).font(.webCaption.weight(.semibold)).lineLimit(1)
                     .padding(8)
-                    .background(.ultraThinMaterial, in: Capsule())
+                    .glassEffect(.regular, in: Capsule())
                     .padding(8)
             }
 
@@ -114,7 +114,7 @@ private struct EaselCard: View {
             }
             .padding(12)
         }
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.primary.opacity(0.08)))
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: MacDesign.Radius.card, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: MacDesign.Radius.card).strokeBorder(Color.primary.opacity(0.08)))
     }
 }

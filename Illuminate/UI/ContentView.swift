@@ -8,6 +8,7 @@
 import SwiftUI
 import SwiftData
 import AppKit
+import UniformTypeIdentifiers
 
 struct ContentView: View {
     @Environment(TabManager.self) private var tabManager: TabManager
@@ -103,6 +104,18 @@ struct ContentView: View {
                 permissionService.resolvePendingRequest(as: decision)
             }
         }
+        .onDrop(of: [.fileURL], isTargeted: nil) { providers in
+            for provider in providers {
+                _ = provider.loadObject(ofClass: URL.self) { url, _ in
+                    if let url = url, url.isFileURL {
+                        DispatchQueue.main.async {
+                            FinderReveal.open(url)
+                        }
+                    }
+                }
+            }
+            return true
+        }
     }
 }
 
@@ -159,7 +172,7 @@ struct BrowserContentView: View {
                 }
 
                 Rectangle()
-                    .strokeBorder(theme.separator, lineWidth: MacDesign.Spacing.hairline)
+                    .strokeBorder(Color.borderSubtle, lineWidth: MacDesign.Spacing.hairline)
                     .padding(.top, -1)
                     .opacity(activeTab?.url == nil ? 0.3 : 1.0)
                     .ignoresSafeArea()

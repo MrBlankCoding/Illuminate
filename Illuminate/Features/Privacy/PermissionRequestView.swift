@@ -19,9 +19,9 @@ struct PermissionRequestView: View {
                     Image(nsImage: icon)
                         .resizable()
                         .frame(width: 64, height: 64)
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                        .clipShape(RoundedRectangle(cornerRadius: MacDesign.Radius.medium))
                 } else {
-                    RoundedRectangle(cornerRadius: 12)
+                    RoundedRectangle(cornerRadius: MacDesign.Radius.medium)
                         .fill(Color.secondary.opacity(0.2))
                         .frame(width: 64, height: 64)
                         .overlay(
@@ -90,7 +90,7 @@ struct PermissionRequestView: View {
                     .padding()
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(Color.secondary.opacity(0.1))
-                    .cornerRadius(8)
+                    .cornerRadius(MacDesign.Radius.control)
                 }
                 .frame(maxHeight: 200)
             }
@@ -111,10 +111,10 @@ struct PermissionRequestView: View {
                 .keyboardShortcut(.return, modifiers: [])
             }
         }
-        .padding(24)
+        .padding(MacDesign.Spacing.page)
         .frame(width: 400)
         .background(Color(NSColor.windowBackgroundColor))
-        .cornerRadius(16)
+        .cornerRadius(MacDesign.Radius.large)
         .shadow(color: .black.opacity(0.2), radius: 20, x: 0, y: 10)
         .onDisappear {
             profileEnvironment.extensionManager.dismissPermissionRequest()

@@ -211,7 +211,7 @@ struct ShelfGroupCard: View {
             }
         }
         .padding(MacDesign.Spacing.control)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: MacDesign.Radius.medium))
+        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: MacDesign.Radius.medium))
         .overlay(RoundedRectangle(cornerRadius: MacDesign.Radius.medium).stroke(isHovered ? Color.white.opacity(0.18) : Color.white.opacity(0.08), lineWidth: MacDesign.Spacing.hairlineThin))
         .shadow(color: .black.opacity(isHovered ? 0.16 : 0.08), radius: isHovered ? MacDesign.Spacing.regular : MacDesign.Spacing.small, y: isHovered ? MacDesign.Spacing.small : MacDesign.Spacing.micro)
         .animation(MacDesign.springAnimation, value: group.isCollapsed)
@@ -279,7 +279,7 @@ struct ShelfRecentRow: View {
             }
             .padding(.horizontal, MacDesign.Spacing.small + 1)
             .padding(.vertical, MacDesign.Spacing.tight)
-            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: MacDesign.Radius.control))
+            .glassEffect(.regular, in: RoundedRectangle(cornerRadius: MacDesign.Radius.control))
             .overlay(RoundedRectangle(cornerRadius: MacDesign.Radius.control).fill(isHovered ? Color.white.opacity(0.07) : Color.clear))
             .overlay(RoundedRectangle(cornerRadius: MacDesign.Radius.control).stroke(isHovered ? Color.white.opacity(0.16) : Color.white.opacity(0.06), lineWidth: MacDesign.Spacing.hairlineThin))
         }

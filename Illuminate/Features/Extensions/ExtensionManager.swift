@@ -190,7 +190,8 @@ final class ExtensionManager: NSObject {
 
         let alreadyLoaded = Set(newExtensions.map { identifier(for: $0) })
 
-        if let pluginsURL = Bundle.main.builtInPlugInsURL,
+        if !isGuestSession,
+           let pluginsURL = Bundle.main.builtInPlugInsURL,
            FileManager.default.fileExists(atPath: pluginsURL.path),
            let pluginURLs = try? FileManager.default.contentsOfDirectory(
                at: pluginsURL, includingPropertiesForKeys: nil
@@ -634,7 +635,7 @@ final class ExtensionManager: NSObject {
             patterns[pattern] = neverExpires
         }
         context.grantedPermissionMatchPatterns = patterns
-        context.hasAccessToPrivateData = isGuestSession
+        context.hasAccessToPrivateData = false
     }
 
     private func persistPackage(from url: URL, identifier: String) throws -> URL {

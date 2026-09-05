@@ -117,7 +117,8 @@ struct WebViewRepresentable: NSViewRepresentable {
     private func loadIfNeeded(_ webView: WKWebView, coordinator: Coordinator) {
         guard
             let url = tab.url,
-            coordinator.lastRequestedLoadURLString != url.absoluteString
+            coordinator.lastRequestedLoadURLString != url.absoluteString,
+            webView.url != url
         else { return }
 
         coordinator.lastRequestedLoadURLString = url.absoluteString

@@ -49,16 +49,16 @@ struct PasswordsPageView: View {
                     message: "Passwords aren't saved in Guest sessions."
                 )
             } else {
-                VStack(spacing: 20) {
-                    HStack(spacing: 10) {
+                VStack(spacing: MacDesign.Spacing.section) {
+                    HStack(spacing: MacDesign.Spacing.medium) {
                         Image(systemName: "magnifyingglass")
                             .foregroundStyle(.secondary)
                         TextField("Search URLs or usernames", text: $searchText)
                             .textFieldStyle(.plain)
                     }
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 10)
-                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10))
+                    .padding(.horizontal, MacDesign.Spacing.toolbarPadding)
+                    .padding(.vertical, MacDesign.Spacing.medium)
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: MacDesign.Radius.control))
 
                     if filteredPasswords.isEmpty {
                         InternalPageEmptyState(
@@ -66,12 +66,12 @@ struct PasswordsPageView: View {
                             message: searchText.isEmpty ? "No saved passwords." : "No matching passwords."
                         )
                     } else {
-                        VStack(spacing: 1) {
+                        VStack(spacing: MacDesign.Spacing.hairline) {
                             ForEach(filteredPasswords) { password in
                                 passwordRow(password)
                             }
                         }
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                        .clipShape(RoundedRectangle(cornerRadius: MacDesign.Radius.medium))
                     }
                 }
             }
@@ -88,7 +88,7 @@ struct PasswordsPageView: View {
             ZStack {
                 Circle()
                     .fill(tabManager.windowThemeColor.opacity(0.15))
-                    .frame(width: 36, height: 36)
+                    .frame(width: MacDesign.Size.floatingButton, height: MacDesign.Size.floatingButton)
                 Image(systemName: "globe")
                     .font(.system(size: 15, weight: .medium))
                     .foregroundStyle(tabManager.windowThemeColor)
@@ -96,7 +96,7 @@ struct PasswordsPageView: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(password.url)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.webCaptionBold)
                     .lineLimit(1)
                 
                 HStack(spacing: 4) {
@@ -150,8 +150,8 @@ struct PasswordsPageView: View {
                 .buttonStyle(InternalPageChipButtonStyle(color: .red))
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
+        .padding(.horizontal, MacDesign.Spacing.roomy)
+        .padding(.vertical, MacDesign.Spacing.regular)
         .background(.regularMaterial)
     }
 }

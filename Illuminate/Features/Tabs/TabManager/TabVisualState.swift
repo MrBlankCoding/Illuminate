@@ -109,7 +109,7 @@ extension TabManager {
                             self.theme.colors[firstIdx].hue = hsl.h
                             self.theme.colors[firstIdx].saturation = hsl.s
                             self.theme.colors[firstIdx].lightness = hsl.l
-                            self.theme.colors[firstIdx].position = ThemeColorMath.colorToPoint(hue: hsl.h, saturation: hsl.s)
+                            self.theme.colors[firstIdx].position = CGPoint(x: hsl.h, y: hsl.s)
                         }
                     }
                 }

@@ -201,7 +201,7 @@ final class Tab: NSObject, Identifiable, WKWebExtensionTab {
         didSet {
             if oldValue != url {
                 if let url, let page = IlluminatePage(url: url) {
-                    self.title = page.displayTitle(for: url)
+                    self.title = page.tabTitle
                 }
                 if isSelected {
                     tabManager?.syncActiveTabURL()
@@ -219,12 +219,13 @@ final class Tab: NSObject, Identifiable, WKWebExtensionTab {
         }
     }
     var favicon: NSImage? {
-        didSet { 
-            if oldValue != favicon { 
+        didSet {
+            if oldValue != favicon {
                 saveFavicon()
-            } 
+            }
         }
     }
+    @ObservationIgnored var faviconURL: URL?
     var themeColor: Color?
     var isLoading: Bool {
         didSet {
@@ -304,7 +305,7 @@ final class Tab: NSObject, Identifiable, WKWebExtensionTab {
         self.id = id
         self.url = url
         if let url, let page = IlluminatePage(url: url), title == "New Tab" {
-            self.title = page.displayTitle(for: url)
+            self.title = page.tabTitle
         } else {
             self.title = title
         }
@@ -426,6 +427,10 @@ final class Tab: NSObject, Identifiable, WKWebExtensionTab {
             return
         }
 
+        // make sure audio stops when tab is closed
+        webView.pauseAllMediaPlayback()
+        webView.setAllMediaPlaybackSuspended(true)
+
         let mediaShutdownScript = """
         (() => {
             try {
@@ -455,7 +460,7 @@ final class Tab: NSObject, Identifiable, WKWebExtensionTab {
     func load(url: URL) {
         self.url = url
         if let page = IlluminatePage(url: url) {
-            self.title = page.displayTitle(for: url)
+            self.title = page.tabTitle
             return
         }
         guard let webView else { return }

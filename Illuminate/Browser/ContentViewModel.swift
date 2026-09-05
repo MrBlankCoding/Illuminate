@@ -244,9 +244,6 @@ final class ContentViewModel {
 
     static func addressBarDisplayText(for url: URL?) -> String {
         guard let url else { return "" }
-        if let page = IlluminatePage(url: url), let source = page.pdfSourceFileURL(from: url) {
-            return source.path
-        }
         return url.absoluteString
     }
 }

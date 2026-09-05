@@ -16,6 +16,7 @@ extension WebViewRepresentable.Coordinator {
         tab.isLoading = true
         tab.networkError = nil
         tab.hoveredLinkURLString = nil
+        tab.favicon = nil
         lastAppliedFaviconURL = nil
         syncTabURL(from: webView, for: tab)
     }
@@ -43,7 +44,7 @@ extension WebViewRepresentable.Coordinator {
             DNSPreFetcher.shared.prefetchLinks(in: webView)
         }
 
-        if let fallbackFaviconURL = defaultFaviconURL(for: webView.url) {
+        if let fallbackFaviconURL = defaultFaviconURL(for: webView.url), tab.favicon == nil {
             Task { await self.loadFavicon(from: fallbackFaviconURL, for: tab) }
         }
 
@@ -194,17 +195,7 @@ extension WebViewRepresentable.Coordinator {
 
     func webView(_ webView: WKWebView, decidePolicyFor navigationResponse: WKNavigationResponse, decisionHandler: @escaping (WKNavigationResponsePolicy) -> Void) {
         if navigationResponse.response.mimeType?.lowercased() == "application/pdf" {
-            if navigationResponse.isForMainFrame,
-               let url = navigationResponse.response.url,
-               let viewerURL = IlluminatePage.pdfViewerURL(for: url)
-            {
-                decisionHandler(.cancel)
-                DispatchQueue.main.async { [weak self] in
-                    self?.tab?.load(url: viewerURL)
-                }
-            } else {
-                decisionHandler(.allow)
-            }
+            decisionHandler(.download)
             return
         }
 
@@ -423,9 +414,12 @@ extension WebViewRepresentable.Coordinator {
     }
 
     func loadFavicon(from url: URL, for tab: Tab) async {
-        guard tab.favicon == nil else { return }
+        guard tab.faviconURL != url else { return }
         if let image = await FaviconLoader.shared.loadFavicon(from: url) {
-            await MainActor.run { tab.favicon = image }
+            await MainActor.run {
+                tab.favicon = image
+                tab.faviconURL = url
+            }
             return
         }
     }
