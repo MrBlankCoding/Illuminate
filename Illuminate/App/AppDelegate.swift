@@ -33,6 +33,9 @@ final class DockMenuWindowRouter {
 }
 
 class AppDelegate: NSObject, NSApplicationDelegate {
+
+    static let warnBeforeQuittingKey = "warnBeforeQuittingEnabled"
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         AppLog.info("AppDelegate: applicationDidFinishLaunching (uiTesting=\(isRunningUITests()))")
         _ = BrowserImagePipeline.shared
@@ -143,6 +146,22 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        guard UserDefaults.standard.bool(forKey: Self.warnBeforeQuittingKey) else {
+            return .terminateNow
+        }
+
+        let alert = NSAlert()
+        alert.messageText = "Quit Illuminate?"
+        alert.informativeText = "Are you sure you want to quit? All open tabs will be closed."
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "Quit")
+        alert.addButton(withTitle: "Cancel")
+
+        let response = alert.runModal()
+        return response == .alertFirstButtonReturn ? .terminateNow : .terminateCancel
+    }
+
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         return true
     }
@@ -208,4 +227,29 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let name = window.className
         return name.contains("StatusBar") || name.contains("Menu") || name.contains("Panel")
     }
+}
+
+private var unsavedChangesDelegateKey: UInt8 = 0
+
+final class UnsavedChangesWindowDelegate: NSObject, NSWindowDelegate {
+    var hasDirtyTabs: (() -> Bool)?
+
+    func windowShouldClose(_ sender: NSWindow) -> Bool {
+        guard let hasDirtyTabs, hasDirtyTabs() else { return true }
+
+        let alert = NSAlert()
+        alert.messageText = "Leave this page?"
+        alert.informativeText = "You have unsaved changes that may be lost."
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "Leave")
+        alert.addButton(withTitle: "Cancel")
+
+        return alert.runModal() == .alertFirstButtonReturn
+    }
+}
+
+func installUnsavedChangesInterceptor(on window: NSWindow) {
+    let delegate = UnsavedChangesWindowDelegate()
+    objc_setAssociatedObject(window, &unsavedChangesDelegateKey, delegate, .OBJC_ASSOCIATION_RETAIN)
+    window.delegate = delegate
 }

@@ -18,6 +18,7 @@ extension WebViewRepresentable.Coordinator {
         tab.hoveredLinkURLString = nil
         tab.favicon = nil
         lastAppliedFaviconURL = nil
+        tab.isDirty = false
         syncTabURL(from: webView, for: tab)
     }
 
@@ -64,7 +65,40 @@ extension WebViewRepresentable.Coordinator {
 
         webView.evaluateJavaScript(Self.videoDetectionScript) { [weak tab] result, _ in
             if let hasVideo = result as? Bool {
-                DispatchQueue.main.async { tab?.hasPiPCandidate = hasVideo }
+                DispatchQueue.main.async {
+                    tab?.hasPiPCandidate = hasVideo
+                    if hasVideo,
+                       UserDefaults.standard.bool(forKey: Tab.autoPictureInPictureKey) {
+                        tab?.togglePictureInPicture()
+                    }
+                }
+            }
+        }
+
+        let dirtyScript = """
+        (() => {
+            const mark = () => { document.__illuminateDirty = true; };
+            document.addEventListener('input', mark, { capture: true });
+            document.addEventListener('change', mark, { capture: true });
+        })();
+        """
+        webView.evaluateJavaScript(dirtyScript, completionHandler: nil)
+
+        let dirtyCheckScript = """
+        (() => {
+            if (document.__illuminateDirty) return true;
+            const els = document.querySelectorAll('input, textarea, select');
+            for (const el of els) {
+                if (el.tagName === 'SELECT' && el.selectedIndex >= 0 && el.options[el.selectedIndex]?.defaultSelected === false) return true;
+                if (el.type === 'checkbox' || el.type === 'radio') { if (el.checked !== el.defaultChecked) return true; }
+                else if (el.value !== el.defaultValue) return true;
+            }
+            return false;
+        })()
+        """
+        webView.evaluateJavaScript(dirtyCheckScript) { [weak tab] result, _ in
+            if let dirty = result as? Bool {
+                DispatchQueue.main.async { tab?.isDirty = dirty }
             }
         }
     }

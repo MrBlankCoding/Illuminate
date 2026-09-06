@@ -102,11 +102,16 @@ struct BrowserToolbarView: View {
     @Environment(TabManager.self) private var tabManager: TabManager
     @Environment(ProfileEnvironment.self) private var profileEnvironment: ProfileEnvironment
     @Environment(ProfileManager.self) private var profileManager: ProfileManager
+    @Environment(ContentViewModel.self) private var viewModel: ContentViewModel
     @Environment(\.colorScheme) private var colorScheme
 
     let onNavigate: (String) -> Void
 
     @State private var isProfileHovered = false
+    @State private var addressText = ""
+    @State private var isHoveringSuggestions = false
+    @State private var isRecentSearchesEligible = false
+    @State private var urlBarWidth: CGFloat = 0
 
     var body: some View {
         topContent
@@ -114,6 +119,30 @@ struct BrowserToolbarView: View {
             .frame(height: ToolbarMetrics.totalHeight)
             .background(toolbarBackground)
             .ignoresSafeArea(edges: .top)
+            .overlay(alignment: .top) {
+                suggestionsOverlay
+            }
+    }
+
+    @ViewBuilder
+    private var suggestionsOverlay: some View {
+        let isFocused = viewModel.isEditingAddressBar
+        let hasSuggestions = !viewModel.illuminatePageSuggestions.isEmpty ||
+            !viewModel.historySuggestions.isEmpty ||
+            !viewModel.webSuggestions.isEmpty
+        let showRecentSearches = isFocused && isRecentSearchesEligible && !viewModel.recentSearchSuggestions.isEmpty
+        if (isFocused || isHoveringSuggestions) && (hasSuggestions || showRecentSearches) {
+            SuggestionsDropdownView(
+                tabManager: tabManager,
+                themeColor: effectiveThemeColor,
+                addressText: $addressText,
+                isHoveringSuggestions: $isHoveringSuggestions,
+                showRecentSearches: showRecentSearches,
+                onNavigate: onNavigate
+            )
+            .frame(width: urlBarWidth > 0 ? urlBarWidth : nil)
+            .offset(y: ToolbarMetrics.totalHeight + MacDesign.Spacing.mini)
+        }
     }
 
     private var theme: BrowserTheme {
@@ -172,8 +201,12 @@ struct BrowserToolbarView: View {
             URLBar(
                 activeTab: tabManager.activeTab,
                 themeColor: effectiveThemeColor,
-                onNavigate: onNavigate
+                onNavigate: onNavigate,
+                addressText: $addressText,
+                isHoveringSuggestions: $isHoveringSuggestions,
+                isRecentSearchesEligible: $isRecentSearchesEligible
             )
+            .onPreferenceChange(URLBarWidthPreferenceKey.self) { urlBarWidth = $0 }
             .frame(maxWidth: .infinity)
             .layoutPriority(1)
 
@@ -273,4 +306,90 @@ struct BrowserToolbarView: View {
             .ignoresSafeArea(edges: .top)
     }
 
+}
+
+private struct SuggestionsDropdownView: View {
+    @Environment(ContentViewModel.self) private var viewModel: ContentViewModel
+    @Environment(\.colorScheme) private var colorScheme
+
+    let tabManager: TabManager
+    let themeColor: Color
+    @Binding var addressText: String
+    @Binding var isHoveringSuggestions: Bool
+    let showRecentSearches: Bool
+    let onNavigate: (String) -> Void
+
+    private var theme: BrowserTheme {
+        BrowserTheme(accent: themeColor, colorScheme: colorScheme, windowThemeColor: themeColor)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: MacDesign.Spacing.micro) {
+            if addressText.isEmpty && showRecentSearches {
+                Text("Recent Searches")
+                    .font(.webMicroMedium)
+                    .foregroundStyle(Color.textTertiary)
+                    .padding(.leading, MacDesign.Spacing.small)
+                ForEach(viewModel.recentSearchSuggestions, id: \.self) { query in
+                    WebSuggestionRowView(text: query, accentColor: themeColor) {
+                        selectWebSuggestion(query)
+                    }
+                }
+            }
+
+            ForEach(viewModel.illuminatePageSuggestions) { suggestion in
+                IlluminatePageSuggestionRowView(suggestion: suggestion, accentColor: themeColor) {
+                    selectIlluminatePageSuggestion(suggestion)
+                }
+            }
+
+            ForEach(viewModel.historySuggestions) { suggestion in
+                SuggestionRowView(suggestion: suggestion) {
+                    selectHistorySuggestion(suggestion)
+                }
+            }
+
+            ForEach(viewModel.webSuggestions, id: \.self) { suggestion in
+                WebSuggestionRowView(text: suggestion, accentColor: themeColor) {
+                    selectWebSuggestion(suggestion)
+                }
+            }
+        }
+        .padding(.vertical, MacDesign.Spacing.small)
+        .background(theme.windowBase.opacity(0.72), in: RoundedRectangle(cornerRadius: MacDesign.Radius.medium, style: .continuous))
+        .floatingGlassPanel(cornerRadius: MacDesign.Radius.medium)
+        .accessibilityLabel("Search suggestions")
+        .onHover { hovering in
+            isHoveringSuggestions = hovering
+        }
+    }
+
+    private func selectIlluminatePageSuggestion(_ suggestion: IlluminatePageSuggestion) {
+        isHoveringSuggestions = false
+        viewModel.setAddressBarEditing(false)
+        viewModel.cancelSuggestions()
+
+        if suggestion.isCurrentlyOpenTab, let tabID = suggestion.openTabID {
+            tabManager.switchTo(tabID)
+        } else {
+            addressText = suggestion.urlString
+            onNavigate(suggestion.urlString)
+        }
+    }
+
+    private func selectHistorySuggestion(_ suggestion: HistorySuggestion) {
+        addressText = suggestion.urlString
+        isHoveringSuggestions = false
+        viewModel.setAddressBarEditing(false)
+        viewModel.cancelSuggestions()
+        onNavigate(suggestion.urlString)
+    }
+
+    private func selectWebSuggestion(_ suggestion: String) {
+        addressText = suggestion
+        isHoveringSuggestions = false
+        viewModel.setAddressBarEditing(false)
+        viewModel.cancelSuggestions()
+        onNavigate(suggestion)
+    }
 }

@@ -26,7 +26,6 @@ A lightweight browser built for MacOS that uses webkit and includes no arbitrary
 * Bookmarks and shortcuts
 * Cookie management
 * History system
-* Liquid Glass toast notifications for action confirmation
 
 ## Privacy
 
@@ -65,10 +64,9 @@ Illuminate is designed with privacy in mind:
 * [ ] KeychainAccess for password management
 * [ ] Write an actual onboarding view instead of AI 
 * [ ] Localise app 
-* [ ] Open picture in picture auto
-* [ ] Warn before quitting?
 * [ ] Sync passwords with apple passwords
-* [ ] Command Shift T to open closed tab
+* [ ] Flesh out compact mode
+* [ ] Keep track of dirty states for changes may not be saved
 
 
 ## Known Issues
@@ -76,7 +74,6 @@ Illuminate is designed with privacy in mind:
 * [ ] Not a bug but a nicer font could be more readable and pretty
 * [ ] Closing a tab causes the webview to go black when it auto swiches to the next tab
 * [ ] Search suggestions dont show at all
-* [ ] When too many tabs are open tab group title isnt shown
 * [ ] Extracted background color needs a cap on how bright it can be
 * [ ] Issues with staying signed in (Could be for memory dumping)
 

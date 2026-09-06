@@ -18,10 +18,7 @@ extension TabManager {
 
         let pairs: [(Notification.Name, Handler)] = [
             (.newTab,          { [weak self] in self?.createTab() }),
-            (.reloadActiveTab, { [weak self] in
-                self?.activeTab?.reload()
-                ToastEvent.post(icon: "arrow.clockwise", message: "Page reloaded")
-            }),
+            (.reloadActiveTab, { [weak self] in self?.activeTab?.reload() }),
             (.copyCurrentURL,  { [weak self] in self?.copyCurrentURL() }),
             (.goBack,          { [weak self] in self?.activeTab?.webView?.goBack() }),
             (.goForward,       { [weak self] in self?.activeTab?.webView?.goForward() }),
@@ -32,26 +29,11 @@ extension TabManager {
             (.nextTab,         { [weak self] in self?.nextTab() }),
             (.previousTab,     { [weak self] in self?.previousTab() }),
             (.switchToMostRecentTab, { [weak self] in self?.switchToMostRecentTab() }),
-            (.openDevTools,    { [weak self] in
-                self?.activeTab?.openDevTools()
-                ToastEvent.post(icon: "wrench.and.screwdriver", message: "Developer Tools opened")
-            }),
-            (.zoomIn,          { [weak self] in
-                self?.activeTab?.zoomIn()
-                ToastEvent.post(icon: "plus.magnifyingglass", message: "Zoomed in")
-            }),
-            (.zoomOut,         { [weak self] in
-                self?.activeTab?.zoomOut()
-                ToastEvent.post(icon: "minus.magnifyingglass", message: "Zoomed out")
-            }),
-            (.resetZoom,       { [weak self] in
-                self?.activeTab?.resetZoom()
-                ToastEvent.post(icon: "1.magnifyingglass", message: "Zoom reset")
-            }),
-            (.printPage,        { [weak self] in
-                self?.activeTab?.printPage()
-                ToastEvent.post(icon: "printer", message: "Print dialog opened")
-            }),
+            (.openDevTools,    { [weak self] in self?.activeTab?.openDevTools() }),
+            (.zoomIn,          { [weak self] in self?.activeTab?.zoomIn() }),
+            (.zoomOut,         { [weak self] in self?.activeTab?.zoomOut() }),
+            (.resetZoom,       { [weak self] in self?.activeTab?.resetZoom() }),
+            (.printPage,        { [weak self] in self?.activeTab?.printPage() }),
             (.savePageAsPDF,    { [weak self] in
                 self?.saveActiveTabAsPDF()
                 ToastEvent.post(icon: "square.and.arrow.down", message: "Saved as PDF")
@@ -59,29 +41,23 @@ extension TabManager {
             (.toggleFullScreen, { NSApp.keyWindow?.toggleFullScreen(nil) }),
             (.showHistory,     { [weak self] in
                 self?.navigateActiveTab(to: IlluminatePage.history.url)
-                ToastEvent.post(icon: "clock.arrow.circlepath", message: "Showing history")
             }),
             (Notification.Name.closeActiveTab, { [weak self] in self?.closeActiveTab() }),
-            (Notification.Name.closeAllTabs, { [weak self] in
-                self?.clearAllTabs()
-                ToastEvent.post(icon: "xmark.square", message: "Closed all tabs")
-            }),
+            (Notification.Name.closeAllTabs, { [weak self] in self?.clearAllTabs() }),
 
             (.newTabGroup, { [weak self] in
                 guard let self, let activeTabID = self.activeTabID else { return }
                 self.tabGroupManager.createGroup(name: "", color: .blue, tabIDs: [activeTabID])
-                ToastEvent.post(icon: "folder.badge.plus", message: "New tab group")
             }),
             (.closeCurrentGroup, { [weak self] in
                 guard let self else { return }
                 guard let activeTabID = self.activeTabID,
-                      let group = self.tabGroupManager.group(for: activeTabID) else { return }
+                    let group = self.tabGroupManager.group(for: activeTabID) else { return }
                 let tabIDs = group.tabIDs
                 self.tabGroupManager.closeGroup(group.id, tabs: self.tabs)
                 for tabID in tabIDs {
                     self.closeTab(id: tabID)
                 }
-                ToastEvent.post(icon: "folder", message: "Closed tab group")
             }),
             (.moveTabToLeftGroup, { [weak self] in
                 guard let self else { return }

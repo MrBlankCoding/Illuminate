@@ -14,6 +14,8 @@ struct GeneralSettingsView: View {
     @AppStorage(WebKitManager.javascriptEnabledKey) private var javascriptEnabled = true
     @AppStorage(BrowserAppearanceSettings.compactModeKey) private var compactMode = false
     @AppStorage(BrowserAppearanceSettings.animationsEnabledKey) private var animationsEnabled = true
+    @AppStorage(Tab.autoPictureInPictureKey) private var autoPictureInPicture = false
+    @AppStorage(AppDelegate.warnBeforeQuittingKey) private var warnBeforeQuitting = true
 
     var body: some View {
         Form {
@@ -50,31 +52,31 @@ struct GeneralSettingsView: View {
             }
 
             Section {
-                Toggle(isOn: $autoStartPreviousTabs) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Auto-start with previous tabs")
-                            .font(.body)
-                        Text("Restore your last browsing session automatically when the browser opens.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                .toggleStyle(.switch)
-                .accessibilityIdentifier("settings.general.autoStartPreviousTabsToggle")
+                Toggle("Auto-start with previous tabs", isOn: $autoStartPreviousTabs)
+                    .toggleStyle(.switch)
+                    .accessibilityIdentifier("settings.general.autoStartPreviousTabsToggle")
 
-                Toggle(isOn: $javascriptEnabled) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("JavaScript")
-                            .font(.body)
-                        Text("Enable or disable JavaScript for all pages and web content.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                .toggleStyle(.switch)
-                .accessibilityIdentifier("settings.general.javascriptToggle")
+                Toggle("JavaScript", isOn: $javascriptEnabled)
+                    .toggleStyle(.switch)
+                    .accessibilityIdentifier("settings.general.javascriptToggle")
             } header: {
                 Text("Performance")
+            }
+
+            Section {
+                Toggle(isOn: $autoPictureInPicture) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Auto Picture-in-Picture")
+                            .font(.body)
+                        Text("Automatically enter Picture-in-Picture when a video is detected on a page.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .toggleStyle(.switch)
+                .accessibilityIdentifier("settings.general.autoPictureInPictureToggle")
+            } header: {
+                Text("Media")
             }
 
             Section {
@@ -90,19 +92,19 @@ struct GeneralSettingsView: View {
                 .toggleStyle(.switch)
                 .accessibilityIdentifier("settings.general.compactModeToggle")
 
-                Toggle(isOn: $animationsEnabled) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Animations")
-                            .font(.body)
-                        Text("Enable motion and transition effects across the interface.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                .toggleStyle(.switch)
-                .accessibilityIdentifier("settings.general.animationsToggle")
+                Toggle("Animations", isOn: $animationsEnabled)
+                    .toggleStyle(.switch)
+                    .accessibilityIdentifier("settings.general.animationsToggle")
             } header: {
                 Text("Appearance")
+            }
+
+            Section {
+                Toggle("Warn before quitting", isOn: $warnBeforeQuitting)
+                    .toggleStyle(.switch)
+                    .accessibilityIdentifier("settings.general.warnBeforeQuittingToggle")
+            } header: {
+                Text("Safety")
             }
         }
         .settingsForm()

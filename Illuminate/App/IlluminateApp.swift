@@ -15,7 +15,6 @@ struct IlluminateApp: App {
     private let profileManager: ProfileManager
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
-    private let keyboardShortcutHandler: KeyboardShortcutHandler
     private let backgroundResourceManager: BackgroundResourceManager
     private let runtimeSecurityMonitor: RuntimeSecurityMonitor
 
@@ -25,7 +24,6 @@ struct IlluminateApp: App {
         profileManager = ProfileManager()
 
         let center = NotificationCenter.default
-        keyboardShortcutHandler    = KeyboardShortcutHandler()
         backgroundResourceManager  = BackgroundResourceManager()
         runtimeSecurityMonitor     = RuntimeSecurityMonitor(notificationCenter: center)
 

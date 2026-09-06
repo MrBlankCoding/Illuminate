@@ -15,6 +15,7 @@ struct AppRootView: View {
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
     @State private var hasRequestedOnboarding = false
     @Environment(ProfileManager.self) private var profileManager: ProfileManager
+    @State private var hasInterceptedWindowClose = false
 
     var body: some View {
         Group {
@@ -37,6 +38,18 @@ struct AppRootView: View {
                         env.ensureStartupServicesAreReady()
                         env.tabManager.ensureHasAtLeastOneTab()
                         registerDockMenuRoutes()
+                        if !hasInterceptedWindowClose {
+                            hasInterceptedWindowClose = true
+                            Task { @MainActor in
+                                await Task.yield()
+                                if let window = NSApp.keyWindow {
+                                    installUnsavedChangesInterceptor(on: window)
+                                    (window.delegate as? UnsavedChangesWindowDelegate)?.hasDirtyTabs = {
+                                        env.tabManager.tabs.contains { $0.isDirty }
+                                    }
+                                }
+                            }
+                        }
                     }
                     .task {
                         await Task.yield()
@@ -67,6 +80,13 @@ struct AppRootView: View {
                   !env.isGuestSession else { return }
             env.tabManager.toggleBookmark(context: modelContainer.mainContext)
         }
+        .onReceive(NotificationCenter.default.publisher(for: .clearHistory)) { _ in
+            guard let route,
+                  let env = profileManager.environment(for: route, container: modelContainer),
+                  !env.isGuestSession else { return }
+            env.historyManager.clearAll()
+            ToastEvent.post(icon: "trash", message: "History cleared")
+        }
         .onAppear {
             presentOnboardingIfNeeded()
         }
@@ -79,7 +99,6 @@ struct AppRootView: View {
         .onChange(of: profileManager.profiles) { _, _ in
             openBrowserWindowForPendingFilesIfNeeded()
         }
-        .background(ShortcutHotkeyBridge())
         .overlay(alignment: .top) { ToastOverlay() }
     }
 

@@ -29,6 +29,7 @@ extension URL {
         let labels = bare.components(separatedBy: ".")
         guard labels.count >= 2 else { return bare }
 
+        // need a better solution than just hard coding
         let twoPartTLDs: Set<String> = [
             "co.uk", "co.nz", "co.jp", "co.in", "co.za", "co.kr",
             "com.au", "com.br", "com.mx", "com.ar", "com.sg", "com.hk",

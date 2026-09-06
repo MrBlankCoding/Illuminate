@@ -91,6 +91,7 @@ struct TabGroupHeaderView: View {
             .contentShape(RoundedRectangle(cornerRadius: GroupHeaderMetrics.cornerRadius, style: .continuous))
         }
         .buttonStyle(.plain)
+        .fixedSize(horizontal: true, vertical: false)
         .onHover { hovering in
             withAnimation(MacDesign.fastAnimation) {
                 isHovered = hovering

@@ -255,6 +255,9 @@ final class Tab: NSObject, Identifiable, WKWebExtensionTab {
     var estimatedProgress: Double = 0
     var zoomLevel: Double = 1.0
     var hasPiPCandidate: Bool = false
+    var isDirty: Bool = false
+
+    static let autoPictureInPictureKey = "autoPictureInPictureEnabled"
     var isMuted: Bool = false {
         didSet {
             if oldValue != isMuted {
@@ -415,6 +418,7 @@ final class Tab: NSObject, Identifiable, WKWebExtensionTab {
             self.isLoading = false
             self.estimatedProgress = 0
             self.hasPiPCandidate = false
+            self.isDirty = false
         }
     }
 

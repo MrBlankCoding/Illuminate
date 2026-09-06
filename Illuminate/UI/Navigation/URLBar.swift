@@ -9,20 +9,27 @@ import Combine
 import SwiftUI
 import AppKit
 
+struct URLBarWidthPreferenceKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
+
 struct URLBar: View {
     let activeTab: Tab?
     let themeColor: Color
     let onNavigate: (String) -> Void
+    @Binding var addressText: String
+    @Binding var isHoveringSuggestions: Bool
+    @Binding var isRecentSearchesEligible: Bool
 
     @Environment(ContentViewModel.self) private var viewModel: ContentViewModel
     @Environment(TabManager.self) private var tabManager: TabManager
     @Environment(\.colorScheme) private var colorScheme
     @FocusState private var isFocused: Bool
-    @State private var addressText = ""
-    @State private var isHoveringSuggestions = false
     @State private var didCopyURL = false
     @State private var isCopyHovered = false
-    @State private var isRecentSearchesEligible = false
     @Namespace private var glassNamespace
     private let barGlassID = "url-bar-shell"
 
@@ -30,31 +37,11 @@ struct URLBar: View {
         BrowserTheme(accent: themeColor, colorScheme: colorScheme, windowThemeColor: themeColor)
     }
 
-    private var isNewTabPage: Bool {
-        activeTab?.url == nil
-    }
-
-    private var showRecentSearches: Bool {
-        isRecentSearchesEligible && isNewTabPage && !viewModel.recentSearchSuggestions.isEmpty
-    }
-
-    private var showSuggestions: Bool {
-        (isFocused || isHoveringSuggestions) && (
-            !viewModel.illuminatePageSuggestions.isEmpty ||
-            !viewModel.historySuggestions.isEmpty ||
-            !viewModel.webSuggestions.isEmpty ||
-            showRecentSearches
-        )
-    }
-
     var body: some View {
         barContent
-            .overlay(alignment: .top) {
-                if showSuggestions {
-                    suggestionsDropdown
-                        .offset(y: MacDesign.Size.urlBarHeight + MacDesign.Spacing.mini)
-                }
-            }
+        .background(GeometryReader { geo in
+            Color.clear.preference(key: URLBarWidthPreferenceKey.self, value: geo.size.width)
+        })
         .zIndex(100)
         .onReceive(NotificationCenter.default.publisher(for: .focusURLBar)) { _ in
             guard !isFocused else { return }
@@ -142,6 +129,7 @@ struct URLBar: View {
                 }
                 .onChange(of: addressText) { _, newValue in
                     if isFocused {
+                        isRecentSearchesEligible = false
                         viewModel.updateSuggestions(for: newValue)
                     }
                 }
@@ -205,85 +193,6 @@ struct URLBar: View {
         }
     }
 
-    private var suggestionsDropdown: some View {
-        VStack(alignment: .leading, spacing: MacDesign.Spacing.micro) {
-            recentSearchSuggestionsSection
-
-            ForEach(viewModel.illuminatePageSuggestions) { suggestion in
-                IlluminatePageSuggestionRowView(suggestion: suggestion, accentColor: themeColor) {
-                    selectIlluminatePageSuggestion(suggestion)
-                }
-            }
-
-            ForEach(viewModel.historySuggestions) { suggestion in
-                SuggestionRowView(suggestion: suggestion) {
-                    selectHistorySuggestion(suggestion)
-                }
-            }
-
-            ForEach(viewModel.webSuggestions, id: \.self) { suggestion in
-                WebSuggestionRowView(text: suggestion, accentColor: themeColor) {
-                    selectWebSuggestion(suggestion)
-                }
-            }
-        }
-        .padding(.vertical, MacDesign.Spacing.small)
-        .background(theme.windowBase.opacity(0.72), in: RoundedRectangle(cornerRadius: MacDesign.Radius.medium, style: .continuous))
-        .floatingGlassPanel(cornerRadius: MacDesign.Radius.medium)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .accessibilityLabel("Search suggestions")
-        .onHover { hovering in
-            isHoveringSuggestions = hovering
-        }
-    }
-
-    @ViewBuilder
-    private var recentSearchSuggestionsSection: some View {
-        if addressText.isEmpty, showRecentSearches {
-            Text("Recent Searches")
-                .font(.webMicroMedium)
-                .foregroundStyle(Color.textTertiary)
-                .padding(.leading, MacDesign.Spacing.small)
-            ForEach(viewModel.recentSearchSuggestions, id: \.self) { query in
-                WebSuggestionRowView(text: query, accentColor: themeColor) {
-                    selectWebSuggestion(query)
-                }
-            }
-        }
-    }
-
-    private func selectIlluminatePageSuggestion(_ suggestion: IlluminatePageSuggestion) {
-        isHoveringSuggestions = false
-        isFocused = false
-        viewModel.setAddressBarEditing(false)
-        viewModel.cancelSuggestions()
-
-        if suggestion.isCurrentlyOpenTab, let tabID = suggestion.openTabID {
-            tabManager.switchTo(tabID)
-        } else {
-            addressText = suggestion.urlString
-            onNavigate(suggestion.urlString)
-        }
-    }
-
-    private func selectHistorySuggestion(_ suggestion: HistorySuggestion) {
-        addressText = suggestion.urlString
-        isHoveringSuggestions = false
-        isFocused = false
-        viewModel.setAddressBarEditing(false)
-        viewModel.cancelSuggestions()
-        onNavigate(suggestion.urlString)
-    }
-
-    private func selectWebSuggestion(_ suggestion: String) {
-        addressText = suggestion
-        isHoveringSuggestions = false
-        isFocused = false
-        viewModel.setAddressBarEditing(false)
-        viewModel.cancelSuggestions()
-        onNavigate(suggestion)
-    }
-
     private var statusIcon: String {
         if activeTab?.url?.scheme?.localizedCaseInsensitiveCompare("illuminate") == .orderedSame {
             return "gearshape.fill"
@@ -297,8 +206,7 @@ struct URLBar: View {
     }
 
     private func focusURLBar() {
-        // Programmatic focus (new tab, ⌘L) must not reveal recent searches.
-        isRecentSearchesEligible = false
+        isRecentSearchesEligible = true
         isFocused = true
         viewModel.setAddressBarEditing(true)
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
@@ -319,7 +227,7 @@ struct URLBar: View {
     }
 }
 
-private struct SuggestionRowView: View {
+struct SuggestionRowView: View {
     let suggestion: HistorySuggestion
     let onSelect: () -> Void
 
@@ -355,7 +263,7 @@ private struct SuggestionRowView: View {
     }
 }
 
-private struct IlluminatePageSuggestionRowView: View {
+struct IlluminatePageSuggestionRowView: View {
     let suggestion: IlluminatePageSuggestion
     let accentColor: Color
     let onSelect: () -> Void
@@ -424,7 +332,7 @@ private struct IlluminatePageSuggestionRowView: View {
     }
 }
 
-private struct WebSuggestionRowView: View {
+struct WebSuggestionRowView: View {
     let text: String
     let accentColor: Color
     let onSelect: () -> Void

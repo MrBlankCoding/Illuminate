@@ -89,7 +89,7 @@ final class ContentViewModel {
         webSuggestionTask?.cancel()
         let q = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
 
-        guard q.count >= 2 || q.starts(with: "illuminate:") else {
+        guard q.count >= 1 || q.starts(with: "illuminate:") else {
             clearLocalSuggestionsIfNeeded()
             lastSuggestionQuery = nil
             return
@@ -124,7 +124,7 @@ final class ContentViewModel {
         }
 
         webSuggestionTask = Task(priority: .userInitiated) { [weak self] in
-            try? await Task.sleep(nanoseconds: 50_000_000) // 50ms — coalesces mid-composition without feeling laggy
+            try? await Task.sleep(nanoseconds: 20_000_000) // 20ms — fast enough to feel instant
             guard !Task.isCancelled, let self else { return }
 
             let engine = self.defaultSearchEngine
@@ -239,7 +239,19 @@ final class ContentViewModel {
         if let url = URL(string: input), url.scheme != nil {
             return true
         }
-        return input.contains(".") && !input.contains(" ")
+        let lowered = input.lowercased()
+        if lowered.hasPrefix("localhost") { return true }
+        let dotComponents = lowered.split(separator: ".")
+        if dotComponents.count >= 2 {
+            let tld = String(dotComponents.last ?? "")
+            // need a better list besides hard coding  
+            let validTLDs: Set<String> = [
+                "com", "org", "net", "edu", "gov", "io", "co", "dev", "app", "me",
+                "uk", "us", "ca", "de", "fr", "jp", "au", "info", "biz", "xyz"
+            ]
+            if validTLDs.contains(tld) { return true }
+        }
+        return false
     }
 
     static func addressBarDisplayText(for url: URL?) -> String {
