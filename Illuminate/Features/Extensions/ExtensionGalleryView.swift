@@ -58,14 +58,23 @@ final class RemoteGalleryCatalog {
         id: "darkreader",
         name: "Dark Reader",
         description: "Dark mode for every website. Care for your eyes, use dark theme for night and daily browsing.",
-        iconURL: URL(string: "https://raw.githubusercontent.com/darkreader/darkreader/master/src/icons/icon_128.png"),
+        iconURL: URL(string: "https://raw.githubusercontent.com/darkreader/darkreader/main/src/icons/dr_128.png"),
         source: .githubRelease(repository: "darkreader/darkreader", assetNameContains: "chrome-mv3"),
         fallbackAssetNameCandidates: ["chrome", "firefox-mv3", "firefox"],
         externalInfoURL: URL(string: "https://darkreader.org/")
     )
+    static let codetweak = ExtensionGalleryItem(
+        id: "codetweak",
+        name: "CodeTweak",
+        description: "AI-powered userscript manager and DOM editor. Run userscripts, tweak page behavior, and edit the DOM with a built-in AI assistant.",
+        iconURL: URL(string: "https://raw.githubusercontent.com/MrBlankCoding/CodeTweak/main/src/assets/icons/icon128.png"),
+        source: .githubRelease(repository: "MrBlankCoding/CodeTweak", assetNameContains: "codetweak-safari.zip"),
+        externalInfoURL: URL(string: "https://github.com/MrBlankCoding/CodeTweak")
+    )
     private static let hardcodedItems: [ExtensionGalleryItem] = [
         ublock,
         darkreader,
+        codetweak,
     ]
 
     enum FetchState { case idle, loading, done, failed }

@@ -67,6 +67,7 @@ Illuminate is designed with privacy in mind:
 * [ ] Sync passwords with apple passwords
 * [ ] Flesh out compact mode
 * [ ] Keep track of dirty states for changes may not be saved
+* [ ] Add extension debug logs 
 
 
 ## Known Issues

@@ -141,8 +141,6 @@ enum ExtensionPackageDownloader {
     }
 }
 
-// MARK: - GitHub API models
-
 private struct GitHubReleaseTag: Decodable {
     let tagName: String
 
