@@ -13,6 +13,8 @@ struct ExtensionSettingsRow: View {
     @Environment(ProfileEnvironment.self) var profileEnvironment: ProfileEnvironment
     @State private var isEnabled: Bool = false
     @State private var isPinned: Bool = false
+    @State private var hasErrors: Bool = false
+    @State private var hasWarnings: Bool = false
 
     private var currentEnabledState: Bool {
         profileEnvironment.extensionManager.isEnabled(context)
@@ -20,6 +22,13 @@ struct ExtensionSettingsRow: View {
 
     private var currentPinnedState: Bool {
         profileEnvironment.extensionManager.isPinned(context)
+    }
+    
+    private func updateLogIndicators() {
+        let id = profileEnvironment.extensionManager.identifier(for: context)
+        let logs = profileEnvironment.extensionManager.logManager.logs(for: id)
+        hasErrors = logs.contains { $0.level == .error }
+        hasWarnings = logs.contains { $0.level == .warning }
     }
 
     var body: some View {
@@ -50,6 +59,18 @@ struct ExtensionSettingsRow: View {
             }
 
             Spacer(minLength: 0)
+
+            if hasErrors {
+                Image(systemName: "exclamationmark.circle.fill")
+                    .font(.system(size: 13))
+                    .foregroundStyle(.red)
+                    .help("Extension has errors")
+            } else if hasWarnings {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.system(size: 13))
+                    .foregroundStyle(.orange)
+                    .help("Extension has warnings")
+            }
 
             if !isEnabled {
                 Text("Off")
@@ -92,9 +113,13 @@ struct ExtensionSettingsRow: View {
         .onChange(of: profileEnvironment.extensionManager.pinnedExtensions) { _, _ in
             isPinned = currentPinnedState
         }
+        .onChange(of: profileEnvironment.extensionManager.logManager.logs) { _, _ in
+            updateLogIndicators()
+        }
         .onAppear {
             isEnabled = currentEnabledState
             isPinned = currentPinnedState
+            updateLogIndicators()
         }
     }
 
@@ -147,6 +172,12 @@ struct ExtensionDetailView: View {
     @Environment(\.dismiss) var dismiss
     @State private var isUninstalling = false
     @State private var showUninstallConfirm = false
+    @State private var logs: [ExtensionLogEntry] = []
+
+    private var extensionLogs: [ExtensionLogEntry] {
+        let id = profileEnvironment.extensionManager.identifier(for: context)
+        return profileEnvironment.extensionManager.logManager.logs(for: id)
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -174,6 +205,9 @@ struct ExtensionDetailView: View {
                     Divider()
                     descriptionSection
                     permissionsSection
+                    if !extensionLogs.isEmpty {
+                        logsSection
+                    }
                     Spacer(minLength: 0)
                     actionsSection
                 }
@@ -195,6 +229,12 @@ struct ExtensionDetailView: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("This will remove the extension and its data.")
+        }
+        .onChange(of: profileEnvironment.extensionManager.logManager.logs) { _, _ in
+            logs = extensionLogs
+        }
+        .onAppear {
+            logs = extensionLogs
         }
     }
 
@@ -291,6 +331,47 @@ struct ExtensionDetailView: View {
                     }
                 }
             }
+        }
+    }
+
+    private var logsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Label("Activity Log", systemImage: "list.bullet.rectangle")
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(.secondary)
+                
+                Spacer()
+                
+                Button {
+                    let id = profileEnvironment.extensionManager.identifier(for: context)
+                    profileEnvironment.extensionManager.logManager.clearLogs(for: id)
+                    logs = []
+                } label: {
+                    Text("Clear")
+                        .font(.caption)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+            }
+            
+            ScrollView {
+                LazyVStack(spacing: 6) {
+                    ForEach(logs.sorted { $0.timestamp > $1.timestamp }) { log in
+                        ExtensionLogRowView(log: log)
+                    }
+                }
+            }
+            .frame(maxHeight: 200)
+            .background(
+                RoundedRectangle(cornerRadius: MacDesign.Radius.control, style: .continuous)
+                    .fill(Color.secondary.opacity(0.05))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: MacDesign.Radius.control, style: .continuous)
+                    .strokeBorder(Color.secondary.opacity(0.15), lineWidth: 1)
+            )
         }
     }
 
@@ -401,4 +482,69 @@ private struct PermissionGroup: View {
 struct IdentifiableContext: Identifiable {
     let context: WKWebExtensionContext
     var id: ObjectIdentifier { ObjectIdentifier(context) }
+}
+
+struct ExtensionLogRowView: View {
+    let log: ExtensionLogEntry
+    
+    private var levelColor: Color {
+        switch log.level {
+        case .info: return .blue
+        case .warning: return .orange
+        case .error: return .red
+        }
+    }
+    
+    private var levelIcon: String {
+        switch log.level {
+        case .info: return "info.circle.fill"
+        case .warning: return "exclamationmark.triangle.fill"
+        case .error: return "xmark.circle.fill"
+        }
+    }
+    
+    var body: some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: levelIcon)
+                .font(.system(size: 11))
+                .foregroundStyle(levelColor)
+                .frame(width: 16)
+            
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 6) {
+                    Text(log.level.rawValue)
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(levelColor)
+                    
+                    Text(formatTimestamp(log.timestamp))
+                        .font(.system(size: 9))
+                        .foregroundStyle(.tertiary)
+                }
+                
+                Text(log.message)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.primary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(levelColor.opacity(0.05))
+        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+    }
+    
+    private func formatTimestamp(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        let calendar = Calendar.current
+        
+        if calendar.isDateInToday(date) {
+            formatter.dateFormat = "HH:mm:ss"
+        } else {
+            formatter.dateFormat = "MMM d, HH:mm"
+        }
+        
+        return formatter.string(from: date)
+    }
 }

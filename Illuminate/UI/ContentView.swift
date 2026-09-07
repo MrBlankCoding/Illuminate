@@ -78,6 +78,7 @@ struct ContentView: View {
         .background(WindowConfigurator())
         .preferredColorScheme(tabManager.userInterfaceStyle.colorScheme)
         .environment(popupCoordinator)
+        .compactModeAware()
         .onAppear {
             DispatchQueue.main.async {
                 AppFileOpening.shared.drain(into: tabManager)

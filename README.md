@@ -65,10 +65,7 @@ Illuminate is designed with privacy in mind:
 * [ ] Write an actual onboarding view instead of AI 
 * [ ] Localise app 
 * [ ] Sync passwords with apple passwords
-* [ ] Flesh out compact mode
 * [ ] Keep track of dirty states for changes may not be saved
-* [ ] Add extension debug logs 
-* [ ] Add support for app updates without app store
 
 
 ## Known Issues

@@ -12,7 +12,7 @@ struct GeneralSettingsView: View {
     @AppStorage(TabManager.keepInactiveTabsLoadedKey) private var keepInactiveTabsLoaded = true
     @AppStorage(TabManager.autoRestorePreviousTabsKey) private var autoStartPreviousTabs = true
     @AppStorage(WebKitManager.javascriptEnabledKey) private var javascriptEnabled = true
-    @AppStorage(BrowserAppearanceSettings.compactModeKey) private var compactMode = false
+    @State private var appearanceSettings = AppearanceSettings.shared
     @AppStorage(BrowserAppearanceSettings.animationsEnabledKey) private var animationsEnabled = true
     @AppStorage(Tab.autoPictureInPictureKey) private var autoPictureInPicture = false
     @AppStorage(AppDelegate.warnBeforeQuittingKey) private var warnBeforeQuitting = true
@@ -80,7 +80,7 @@ struct GeneralSettingsView: View {
             }
 
             Section {
-                Toggle(isOn: $compactMode) {
+                Toggle(isOn: $appearanceSettings.compactMode) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Compact experience")
                             .font(.body)

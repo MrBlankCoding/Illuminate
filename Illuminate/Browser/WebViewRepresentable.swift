@@ -122,6 +122,13 @@ struct WebViewRepresentable: NSViewRepresentable {
         else { return }
 
         coordinator.lastRequestedLoadURLString = url.absoluteString
+        
+        // webkit-extension:// URLs are managed internally by WKWebExtensionController
+        // They should not be loaded directly via webView.load()
+        if url.scheme?.lowercased() == "webkit-extension" {
+            return
+        }
+        
         if url.isFileURL {
             webView.loadFileURL(url, allowingReadAccessTo: url.deletingLastPathComponent())
         } else {

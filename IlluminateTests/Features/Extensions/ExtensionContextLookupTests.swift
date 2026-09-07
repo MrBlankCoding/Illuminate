@@ -2,10 +2,7 @@
 //  ExtensionContextLookupTests.swift
 //  IlluminateTests
 //
-//  Tests for the URL parsing logic used to match webkit-extension:// URLs
-//  to extension contexts. This is the core of the "UUID stays the same
-//  across launches" fix — the extension ID in the URL must match the
-//  stable identifier assigned to the context.
+//  Created by MrBlankCoding on 8/25/26.
 //
 
 import Foundation

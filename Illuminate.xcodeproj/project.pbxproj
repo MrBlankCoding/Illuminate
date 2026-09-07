@@ -40,9 +40,22 @@
 		F7A0000B2F5E1A550043FEAE /* IlluminateUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IlluminateUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		F777D518304F574700F74C66 /* Exceptions for "Illuminate" folder in "Illuminate" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				"Illuminate-Info.plist",
+			);
+			target = F76B1DFB2F5E1A520043FEAE /* Illuminate */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		F76B1DFE2F5E1A520043FEAE /* Illuminate */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				F777D518304F574700F74C66 /* Exceptions for "Illuminate" folder in "Illuminate" target */,
+			);
 			path = Illuminate;
 			sourceTree = "<group>";
 		};
@@ -210,7 +223,7 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 2630;
-				LastUpgradeCheck = 2640;
+				LastUpgradeCheck = 2660;
 				TargetAttributes = {
 					F76B1DFB2F5E1A520043FEAE = {
 						CreatedOnToolsVersion = 26.3;
@@ -464,6 +477,7 @@
 				ENABLE_RESOURCE_ACCESS_USB = NO;
 				ENABLE_USER_SELECTED_FILES = readwrite;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Illuminate/Illuminate-Info.plist";
 				INFOPLIST_KEY_CFBundleDocumentTypes = "{\n    CFBundleTypeIconSystemCode = \"PDF \";\n    CFBundleTypeName = \"PDF Document\";\n    CFBundleTypeRole = Viewer;\n    LSHandlerRank = Alternate;\n    LSItemContentTypes =     (\n        \"com.adobe.pdf\",\n        \"public.pdf\"\n    );\n}";
 				INFOPLIST_KEY_CFBundleURLTypes = "{\n    CFBundleURLName = \"com.MrBlankCoding.Illuminate\";\n    CFBundleURLSchemes =     (\n        https,\n        http\n    );\n}";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
@@ -518,6 +532,7 @@
 				ENABLE_RESOURCE_ACCESS_USB = NO;
 				ENABLE_USER_SELECTED_FILES = readwrite;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Illuminate/Illuminate-Info.plist";
 				INFOPLIST_KEY_CFBundleDocumentTypes = "{\n    CFBundleTypeIconSystemCode = \"PDF \";\n    CFBundleTypeName = \"PDF Document\";\n    CFBundleTypeRole = Viewer;\n    LSHandlerRank = Alternate;\n    LSItemContentTypes =     (\n        \"com.adobe.pdf\",\n        \"public.pdf\"\n    );\n}";
 				INFOPLIST_KEY_CFBundleURLTypes = "{\n    CFBundleURLName = \"com.MrBlankCoding.Illuminate\";\n    CFBundleURLSchemes =     (\n        https,\n        http\n    );\n}";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
@@ -554,6 +569,7 @@
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 548N22VJX8;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Illuminate/Illuminate-Info.plist";
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.MrBlankCoding.IlluminateTests;
@@ -576,6 +592,7 @@
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 548N22VJX8;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Illuminate/Illuminate-Info.plist";
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.MrBlankCoding.IlluminateTests;
@@ -596,6 +613,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 548N22VJX8;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Illuminate/Illuminate-Info.plist";
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.MrBlankCoding.IlluminateUITests;
@@ -614,6 +632,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 548N22VJX8;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Illuminate/Illuminate-Info.plist";
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.MrBlankCoding.IlluminateUITests;

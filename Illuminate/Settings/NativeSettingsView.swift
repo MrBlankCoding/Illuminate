@@ -30,6 +30,11 @@ struct NativeSettingsView: View {
                     Label("Downloads", systemImage: "arrow.down.circle")
                 }
 
+            UpdateSettingsView()
+                .tabItem {
+                    Label("Updates", systemImage: "arrow.down.app")
+                }
+
             ShortcutsSettingsView()
                 .tabItem {
                     Label("Shortcuts", systemImage: "command")

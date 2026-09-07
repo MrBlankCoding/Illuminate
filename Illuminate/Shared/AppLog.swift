@@ -20,6 +20,7 @@ enum AppLog {
     nonisolated static let uiLogger = Logger(subsystem: subsystem, category: "UI")
     nonisolated static let securityLogger = Logger(subsystem: subsystem, category: "Security")
     nonisolated static let errorLogger = Logger(subsystem: subsystem, category: "Error")
+    nonisolated static let extensionLogger = Logger(subsystem: subsystem, category: "Extension")
 
     nonisolated static func info(_ message: String) {
         infoLogger.info("\(message, privacy: .public)")
@@ -51,6 +52,18 @@ enum AppLog {
         } else {
             errorLogger.error("\(message, privacy: .public)")
         }
+    }
+
+    nonisolated static func extensionInfo(_ message: String) {
+        extensionLogger.info("\(message, privacy: .public)")
+    }
+
+    nonisolated static func extensionWarning(_ message: String) {
+        extensionLogger.warning("\(message, privacy: .public)")
+    }
+
+    nonisolated static func extensionError(_ message: String) {
+        extensionLogger.error("\(message, privacy: .public)")
     }
 
     static func sanitizedURL(_ url: URL?) -> String {

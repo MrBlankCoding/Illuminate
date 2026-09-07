@@ -21,6 +21,7 @@ final class ExtensionManager: NSObject {
     var pendingUpdateCount: Int = 0
     var isCheckingForUpdates: Bool = false
     var pinnedExtensions: Set<String> = []
+    var logManager = ExtensionLogManager()
 
     var activePermissionRequest: Extensions.PermissionPrompt?
 
@@ -306,6 +307,9 @@ final class ExtensionManager: NSObject {
         if !extensionRepresentation.errors.isEmpty {
             let details = extensionRepresentation.errors.map(\.localizedDescription).joined(separator: "; ")
             AppLog.warning("Extension at '\(url.lastPathComponent)' reported parse issues: \(details)")
+            if let stableID = preferredIdentifier {
+                logManager.log(level: .warning, message: "Parse issues during load: \(details)", for: stableID)
+            }
         }
 
         let context = WKWebExtensionContext(for: extensionRepresentation)
@@ -331,8 +335,10 @@ final class ExtensionManager: NSObject {
         if isEnabled(context) {
             do {
                 try controller.load(context)
+                logManager.log(level: .info, message: "Extension loaded successfully", for: stableID)
             } catch {
                 AppLog.error("Failed to load extension context '\(stableID)': \(error.localizedDescription)")
+                logManager.log(level: .error, message: "Failed to load: \(error.localizedDescription)", for: stableID)
                 throw error
             }
         }
@@ -370,6 +376,7 @@ final class ExtensionManager: NSObject {
 
         if isEnabled(context) {
             try? controller.load(context)
+            logManager.log(level: .info, message: "Bundled extension loaded", for: stableID)
         }
 
         return context
@@ -396,15 +403,18 @@ final class ExtensionManager: NSObject {
         if enabled {
             do {
                 try controller.load(context)
+                logManager.log(level: .info, message: "Extension enabled and loaded", for: id)
             } catch {
                 if error.localizedDescription.contains("already loaded") {
                     AppLog.debug("Extension context '\(id)' is already loaded")
                 } else {
                     AppLog.error("Failed to load extension context '\(id)': \(error.localizedDescription)")
+                    logManager.log(level: .error, message: "Failed to enable: \(error.localizedDescription)", for: id)
                 }
             }
         } else {
             try? controller.unload(context)
+            logManager.log(level: .info, message: "Extension disabled", for: id)
         }
 
         saveInstalledExtensions()
@@ -448,6 +458,7 @@ final class ExtensionManager: NSObject {
                 initiallyEnabled: initiallyEnabled,
                 persist: shouldPersist
             )
+            logManager.log(level: .info, message: "Extension installed successfully", for: stagingID)
         } catch {
             // no leaving an orphaned copy of the package behind on disk if
             // we staged it in extensionsDirectory but the context failed to
@@ -455,6 +466,7 @@ final class ExtensionManager: NSObject {
             if shouldPersist {
                 try? FileManager.default.removeItem(at: packageURL)
             }
+            logManager.log(level: .error, message: "Installation failed: \(error.localizedDescription)", for: stagingID)
             throw error
         }
 
@@ -478,6 +490,7 @@ final class ExtensionManager: NSObject {
 
     func uninstallExtension(_ context: WKWebExtensionContext) {
         let id = identifier(for: context)
+        logManager.log(level: .info, message: "Extension uninstalled", for: id)
         try? controller.unload(context)
 
         extensionStatesCache.removeValue(forKey: id)
@@ -505,6 +518,7 @@ final class ExtensionManager: NSObject {
         removeRuntimeStorageDirectory(for: id, extensionName: context.webExtension.displayName)
         removeExtensionWebsiteData(for: id)
         FaviconCache.shared.removeAll(matchingScheme: "webkit-extension", host: id)
+        logManager.clearLogs(for: id)
 
         installedExtensions = installedExtensions.filter { $0 !== context }
         saveInstalledExtensions()
@@ -548,6 +562,7 @@ final class ExtensionManager: NSObject {
                         guard Self.isNewer(latestVersion, than: currentVersion) else { return false }
 
                         AppLog.info("Updating extension '\(id)': \(currentVersion) → \(latestVersion)")
+                        await self.logManager.log(level: .info, message: "Updating from \(currentVersion) to \(latestVersion)", for: id)
                         let packageURL = try await ExtensionPackageDownloader.downloadUnpackedPackage(from: source)
                         _ = try await self.installExtension(
                             from: packageURL,
@@ -557,9 +572,11 @@ final class ExtensionManager: NSObject {
                             source: source
                         )
                         AppLog.info("Extension '\(id)' updated successfully.")
+                        await self.logManager.log(level: .info, message: "Updated successfully to \(latestVersion)", for: id)
                         return true
                     } catch {
                         AppLog.error("Auto-update check failed for '\(id)': \(error.localizedDescription)")
+                        await self.logManager.log(level: .error, message: "Update failed: \(error.localizedDescription)", for: id)
                         return false
                     }
                 }
@@ -994,6 +1011,18 @@ extension ExtensionManager: WKWebExtensionControllerDelegate {
         let prompt = activePermissionRequest
         activePermissionRequest = nil
         prompt?.resolve(granted)
+        
+        if let context = installedExtensions.first(where: { context in
+            guard let displayName = context.webExtension.displayName else { return false }
+            return prompt?.extensionName == displayName
+        }) {
+            let id = identifier(for: context)
+            logManager.log(
+                level: granted ? .info : .warning,
+                message: "Permission request \(granted ? "granted" : "denied")",
+                for: id
+            )
+        }
     }
 
     func webExtensionController(

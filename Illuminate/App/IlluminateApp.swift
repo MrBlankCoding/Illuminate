@@ -13,6 +13,7 @@ struct IlluminateApp: App {
     private static let profileWindowSize = CGSize(width: 580, height: 420)
     private static let browserWindowSize  = CGSize(width: 1180, height: 720)
     private let profileManager: ProfileManager
+    private let updateManager: UpdateManager
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
     private let backgroundResourceManager: BackgroundResourceManager
@@ -20,8 +21,10 @@ struct IlluminateApp: App {
 
     let modelContainer: ModelContainer
 
+    @MainActor
     init() {
         profileManager = ProfileManager()
+        updateManager = UpdateManager()
 
         let center = NotificationCenter.default
         backgroundResourceManager  = BackgroundResourceManager()
@@ -57,6 +60,7 @@ struct IlluminateApp: App {
         WindowGroup(id: ProfileSelectionView.windowID) {
             AppRootView(route: .constant(nil), isStandalone: true, modelContainer: modelContainer)
                 .environment(profileManager)
+                .environment(updateManager)
                 .frame(
                     width: Self.profileWindowSize.width,
                     height: Self.profileWindowSize.height
@@ -78,6 +82,7 @@ struct IlluminateApp: App {
         WindowGroup(for: BrowserWindowRoute.self) { $route in
             AppRootView(route: $route, modelContainer: modelContainer)
                 .environment(profileManager)
+                .environment(updateManager)
                 .frame(minWidth: 600, minHeight: 450)
                 .onOpenURL { url in
                     guard let request = BrowserWindowOpenRequest(url: url) else { return }
@@ -95,11 +100,15 @@ struct IlluminateApp: App {
             AppCommands()
             BookmarksCommands(modelContainer: modelContainer)
             ProfileCommands(profileManager: profileManager)
+            UpdateCommands(updateManager: updateManager)
         }
 
         Settings {
-            NativeSettingsView()
-                .modelContainer(modelContainer)
+            SettingsRootView(
+                profileManager: profileManager,
+                updateManager: updateManager,
+                modelContainer: modelContainer
+            )
         }
 
         Window("Welcome to Illuminate", id: OnboardingView.windowID) {

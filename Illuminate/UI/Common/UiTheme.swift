@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import Combine
 
 
 extension Color {
@@ -42,6 +43,24 @@ struct BrowserTheme {
 enum BrowserAppearanceSettings {
     static let compactModeKey = "appearance.compactMode"
     static let animationsEnabledKey = "appearance.animationsEnabled"
+    
+    static let compactModeDidChangeNotification = Notification.Name("BrowserAppearanceSettings.compactModeDidChange")
+}
+
+@Observable
+class AppearanceSettings {
+    static let shared = AppearanceSettings()
+    
+    var compactMode: Bool {
+        didSet {
+            UserDefaults.standard.set(compactMode, forKey: BrowserAppearanceSettings.compactModeKey)
+            NotificationCenter.default.post(name: BrowserAppearanceSettings.compactModeDidChangeNotification, object: nil)
+        }
+    }
+    
+    private init() {
+        self.compactMode = UserDefaults.standard.bool(forKey: BrowserAppearanceSettings.compactModeKey)
+    }
 }
 
 
@@ -59,40 +78,48 @@ enum MacDesign {
     }
 
     enum Spacing {
-        static let hairlineThin: CGFloat = 0.5
-        static let hairline: CGFloat = 1
-        static let micro: CGFloat = 2
-        static let tiny: CGFloat = 3
-        static let small: CGFloat = 4
-        static let mini: CGFloat = 5
-        static let tight: CGFloat = 6
-        static let control: CGFloat = 8
-        static let medium: CGFloat = 10
-        static let regular: CGFloat = 12
-        static let toolbarPadding: CGFloat = 14
-        static let roomy: CGFloat = 16
-        static let grid: CGFloat = 18
-        static let section: CGFloat = 20
-        static let page: CGFloat = 24
-        static let pageHeaderPadding: CGFloat = 32
-        static let largeSpacer: CGFloat = 72
+        static var hairlineThin: CGFloat { compactMode ? 0.5 : 0.5 }
+        static var hairline: CGFloat { compactMode ? 1 : 1 }
+        static var micro: CGFloat { compactMode ? 1 : 2 }
+        static var tiny: CGFloat { compactMode ? 2 : 3 }
+        static var small: CGFloat { compactMode ? 3 : 4 }
+        static var mini: CGFloat { compactMode ? 4 : 5 }
+        static var tight: CGFloat { compactMode ? 5 : 6 }
+        static var control: CGFloat { compactMode ? 6 : 8 }
+        static var medium: CGFloat { compactMode ? 8 : 10 }
+        static var regular: CGFloat { compactMode ? 10 : 12 }
+        static var toolbarPadding: CGFloat { compactMode ? 10 : 14 }
+        static var roomy: CGFloat { compactMode ? 12 : 16 }
+        static var grid: CGFloat { compactMode ? 14 : 18 }
+        static var section: CGFloat { compactMode ? 16 : 20 }
+        static var page: CGFloat { compactMode ? 18 : 24 }
+        static var pageHeaderPadding: CGFloat { compactMode ? 24 : 32 }
+        static var largeSpacer: CGFloat { compactMode ? 56 : 72 }
+        
+        private static var compactMode: Bool {
+            UserDefaults.standard.bool(forKey: BrowserAppearanceSettings.compactModeKey)
+        }
     }
 
     enum Size {
-        static let urlBarIcon: CGFloat = 22
-        static let iconButton: CGFloat = 28
-        static let largeIconButton: CGFloat = 32
-        static let floatingButton: CGFloat = 36
-        static let urlBarHeight: CGFloat = 34
-        static let tabHeight: CGFloat = 34
-        static let thumbnail: CGFloat = 52
-        static let tabStripHeight: CGFloat = 42
-        static let toolbarRowHeight: CGFloat = 48
-        static let trafficLightWidth: CGFloat = 78
-        static let sidePanelWidth: CGFloat = 260
-        static let sidePanelContentWidth: CGFloat = 228
-        static let newTabGridMax: CGFloat = 560
-        static let internalPageMax: CGFloat = 680
+        static var urlBarIcon: CGFloat { compactMode ? 20 : 22 }
+        static var iconButton: CGFloat { compactMode ? 26 : 28 }
+        static var largeIconButton: CGFloat { compactMode ? 30 : 32 }
+        static var floatingButton: CGFloat { compactMode ? 34 : 36 }
+        static var urlBarHeight: CGFloat { compactMode ? 30 : 34 }
+        static var tabHeight: CGFloat { compactMode ? 30 : 34 }
+        static var thumbnail: CGFloat { compactMode ? 48 : 52 }
+        static var tabStripHeight: CGFloat { compactMode ? 38 : 42 }
+        static var toolbarRowHeight: CGFloat { compactMode ? 44 : 48 }
+        static var trafficLightWidth: CGFloat { compactMode ? 78 : 78 }
+        static var sidePanelWidth: CGFloat { compactMode ? 240 : 260 }
+        static var sidePanelContentWidth: CGFloat { compactMode ? 208 : 228 }
+        static var newTabGridMax: CGFloat { compactMode ? 540 : 560 }
+        static var internalPageMax: CGFloat { compactMode ? 660 : 680 }
+        
+        private static var compactMode: Bool {
+            UserDefaults.standard.bool(forKey: BrowserAppearanceSettings.compactModeKey)
+        }
     }
 
     static let fastAnimation = Animation.easeInOut(duration: 0.16)
@@ -118,4 +145,23 @@ extension Font {
     static let webSmallBold = Font.system(size: 10, weight: .bold)
     static let webTinyBold = Font.system(size: 8, weight: .bold)
     static let webBadge = Font.system(size: 7.5, weight: .bold, design: .rounded)
+}
+
+// View modifier to respond to compact mode changes
+struct CompactModeAware: ViewModifier {
+    @State private var compactModeVersion = UUID()
+    
+    func body(content: Content) -> some View {
+        content
+            .id(compactModeVersion)
+            .onReceive(NotificationCenter.default.publisher(for: BrowserAppearanceSettings.compactModeDidChangeNotification)) { _ in
+                compactModeVersion = UUID()
+            }
+    }
+}
+
+extension View {
+    func compactModeAware() -> some View {
+        modifier(CompactModeAware())
+    }
 }
