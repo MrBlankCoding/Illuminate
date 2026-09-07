@@ -10,7 +10,6 @@ import Foundation
 import WebKit
 import Observation
 import SwiftUI
-import Combine
 
 @MainActor
 @Observable
@@ -29,8 +28,19 @@ final class ExtensionManager: NSObject {
         installedExtensions.contains { isEnabled($0) }
     }
 
-    @ObservationIgnored private let actionChangesSubject = PassthroughSubject<(WKWebExtensionContext, (any WKWebExtensionTab)?), Never>()
-    @ObservationIgnored var actionChanges: AnyPublisher<(WKWebExtensionContext, (any WKWebExtensionTab)?), Never> { actionChangesSubject.eraseToAnyPublisher() }
+    typealias ActionChange = (WKWebExtensionContext, (any WKWebExtensionTab)?)
+    @ObservationIgnored private var actionChangesStream: AsyncStream<(WKWebExtensionContext, (any WKWebExtensionTab)?)>?
+    @ObservationIgnored private var actionChangesStreamContinuation: AsyncStream<(WKWebExtensionContext, (any WKWebExtensionTab)?)>.Continuation?
+    @ObservationIgnored var actionChanges: AsyncStream<(WKWebExtensionContext, (any WKWebExtensionTab)?)> {
+        if let existing = actionChangesStream {
+            return existing
+        }
+        let stream = AsyncStream<(WKWebExtensionContext, (any WKWebExtensionTab)?)> { continuation in
+            actionChangesStreamContinuation = continuation
+        }
+        actionChangesStream = stream
+        return stream
+    }
     @ObservationIgnored let controller: WKWebExtensionController
     @ObservationIgnored let profileID: UUID?
     @ObservationIgnored let isGuestSession: Bool
@@ -50,12 +60,15 @@ final class ExtensionManager: NSObject {
     }
 
     @ObservationIgnored private var extensionResourceURLs: [WKWebExtension: URL] = [:]
+    @ObservationIgnored private var contextStableIDs: [ObjectIdentifier: String] = [:]
     @ObservationIgnored private var tabManagers: Set<TabManager> = []
     @ObservationIgnored private var extensionContextCache = LRUCache<URL, WKWebExtensionContext>(capacity: 128)
     @ObservationIgnored private var loadingTask: Task<Void, Never>?
     @ObservationIgnored private var extensionSources: [String: ExtensionPackageSource] = [:]
     @ObservationIgnored private var autoUpdateTask: Task<Void, Never>?
     @ObservationIgnored private static let autoUpdateInterval: TimeInterval = 86_400
+    @ObservationIgnored private static let windowCreationTimeout: TimeInterval = 10
+    @ObservationIgnored private static let permissionPromptTimeout: TimeInterval = 300
     private struct PendingWindow {
         let id: UUID
         let initialURL: URL?
@@ -296,34 +309,37 @@ final class ExtensionManager: NSObject {
         }
 
         let context = WKWebExtensionContext(for: extensionRepresentation)
-        let newID: String = preferredIdentifier
+        let stableID: String = preferredIdentifier
             ?? extensionRepresentation.displayName?
                 .lowercased()
                 .replacingOccurrences(of: " ", with: "-")
             ?? context.uniqueIdentifier
-        context.uniqueIdentifier = newID
+        context.uniqueIdentifier = stableID
+        if let baseURL = URL(string: "webkit-extension://\(stableID)") {
+            context.baseURL = baseURL
+        }
+        contextStableIDs[ObjectIdentifier(context)] = stableID
 
         grantRequiredPermissions(for: context)
-        prepareRuntimeStorageDirectory(for: newID, extensionName: extensionRepresentation.displayName)
+        prepareRuntimeStorageDirectory(for: stableID, extensionName: extensionRepresentation.displayName)
 
         extensionResourceURLs[extensionRepresentation] = url
-        if extensionStatesCache[newID] == nil {
-            extensionStatesCache[newID] = initiallyEnabled
+        if extensionStatesCache[stableID] == nil {
+            extensionStatesCache[stableID] = initiallyEnabled
         }
 
         if isEnabled(context) {
             do {
                 try controller.load(context)
             } catch {
-                AppLog.error("Failed to load extension context '\(newID)': \(error.localizedDescription)")
+                AppLog.error("Failed to load extension context '\(stableID)': \(error.localizedDescription)")
                 throw error
             }
         }
 
-        if persist && !isGuestSession {
-            var states = (userDefaults.dictionary(forKey: statesKey) as? [String: Bool]) ?? [:]
-            states[newID] = initiallyEnabled
-            userDefaults.set(states, forKey: statesKey)
+        // route through global cache
+        if persist {
+            persistExtensionStates()
         }
 
         return context
@@ -335,12 +351,22 @@ final class ExtensionManager: NSObject {
         }
         let extensionRepresentation = try await WKWebExtension(appExtensionBundle: bundle)
         let context = WKWebExtensionContext(for: extensionRepresentation)
-        let id = context.uniqueIdentifier
 
-        bundledExtensionIdentifiers.insert(id)
+        // prevent a new UUID on every launch
+        let stableID = bundle.bundleIdentifier
+            ?? extensionRepresentation.displayName?
+                .lowercased()
+                .replacingOccurrences(of: " ", with: "-")
+            ?? context.uniqueIdentifier
+        context.uniqueIdentifier = stableID
+        if let baseURL = URL(string: "webkit-extension://\(stableID)") {
+            context.baseURL = baseURL
+        }
+        contextStableIDs[ObjectIdentifier(context)] = stableID
+        bundledExtensionIdentifiers.insert(stableID)
 
         grantRequiredPermissions(for: context)
-        prepareRuntimeStorageDirectory(for: id, extensionName: extensionRepresentation.displayName)
+        prepareRuntimeStorageDirectory(for: stableID, extensionName: extensionRepresentation.displayName)
 
         if isEnabled(context) {
             try? controller.load(context)
@@ -350,7 +376,7 @@ final class ExtensionManager: NSObject {
     }
 
     func identifier(for context: WKWebExtensionContext) -> String {
-        context.uniqueIdentifier
+        contextStableIDs[ObjectIdentifier(context)] ?? context.uniqueIdentifier
     }
 
     func isBundled(_ context: WKWebExtensionContext) -> Bool {
@@ -414,12 +440,23 @@ final class ExtensionManager: NSObject {
             installedExtensions = installedExtensions.filter { identifier(for: $0) != stagingID }
         }
 
-        let context = try await buildExtensionContext(
-            from: packageURL,
-            identifier: stagingID,
-            initiallyEnabled: initiallyEnabled,
-            persist: shouldPersist
-        )
+        let context: WKWebExtensionContext
+        do {
+            context = try await buildExtensionContext(
+                from: packageURL,
+                identifier: stagingID,
+                initiallyEnabled: initiallyEnabled,
+                persist: shouldPersist
+            )
+        } catch {
+            // no leaving an orphaned copy of the package behind on disk if
+            // we staged it in extensionsDirectory but the context failed to
+            // build (e.g. malformed manifest).
+            if shouldPersist {
+                try? FileManager.default.removeItem(at: packageURL)
+            }
+            throw error
+        }
 
         if let source {
             extensionSources[stagingID] = source
@@ -466,6 +503,8 @@ final class ExtensionManager: NSObject {
         extensionResourceURLs.removeValue(forKey: context.webExtension)
         extensionContextCache.removeAll(where: { $0 === context })
         removeRuntimeStorageDirectory(for: id, extensionName: context.webExtension.displayName)
+        removeExtensionWebsiteData(for: id)
+        FaviconCache.shared.removeAll(matchingScheme: "webkit-extension", host: id)
 
         installedExtensions = installedExtensions.filter { $0 !== context }
         saveInstalledExtensions()
@@ -599,20 +638,22 @@ final class ExtensionManager: NSObject {
         }
     }
 
+    nonisolated static func parseExtensionID(from url: URL) -> String? {
+        guard url.scheme?.caseInsensitiveCompare("webkit-extension") == .orderedSame,
+              let host = url.host, !host.isEmpty
+        else { return nil }
+        return host
+    }
+
     func getExtensionContext(for url: URL) -> WKWebExtensionContext? {
         if let cached = extensionContextCache.value(for: url) { return cached }
 
-        guard url.scheme == "webkit-extension" else { return nil }
+        guard let extensionID = Self.parseExtensionID(from: url) else { return nil }
 
-        let urlString = url.absoluteString
-        guard let prefixRange = urlString.range(of: "webkit-extension://", options: .caseInsensitive) else {
-            return nil
-        }
-        let afterPrefix = urlString[prefixRange.upperBound...]
-        guard let slashIndex = afterPrefix.firstIndex(of: "/") else { return nil }
-        let extensionID = String(afterPrefix[..<slashIndex])
-
-        guard let context = installedExtensions.first(where: { $0.uniqueIdentifier == extensionID }) else {
+        guard let context = installedExtensions.first(where: { context in
+            let stable = contextStableIDs[ObjectIdentifier(context)] ?? context.uniqueIdentifier
+            return stable == extensionID || context.uniqueIdentifier == extensionID
+        }) else {
             return nil
         }
         extensionContextCache.insert(context, for: url)
@@ -697,6 +738,34 @@ final class ExtensionManager: NSObject {
             try FileManager.default.removeItem(at: dir)
         } catch {
             AppLog.warning("Could not remove runtime storage for '\(uniqueIdentifier)': \(error.localizedDescription)")
+        }
+    }
+
+    private var extensionDataStore: WKWebsiteDataStore? {
+        if isGuestSession { return nil }
+        if let profileID {
+            return WKWebsiteDataStore(forIdentifier: profileID)
+        }
+        return .default()
+    }
+
+    private func removeExtensionWebsiteData(for stableID: String) {
+        guard !isGuestSession, let dataStore = extensionDataStore else { return }
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            guard let allTypes = WKWebsiteDataStore.allWebsiteDataTypes() as? Set<String> else {
+                AppLog.warning("Unable to resolve website data types while cleaning up extension '\(stableID)'")
+                return
+            }
+            do {
+                let records = try await dataStore.dataRecords(ofTypes: allTypes)
+                let matches = records.filter { $0.displayName.contains(stableID) }
+                guard !matches.isEmpty else { return }
+                await dataStore.removeData(ofTypes: allTypes, for: matches)
+                AppLog.info("Removed website data for extension '\(stableID)'")
+            } catch {
+                AppLog.warning("Failed to remove website data for extension '\(stableID)': \(error.localizedDescription)")
+            }
         }
     }
 
@@ -814,7 +883,7 @@ extension ExtensionManager: WKWebExtensionControllerDelegate {
         let pendingID = UUID()
 
         let timeoutTask = Task { @MainActor [weak self] in
-            try? await Task.sleep(nanoseconds: 10_000_000_000) // 10 s
+            try? await Task.sleep(nanoseconds: UInt64(Self.windowCreationTimeout * 1_000_000_000))
             guard !Task.isCancelled, let self else { return }
             if let entry = self.pendingWindows.removeValue(forKey: pendingID) {
                 AppLog.warning("Window creation timed out for extension: \(context.webExtension.displayName ?? "unknown")")
@@ -912,7 +981,7 @@ extension ExtensionManager: WKWebExtensionControllerDelegate {
         activePermissionRequest = prompt
 
         permissionRequestTimeoutTask = Task { @MainActor [weak self] in
-            try? await Task.sleep(nanoseconds: 300_000_000_000) // 5 min
+            try? await Task.sleep(nanoseconds: UInt64(Self.permissionPromptTimeout * 1_000_000_000))
             guard !Task.isCancelled, let self else { return }
             guard self.activePermissionRequest?.id == prompt.id else { return }
             AppLog.warning("Permission request timed out for extension: \(context.webExtension.displayName ?? "unknown")")
@@ -932,6 +1001,6 @@ extension ExtensionManager: WKWebExtensionControllerDelegate {
         didUpdate action: WKWebExtension.Action,
         forExtensionContext context: WKWebExtensionContext
     ) {
-        actionChangesSubject.send((context, action.associatedTab))
+        actionChangesStreamContinuation?.yield((context, action.associatedTab))
     }
 }

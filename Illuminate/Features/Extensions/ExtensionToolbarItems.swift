@@ -67,10 +67,12 @@ struct ExtensionToolbarItemView: View {
         }
         .frame(width: MacDesign.Size.iconButton, height: MacDesign.Size.iconButton)
         .onAppear(perform: updateActionState)
-        .onReceive(profileEnvironment.extensionManager.actionChanges) { updatedContext, updatedTab in
-            guard updatedContext === context else { return }
-            guard updatedTab == nil || updatedTab === tabManager.activeTab else { return }
-            updateActionState()
+        .task {
+            for await (updatedContext, updatedTab) in profileEnvironment.extensionManager.actionChanges {
+                guard updatedContext === context else { continue }
+                guard updatedTab == nil || updatedTab === tabManager.activeTab else { continue }
+                updateActionState()
+            }
         }
         .onChange(of: tabManager.activeTabID) { _, _ in updateActionState() }
     }
@@ -89,12 +91,13 @@ struct ExtensionToolbarItemView: View {
             context.performAction(for: tabManager.activeTab)
             return
         }
+        let payload = ExtensionPopupCoordinator.PopupPayload(
+            popupWebView: popupWebView,
+            extensionName: context.webExtension.displayName,
+            anchorX: buttonFrame.midX
+        )
         withAnimation(MacDesign.popupAnimation) {
-            popupCoordinator.open(.init(
-                popupWebView: popupWebView,
-                extensionName: context.webExtension.displayName,
-                anchorX: buttonFrame.midX
-            ))
+            popupCoordinator.open(payload)
         }
     }
 

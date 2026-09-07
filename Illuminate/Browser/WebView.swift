@@ -78,8 +78,21 @@ struct WebView: View {
                 canvasFingerprintingService: canvasFingerprintingService,
                 userInterfaceStyle: tabManager.userInterfaceStyle
             )
+            .id(webViewIdentity(for: tab))
             .ignoresSafeArea(.container, edges: .bottom)
         }
+    }
+
+    private func webViewIdentity(for tab: Tab) -> String {
+        guard let url = tab.url, url.scheme == "webkit-extension" else {
+            return tab.id.uuidString
+        }
+        if tab.customWebViewConfiguration != nil { return tab.id.uuidString }
+        let installed = profileEnvironment.extensionManager.installedExtensions
+        let hasContext = installed.contains { ctx in
+            ctx.uniqueIdentifier.lowercased() == (url.host ?? "").lowercased()
+        }
+        return hasContext ? tab.id.uuidString : "\(tab.id.uuidString)-pending"
     }
 
     @ViewBuilder

@@ -7,7 +7,6 @@
 
 import SwiftUI
 import WebKit
-import Combine
 import Observation
 
 @MainActor
@@ -16,7 +15,7 @@ final class FindViewModel {
 
     var searchText: String = "" {
         didSet {
-            searchSubject.send(searchText)
+            scheduleDebouncedSearch()
         }
     }
     var isPresented: Bool = false {
@@ -44,18 +43,22 @@ final class FindViewModel {
 
     @ObservationIgnored private weak var webView: WKWebView?
     @ObservationIgnored private var didInjectScript = false
-    @ObservationIgnored private let searchSubject = PassthroughSubject<String, Never>()
-    @ObservationIgnored private var cancellables = Set<AnyCancellable>()
+    @ObservationIgnored private var debounceTask: Task<Void, Never>?
+    @ObservationIgnored private var lastDebouncedText: String = ""
 
-    init() {
-        searchSubject
-            .removeDuplicates()
-            .debounce(for: .milliseconds(250), scheduler: DispatchQueue.main)
-            .sink { [weak self] text in
-                self?.runSearch(text, resetIndex: true)
-            }
-            .store(in: &cancellables)
+    private func scheduleDebouncedSearch() {
+        debounceTask?.cancel()
+        let text = searchText
+        debounceTask = Task {
+            try? await Task.sleep(nanoseconds: 250_000_000)
+            guard !Task.isCancelled else { return }
+            guard text == searchText, text != lastDebouncedText else { return }
+            lastDebouncedText = text
+            runSearch(text, resetIndex: true)
+        }
     }
+
+    init() {}
 
     func attach(to webView: WKWebView) {
         self.webView = webView

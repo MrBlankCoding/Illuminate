@@ -5,7 +5,6 @@
 //  Created by MrBlankCoding on 8/25/26.
 //
 
-import Combine
 import Foundation
 import Testing
 import WebKit
@@ -122,17 +121,19 @@ struct ExtensionManagerStateTests {
         #expect(manager.activePermissionRequest == nil)
     }
 
-    @Test("actionChanges subject can be subscribed and does not emit until triggered")
-    func actionChangesSubjectSilentByDefault() async throws {
+    @Test("actionChanges stream does not emit until triggered")
+    func actionChangesStreamSilentByDefault() async throws {
         let manager = makeManager()
         var receivedValues = 0
-        var cancellables = Set<AnyCancellable>()
 
-        manager.actionChanges
-            .sink { _ in receivedValues += 1 }
-            .store(in: &cancellables)
+        let task = Task {
+            for await _ in manager.actionChanges {
+                receivedValues += 1
+            }
+        }
 
         try await Task.sleep(for: .milliseconds(30))
+        task.cancel()
         #expect(receivedValues == 0)
     }
 }

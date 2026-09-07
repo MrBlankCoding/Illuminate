@@ -26,6 +26,7 @@ extension WebViewRepresentable.Coordinator {
         lastLoadedURL = webView.url
         if let tab {
             syncTabURL(from: webView, for: tab)
+            applyExtensionIconIfNeeded(for: webView, tab: tab)
         }
     }
 
@@ -455,6 +456,19 @@ extension WebViewRepresentable.Coordinator {
                 tab.faviconURL = url
             }
             return
+        }
+    }
+
+    func applyExtensionIconIfNeeded(for webView: WKWebView?, tab: Tab) {
+        guard let webView, let url = webView.url, url.scheme?.lowercased() == "webkit-extension" else { return }
+        MainActor.assumeIsolated {
+            guard let context = tabManager.extensionManager.getExtensionContext(for: url) else { return }
+            let size = CGSize(width: 32, height: 32)
+            guard let icon = context.webExtension.icon(for: size) else { return }
+            if tab.favicon !== icon {
+                tab.favicon = icon
+                tab.faviconURL = url
+            }
         }
     }
 

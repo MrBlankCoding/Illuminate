@@ -5,7 +5,6 @@
 //  Created by MrBlankCoding on 3/9/26.
 //
 
-import Combine
 import Foundation
 import WebKit
 
@@ -18,7 +17,7 @@ protocol ExtensionManaging: AnyObject {
     var pinnedExtensions: Set<String> { get }
     var isCheckingForUpdates: Bool { get }
     var activePermissionRequest: Extensions.PermissionPrompt? { get }
-    var actionChanges: AnyPublisher<(WKWebExtensionContext, (any WKWebExtensionTab)?), Never> { get }
+    var actionChanges: AsyncStream<(WKWebExtensionContext, (any WKWebExtensionTab)?)> { get }
 
     func isEnabled(_ context: WKWebExtensionContext) -> Bool
     func isPinned(_ context: WKWebExtensionContext) -> Bool

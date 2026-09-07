@@ -120,9 +120,14 @@ extension TabManager {
 
         AppLog.debug("[TabManager] Extension list changed - installed extensions count: \(extensionManager.installedExtensions.count)")
         for tab in tabs {
-            if tab.url != nil {
-                tab.reload()
+            resolveExtensionConfiguration(for: tab)
+            guard let url = tab.url else { continue }
+            if url.scheme == "webkit-extension",
+               let config = tab.customWebViewConfiguration,
+               tab.webView?.configuration !== config {
+                tab.updateWebViewConfiguration(config)
             }
+            tab.reload()
         }
     }
 

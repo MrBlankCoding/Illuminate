@@ -84,7 +84,7 @@ final class FaviconLoader: Sendable {
         return resolved
     }
 
-    private static func isSupportedScheme(_ url: URL) -> Bool {
+    static func isSupportedScheme(_ url: URL) -> Bool {
         guard let s = url.scheme?.lowercased() else { return false }
         return ["http", "https", "data"].contains(s)
     }

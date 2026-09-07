@@ -6,7 +6,6 @@
 //
 
 import AppKit
-import Combine
 import Foundation
 import ObjectiveC
 import Observation
@@ -283,8 +282,8 @@ final class Tab: NSObject, Identifiable, WKWebExtensionTab {
 
     @ObservationIgnored private let assetsBaseURL: URL
     @ObservationIgnored private let ownershipToken: String
-    @ObservationIgnored private var cancellables = Set<AnyCancellable>()
-    @ObservationIgnored var customWebViewConfiguration: WKWebViewConfiguration?
+    @ObservationIgnored private var kvoObservations: [NSKeyValueObservation] = []
+    var customWebViewConfiguration: WKWebViewConfiguration?
 
     private var assetsURLWithoutCreating: URL {
         assetsBaseURL
@@ -411,7 +410,7 @@ final class Tab: NSObject, Identifiable, WKWebExtensionTab {
     }
 
     func detachWebView() {
-        cancellables.removeAll()
+        kvoObservations.removeAll()
         webView = nil
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
@@ -714,7 +713,10 @@ final class Tab: NSObject, Identifiable, WKWebExtensionTab {
     private func applyRestoredMetadata(url restoredURL: URL?, title restoredTitle: String?) {
         isRestoringState = true
         defer { isRestoringState = false }
-        if url == nil, let restoredURL { url = restoredURL }
+        if url == nil, let restoredURL {
+            url = restoredURL
+            tabManager?.resolveExtensionConfiguration(for: self)
+        }
         if title == "New Tab", let restoredTitle, !restoredTitle.isEmpty { title = restoredTitle }
     }
 
@@ -723,43 +725,38 @@ final class Tab: NSObject, Identifiable, WKWebExtensionTab {
     }
 
     private func setupWebViewObservers(_ webView: WKWebView) {
-        cancellables.removeAll()
+        kvoObservations.removeAll()
 
-        /*
-        webView.publisher(for: \.isAudible)
-            .removeDuplicates()
-            .receive(on: RunLoop.main)
-            .sink { [weak self] v in
-                self?.notifyExtensions(properties: .playingAudio)
+        let canGoBackObs = webView.observe(\.canGoBack, options: [.initial, .new]) { [weak self] _, _ in
+            MainActor.assumeIsolated {
+                self?.canGoBack = webView.canGoBack
             }
-            .store(in: &cancellables)
-        */
+        }
+        kvoObservations.append(canGoBackObs)
 
-        webView.publisher(for: \.canGoBack)
-            .removeDuplicates()
-            .receive(on: RunLoop.main)
-            .sink { [weak self] v in self?.canGoBack = v }
-            .store(in: &cancellables)
+        let canGoForwardObs = webView.observe(\.canGoForward, options: [.initial, .new]) { [weak self] _, _ in
+            MainActor.assumeIsolated {
+                self?.canGoForward = webView.canGoForward
+            }
+        }
+        kvoObservations.append(canGoForwardObs)
 
-        webView.publisher(for: \.canGoForward)
-            .removeDuplicates()
-            .receive(on: RunLoop.main)
-            .sink { [weak self] v in self?.canGoForward = v }
-            .store(in: &cancellables)
+        var lastProgressUpdate = Date.distantPast
+        let progressObs = webView.observe(\.estimatedProgress, options: [.initial, .new]) { [weak self] _, _ in
+            let now = Date()
+            guard now.timeIntervalSince(lastProgressUpdate) >= 0.1 else { return }
+            lastProgressUpdate = now
+            MainActor.assumeIsolated {
+                self?.estimatedProgress = webView.estimatedProgress
+            }
+        }
+        kvoObservations.append(progressObs)
 
-        webView.publisher(for: \.estimatedProgress)
-            .removeDuplicates()
-            .throttle(for: .milliseconds(100), scheduler: RunLoop.main, latest: true)
-            .sink { [weak self] v in self?.estimatedProgress = v }
-            .store(in: &cancellables)
-
-        webView.publisher(for: \.isLoading)
-            .removeDuplicates()
-            .receive(on: RunLoop.main)
-            .sink { [weak self] v in
+        let loadingObs = webView.observe(\.isLoading, options: [.initial, .new]) { [weak self] _, _ in
+            MainActor.assumeIsolated {
                 guard let self else { return }
-                self.isLoading = v
-                if !v, self.isMuted {
+                self.isLoading = webView.isLoading
+                if !webView.isLoading, self.isMuted {
                     let script = """
                     (() => {
                         for (const media of document.querySelectorAll('audio, video')) {
@@ -770,32 +767,31 @@ final class Tab: NSObject, Identifiable, WKWebExtensionTab {
                     self.webView?.evaluateJavaScript(script, completionHandler: nil)
                 }
             }
-            .store(in: &cancellables)
+        }
+        kvoObservations.append(loadingObs)
 
-        webView.publisher(for: \.url)
-            .removeDuplicates()
-            .throttle(for: .milliseconds(100), scheduler: RunLoop.main, latest: true)
-            .sink { [weak self] v in
-                guard let self, let url = v, self.url != url else { return }
+        var lastURLUpdate = Date.distantPast
+        let urlObs = webView.observe(\.url, options: [.initial, .new]) { [weak self] _, _ in
+            let now = Date()
+            guard now.timeIntervalSince(lastURLUpdate) >= 0.1 else { return }
+            lastURLUpdate = now
+            MainActor.assumeIsolated {
+                guard let self, let url = webView.url, self.url != url else { return }
                 self.url = url
             }
-            .store(in: &cancellables)
+        }
+        kvoObservations.append(urlObs)
 
-        webView.publisher(for: \.title)
-            .removeDuplicates()
-            .throttle(for: .milliseconds(200), scheduler: RunLoop.main, latest: true)
-            .sink { [weak self] v in
-                guard let self, let title = v, !title.isEmpty, self.title != title else { return }
+        var lastTitleUpdate = Date.distantPast
+        let titleObs = webView.observe(\.title, options: [.initial, .new]) { [weak self] _, _ in
+            let now = Date()
+            guard now.timeIntervalSince(lastTitleUpdate) >= 0.2 else { return }
+            lastTitleUpdate = now
+            MainActor.assumeIsolated {
+                guard let self, let title = webView.title, !title.isEmpty, self.title != title else { return }
                 self.title = title
             }
-            .store(in: &cancellables)
-
-        DispatchQueue.main.async { [weak self] in
-            guard let self else { return }
-            if self.canGoBack         != webView.canGoBack         { self.canGoBack         = webView.canGoBack }
-            if self.canGoForward      != webView.canGoForward      { self.canGoForward      = webView.canGoForward }
-            if self.estimatedProgress != webView.estimatedProgress { self.estimatedProgress = webView.estimatedProgress }
-            if self.isLoading         != webView.isLoading         { self.isLoading         = webView.isLoading }
         }
+        kvoObservations.append(titleObs)
     }
 }

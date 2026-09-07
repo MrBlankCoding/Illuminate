@@ -5,7 +5,6 @@
 //  Created by MrBlankCoding on 3/22/26.
 //
 
-import Combine
 import Foundation
 import Observation
 import SwiftData
@@ -16,7 +15,6 @@ final class ProfileManager {
     nonisolated static let defaultIconName = "person.crop.circle"
 
     var profiles: [BrowserProfile] = []
-    @ObservationIgnored let profileDeleted = PassthroughSubject<UUID, Never>()
 
     @ObservationIgnored private var environments: [UUID: ProfileEnvironment] = [:]
     @ObservationIgnored private var guestEnvironments: [UUID: ProfileEnvironment] = [:]
@@ -84,8 +82,7 @@ final class ProfileManager {
             }
         }
 
-        profileDeleted.send(profile.id)
-    }
+        }
 
     func environment(for route: BrowserWindowRoute, container: ModelContainer) -> ProfileEnvironment? {
         switch route {

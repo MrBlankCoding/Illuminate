@@ -55,6 +55,7 @@ struct ContentView: View {
                         .environment(tabManager)
                         .environment(environment)
                         .environment(popupCoordinator)
+                        .id(ObjectIdentifier(payload.popupWebView))
                         .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
                     }
                 }

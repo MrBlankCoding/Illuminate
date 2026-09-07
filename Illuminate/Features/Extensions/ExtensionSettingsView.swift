@@ -92,6 +92,9 @@ struct ExtensionSettingsView: View {
         .onChange(of: manager.enabledStateVersion) { _, _ in
             installedExtensions = manager.installedExtensions
         }
+        .onChange(of: manager.installedExtensions) { _, newValue in
+            installedExtensions = newValue
+        }
         .onAppear {
             installedExtensions = manager.installedExtensions
         }

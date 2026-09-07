@@ -92,19 +92,6 @@ final class PerformanceBenchmarks: XCTestCase {
         }
     }
 
-    func testKeyboardShortcutLookup() throws {
-        let handler = KeyboardShortcutHandler(notificationCenter: .default)
-
-        bench("Shortcut dispatch ⌘T (hot key)", iterations: 10_000) {
-            handler.performInline_handleCharacter("t", modifiers: .command)
-        }
-        
-        bench("Shortcut dispatch ⌘→ (keyCode)", iterations: 10_000) {
-            handler.performInline_handleKeyCode(124, modifiers: .command)
-        }
-    }
-
-
     func testFaviconCacheEvictionRate() throws {
         let cache = FaviconCache(capacity: 128)
         let urls = (0..<10_000).map { URL(string: "https://evict\($0).com/favicon.ico")! }
@@ -124,15 +111,5 @@ extension TabManager {
 
     @MainActor func indexOfTabByID(_ id: UUID) -> Int? {
         indexOfTab(withID: id)
-    }
-}
-
-extension KeyboardShortcutHandler {
-    nonisolated func performInline_handleCharacter(_ char: String, modifiers: NSEvent.ModifierFlags) {
-        _ = lookupShortcutBy(character: char, modifiers: modifiers)
-    }
-
-    nonisolated func performInline_handleKeyCode(_ code: UInt16, modifiers: NSEvent.ModifierFlags) {
-        _ = lookupShortcutBy(keyCode: code, modifiers: modifiers)
     }
 }

@@ -160,7 +160,7 @@ extension TabManager {
             guard !Task.isCancelled else { return }
 
             let state = SessionState(
-                tabIDs: self.tabs.map { $0.id },
+                tabs: self.tabs.map { $0.toTransferPayload() },
                 activeTabID: self.activeTabID
             )
             let url     = self.sessionURL
@@ -176,7 +176,7 @@ extension TabManager {
     func persistSessionStateImmediately() {
         guard isPersistenceEnabled else { return }
         let state = SessionState(
-            tabIDs: tabs.map { $0.id },
+            tabs: tabs.map { $0.toTransferPayload() },
             activeTabID: activeTabID
         )
         let url = sessionURL

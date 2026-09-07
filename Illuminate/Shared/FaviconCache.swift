@@ -276,6 +276,28 @@ final class FaviconCache: @unchecked Sendable {
         }
     }
 
+    nonisolated func removeAll(matchingScheme scheme: String, host: String) {
+        let scheme = scheme.lowercased()
+        var diskHashes: [String] = []
+        lock.withLock {
+            let matching = storage.keys.filter {
+                $0.scheme?.lowercased() == scheme && $0.host == host
+            }
+            for key in matching {
+                storage.removeValue(forKey: key)
+                accessOrder.removeValue(forKey: key)
+                diskHashes.append(stableHash(normalizedRequestKey(for: key)))
+            }
+        }
+        guard !diskHashes.isEmpty else { return }
+        Task.detached(priority: .utility) { [cacheURL] in
+            for hash in diskHashes {
+                let path = cacheURL.appendingPathComponent(hash).appendingPathExtension("png").path
+                try? FileManager.default.removeItem(atPath: path)
+            }
+        }
+    }
+
     nonisolated private func setWithData(_ image: NSImage, pngData: Data?, for key: URL) {
         let diskPath = diskURL(for: key)
         let hashes = lock.withLock {

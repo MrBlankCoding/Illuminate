@@ -354,8 +354,28 @@ final class TabManager: NSObject, WKWebExtensionWindow {
     func indexOfTab(withID id: UUID) -> Int? { tabPositionIndex[id] }
 
     func makeTab(from payload: TabTransferPayload) -> Tab {
-        let tab = Tab(payload: payload, assetsBaseURL: tabAssetsBaseURL)
+        var webViewConfiguration: WKWebViewConfiguration?
+        if let url = payload.url, url.scheme == "webkit-extension" {
+            if let extensionContext = extensionManager.getExtensionContext(for: url) {
+                webViewConfiguration = extensionContext.webViewConfiguration
+            }
+        }
+        let tab = Tab(
+            id: payload.id,
+            url: payload.url,
+            title: payload.title ?? "New Tab",
+            assetsBaseURL: tabAssetsBaseURL,
+            webViewConfiguration: webViewConfiguration
+        )
         return tab
+    }
+
+    func resolveExtensionConfiguration(for tab: Tab) {
+        guard let url = tab.url, url.scheme == "webkit-extension" else { return }
+        guard tab.customWebViewConfiguration == nil else { return }
+        if let extensionContext = extensionManager.getExtensionContext(for: url) {
+            tab.customWebViewConfiguration = extensionContext.webViewConfiguration
+        }
     }
 
     // over engineered
