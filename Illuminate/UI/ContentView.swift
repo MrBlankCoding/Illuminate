@@ -76,7 +76,7 @@ struct ContentView: View {
         } 
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(WindowConfigurator())
-        .preferredColorScheme(tabManager.userInterfaceStyle.colorScheme)
+        .preferredColorScheme(AppearanceSettings.shared.colorScheme.colorScheme)
         .environment(popupCoordinator)
         .compactModeAware()
         .onAppear {

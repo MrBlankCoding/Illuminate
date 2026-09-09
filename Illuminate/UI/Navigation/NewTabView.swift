@@ -51,7 +51,7 @@ struct NewTabView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(backgroundView)
         .ignoresSafeArea()
-        .preferredColorScheme(tabManager.userInterfaceStyle.colorScheme)
+        .preferredColorScheme(AppearanceSettings.shared.colorScheme.colorScheme)
         .onTapGesture {
             NotificationCenter.default.post(name: .blurURLBar, object: nil)
         }

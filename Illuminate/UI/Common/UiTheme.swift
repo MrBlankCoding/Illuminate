@@ -43,24 +43,66 @@ struct BrowserTheme {
 enum BrowserAppearanceSettings {
     static let compactModeKey = "appearance.compactMode"
     static let animationsEnabledKey = "appearance.animationsEnabled"
-    
+    static let colorSchemeKey = "appearance.colorScheme"
+
     static let compactModeDidChangeNotification = Notification.Name("BrowserAppearanceSettings.compactModeDidChange")
+}
+
+enum AppColorScheme: String, CaseIterable, Identifiable {
+    case system, light, dark
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .system: return "System"
+        case .light: return "Light"
+        case .dark: return "Dark"
+        }
+    }
+
+    var colorScheme: ColorScheme? {
+        switch self {
+        case .system: return nil
+        case .light: return .light
+        case .dark: return .dark
+        }
+    }
+
+    var nsAppearance: NSAppearance? {
+        switch self {
+        case .system: return nil
+        case .light: return NSAppearance(named: .aqua)
+        case .dark: return NSAppearance(named: .darkAqua)
+        }
+    }
 }
 
 @Observable
 class AppearanceSettings {
     static let shared = AppearanceSettings()
-    
+
     var compactMode: Bool {
         didSet {
             UserDefaults.standard.set(compactMode, forKey: BrowserAppearanceSettings.compactModeKey)
             NotificationCenter.default.post(name: BrowserAppearanceSettings.compactModeDidChangeNotification, object: nil)
         }
     }
-    
+
+    var colorScheme: AppColorScheme {
+        didSet {
+            UserDefaults.standard.set(colorScheme.rawValue, forKey: BrowserAppearanceSettings.colorSchemeKey)
+            NSApp.appearance = colorScheme.nsAppearance
+        }
+    }
+
     private init() {
         self.compactMode = UserDefaults.standard.bool(forKey: BrowserAppearanceSettings.compactModeKey)
+        let savedColorScheme = UserDefaults.standard.string(forKey: BrowserAppearanceSettings.colorSchemeKey)
+        self.colorScheme = AppColorScheme(rawValue: savedColorScheme ?? "") ?? .system
+        NSApp.appearance = self.colorScheme.nsAppearance
     }
+
 }
 
 

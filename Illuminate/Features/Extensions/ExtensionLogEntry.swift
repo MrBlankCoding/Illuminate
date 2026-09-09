@@ -7,7 +7,6 @@
 
 import Foundation
 
-/// Represents a single log entry for an extension
 struct ExtensionLogEntry: Identifiable, Codable, Equatable {
     let id: UUID
     let timestamp: Date
@@ -39,7 +38,6 @@ struct ExtensionLogEntry: Identifiable, Codable, Equatable {
     }
 }
 
-/// Manages logs for all extensions
 @MainActor
 @Observable
 final class ExtensionLogManager {

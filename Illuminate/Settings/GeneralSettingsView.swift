@@ -80,6 +80,14 @@ struct GeneralSettingsView: View {
             }
 
             Section {
+                Picker("Appearance", selection: $appearanceSettings.colorScheme) {
+                    ForEach(AppColorScheme.allCases) { scheme in
+                        Text(scheme.label).tag(scheme)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .accessibilityIdentifier("settings.general.colorSchemePicker")
+
                 Toggle(isOn: $appearanceSettings.compactMode) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Compact experience")
