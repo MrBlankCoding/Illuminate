@@ -38,14 +38,15 @@ struct ContentView: View {
                 .zIndex(3)
 
                 BrowserContentView(
-                    tabs: tabManager.tabs,
-                    activeTabID: tabManager.activeTabID,
                     windowThemeColor: tabManager.windowThemeColor,
                     colorScheme: colorScheme,
                     findViewModel: findViewModel,
                     zoomViewModel: zoomViewModel
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .onTapGesture {
+                    NotificationCenter.default.post(name: .blurURLBar, object: nil)
+                }
                 .overlay(alignment: .top) {
                     if let payload = popupCoordinator.activePopup {
                         ExtensionPopupPanel(
@@ -137,8 +138,6 @@ struct BackgroundLayer: View {
 }
 
 struct BrowserContentView: View {
-    let tabs: [Tab]
-    let activeTabID: UUID?
     let windowThemeColor: Color
     let colorScheme: ColorScheme
     var findViewModel: FindViewModel
@@ -146,21 +145,11 @@ struct BrowserContentView: View {
     @Environment(TabManager.self) private var tabManager: TabManager
     @Environment(ContentViewModel.self) private var viewModel: ContentViewModel
 
-    private var activeTab: Tab? {
-        guard let activeTabID else { return nil }
-        return tabs.first { $0.id == activeTabID }
-    }
-
-    private var tabsWithActiveFirst: [Tab] {
-        guard let activeTab else { return tabs }
-        return [activeTab] + tabs.filter { $0.id != activeTab.id }
-    }
-
-    private var theme: BrowserTheme {
-        BrowserTheme(accent: windowThemeColor, colorScheme: colorScheme, windowThemeColor: windowThemeColor)
-    }
-
     var body: some View {
+        let tabs = tabManager.tabs
+        let activeTabID = tabManager.activeTabID
+        let activeTab = activeTabID.flatMap { id in tabs.first { $0.id == id } }
+        let theme = BrowserTheme(accent: windowThemeColor, colorScheme: colorScheme, windowThemeColor: windowThemeColor)
         ZStack(alignment: .top) {
             ZStack {
                 Group {
@@ -168,7 +157,7 @@ struct BrowserContentView: View {
                         Color.clear
                     } else {
                         Rectangle()
-                            .fill(.regularMaterial)
+                            .fill(theme.windowBase)
                             .ignoresSafeArea()
                     }
                 }
@@ -182,20 +171,13 @@ struct BrowserContentView: View {
 
             VStack(spacing: 0) {
                 ZStack {
-                    ForEach(tabsWithActiveFirst) { tab in
-                        let isActive = tab.id == activeTabID
-
-                        WebView(tab: tab)
-                            .transaction { $0.animation = nil }
+                    if let activeTab {
+                        WebView(tab: activeTab)
                             .environment(viewModel)
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
-                            .opacity(isActive ? 1 : 0)
-                            .allowsHitTesting(isActive)
-                            .accessibilityHidden(!isActive)
-                            .zIndex(isActive ? 1 : 0)
                     }
 
-                    if let activeTab = activeTab,
+                    if let activeTab,
                        let error = activeTab.networkError {
                         BrowserErrorPageView(error: error)
                             .frame(maxWidth: .infinity, maxHeight: .infinity)

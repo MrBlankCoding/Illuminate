@@ -8,13 +8,6 @@
 import SwiftUI
 import AppKit
 
-struct URLBarWidthPreferenceKey: PreferenceKey {
-    static var defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = nextValue()
-    }
-}
-
 struct URLBar: View {
     let activeTab: Tab?
     let themeColor: Color
@@ -29,6 +22,8 @@ struct URLBar: View {
     @FocusState private var isFocused: Bool
     @State private var didCopyURL = false
     @State private var isCopyHovered = false
+    @State private var isHovered = false
+    @State private var suggestionTask: Task<Void, Never>?
     @Namespace private var glassNamespace
     private let barGlassID = "url-bar-shell"
 
@@ -38,9 +33,6 @@ struct URLBar: View {
 
     var body: some View {
         barContent
-        .background(GeometryReader { geo in
-            Color.clear.preference(key: URLBarWidthPreferenceKey.self, value: geo.size.width)
-        })
         .zIndex(100)
         .onReceive(NotificationCenter.default.publisher(for: .focusURLBar)) { _ in
             guard !isFocused else { return }
@@ -65,7 +57,7 @@ struct URLBar: View {
 
             if newID != nil && activeTab?.url == nil {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                    focusURLBar()
+                    focusURLBar(showRecentSearches: false)
                 }
             }
         }
@@ -129,7 +121,12 @@ struct URLBar: View {
                 .onChange(of: addressText) { _, newValue in
                     if isFocused {
                         isRecentSearchesEligible = false
-                        viewModel.updateSuggestions(for: newValue)
+                        suggestionTask?.cancel()
+                        suggestionTask = Task {
+                            try? await Task.sleep(nanoseconds: 100_000_000)
+                            guard !Task.isCancelled else { return }
+                            viewModel.updateSuggestions(for: newValue)
+                        }
                     }
                 }
 
@@ -172,6 +169,10 @@ struct URLBar: View {
         .font(.webCaption)
         .animation(MacDesign.springAnimation, value: isFocused)
         .hoverCursor(.iBeam)
+        .onHover { hovering in
+            withAnimation(MacDesign.fastAnimation) { isHovered = hovering }
+        }
+        .opacity(isFocused ? 1.0 : (isHovered ? 0.85 : 1.0))
         // Recent searches should only appear when the user explicitly clicks
         // the URL bar on a new tab page, never from programmatic focus.
         .simultaneousGesture(TapGesture().onEnded {
@@ -186,7 +187,7 @@ struct URLBar: View {
             }
             if activeTab?.url == nil {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                    focusURLBar()
+                    focusURLBar(showRecentSearches: false)
                 }
             }
         }
@@ -204,8 +205,8 @@ struct URLBar: View {
         return "magnifyingglass"
     }
 
-    private func focusURLBar() {
-        isRecentSearchesEligible = true
+    private func focusURLBar(showRecentSearches: Bool = true) {
+        isRecentSearchesEligible = showRecentSearches
         isFocused = true
         viewModel.setAddressBarEditing(true)
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {

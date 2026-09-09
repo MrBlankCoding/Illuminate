@@ -111,21 +111,16 @@ struct BrowserToolbarView: View {
     @State private var addressText = ""
     @State private var isHoveringSuggestions = false
     @State private var isRecentSearchesEligible = false
-    @State private var urlBarWidth: CGFloat = 0
-
     var body: some View {
         topContent
             .frame(maxWidth: .infinity)
             .frame(height: ToolbarMetrics.totalHeight)
             .background(toolbarBackground)
             .ignoresSafeArea(edges: .top)
-            .overlay(alignment: .top) {
-                suggestionsOverlay
-            }
     }
 
     @ViewBuilder
-    private var suggestionsOverlay: some View {
+    private func suggestionsOverlay() -> some View {
         let isFocused = viewModel.isEditingAddressBar
         let hasSuggestions = !viewModel.illuminatePageSuggestions.isEmpty ||
             !viewModel.historySuggestions.isEmpty ||
@@ -140,8 +135,7 @@ struct BrowserToolbarView: View {
                 showRecentSearches: showRecentSearches,
                 onNavigate: onNavigate
             )
-            .frame(width: urlBarWidth > 0 ? urlBarWidth : nil)
-            .offset(y: ToolbarMetrics.totalHeight + MacDesign.Spacing.mini)
+            .offset(y: MacDesign.Size.urlBarHeight + 16)
         }
     }
 
@@ -206,7 +200,9 @@ struct BrowserToolbarView: View {
                 isHoveringSuggestions: $isHoveringSuggestions,
                 isRecentSearchesEligible: $isRecentSearchesEligible
             )
-            .onPreferenceChange(URLBarWidthPreferenceKey.self) { urlBarWidth = $0 }
+            .overlay(alignment: .top) {
+                suggestionsOverlay()
+            }
             .frame(maxWidth: .infinity)
             .layoutPriority(1)
 
@@ -368,6 +364,7 @@ private struct SuggestionsDropdownView: View {
         isHoveringSuggestions = false
         viewModel.setAddressBarEditing(false)
         viewModel.cancelSuggestions()
+        NotificationCenter.default.post(name: .blurURLBar, object: nil)
 
         if suggestion.isCurrentlyOpenTab, let tabID = suggestion.openTabID {
             tabManager.switchTo(tabID)
@@ -382,6 +379,7 @@ private struct SuggestionsDropdownView: View {
         isHoveringSuggestions = false
         viewModel.setAddressBarEditing(false)
         viewModel.cancelSuggestions()
+        NotificationCenter.default.post(name: .blurURLBar, object: nil)
         onNavigate(suggestion.urlString)
     }
 
@@ -390,6 +388,7 @@ private struct SuggestionsDropdownView: View {
         isHoveringSuggestions = false
         viewModel.setAddressBarEditing(false)
         viewModel.cancelSuggestions()
+        NotificationCenter.default.post(name: .blurURLBar, object: nil)
         onNavigate(suggestion)
     }
 }

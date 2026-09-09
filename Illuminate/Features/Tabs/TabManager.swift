@@ -471,8 +471,14 @@ final class TabManager: NSObject, WKWebExtensionWindow {
         }
 
         if tabs.isEmpty {
-            persistSessionStateImmediately()
-            window?.close()
+            pendingSaveTask?.cancel()
+            try? FileManager.default.removeItem(at: sessionURL)
+            if let window {
+                window.close()
+            } else {
+                NSApp.keyWindow?.close()
+            }
+            return
         }
 
         scheduleSave()
