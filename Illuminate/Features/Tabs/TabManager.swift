@@ -465,9 +465,7 @@ final class TabManager: NSObject, WKWebExtensionWindow {
 
         if activeTabID == id {
             let nextID = (tabs[safe: index] ?? tabs.last)?.id
-            withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-                setActiveTab(nextID)
-            }
+            setActiveTab(nextID)
         }
 
         if tabs.isEmpty {

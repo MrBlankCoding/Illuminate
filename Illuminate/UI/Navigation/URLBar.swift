@@ -44,18 +44,16 @@ struct URLBar: View {
         .onChange(of: activeTab?.id) { oldID, newID in
             guard newID != oldID else { return }
 
-            // kick out!!!!!!
-            // GRAAAAH
             if isFocused {
                 isFocused = false
                 viewModel.setAddressBarEditing(false)
             }
             isRecentSearchesEligible = false
 
-            // update bar regardless of focus just in case
-            addressText = ContentViewModel.addressBarDisplayText(for: activeTab?.url)
+            let targetTab = newID.flatMap { tabManager.tab(forID: $0) }
+            addressText = ContentViewModel.addressBarDisplayText(for: targetTab?.url)
 
-            if newID != nil && activeTab?.url == nil {
+            if newID != nil && targetTab?.url == nil {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
                     focusURLBar(showRecentSearches: false)
                 }

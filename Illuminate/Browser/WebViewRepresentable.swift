@@ -68,6 +68,13 @@ struct WebViewRepresentable: NSViewRepresentable {
 
         loadIfNeeded(webView, coordinator: context.coordinator)
 
+        if webView.superview == nil, let url = tab.url, webView.url == nil {
+            context.coordinator.lastRequestedLoadURLString = url.absoluteString
+            if !url.isFileURL, url.scheme?.lowercased() != "webkit-extension" {
+                webView.load(makeRequest(for: url))
+            }
+        }
+
         return webView
     }
 
