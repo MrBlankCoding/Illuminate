@@ -35,7 +35,7 @@ struct ContentViewModelStateTests {
     @Test func cancelSuggestionsClearsAllSuggestionCollections() {
         let (viewModel, _) = makeViewModelAndTab()
 
-        viewModel.updateSuggestions(for: "illuminate:")
+        viewModel.updateSuggestions(for: "illuminate://ext")
         #expect(viewModel.illuminatePageSuggestions.isEmpty == false)
 
         viewModel.cancelSuggestions()

@@ -40,7 +40,7 @@ struct HistorySuggestion: Identifiable, Equatable {
 @Observable
 final class HistoryManager {
 
-    private struct SuggestionCandidate {
+    private struct SuggestionCandidate: Sendable {
         let id: UUID
         let displayTitle: String
         let urlString: String
@@ -223,7 +223,7 @@ final class HistoryManager {
     private var suggestionCacheOrder: [String] = []
     private let suggestionCacheLimit = 20
 
-    func suggestions(for query: String, limit: Int = 6) -> [HistorySuggestion] {
+    func suggestions(for query: String, limit: Int = 6) async -> [HistorySuggestion] {
         guard !isGuestSession, showHistorySuggestions else { return [] }
         let q = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         guard !q.isEmpty else { return [] }
@@ -233,24 +233,22 @@ final class HistoryManager {
         }
 
         let candidates = suggestionCandidates
-        let now = Date()
-        let daySeconds: Double = 86_400
+        
+        let results = await Task.detached(priority: .userInitiated) { [candidates] in
+            let now = Date()
+            let daySeconds: Double = 86_400
+            let computedLimit = max(limit, 10)
+            var scoredResults: [(SuggestionCandidate, Double)] = []
+            scoredResults.reserveCapacity(computedLimit)
 
-        // Compute a richer result set than any single request needs so a
-        // later request with a larger limit can reuse the cached scan.
-        let computedLimit = max(limit, 10)
-        let results = candidates
-            .filter { $0.lowercaseTitle.contains(q) || $0.lowercaseURL.contains(q) }
-            .map { entry -> (SuggestionCandidate, Double) in
+            for entry in candidates where entry.lowercaseTitle.contains(q) || entry.lowercaseURL.contains(q) {
                 let ageDays = now.timeIntervalSince(entry.lastVisited) / daySeconds
                 let recencyBoost = max(0, 1.0 - ageDays / 30.0)
                 let titleMatch = entry.lowercaseTitle.hasPrefix(q) ? 2.0 : 1.0
                 let score = Double(entry.visitCount) * (1.0 + recencyBoost) * titleMatch
-                return (entry, score)
+                Self.insertTopSuggestion((entry, score), into: &scoredResults, limit: computedLimit)
             }
-            .sorted { $0.1 > $1.1 }
-            .prefix(computedLimit)
-            .map { entry, _ in
+            return scoredResults.map { entry, _ in
                 HistorySuggestion(
                     id: entry.id,
                     title: entry.displayTitle,
@@ -260,6 +258,7 @@ final class HistoryManager {
                     faviconURL: entry.faviconURL
                 )
             }
+        }.value
 
         suggestionCache[q] = results
         suggestionCacheOrder.append(q)
@@ -269,6 +268,22 @@ final class HistoryManager {
         }
 
         return Array(results.prefix(limit))
+    }
+
+    private nonisolated static func insertTopSuggestion(
+        _ candidate: (SuggestionCandidate, Double),
+        into results: inout [(SuggestionCandidate, Double)],
+        limit: Int
+    ) {
+        let insertionIndex = results.firstIndex { $0.1 < candidate.1 } ?? results.endIndex
+        if insertionIndex < limit {
+            results.insert(candidate, at: insertionIndex)
+            if results.count > limit {
+                results.removeLast()
+            }
+        } else if results.count < limit {
+            results.append(candidate)
+        }
     }
 
     private func invalidateSuggestionCache() {
@@ -283,10 +298,9 @@ final class HistoryManager {
     func recentSearchQueries(limit: Int = 5) -> [String] {
         guard !isGuestSession, showHistorySuggestions else { return [] }
         let engines = SearchEngine.allCases
-        let sorted = suggestionCandidates.sorted { $0.lastVisited > $1.lastVisited }
         var result: [String] = []
         var seen = Set<String>()
-        for cand in sorted {
+        for cand in suggestionCandidates {
             guard let url = URL(string: cand.urlString),
                   let comp = URLComponents(url: url, resolvingAgainstBaseURL: false),
                   engines.contains(where: { url.absoluteString.hasPrefix($0.searchURL) })

@@ -12,7 +12,7 @@ import WebKit
 
 @MainActor
 struct TabZoomBehaviorTests {
-    private func makeTab() -> Tab {
+    private func makeTab() async throws -> Tab {
         let tab = Tab(url: URL(string: "https://example.com"), title: "Example")
         let extensionManager = ExtensionManager(profileID: nil, isGuestSession: true)
         let webKitManager = WebKitManager(
@@ -24,11 +24,15 @@ struct TabZoomBehaviorTests {
             configuration: WKWebViewConfiguration(),
             webKitManager: webKitManager
         )
+        let start = Date()
+        while tab.webView == nil && Date().timeIntervalSince(start) < 2 {
+            try await Task.sleep(nanoseconds: 50_000_000)
+        }
         return tab
     }
 
-    @Test func zoomInAndOutChangeTheWebViewAndTabLevelTogether() throws {
-        let tab = makeTab()
+    @Test func zoomInAndOutChangeTheWebViewAndTabLevelTogether() async throws {
+        let tab = try await makeTab()
         let webView = try #require(tab.webView)
 
         tab.zoomIn()
@@ -40,8 +44,8 @@ struct TabZoomBehaviorTests {
         #expect(tab.zoomLevel == 1.0)
     }
 
-    @Test func zoomLevelsAreClampedToSupportedBounds() throws {
-        let tab = makeTab()
+    @Test func zoomLevelsAreClampedToSupportedBounds() async throws {
+        let tab = try await makeTab()
         let webView = try #require(tab.webView)
 
         webView.pageZoom = 5.0
@@ -53,8 +57,8 @@ struct TabZoomBehaviorTests {
         #expect(tab.zoomLevel == Tab.ZoomBounds.min)
     }
 
-    @Test func resetZoomReturnsToDefaultLevel() throws {
-        let tab = makeTab()
+    @Test func resetZoomReturnsToDefaultLevel() async throws {
+        let tab = try await makeTab()
         let webView = try #require(tab.webView)
         webView.pageZoom = 2.0
 

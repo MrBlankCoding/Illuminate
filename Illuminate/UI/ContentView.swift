@@ -146,9 +146,7 @@ struct BrowserContentView: View {
     @Environment(ContentViewModel.self) private var viewModel: ContentViewModel
 
     var body: some View {
-        let tabs = tabManager.tabs
-        let activeTabID = tabManager.activeTabID
-        let activeTab = activeTabID.flatMap { id in tabs.first { $0.id == id } }
+        let activeTab = tabManager.activeTab
         let theme = BrowserTheme(accent: windowThemeColor, colorScheme: colorScheme, windowThemeColor: windowThemeColor)
         ZStack(alignment: .top) {
             ZStack {

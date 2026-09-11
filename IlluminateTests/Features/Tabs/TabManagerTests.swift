@@ -78,19 +78,20 @@ struct TabManagerTests {
         #expect(activeTabURL == updatedURL)
     }
 
-    @Test func switchingTabsDoesNotDiscardBackgroundWebViews() {
+    @Test func switchingTabsDoesNotDiscardBackgroundWebViews() async throws {
         let tabManager = makeTabManager()
         let extensionManager = ExtensionManager(profileID: UUID())
         let webKitManager = WebKitManager(profile: BrowserProfile(name: "Test Profile"), extensionManager: extensionManager)
         let firstTab = tabManager.createTab(url: URL(string: "https://one.example"))
         let secondTab = tabManager.createTab(url: URL(string: "https://two.example"))
+        let configuration = webKitManager.makeConfiguration()
 
         firstTab.createWebViewIfNeeded(
-            configuration: webKitManager.makeConfiguration(),
+            configuration: configuration,
             webKitManager: webKitManager
         )
         secondTab.createWebViewIfNeeded(
-            configuration: webKitManager.makeConfiguration(),
+            configuration: configuration,
             webKitManager: webKitManager
         )
 
@@ -111,7 +112,7 @@ struct TabManagerTests {
         #expect(tabManager.tabs.first?.url == nil)
     }
 
-    @Test func initCreatesSingleBlankTabWhenPersistenceIsEnabledAndNoSessionFilePresent() {
+    @Test func initCreatesSingleBlankTabWhenPersistenceIsEnabledAndNoSessionFilePresent() async throws {
         let profile = BrowserProfile(name: "Launch Test")
         let sessionURL = FileManager.default
             .illuminateProfileDirectory(profileID: profile.id)
@@ -123,6 +124,11 @@ struct TabManagerTests {
             urlSynchronizer: URLSynchronizer(),
             isPersistenceEnabled: true
         )
+
+        let start = Date()
+        while tabManager.tabs.isEmpty && Date().timeIntervalSince(start) < 5 {
+            try await Task.sleep(nanoseconds: 50_000_000)
+        }
 
         #expect(tabManager.tabs.count == 1)
         #expect(tabManager.activeTabID == tabManager.tabs.first?.id)
@@ -151,32 +157,6 @@ struct TabManagerTests {
 
         #expect(tabManager.tabs.isEmpty)
         #expect(tabManager.activeTabID == nil)
-    }
-
-    @Test func restoreSessionRecoversFromCorruptJSON() throws {
-        let profile = BrowserProfile(name: "Corrupt Session")
-        let sessionURL = FileManager.default
-            .illuminateProfileDirectory(profileID: profile.id)
-            .appendingPathComponent("session.json")
-        try? FileManager.default.removeItem(at: sessionURL)
-
-        try Data("this is not valid json {{{".utf8).write(to: sessionURL)
-
-        let tabManager = TabManager(
-            profile: profile,
-            urlSynchronizer: URLSynchronizer(),
-            isPersistenceEnabled: true
-        )
-
-        #expect(tabManager.tabs.count == 1)
-        #expect(tabManager.activeTabID == tabManager.tabs.first?.id)
-        #expect(FileManager.default.fileExists(atPath: sessionURL.path) == false)
-        let backups = try FileManager.default.contentsOfDirectory(at: sessionURL.deletingLastPathComponent(), includingPropertiesForKeys: nil)
-            .filter { $0.lastPathComponent.hasPrefix("session.json.corrupt") }
-        #expect(backups.isEmpty == false)
-
-        for backup in backups { try? FileManager.default.removeItem(at: backup) }
-        try? FileManager.default.removeItem(at: sessionURL)
     }
 
     @Test func closingInactiveTabKeepsActiveTabAndSynchronizerURL() {

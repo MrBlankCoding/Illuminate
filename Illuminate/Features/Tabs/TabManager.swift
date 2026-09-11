@@ -64,7 +64,7 @@ final class TabManager: NSObject, WKWebExtensionWindow {
     private var initialPreloadingTabIDs: Set<UUID> = []
     @ObservationIgnored let tabGroupManager: TabGroupManager
 
-    var theme: IlluminateTheme {
+    var theme: IlluminateTheme = .default {
         didSet {
             guard isPersistenceEnabled, !isInitializing else { return }
             if let data = try? JSONEncoder().encode(theme),
@@ -76,7 +76,7 @@ final class TabManager: NSObject, WKWebExtensionWindow {
         }
     }
 
-    var windowThemeColor: Color {
+    var windowThemeColor: Color = .clear {
         didSet {
             if let hex = windowThemeColor.toHex() {
                 persistIfEnabled(hex, forKey: "windowThemeColor")
@@ -84,7 +84,7 @@ final class TabManager: NSObject, WKWebExtensionWindow {
         }
     }
 
-    var backgroundImageURL: String {
+    var backgroundImageURL: String = "" {
         didSet {
             guard isPersistenceEnabled, !isInitializing else { return }
             persistIfEnabled(backgroundImageURL, forKey: "backgroundImageURL")
@@ -92,15 +92,15 @@ final class TabManager: NSObject, WKWebExtensionWindow {
         }
     }
 
-    var showSidebar: Bool {
+    var showSidebar: Bool = true {
         didSet { persistIfEnabled(showSidebar, forKey: "showSidebar") }
     }
 
-    var showBackgroundBehindSidebar: Bool {
+    var showBackgroundBehindSidebar: Bool = true {
         didSet { persistIfEnabled(showBackgroundBehindSidebar, forKey: "showBackgroundBehindSidebar") }
     }
 
-    var userInterfaceStyle: UIStyle {
+    var userInterfaceStyle: UIStyle = .dark {
         didSet { persistIfEnabled(userInterfaceStyle.rawValue, forKey: "userInterfaceStyle") }
     }
 
@@ -189,74 +189,92 @@ final class TabManager: NSObject, WKWebExtensionWindow {
         self.tabGroupManager    = TabGroupManager(profileID: profileID, isPersistenceEnabled: isPersistenceEnabled)
         self.extensionManager   = resolvedExtensionManager
 
-        let fallbackAccentHex = profileID == nil ? BrowserTheme.guestAccentHex : BrowserTheme.defaultAccentHex
-        let savedHex = isPersistenceEnabled
-            ? (userDefaults.string(forKey: Self.scopedKey("windowThemeColor", profileID: profileID)) ?? fallbackAccentHex)
-            : fallbackAccentHex
-        self.windowThemeColor = Color(hex: savedHex)
-
-        self.backgroundImageURL = isPersistenceEnabled
-            ? (userDefaults.string(forKey: Self.scopedKey("backgroundImageURL", profileID: profileID)) ?? "")
-            : ""
-
-        self.showSidebar = isPersistenceEnabled
-            ? userDefaults.bool(forKey: Self.scopedKey("showSidebar", profileID: profileID), default: true)
-            : true
-
-        self.showBackgroundBehindSidebar = isPersistenceEnabled
-            ? userDefaults.bool(forKey: Self.scopedKey("showBackgroundBehindSidebar", profileID: profileID), default: true)
-            : true
-
-        let savedStyle = isPersistenceEnabled
-            ? (userDefaults.string(forKey: Self.scopedKey("userInterfaceStyle", profileID: profileID)) ?? "dark")
-            : "dark"
-        let style = UIStyle(rawValue: savedStyle) ?? .dark
-        self.userInterfaceStyle = style
-
-        if isPersistenceEnabled,
-           let themeJSON = userDefaults.string(forKey: Self.scopedKey("browserTheme", profileID: profileID)),
-           let themeData = themeJSON.data(using: .utf8),
-           let savedTheme = try? JSONDecoder().decode(IlluminateTheme.self, from: themeData) {
-            self.theme = savedTheme
-        } else {
-            var defaultTheme = IlluminateTheme.default
-            defaultTheme.colorScheme = ThemeScheme.fromUIStyle(style)
-            
-            // Start with a neutral grey theme if no image is present
-            let grey = Color.AppColor.hslComponents(of: fallbackAccentHex == BrowserTheme.guestAccentHex ? BrowserTheme.guestAccent : BrowserTheme.defaultAccent)
-            if let firstIdx = defaultTheme.colors.indices.first {
-                defaultTheme.colors[firstIdx].hue = grey.h
-                defaultTheme.colors[firstIdx].saturation = grey.s
-                defaultTheme.colors[firstIdx].lightness = grey.l
-                defaultTheme.colors[firstIdx].position = CGPoint(x: grey.h, y: grey.s)
-            }
-            
-            self.theme = defaultTheme
-        }
-
         super.init()
 
-        if isPersistenceEnabled {
-            ensureWebExtensionsDirectoryExists()
+        // Non-persistent sessions (guest/tests) bootstrap a blank tab
+        // synchronously so activeTab exists right after init. Persisted
+        // sessions restore from disk inside the async task below.
+        if !isPersistenceEnabled {
+            startFreshSession()
+            ensureValidActiveTabSelection(persist: false)
+            setupObservers()
         }
 
-        if isPersistenceEnabled {
-            let autoRestorePreviousTabs = userDefaults.object(forKey: Self.autoRestorePreviousTabsKey) as? Bool ?? true
-            if autoRestorePreviousTabs {
-                restoreSession()
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+
+            let isPersistenceEnabled = self.isPersistenceEnabled
+            let userDefaults = self.userDefaults
+            let profileID = self.activeProfileID
+
+            let fallbackAccentHex = profileID == nil ? BrowserTheme.guestAccentHex : BrowserTheme.defaultAccentHex
+            let savedHex = isPersistenceEnabled
+                ? (userDefaults.string(forKey: Self.scopedKey("windowThemeColor", profileID: profileID)) ?? fallbackAccentHex)
+                : fallbackAccentHex
+            self.windowThemeColor = Color(hex: savedHex)
+
+            self.backgroundImageURL = isPersistenceEnabled
+                ? (userDefaults.string(forKey: Self.scopedKey("backgroundImageURL", profileID: profileID)) ?? "")
+                : ""
+
+            self.showSidebar = isPersistenceEnabled
+                ? userDefaults.bool(forKey: Self.scopedKey("showSidebar", profileID: profileID), default: true)
+                : true
+
+            self.showBackgroundBehindSidebar = isPersistenceEnabled
+                ? userDefaults.bool(forKey: Self.scopedKey("showBackgroundBehindSidebar", profileID: profileID), default: true)
+                : true
+
+            let savedStyle = isPersistenceEnabled
+                ? (userDefaults.string(forKey: Self.scopedKey("userInterfaceStyle", profileID: profileID)) ?? "dark")
+                : "dark"
+            let style = UIStyle(rawValue: savedStyle) ?? .dark
+            self.userInterfaceStyle = style
+
+            if isPersistenceEnabled,
+               let themeJSON = userDefaults.string(forKey: Self.scopedKey("browserTheme", profileID: profileID)),
+               let themeData = themeJSON.data(using: .utf8),
+               let savedTheme = try? JSONDecoder().decode(IlluminateTheme.self, from: themeData) {
+                self.theme = savedTheme
             } else {
-                startFreshSession()
+                var defaultTheme = IlluminateTheme.default
+                defaultTheme.colorScheme = ThemeScheme.fromUIStyle(style)
+                
+                // Start with a neutral grey theme if no image is present
+                let grey = Color.AppColor.hslComponents(of: fallbackAccentHex == BrowserTheme.guestAccentHex ? BrowserTheme.guestAccent : BrowserTheme.defaultAccent)
+                if let firstIdx = defaultTheme.colors.indices.first {
+                    defaultTheme.colors[firstIdx].hue = grey.h
+                    defaultTheme.colors[firstIdx].saturation = grey.s
+                    defaultTheme.colors[firstIdx].lightness = grey.l
+                    defaultTheme.colors[firstIdx].position = CGPoint(x: grey.h, y: grey.s)
+                }
+                
+                self.theme = defaultTheme
+            }
+
+            if isPersistenceEnabled {
+                self.ensureWebExtensionsDirectoryExists()
+            }
+
+            if isPersistenceEnabled {
+                let autoRestorePreviousTabs = userDefaults.object(forKey: Self.autoRestorePreviousTabsKey) as? Bool ?? true
+                if autoRestorePreviousTabs {
+                    await self.restoreSession()
+                } else {
+                    self.startFreshSession()
+                }
+            }
+
+            guard isPersistenceEnabled else { return }
+
+            self.hydrateRestoredTabs()
+            self.ensureValidActiveTabSelection(persist: false)
+            self.setupObservers()
+
+            if self.tabs.isEmpty {
+                self.pristineBlankTabID = self.createTab().id
             }
         }
-
-        hydrateRestoredTabs()
-        ensureValidActiveTabSelection(persist: false)
-        setupObservers()
-
-        if tabs.isEmpty {
-            pristineBlankTabID = createTab().id
-        }
-
         resolvedExtensionManager.registerTabManager(self)
 
         Task { @MainActor [weak self] in
@@ -426,7 +444,8 @@ final class TabManager: NSObject, WKWebExtensionWindow {
         tabPositionIndex[tab.id] = tabs.count - 1
         hydrateVisualState(for: tab)
 
-        Task.detached { [extensionManager, tab] in
+        Task { @MainActor [extensionManager, tab] in
+            await Task.yield()
             extensionManager.controller.didOpenTab(tab)
         }
 
@@ -468,7 +487,8 @@ final class TabManager: NSObject, WKWebExtensionWindow {
         tab.close()
         pushRecentlyClosed(payload)
         tabGroupManager.handleTabClosed(id)
-        Task.detached { [extensionManager, tab] in
+        Task { @MainActor [extensionManager, tab] in
+            await Task.yield()
             extensionManager.controller.didCloseTab(tab, windowIsClosing: false)
         }
 
@@ -561,16 +581,6 @@ final class TabManager: NSObject, WKWebExtensionWindow {
         guard tabIndex[id] != nil else { return }
         guard activeTabID != id else { return }
 
-        // debounce rapid tab switching
-        if let lastSwitch = lastSwitchTime, Date().timeIntervalSince(lastSwitch) < 0.1 {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
-                guard let self, self.activeTabID != id, self.tabIndex[id] != nil else { return }
-                self.lastSwitchTime = Date()
-                self.setActiveTab(id)
-            }
-            return
-        }
-
         lastSwitchTime = Date()
         setActiveTab(id)
     }
@@ -579,6 +589,7 @@ final class TabManager: NSObject, WKWebExtensionWindow {
         if let id, tabIndex[id] == nil {
             return
         }
+        guard activeTabID != id else { return }
 
         let oldTab = activeTab
         let oldID = oldTab?.id

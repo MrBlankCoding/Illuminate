@@ -328,23 +328,14 @@ final class Tab: NSObject, Identifiable, WKWebExtensionTab {
     convenience init(
         id: UUID,
         assetsBaseURL: URL? = nil,
-        webViewConfiguration: WKWebViewConfiguration? = nil,
-        loadsMetadataSynchronously: Bool = false
+        webViewConfiguration: WKWebViewConfiguration? = nil
     ) {
         let folder = (assetsBaseURL ?? FileManager.default.illuminateAppSupportDirectory())
             .appendingPathComponent("TabAssets", isDirectory: true)
             .appendingPathComponent(id.uuidString, isDirectory: true)
 
-        let metaURL = folder.appendingPathComponent("metadata.json")
         var title = "New Tab"
         var url: URL? = nil
-
-        if loadsMetadataSynchronously,
-           let data = try? Data(contentsOf: metaURL),
-           let payload = try? JSONDecoder().decode(TabMetadataPayload.self, from: data) {
-            title = payload.title ?? "New Tab"
-            url = payload.url
-        }
 
         self.init(
             id: id,
@@ -377,20 +368,20 @@ final class Tab: NSObject, Identifiable, WKWebExtensionTab {
 
         let finalConfiguration = customWebViewConfiguration ?? configuration
 
-        let newWebView = IlluminateWebView(frame: .zero, configuration: finalConfiguration)
-        newWebView.isInspectable = true
-        newWebView.wantsLayer = true
-        newWebView.pageZoom = zoomLevel
-        newWebView.underPageBackgroundColor = .windowBackgroundColor
-        webKitManager.applyBrowserUserAgent(to: newWebView)
-        objc_setAssociatedObject(
-            newWebView,
-            &webViewTabOwnerKey,
-            ownershipToken,
-            .OBJC_ASSOCIATION_RETAIN_NONATOMIC
-        )
-        webView = newWebView
-        setupWebViewObservers(newWebView)
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            let newWebView = webKitManager.makeWebView(configuration: finalConfiguration)
+            newWebView.pageZoom = zoomLevel
+            newWebView.underPageBackgroundColor = .windowBackgroundColor
+            objc_setAssociatedObject(
+                newWebView,
+                &webViewTabOwnerKey,
+                ownershipToken,
+                .OBJC_ASSOCIATION_RETAIN_NONATOMIC
+            )
+            self.webView = newWebView
+            self.setupWebViewObservers(newWebView)
+        }
     }
 
     func attachWebView(_ candidate: WKWebView) throws {
@@ -700,13 +691,16 @@ final class Tab: NSObject, Identifiable, WKWebExtensionTab {
             isFetchingMetadata = true
             let metaURL = assetsURLWithoutCreating.appendingPathComponent("metadata.json")
 
-            Task { @MainActor [weak self] in
-                guard let self else { return }
+            Task.detached(priority: .utility) { [weak self, metaURL] in
                 let data = try? Data(contentsOf: metaURL)
-                self.hasLoadedMetadata = true
-                self.isFetchingMetadata = false
-                if let data, let payload = try? JSONDecoder().decode(TabMetadataPayload.self, from: data) {
-                    self.applyRestoredMetadata(url: payload.url, title: payload.title)
+
+                await MainActor.run { [weak self] in
+                    guard let self else { return }
+                    self.hasLoadedMetadata = true
+                    self.isFetchingMetadata = false
+                    if let data, let payload = try? JSONDecoder().decode(TabMetadataPayload.self, from: data) {
+                        self.applyRestoredMetadata(url: payload.url, title: payload.title)
+                    }
                 }
             }
         }

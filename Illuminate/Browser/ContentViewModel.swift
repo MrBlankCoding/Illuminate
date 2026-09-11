@@ -123,9 +123,12 @@ final class ContentViewModel {
             if illuminatePageSuggestions != newIlluminateSuggestions {
                 illuminatePageSuggestions = newIlluminateSuggestions
             }
-            let historyResults = historyManager?.suggestions(for: q, limit: 3) ?? []
-            if historySuggestions != historyResults {
-                historySuggestions = historyResults
+            Task { [weak self] in
+                guard let self else { return }
+                let historyResults = await self.historyManager?.suggestions(for: q, limit: 3) ?? []
+                if self.historySuggestions != historyResults {
+                    self.historySuggestions = historyResults
+                }
             }
         }
 
@@ -172,18 +175,18 @@ final class ContentViewModel {
         var matchingPages: [IlluminatePage] = []
         if q.starts(with: "illuminate://") {
             let filter = q.replacingOccurrences(of: "illuminate://", with: "")
-            matchingPages = filter.isEmpty ? IlluminatePage.suggestiblePages : IlluminatePage.suggestiblePages.filter { page in
+            matchingPages = filter.count >= 3 ? IlluminatePage.suggestiblePages.filter { page in
                 page.rawValue.contains(filter) || page.tabTitle.lowercased().contains(filter)
-            }
+            } : []
         } else if q.starts(with: "illuminate:") {
             let filter = q.replacingOccurrences(of: "illuminate:", with: "")
-            matchingPages = filter.isEmpty ? IlluminatePage.suggestiblePages : IlluminatePage.suggestiblePages.filter { page in
+            matchingPages = filter.count >= 3 ? IlluminatePage.suggestiblePages.filter { page in
                 page.rawValue.contains(filter) || page.tabTitle.lowercased().contains(filter)
-            }
+            } : []
         } else {
-            matchingPages = IlluminatePage.suggestiblePages.filter { page in
+            matchingPages = q.count >= 3 ? IlluminatePage.suggestiblePages.filter { page in
                 page.rawValue.contains(q) || page.tabTitle.lowercased().contains(q)
-            }
+            } : []
         }
 
         let openTabs = tabManager.tabs

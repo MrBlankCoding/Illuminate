@@ -50,7 +50,7 @@ extension TabManager {
         } ?? FileManager.default.illuminateAppSupportDirectory()
         return base.appendingPathComponent("session.json")
     }
-    func restoreSession() {
+    func restoreSession() async {
         let url = sessionURL
         guard FileManager.default.fileExists(atPath: url.path) else {
             AppLog.info("[TabManager] No session file found — starting fresh.")
@@ -63,9 +63,9 @@ extension TabManager {
             if let prefetched = StateFilePrefetcher.consume(url) {
                 data = prefetched
             } else {
-                data = try Data(contentsOf: url)
+                data = try await Task.detached { try Data(contentsOf: url) }.value
             }
-            let state = try JSONDecoder().decode(SessionState.self, from: data)
+            let state = try await Task.detached { try JSONDecoder().decode(SessionState.self, from: data) }.value
             applySessionState(state)
         } catch let error as DecodingError {
             AppLog.error("[TabManager] Session file is corrupt — backing up and starting fresh", error: error)
@@ -88,8 +88,7 @@ extension TabManager {
         activeTabID = state.activeTabID
         if let ids = state.tabIDs {
             tabs = ids.map {
-                let isActive = $0 == activeTabID
-                let tab = Tab(id: $0, assetsBaseURL: tabAssetsBaseURL, loadsMetadataSynchronously: isActive)
+                let tab = Tab(id: $0, assetsBaseURL: tabAssetsBaseURL)
                 tab.tabManager = self
                 return tab
             }

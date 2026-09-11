@@ -72,7 +72,9 @@ struct MoreOptionsMenu: View {
 
             Group {
                 Button {
-                    guard let webView = tabManager.activeTab?.webView else { return }
+                    guard let webView = tabManager.activeTab?.webView,
+                          webView.frame.width > 0, webView.frame.height > 0 else { return }
+                    webView.layoutSubtreeIfNeeded()
                     let printInfo = NSPrintInfo.shared
                     let operation = NSPrintOperation(view: webView)
                     operation.printInfo = printInfo

@@ -71,6 +71,7 @@ final class DownloadHistoryStore {
             bgContext.autosaveEnabled = false
 
             var fetch = FetchDescriptor<DownloadRecord>(
+                predicate: #Predicate { $0.profileID == profileID },
                 sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
             )
             fetch.fetchLimit = 2000
@@ -114,11 +115,10 @@ final class DownloadHistoryStore {
                 }
 
                 await MainActor.run {
-                    let filtered = snapshots.filter { $0.profileID == profileID }
                     if let ctx = self.context {
                         for record in self.records { ctx.delete(record) }
                     }
-                    self.records = filtered.map {
+                    self.records = snapshots.map {
                         DownloadRecord(
                             id: $0.id,
                             profileID: $0.profileID,
@@ -136,7 +136,7 @@ final class DownloadHistoryStore {
                         )
                     }
                     self.records.forEach { self.context?.insert($0) }
-                    AppLog.download("Loaded download history profile=\(profileID?.uuidString ?? "nil") count=\(self.records.count) totalInStore=\(snapshots.count)")
+                    AppLog.download("Loaded download history profile=\(profileID?.uuidString ?? "nil") count=\(self.records.count)")
                 }
             } catch {
                 await MainActor.run {

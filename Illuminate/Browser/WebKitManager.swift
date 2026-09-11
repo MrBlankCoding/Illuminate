@@ -49,19 +49,24 @@ final class WebKitManager {
         cachedUserAgent
     }
 
-    func fetchUserAgent() async -> String {
-        if let cached = cachedUserAgent {
+    nonisolated func fetchUserAgent() async -> String {
+        if let cached = await MainActor.run { cachedUserAgent } {
             return cached
         }
-        let webView = WKWebView(frame: .zero, configuration: makeConfiguration())
+
+        let chromeVersion = await ChromeVersionFetcher.fetchLatestStableVersion()
+
         return await withCheckedContinuation { continuation in
-            webView.evaluateJavaScript("navigator.userAgent") { result, _ in
-                let defaultUA = (result as? String) ?? "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15"
-                Task { @MainActor [weak self] in
-                    let chromeVersion = await ChromeVersionFetcher.fetchLatestStableVersion()
+            Task { @MainActor in
+                let configuration = makeConfiguration()
+                let webView = WKWebView(frame: .zero, configuration: configuration)
+                webView.evaluateJavaScript("navigator.userAgent") { result, _ in
+                    let defaultUA = (result as? String) ?? "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15"
                     let enhancedUA = "\(defaultUA) Chrome/\(chromeVersion)"
-                    self?.cachedUserAgent = enhancedUA
-                    continuation.resume(returning: enhancedUA)
+                    MainActor.assumeIsolated {
+                        self.cachedUserAgent = enhancedUA
+                        continuation.resume(returning: enhancedUA)
+                    }
                 }
             }
         }
@@ -134,8 +139,14 @@ final class WebKitManager {
         return configuration
     }
 
-    func makeWebView() -> WKWebView {
-        let webView = WKWebView(frame: .zero, configuration: makeConfiguration())
+    func makeWebView(configuration providedConfiguration: WKWebViewConfiguration? = nil) -> WKWebView {
+        let configuration: WKWebViewConfiguration
+        if let providedConfiguration {
+            configuration = providedConfiguration
+        } else {
+            configuration = makeConfiguration()
+        }
+        let webView = WKWebView(frame: .zero, configuration: configuration)
         webView.wantsLayer = true
         if let scale = webView.window?.screen?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor {
             webView.layer?.contentsScale = scale

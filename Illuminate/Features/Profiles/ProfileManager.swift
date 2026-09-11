@@ -30,7 +30,7 @@ final class ProfileManager {
         self.userDefaults = userDefaults
         self.profilesURL = fileManager.illuminateProfilesCatalogURL()
         self.usesUITestProfiles = ProcessInfo.processInfo.arguments.contains(where: { $0.caseInsensitiveCompare("-uiTesting") == .orderedSame })
-        loadProfiles()
+        Task { await loadProfiles() }
     }
 
     @discardableResult
@@ -144,7 +144,7 @@ final class ProfileManager {
         return env
     }
 
-    private func loadProfiles() {
+    private func loadProfiles() async {
         if usesUITestProfiles {
             profiles = [
                 BrowserProfile(name: "UI Test Personal"),
@@ -154,12 +154,22 @@ final class ProfileManager {
         }
 
         let url = profilesURL
-        let data = StateFilePrefetcher.consume(url) ?? (try? Data(contentsOf: url))
-        if let data,
-           let savedProfiles = try? JSONDecoder().decode([BrowserProfile].self, from: data),
-           !savedProfiles.isEmpty {
-            profiles = savedProfiles.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
-        } else {
+        do {
+            let prefetched = StateFilePrefetcher.consume(url)
+            let data = try await Task.detached(priority: .userInitiated) { [prefetched, url] in
+                if let cached = prefetched { return cached }
+                return try Data(contentsOf: url)
+            }.value
+
+            if let savedProfiles = try? JSONDecoder().decode([BrowserProfile].self, from: data),
+               !savedProfiles.isEmpty {
+                profiles = savedProfiles.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+            } else {
+                profiles = [BrowserProfile(name: "Personal")]
+                saveProfiles()
+            }
+        } catch {
+            AppLog.error("Failed to load profiles", error: error)
             profiles = [BrowserProfile(name: "Personal")]
             saveProfiles()
         }
@@ -167,18 +177,15 @@ final class ProfileManager {
 
     private func saveProfiles() {
         guard !usesUITestProfiles else { return }
-        do {
-            let data = try JSONEncoder().encode(profiles)
-            let url = profilesURL
-            Task.detached(priority: .utility) {
-                do {
-                    try data.write(to: url, options: .atomic)
-                } catch {
-                    AppLog.error("Failed to save profiles", error: error)
-                }
+        let profilesToSave = profiles
+        let url = profilesURL
+        Task.detached(priority: .utility) {
+            do {
+                let data = try JSONEncoder().encode(profilesToSave)
+                try data.write(to: url, options: .atomic)
+            } catch {
+                AppLog.error("Failed to save profiles", error: error)
             }
-        } catch {
-            AppLog.error("Failed to save profiles", error: error)
         }
     }
     

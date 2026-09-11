@@ -30,7 +30,9 @@ struct WindowConfigurator: NSViewRepresentable {
             WebURLOpening.shared.register(tabManager)
             if !context.coordinator.didConfigure {
                 context.coordinator.didConfigure = true
-                configure(window: window)
+                DispatchQueue.main.async {
+                    self.configure(window: window)
+                }
             }
             update(window: window)
         }
@@ -48,7 +50,9 @@ struct WindowConfigurator: NSViewRepresentable {
 
         if !context.coordinator.didConfigure {
             context.coordinator.didConfigure = true
-            configure(window: window)
+            DispatchQueue.main.async {
+                self.configure(window: window)
+            }
         }
 
         update(window: window)

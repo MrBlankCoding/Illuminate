@@ -59,12 +59,43 @@ extension WebViewRepresentable {
             }
         }
 
-        static let videoDetectionScript = """
+        static let pageInteractionStateScript = """
         (() => {
             try {
-                return Array.from(document.querySelectorAll('video'))
+                if (!document.__illuminateDirtyListenersInstalled) {
+                    const mark = () => { document.__illuminateDirty = true; };
+                    document.addEventListener('input', mark, { capture: true });
+                    document.addEventListener('change', mark, { capture: true });
+                    document.__illuminateDirtyListenersInstalled = true;
+                }
+
+                let hasDirtyForm = !!document.__illuminateDirty;
+                if (!hasDirtyForm) {
+                    const els = document.querySelectorAll('input, textarea, select');
+                    for (const el of els) {
+                        if (el.tagName === 'SELECT' && el.selectedIndex >= 0 && el.options[el.selectedIndex]?.defaultSelected === false) {
+                            hasDirtyForm = true;
+                            break;
+                        }
+                        if (el.type === 'checkbox' || el.type === 'radio') {
+                            if (el.checked !== el.defaultChecked) {
+                                hasDirtyForm = true;
+                                break;
+                            }
+                        } else if (el.value !== el.defaultValue) {
+                            hasDirtyForm = true;
+                            break;
+                        }
+                    }
+                }
+
+                const hasVideo = Array.from(document.querySelectorAll('video'))
                     .some(v => { try { return v.readyState >= 2; } catch { return false; } });
-            } catch { return false; }
+
+                return { hasVideo, hasDirtyForm };
+            } catch {
+                return { hasVideo: false, hasDirtyForm: false };
+            }
         })();
         """
 

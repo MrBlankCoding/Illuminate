@@ -49,11 +49,8 @@ struct TabBarView: View {
 
     @State private var dragSession: TabDragSession?
     @State private var isNewTabHovered = false
-    @State private var groupChangeToken = UUID()
     @State private var previousActiveTabID: UUID?
     @State private var hasTriggeredDetachHaptic = false
-    @State private var cachedLayoutElements: [TabBarElement] = []
-    @State private var lastLayoutTabIDs: [UUID] = []
     @Namespace private var activeTabNamespace
 
     private var theme: BrowserTheme {
@@ -61,17 +58,11 @@ struct TabBarView: View {
     }
 
     private var layoutElements: [TabBarElement] {
-        let currentTabIDs = tabManager.tabs.map(\.id)
-        if lastLayoutTabIDs == currentTabIDs {
-            return cachedLayoutElements
-        }
-        
         var elements: [TabBarElement] = []
         var processedTabIDs = Set<UUID>()
         let groupsManager = tabManager.tabGroupManager
-        let currentTabs = tabManager.tabs
 
-        for tab in currentTabs {
+        for tab in tabManager.tabs {
             guard !processedTabIDs.contains(tab.id) else { continue }
 
             if let group = groupsManager.group(for: tab.id) {
@@ -84,13 +75,8 @@ struct TabBarView: View {
                 processedTabIDs.insert(tab.id)
             }
         }
-        
-        let newElements = elements
-        Task { @MainActor in
-            cachedLayoutElements = newElements
-            lastLayoutTabIDs = currentTabIDs
-        }
-        return newElements
+
+        return elements
     }
 
     var body: some View {
@@ -106,9 +92,6 @@ struct TabBarView: View {
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("browser.tabbar")
         .accessibilityLabel("Tab strip, \(tabManager.tabs.count) \(tabManager.tabs.count == 1 ? "tab" : "tabs")")
-        .onChange(of: tabManager.tabGroupManager.groups.map { $0.id }) { _, _ in
-            groupChangeToken = UUID()
-        }
     }
 
     @ViewBuilder
@@ -419,4 +402,4 @@ struct TabBarView: View {
         .padding(.leading, TabBarMetrics.tabSpacing)
         .padding(.trailing, MacDesign.Spacing.control)
     }
-}   
+}

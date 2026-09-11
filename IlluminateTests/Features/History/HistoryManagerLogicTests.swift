@@ -196,7 +196,7 @@ struct HistoryManagerLogicTests {
         // Suggestion candidates are rebuilt on a debounce after each record,
         // so poll until the ranked suggestions reflect the stored history.
         let ranked = try await eventually {
-            let results = manager.suggestions(for: "exam")
+            let results = await manager.suggestions(for: "exam")
             guard results.count == 2 else { return false }
             return results.first?.urlString.contains("high") == true
                 && Set(results.map(\.urlString)).count == 2
@@ -204,11 +204,13 @@ struct HistoryManagerLogicTests {
         #expect(ranked)
     }
 
-    @Test func suggestionsEmptyForBlankQuery() throws {
+    @Test func suggestionsEmptyForBlankQuery() async throws {
         let container = try makeContainer()
         let manager = makeManager(container: container)
-        #expect(manager.suggestions(for: "").isEmpty)
-        #expect(manager.suggestions(for: "   ").isEmpty)
+        let empty = await manager.suggestions(for: "")
+        let whitespaceOnly = await manager.suggestions(for: "   ")
+        #expect(empty.isEmpty)
+        #expect(whitespaceOnly.isEmpty)
     }
 
     @Test func suggestionsRespectLimit() async throws {
@@ -224,7 +226,7 @@ struct HistoryManagerLogicTests {
         #expect(allRecorded)
 
         let limited = try await eventually {
-            manager.suggestions(for: "doc", limit: 2).count == 2
+            (await manager.suggestions(for: "doc", limit: 2)).count == 2
         }
         #expect(limited)
     }
@@ -240,7 +242,8 @@ struct HistoryManagerLogicTests {
         }
         #expect(recorded)
 
-        #expect(manager.suggestions(for: "hidden").isEmpty)
+        let suggestions = await manager.suggestions(for: "hidden")
+        #expect(suggestions.isEmpty)
     }
 
     @Test func deleteAllForHostRemovesOnlyThatHost() async throws {
@@ -350,13 +353,13 @@ struct HistoryManagerLogicTests {
         manager.record(url: URL(string: "https://clear.example/page")!, title: "Clear Me")
 
         let recorded = try await eventually {
-            manager.suggestions(for: "clear").count == 1
+            await manager.suggestions(for: "clear").count == 1
         }
         #expect(recorded)
 
         manager.clearAll()
         let cleared = try await eventually {
-            let suggestionsEmpty = manager.suggestions(for: "clear").isEmpty
+            let suggestionsEmpty = await manager.suggestions(for: "clear").isEmpty
             let entriesEmpty = await manager.allEntries().isEmpty
             return suggestionsEmpty && entriesEmpty
         }

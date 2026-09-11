@@ -57,7 +57,7 @@ struct HistoryManagerSuggestionBehaviorTests {
         manager.record(url: URL(string: "https://beta.example.com/other")!, title: "Beta")
 
         let matched = try await eventually {
-            let suggestions = manager.suggestions(for: "alpha")
+            let suggestions = await manager.suggestions(for: "alpha")
             return suggestions.count == 1 && suggestions.first?.urlString == "https://alpha.example.com/docs"
         }
 
@@ -71,7 +71,7 @@ struct HistoryManagerSuggestionBehaviorTests {
 
         try await Task.sleep(nanoseconds: 400_000_000)
 
-        #expect(manager.suggestions(for: "private").isEmpty)
+        #expect(await manager.suggestions(for: "private").isEmpty)
         #expect(await manager.allEntries().isEmpty)
     }
 }

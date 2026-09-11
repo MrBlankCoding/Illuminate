@@ -36,15 +36,11 @@ struct WebViewRepresentable: NSViewRepresentable {
     }
 
     func makeNSView(context: Context) -> WKWebView {
-        if tab.webView == nil {
-            let configuration = tab.customWebViewConfiguration ?? webKitManager.makeConfiguration()
-            tab.createWebViewIfNeeded(configuration: configuration, webKitManager: webKitManager)
-        }
+        if let existingWebView = tab.webView { return existingWebView }
 
-        guard let webView = tab.webView else {
-            let fallback = webKitManager.makeWebView()
-            return fallback
-        }
+        let configuration = tab.customWebViewConfiguration ?? webKitManager.makeConfiguration()
+        let webView = webKitManager.makeWebView(configuration: configuration)
+        try? tab.attachWebView(webView)
 
         webView.navigationDelegate = context.coordinator
         webView.uiDelegate = context.coordinator
@@ -129,12 +125,6 @@ struct WebViewRepresentable: NSViewRepresentable {
         else { return }
 
         coordinator.lastRequestedLoadURLString = url.absoluteString
-        
-        // webkit-extension:// URLs are managed internally by WKWebExtensionController
-        // They should not be loaded directly via webView.load()
-        if url.scheme?.lowercased() == "webkit-extension" {
-            return
-        }
         
         if url.isFileURL {
             webView.loadFileURL(url, allowingReadAccessTo: url.deletingLastPathComponent())

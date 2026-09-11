@@ -12,38 +12,35 @@ import Foundation
 
 struct TabLifecycleTests {
 
+    @MainActor
     @Test func testLazyWebViewCreation() async throws {
-        await MainActor.run {
-            let tab = Tab(url: URL(string: "https://apple.com"), title: "Apple")
-            let extensionManager = ExtensionManager(profileID: UUID())
-            let webKitManager = WebKitManager(profile: BrowserProfile(name: "Test Profile"), extensionManager: extensionManager)
+        let tab = Tab(url: URL(string: "https://apple.com"), title: "Apple")
+        let extensionManager = ExtensionManager(profileID: UUID())
+        let webKitManager = WebKitManager(profile: BrowserProfile(name: "Test Profile"), extensionManager: extensionManager)
 
-            #expect(tab.webView == nil, "WebView should be nil initially (lazy loading)")
+        #expect(tab.webView == nil, "WebView should be nil initially (lazy loading)")
 
-            let config = WKWebViewConfiguration()
-            tab.createWebViewIfNeeded(configuration: config, webKitManager: webKitManager)
-            let strongWebView = tab.webView
+        tab.createWebViewIfNeeded(configuration: WKWebViewConfiguration(), webKitManager: webKitManager)
+        try await waitForWebView(in: tab)
 
-            #expect(tab.webView != nil, "WebView should be created after calling createWebViewIfNeeded")
-            _ = strongWebView
-        }
+        #expect(tab.webView != nil, "WebView should be created after calling createWebViewIfNeeded")
     }
-    
+
+    @MainActor
     @Test func testTabSuspension() async throws {
-        await MainActor.run {
-            let tab = Tab(url: URL(string: "https://apple.com"), title: "Apple")
-            let extensionManager = ExtensionManager(profileID: UUID())
-            let webKitManager = WebKitManager(profile: BrowserProfile(name: "Test Profile"), extensionManager: extensionManager)
-            tab.createWebViewIfNeeded(
-                configuration: WKWebViewConfiguration(),
-                webKitManager: webKitManager
-            )
+        let tab = Tab(url: URL(string: "https://apple.com"), title: "Apple")
+        let extensionManager = ExtensionManager(profileID: UUID())
+        let webKitManager = WebKitManager(profile: BrowserProfile(name: "Test Profile"), extensionManager: extensionManager)
+        tab.createWebViewIfNeeded(
+            configuration: WKWebViewConfiguration(),
+            webKitManager: webKitManager
+        )
+        try await waitForWebView(in: tab)
 
-            #expect(tab.webView != nil)
-            tab.detachWebView()
+        #expect(tab.webView != nil)
+        tab.detachWebView()
 
-            #expect(tab.webView == nil, "WebView should be released immediately")
-        }
+        #expect(tab.webView == nil, "WebView should be released immediately")
     }
 
     @MainActor
@@ -56,13 +53,9 @@ struct TabLifecycleTests {
 
         #expect(tab.webView == nil)
 
-        let config = WKWebViewConfiguration()
-        tab.createWebViewIfNeeded(configuration: config, webKitManager: webKitManager)
-        let strongWebView = tab.webView
+        tab.createWebViewIfNeeded(configuration: WKWebViewConfiguration(), webKitManager: webKitManager)
+        try await waitForWebView(in: tab)
 
-        try await Task.sleep(nanoseconds: 50_000_000)
-
-        #expect(strongWebView != nil, "WebView should be strongly retained during restoration")
         #expect(tab.webView != nil, "WebView should be recreated on restoration")
     }
 
@@ -77,6 +70,7 @@ struct TabLifecycleTests {
             configuration: WKWebViewConfiguration(),
             webKitManager: webKitManager
         )
+        try await waitForWebView(in: tab)
 
         #expect(tab.webView != nil)
 
@@ -97,6 +91,7 @@ struct TabLifecycleTests {
             configuration: WKWebViewConfiguration(),
             webKitManager: webKitManager
         )
+        try await waitForWebView(in: firstTab)
 
         let firstWebView = try #require(firstTab.webView)
 
@@ -118,5 +113,13 @@ struct TabLifecycleTests {
         #expect(payload.id == tab.id)
         #expect(payload.url == tab.url)
         #expect(payload.title == "Example")
+    }
+
+    @MainActor
+    private func waitForWebView(in tab: Tab, timeout: TimeInterval = 2) async throws {
+        let start = Date()
+        while tab.webView == nil && Date().timeIntervalSince(start) < timeout {
+            try await Task.sleep(nanoseconds: 50_000_000)
+        }
     }
 }

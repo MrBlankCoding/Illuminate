@@ -133,9 +133,27 @@ struct ViewModelBehaviorTests {
         viewModel.updateSuggestions(for: "illuminate://")
         try await Task.sleep(nanoseconds: 100_000_000)
 
-        #expect(
-            viewModel.illuminatePageSuggestions.count == IlluminatePage.suggestiblePages.count
-        )
+        #expect(viewModel.illuminatePageSuggestions.isEmpty)
+
+        viewModel.updateSuggestions(for: "illuminate://inf")
+        try await Task.sleep(nanoseconds: 100_000_000)
+
+        #expect(viewModel.illuminatePageSuggestions.contains { $0.page == .info })
+
+        viewModel.updateSuggestions(for: "ill")
+        try await Task.sleep(nanoseconds: 100_000_000)
+
+        #expect(viewModel.illuminatePageSuggestions.isEmpty)
+
+        viewModel.updateSuggestions(for: "ex")
+        try await Task.sleep(nanoseconds: 100_000_000)
+
+        #expect(viewModel.illuminatePageSuggestions.isEmpty)
+
+        viewModel.updateSuggestions(for: "ext")
+        try await Task.sleep(nanoseconds: 100_000_000)
+
+        #expect(viewModel.illuminatePageSuggestions.contains { $0.page == .extensions })
 
         let infoURL = URL(string: "illuminate://info")!
         let openTab = tabManager.createTab(url: infoURL)
