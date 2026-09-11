@@ -51,7 +51,7 @@ struct AppCommands: Commands {
 
             Divider()
 
-            BrowserCommand("Developer Tools", name: .developerTools) { .openDevTools }
+            DeveloperToolsCommand()
         }
 
         CommandMenu("History") {
@@ -132,6 +132,23 @@ private struct GlobalShortcutModifier: ViewModifier {
         } else {
             content
         }
+    }
+}
+
+private struct DeveloperToolsCommand: View {
+    @FocusedValue(\.activeEnvironment) private var environment
+
+    var body: some View {
+        Button("Developer Tools") {
+            NotificationCenter.default.post(name: .openDevTools, object: nil)
+        }
+        .globalKeyboardShortcut(.developerTools)
+        .disabled(isOnInternalPage)
+    }
+
+    private var isOnInternalPage: Bool {
+        guard let url = environment?.tabManager.activeTab?.url else { return true }
+        return IlluminatePage(url: url) != nil
     }
 }
 

@@ -120,8 +120,8 @@ struct URLBar: View {
                     if isFocused {
                         isRecentSearchesEligible = false
                         suggestionTask?.cancel()
-                        suggestionTask = Task {
-                            try? await Task.sleep(nanoseconds: 100_000_000)
+                        suggestionTask = Task(priority: .userInitiated) {
+                            try? await Task.sleep(nanoseconds: 30_000_000)
                             guard !Task.isCancelled else { return }
                             viewModel.updateSuggestions(for: newValue)
                         }
@@ -383,7 +383,7 @@ private struct URLBarShellGlassModifier: ViewModifier {
                 Capsule(style: .continuous)
                     .fill(isFocused
                         ? themeColor.opacity(0.38)
-                        : themeColor.slightlyDarker.opacity(0.42))
+                        : themeColor.opacity(0.24))
             }
             .overlay {
                 Capsule(style: .continuous)

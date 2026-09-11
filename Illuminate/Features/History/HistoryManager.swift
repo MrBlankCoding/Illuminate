@@ -156,6 +156,7 @@ final class HistoryManager {
         recentEntries.removeAll { $0.id == id }
         suggestionCandidates.removeAll { $0.id == id }
         topSites.removeAll { $0.id == id }
+        invalidateSuggestionCache()
         Task.detached(priority: .userInitiated) { [actor] in
             await actor.delete(id: id)
             await MainActor.run { [weak self] in
@@ -169,6 +170,7 @@ final class HistoryManager {
         recentEntries.removeAll { $0.url?.host == host }
         suggestionCandidates.removeAll { URL(string: $0.urlString)?.host == host }
         topSites.removeAll { $0.url?.host == host }
+        invalidateSuggestionCache()
         Task.detached(priority: .userInitiated) { [actor] in
             await actor.deleteAll(forHost: host)
             await MainActor.run { [weak self] in
@@ -202,6 +204,7 @@ final class HistoryManager {
                 self.suggestionCandidates = []
                 self.topSites = []
                 self.lastRecordedURL.removeAll()
+                self.invalidateSuggestionCache()
             }
         }
     }
@@ -216,15 +219,27 @@ final class HistoryManager {
         return await actor.search(query: q, limit: limit)
     }
 
+    private var suggestionCache: [String: [HistorySuggestion]] = [:]
+    private var suggestionCacheOrder: [String] = []
+    private let suggestionCacheLimit = 20
+
     func suggestions(for query: String, limit: Int = 6) -> [HistorySuggestion] {
         guard !isGuestSession, showHistorySuggestions else { return [] }
         let q = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         guard !q.isEmpty else { return [] }
+
+        if let cached = suggestionCache[q] {
+            return Array(cached.prefix(limit))
+        }
+
         let candidates = suggestionCandidates
         let now = Date()
         let daySeconds: Double = 86_400
 
-        return candidates
+        // Compute a richer result set than any single request needs so a
+        // later request with a larger limit can reuse the cached scan.
+        let computedLimit = max(limit, 10)
+        let results = candidates
             .filter { $0.lowercaseTitle.contains(q) || $0.lowercaseURL.contains(q) }
             .map { entry -> (SuggestionCandidate, Double) in
                 let ageDays = now.timeIntervalSince(entry.lastVisited) / daySeconds
@@ -234,7 +249,7 @@ final class HistoryManager {
                 return (entry, score)
             }
             .sorted { $0.1 > $1.1 }
-            .prefix(limit)
+            .prefix(computedLimit)
             .map { entry, _ in
                 HistorySuggestion(
                     id: entry.id,
@@ -245,6 +260,20 @@ final class HistoryManager {
                     faviconURL: entry.faviconURL
                 )
             }
+
+        suggestionCache[q] = results
+        suggestionCacheOrder.append(q)
+        while suggestionCacheOrder.count > suggestionCacheLimit {
+            let oldest = suggestionCacheOrder.removeFirst()
+            suggestionCache.removeValue(forKey: oldest)
+        }
+
+        return Array(results.prefix(limit))
+    }
+
+    private func invalidateSuggestionCache() {
+        suggestionCache.removeAll()
+        suggestionCacheOrder.removeAll()
     }
 
     func invalidateTabCache(tabID: UUID) {
@@ -292,6 +321,7 @@ final class HistoryManager {
 
     private func rebuildSuggestionCandidates() {
         suggestionCandidates = recentEntries.map(SuggestionCandidate.init)
+        invalidateSuggestionCache()
     }
 
     private func refreshRecentEntries() {

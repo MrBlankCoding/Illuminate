@@ -23,6 +23,7 @@ extension Color {
 struct BrowserTheme {
     static let defaultAccentHex = "4A90D9"
     static let defaultAccent = Color(hex: defaultAccentHex)
+    static let guestAccentHex = "8E8E93"
 
     let accent: Color
     let colorScheme: ColorScheme
@@ -37,7 +38,7 @@ struct BrowserTheme {
     var tabStripBackground: Color { windowThemeColor.slightlyDarker }
     var itemHover: Color { isDark ? Color.white.opacity(0.075) : Color.black.opacity(0.055) }
     var textOnAccent: Color { .white }
-    static var guestAccent: Color { Color(hex: "7B52CC") }
+    static var guestAccent: Color { Color(hex: guestAccentHex) }
 }
 
 enum BrowserAppearanceSettings {

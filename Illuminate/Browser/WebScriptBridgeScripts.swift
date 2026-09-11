@@ -323,114 +323,11 @@ extension WebScriptBridge {
                 }
             }
 
-            checkForPasswordFields();
-            const observer = new MutationObserver(checkForPasswordFields);
-            observer.observe(document.body ?? document.documentElement, {
-                childList: true,
-                subtree: true
-            });
-
-            document.addEventListener('focusin', (e) => {
-                const el = e.target;
-                if (el === lastFocusedElement) return;
-                lastFocusedElement = el;
-
-                if (el.tagName === 'INPUT' && (
-                    el.type === 'password' ||
-                    el.type === 'email' ||
-                    el.type === 'text' ||
-                    el.getAttribute('autocomplete')?.includes('username') ||
-                    el.getAttribute('autocomplete')?.includes('email')
-                )) {
-                    const isLoginField = el.type === 'password' ||
-                                       el.name?.toLowerCase().includes('user') ||
-                                       el.name?.toLowerCase().includes('login') ||
-                                       el.name?.toLowerCase().includes('email') ||
-                                       el.id?.toLowerCase().includes('user') ||
-                                       el.id?.toLowerCase().includes('login') ||
-                                       el.id?.toLowerCase().includes('email');
-
-                    if (isLoginField) {
-                        const rect = el.getBoundingClientRect();
-                        bridge().postMessage({
-                            type: 'requestAutofillOptions',
-                            rect: {
-                                x: rect.left,
-                                y: rect.top,
-                                width: rect.width,
-                                height: rect.height
-                            }
-                        });
-                    }
-                }
-            }, true);
-
-            document.addEventListener('focusout', (e) => {
-                setTimeout(() => {
-                    if (document.activeElement !== lastFocusedElement) {
-                        lastFocusedElement = null;
-                        const dropdown = document.getElementById('illuminate-autofill-dropdown');
-                        if (dropdown) dropdown.remove();
-                    }
-                }, 200);
-            }, true);
-
-            window.__illuminateShowAutofillDropdown = (accounts, rect) => {
-                let dropdown = document.getElementById('illuminate-autofill-dropdown');
-                if (dropdown) dropdown.remove();
-
-                dropdown = document.createElement('div');
-                dropdown.id = 'illuminate-autofill-dropdown';
-                const width = Math.max(rect.width, 200);
-
-                dropdown.style.cssText = "position: absolute; top: " + (rect.y + rect.height + window.scrollY + 5) + "px; left: " + (rect.x + window.scrollX) + "px; width: " + width + "px; background: " + "\(bgColor)" + "; border: 1px solid " + "\(borderColor)" + "; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.25); z-index: 1000000; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Helvetica, Arial, sans-serif;";
-
-                accounts.forEach(account => {
-                    const item = document.createElement('div');
-                    item.style.cssText = `
-                        padding: 10px 12px;
-                        cursor: pointer;
-                        border-bottom: 1px solid \(separatorColor);
-                        transition: background 0.2s;
-                    `;
-
-                    const username = document.createElement('div');
-                    username.textContent = account.username;
-                    username.style.cssText = `
-                        font-weight: 500;
-                        font-size: 13px;
-                        color: \(textColor);
-                    `;
-                    item.appendChild(username);
-
-                    if (account.email) {
-                        const email = document.createElement('div');
-                        email.textContent = account.email;
-                        email.style.cssText = `
-                            font-size: 11px;
-                            color: \(subColor);
-                            margin-top: 2px;
-                        `;
-                        item.appendChild(email);
-                    }
-
-                    item.onmouseover = () => item.style.background = '\(hoverColor)';
-                    item.onmouseout = () => item.style.background = '\(bgColor)';
-                    item.onclick = (e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        bridge().postMessage({
-                            type: 'selectAccount',
-                            username: account.username,
-                            email: account.email
-                        });
-                        dropdown.remove();
-                    };
-                    dropdown.appendChild(item);
-                });
-
-                document.body.appendChild(dropdown);
-            };
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', checkForPasswordFields, { once: true });
+            } else {
+                checkForPasswordFields();
+            }
 
             document.addEventListener('submit', (e) => {
                 const form = e.target;

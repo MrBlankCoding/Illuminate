@@ -13,6 +13,26 @@ import SwiftData
 @MainActor
 struct PasswordServiceTests {
 
+    private final class MockKeychainService: KeychainServiceProtocol, @unchecked Sendable {
+        var storage: [String: String] = [:]
+
+        func key(_ account: String, _ service: String) -> String {
+            "\(service)|\(account)"
+        }
+
+        func store(secret: String, for account: String, service: String) throws {
+            storage[key(account, service)] = secret
+        }
+
+        func retrieve(for account: String, service: String) throws -> String? {
+            storage[key(account, service)]
+        }
+
+        func delete(for account: String, service: String) throws {
+            storage.removeValue(forKey: key(account, service))
+        }
+    }
+
     private struct SuccessfulAuthenticationService: AuthenticationServiceProtocol {
         func authenticate(reason: String) async throws -> Bool { true }
     }
@@ -27,10 +47,12 @@ struct PasswordServiceTests {
 
     @Test func testSaveAndFetchPassword() async throws {
         let container = try createInMemoryContainer()
+        let keychain = MockKeychainService()
         let service = PasswordService(
             profile: BrowserProfile(name: "Test Profile"),
             container: container,
-            authService: SuccessfulAuthenticationService()
+            authService: SuccessfulAuthenticationService(),
+            keychainService: keychain
         )
         service.savePassword(
             url: "https://example.com",
@@ -38,20 +60,26 @@ struct PasswordServiceTests {
             passwordData: "encrypted-password-data"
         )
         
+        let initialStored = try container.mainContext.fetch(FetchDescriptor<Password>()).first
+        #expect(initialStored?.passwordData == "", "SwiftData store should not retain raw plaintext password")
+
         _ = await service.authenticate()
         let passwords = service.fetchPasswords(for: "https://example.com")
         
         #expect(passwords.count == 1, "Should have one password saved")
         #expect(passwords.first?.username == "testuser", "Username should match")
         #expect(passwords.first?.passwordData == "encrypted-password-data", "Password data should match")
+        #expect(!keychain.storage.isEmpty, "Password data should be stored in keychain")
     }
 
     @Test func testPasswordUpdate() async throws {
         let container = try createInMemoryContainer()
+        let keychain = MockKeychainService()
         let service = PasswordService(
             profile: BrowserProfile(name: "Test Profile"),
             container: container,
-            authService: SuccessfulAuthenticationService()
+            authService: SuccessfulAuthenticationService(),
+            keychainService: keychain
         )
         
         service.savePassword(
@@ -75,10 +103,12 @@ struct PasswordServiceTests {
 
     @Test func testMultiplePasswordsForSameSite() async throws {
         let container = try createInMemoryContainer()
+        let keychain = MockKeychainService()
         let service = PasswordService(
             profile: BrowserProfile(name: "Test Profile"),
             container: container,
-            authService: SuccessfulAuthenticationService()
+            authService: SuccessfulAuthenticationService(),
+            keychainService: keychain
         )
         
         service.savePassword(
@@ -102,7 +132,7 @@ struct PasswordServiceTests {
         
         #expect(passwords.count == 3, "Should have three passwords for different usernames")
         
-        let usernames = passwords.map(\.username)
+        let usernames = passwords.map { $0.username }
         #expect(usernames.contains("user1"), "Should contain user1")
         #expect(usernames.contains("user2"), "Should contain user2")
         #expect(usernames.contains("user3"), "Should contain user3")
@@ -110,10 +140,12 @@ struct PasswordServiceTests {
 
     @Test func testHostExtraction() async throws {
         let container = try createInMemoryContainer()
+        let keychain = MockKeychainService()
         let service = PasswordService(
             profile: BrowserProfile(name: "Test Profile"),
             container: container,
-            authService: SuccessfulAuthenticationService()
+            authService: SuccessfulAuthenticationService(),
+            keychainService: keychain
         )
         
         service.savePassword(
@@ -129,9 +161,43 @@ struct PasswordServiceTests {
         #expect(passwords.first?.url == "login.example.com", "URL should be stored as host only")
     }
 
+    @Test func testDeletePasswordClearsKeychain() async throws {
+        let container = try createInMemoryContainer()
+        let keychain = MockKeychainService()
+        let service = PasswordService(
+            profile: BrowserProfile(name: "Test Profile"),
+            container: container,
+            authService: SuccessfulAuthenticationService(),
+            keychainService: keychain
+        )
+
+        service.savePassword(
+            url: "https://delete.example.com",
+            username: "deleteuser",
+            passwordData: "deletepass"
+        )
+
+        _ = await service.authenticate()
+        guard let saved = service.fetchPasswords(for: "delete.example.com").first else {
+            Issue.record("Password should exist")
+            return
+        }
+
+        #expect(!keychain.storage.isEmpty)
+        service.deletePassword(saved)
+        #expect(keychain.storage.isEmpty, "Deleting password must remove secret from keychain")
+        #expect(service.fetchPasswords(for: "delete.example.com").isEmpty)
+    }
+
     @Test func guestModeDoesNotPersistPasswords() async throws {
         let container = try createInMemoryContainer()
-        let service = PasswordService(profileID: nil, container: container)
+        let keychain = MockKeychainService()
+        let service = PasswordService(
+            profileID: nil,
+            container: container,
+            authService: SuccessfulAuthenticationService(),
+            keychainService: keychain
+        )
 
         service.savePassword(
             url: "https://guest.example",
@@ -144,5 +210,6 @@ struct PasswordServiceTests {
         let descriptor = FetchDescriptor<Password>()
         let storedPasswords = try container.mainContext.fetch(descriptor)
         #expect(storedPasswords.isEmpty)
+        #expect(keychain.storage.isEmpty)
     }
 }

@@ -50,7 +50,7 @@ final class FindViewModel {
         debounceTask?.cancel()
         let text = searchText
         debounceTask = Task {
-            try? await Task.sleep(nanoseconds: 250_000_000)
+            try? await Task.sleep(nanoseconds: 80_000_000)
             guard !Task.isCancelled else { return }
             guard text == searchText, text != lastDebouncedText else { return }
             lastDebouncedText = text

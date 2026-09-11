@@ -97,12 +97,21 @@ final class WebKitManager {
         sharedWebsiteDataStore = nil
     }
 
+    @ObservationIgnored private var cachedJavascriptEnabled: Bool?
+    
     func makeConfiguration() -> WKWebViewConfiguration {
         let configuration = WKWebViewConfiguration()
         configuration.mediaTypesRequiringUserActionForPlayback = []
 
         configuration.websiteDataStore = activeWebsiteDataStore()
-        let javascriptEnabled = UserDefaults.standard.object(forKey: Self.javascriptEnabledKey) as? Bool ?? true
+        let javascriptEnabled: Bool
+        if let cached = cachedJavascriptEnabled {
+            javascriptEnabled = cached
+        } else {
+            let value = UserDefaults.standard.object(forKey: Self.javascriptEnabledKey) as? Bool ?? true
+            cachedJavascriptEnabled = value
+            javascriptEnabled = value
+        }
         configuration.defaultWebpagePreferences.allowsContentJavaScript = javascriptEnabled
         configuration.defaultWebpagePreferences.preferredContentMode = .desktop
 
@@ -110,6 +119,7 @@ final class WebKitManager {
         preferences.isTextInteractionEnabled = true
         preferences.isElementFullscreenEnabled = true
         preferences.setValue(true, forKey: "developerExtrasEnabled")
+        preferences.setValue(true, forKey: "DOMPasteAllowed")
 
         configuration.preferences = preferences
         configuration.userContentController = WKUserContentController()
@@ -130,8 +140,6 @@ final class WebKitManager {
         if let scale = webView.window?.screen?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor {
             webView.layer?.contentsScale = scale
         }
-
-        webView.layer?.drawsAsynchronously = true
 
         webView.isInspectable = true
 

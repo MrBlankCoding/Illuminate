@@ -30,7 +30,8 @@ struct UiThemeTests {
     @Test func defaultAccentConstantsAreConsistent() {
         #expect(BrowserTheme.defaultAccentHex == "4A90D9")
         #expect(BrowserTheme.defaultAccent == Color(hex: BrowserTheme.defaultAccentHex))
-        #expect(BrowserTheme.guestAccent == Color(hex: "7B52CC"))
+        #expect(BrowserTheme.guestAccent == Color(hex: BrowserTheme.guestAccentHex))
+        #expect(BrowserTheme.guestAccentHex == "8E8E93")
     }
 
     @Test func colorsRoundTripThroughHexFormats() {

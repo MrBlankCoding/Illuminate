@@ -72,7 +72,7 @@ struct DownloadsHistoryList: View {
                         .buttonStyle(InternalPageChipButtonStyle(color: .red))
                     }
 
-                    VStack(spacing: MacDesign.Spacing.tight) {
+                    LazyVStack(spacing: MacDesign.Spacing.tight) {
                         ForEach(allItems) { item in
                             DownloadEntryRow(
                                 item: item,

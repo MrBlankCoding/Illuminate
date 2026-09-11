@@ -22,7 +22,28 @@ struct IlluminatePageSuggestion: Identifiable, Equatable {
 @MainActor
 @Observable
 final class ContentViewModel {
-    @ObservationIgnored @AppStorage("defaultSearchEngine") private var defaultSearchEngine: SearchEngine = .google
+    @ObservationIgnored private var cachedSearchEngine: SearchEngine?
+    @ObservationIgnored private var cachedSearchEngineLoaded = false
+    
+    var defaultSearchEngine: SearchEngine {
+        if let cached = cachedSearchEngine {
+            return cached
+        }
+        guard !cachedSearchEngineLoaded else {
+            cachedSearchEngine = .google
+            return .google
+        }
+        cachedSearchEngineLoaded = true
+        let engine: SearchEngine
+        if let raw = UserDefaults.standard.string(forKey: "defaultSearchEngine"),
+           let parsed = SearchEngine(rawValue: raw) {
+            engine = parsed
+        } else {
+            engine = .google
+        }
+        cachedSearchEngine = engine
+        return engine
+    }
 
     var illuminatePageSuggestions: [IlluminatePageSuggestion] = []
     var historySuggestions: [HistorySuggestion] = []
@@ -95,9 +116,6 @@ final class ContentViewModel {
             return
         }
 
-        // The illuminate/history scans are pure in-memory work; memoize them
-        // per query so repeated keystrokes that normalize to the same query
-        // don't rescan.
         if q != lastSuggestionQuery {
             lastSuggestionQuery = q
 
@@ -124,7 +142,7 @@ final class ContentViewModel {
         }
 
         webSuggestionTask = Task(priority: .userInitiated) { [weak self] in
-            try? await Task.sleep(nanoseconds: 20_000_000) // 20ms — fast enough to feel instant
+            try? await Task.sleep(nanoseconds: 15_000_000)
             guard !Task.isCancelled, let self else { return }
 
             let engine = self.defaultSearchEngine
@@ -207,7 +225,11 @@ final class ContentViewModel {
         guard let url else { return [] }
 
         do {
-            let (data, _) = try await URLSession.shared.data(from: url)
+            var request = URLRequest(url: url)
+            request.setValue("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15", forHTTPHeaderField: "User-Agent")
+            request.timeoutInterval = 3.0
+
+            let (data, _) = try await URLSession.shared.data(for: request)
             
             switch engine {
             case .google, .bing:
@@ -218,7 +240,7 @@ final class ContentViewModel {
                 else {
                     return []
                 }
-                return Array(suggestions.prefix(3))
+                return Array(suggestions.prefix(5))
                 
             case .duckDuckGo:
                 // DuckDuckGo returns an array of objects: [{"phrase":"..."}, ...]
@@ -228,7 +250,7 @@ final class ContentViewModel {
                     return []
                 }
                 let suggestions = payload.compactMap { $0["phrase"] as? String }
-                return Array(suggestions.prefix(3))
+                return Array(suggestions.prefix(5))
             }
         } catch {
             return []

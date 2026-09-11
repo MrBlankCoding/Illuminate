@@ -49,6 +49,7 @@ struct MoreOptionsMenu: View {
                 } label: {
                     Label("Developer Tools", systemImage: "hammer.fill")
                 }
+                .disabled(isOnInternalPage)
             }
 
             Divider()
@@ -147,5 +148,10 @@ struct MoreOptionsMenu: View {
         } else {
             tabManager.createTab(url: page.url)
         }
+    }
+
+    private var isOnInternalPage: Bool {
+        guard let url = tabManager.activeTab?.url else { return true }
+        return IlluminatePage(url: url) != nil
     }
 }

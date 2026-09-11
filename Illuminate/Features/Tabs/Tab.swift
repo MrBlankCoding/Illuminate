@@ -434,30 +434,38 @@ final class Tab: NSObject, Identifiable, WKWebExtensionTab {
         webView.pauseAllMediaPlayback()
         webView.setAllMediaPlaybackSuspended(true)
 
-        let mediaShutdownScript = """
-        (() => {
-            try {
-                if (document.pictureInPictureElement && document.exitPictureInPicture) {
-                    document.exitPictureInPicture();
-                }
-            } catch {}
-
-            for (const media of document.querySelectorAll('audio, video')) {
-                try {
-                    media.pause();
-                    media.currentTime = 0;
-                    media.srcObject = null;
-                } catch {}
-            }
-        })();
-        """
-
-        webView.evaluateJavaScript(mediaShutdownScript, completionHandler: nil)
-        webView.stopLoading()
-        webView.navigationDelegate = nil
-        webView.uiDelegate = nil
-        webView.removeFromSuperview()
+        // Release the tab's reference to the web view immediately so the
+        // UI reflects the close instantly; the detached task keeps its own
+        // strong ref to finish teardown in the background without holding it.
         detachWebView()
+
+        Task.detached { [webView] in
+            let mediaShutdownScript = """
+            (() => {
+                try {
+                    if (document.pictureInPictureElement && document.exitPictureInPicture) {
+                        document.exitPictureInPicture();
+                    }
+                } catch {}
+
+                for (const media of document.querySelectorAll('audio, video')) {
+                    try {
+                        media.pause();
+                        media.currentTime = 0;
+                        media.srcObject = null;
+                    } catch {}
+                }
+            })();
+            """
+
+            await MainActor.run {
+                webView.evaluateJavaScript(mediaShutdownScript, completionHandler: nil)
+                webView.stopLoading()
+                webView.navigationDelegate = nil
+                webView.uiDelegate = nil
+                webView.removeFromSuperview()
+            }
+        }
     }
 
     func load(url: URL) {

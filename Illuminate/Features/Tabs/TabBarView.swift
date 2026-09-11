@@ -52,6 +52,8 @@ struct TabBarView: View {
     @State private var groupChangeToken = UUID()
     @State private var previousActiveTabID: UUID?
     @State private var hasTriggeredDetachHaptic = false
+    @State private var cachedLayoutElements: [TabBarElement] = []
+    @State private var lastLayoutTabIDs: [UUID] = []
     @Namespace private var activeTabNamespace
 
     private var theme: BrowserTheme {
@@ -59,6 +61,11 @@ struct TabBarView: View {
     }
 
     private var layoutElements: [TabBarElement] {
+        let currentTabIDs = tabManager.tabs.map(\.id)
+        if lastLayoutTabIDs == currentTabIDs {
+            return cachedLayoutElements
+        }
+        
         var elements: [TabBarElement] = []
         var processedTabIDs = Set<UUID>()
         let groupsManager = tabManager.tabGroupManager
@@ -77,7 +84,13 @@ struct TabBarView: View {
                 processedTabIDs.insert(tab.id)
             }
         }
-        return elements
+        
+        let newElements = elements
+        Task { @MainActor in
+            cachedLayoutElements = newElements
+            lastLayoutTabIDs = currentTabIDs
+        }
+        return newElements
     }
 
     var body: some View {
@@ -368,6 +381,17 @@ struct TabBarView: View {
                     toOffset: destination
                 )
             }
+
+            // If landing adjacent to or inside an existing group, assign to that group
+            let landedIndex = session.currentIndex
+            if let landedTab = tabManager.tabs[safe: landedIndex] {
+                let neighborGroup = (tabManager.tabs[safe: landedIndex - 1]).flatMap { tabManager.tabGroupManager.group(for: $0.id) }
+                    ?? (tabManager.tabs[safe: landedIndex + 1]).flatMap { tabManager.tabGroupManager.group(for: $0.id) }
+                if let targetGroup = neighborGroup, tabManager.tabGroupManager.group(for: landedTab.id) == nil {
+                    tabManager.tabGroupManager.addTabToGroup(landedTab.id, groupID: targetGroup.id)
+                }
+            }
+
             dragSession = nil
         }
     }

@@ -81,6 +81,9 @@ struct PasswordsPageView: View {
     @ViewBuilder
     private func passwordRow(_ password: Password) -> some View {
         let isRevealed = revealedIDs.contains(password.id)
+        let resolvedSecret = password.passwordData.isEmpty
+            ? (try? KeychainService.shared.retrieve(for: password.id.uuidString, service: "com.MrBlankCoding.Illuminate.passwords")) ?? ""
+            : password.passwordData
 
         HStack(spacing: 12) {
             // favcoin placeholder
@@ -129,7 +132,7 @@ struct PasswordsPageView: View {
                 .help(isRevealed ? "Hide password" : "Show password")
 
                 if isRevealed {
-                    Text(password.passwordData)
+                    Text(resolvedSecret)
                         .font(.system(size: 12, design: .monospaced))
                         .foregroundStyle(.primary)
                         .lineLimit(1)
@@ -138,14 +141,13 @@ struct PasswordsPageView: View {
 
                 Button("Copy") {
                     NSPasteboard.general.clearContents()
-                    NSPasteboard.general.setString(password.passwordData, forType: .string)
+                    NSPasteboard.general.setString(resolvedSecret, forType: .string)
                 }
                 .buttonStyle(InternalPageChipButtonStyle(color: tabManager.windowThemeColor))
 
                 Button("Delete") {
                     revealedIDs.remove(password.id)
-                    modelContext.delete(password)
-                    try? modelContext.save()
+                    environment.passwordService.deletePassword(password)
                 }
                 .buttonStyle(InternalPageChipButtonStyle(color: .red))
             }

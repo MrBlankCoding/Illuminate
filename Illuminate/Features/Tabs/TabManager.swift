@@ -45,7 +45,7 @@ final class TabManager: NSObject, WKWebExtensionWindow {
     enum Defaults {
         static let maxRecentlyClosed = 25
         static let saveDebounceNs: UInt64 = 500_000_000
-        static let tabCreationDelay: TimeInterval = 0.05
+        static let tabCreationDelay: TimeInterval = 0.0
         static let rapidSwitchDebounceNs: UInt64 = 1_000_000_000
     }
 
@@ -189,9 +189,10 @@ final class TabManager: NSObject, WKWebExtensionWindow {
         self.tabGroupManager    = TabGroupManager(profileID: profileID, isPersistenceEnabled: isPersistenceEnabled)
         self.extensionManager   = resolvedExtensionManager
 
+        let fallbackAccentHex = profileID == nil ? BrowserTheme.guestAccentHex : BrowserTheme.defaultAccentHex
         let savedHex = isPersistenceEnabled
-            ? (userDefaults.string(forKey: Self.scopedKey("windowThemeColor", profileID: profileID)) ?? BrowserTheme.defaultAccentHex)
-            : BrowserTheme.defaultAccentHex
+            ? (userDefaults.string(forKey: Self.scopedKey("windowThemeColor", profileID: profileID)) ?? fallbackAccentHex)
+            : fallbackAccentHex
         self.windowThemeColor = Color(hex: savedHex)
 
         self.backgroundImageURL = isPersistenceEnabled
@@ -222,7 +223,7 @@ final class TabManager: NSObject, WKWebExtensionWindow {
             defaultTheme.colorScheme = ThemeScheme.fromUIStyle(style)
             
             // Start with a neutral grey theme if no image is present
-            let grey = Color.AppColor.hslComponents(of: BrowserTheme.defaultAccent)
+            let grey = Color.AppColor.hslComponents(of: fallbackAccentHex == BrowserTheme.guestAccentHex ? BrowserTheme.guestAccent : BrowserTheme.defaultAccent)
             if let firstIdx = defaultTheme.colors.indices.first {
                 defaultTheme.colors[firstIdx].hue = grey.h
                 defaultTheme.colors[firstIdx].saturation = grey.s
@@ -425,7 +426,9 @@ final class TabManager: NSObject, WKWebExtensionWindow {
         tabPositionIndex[tab.id] = tabs.count - 1
         hydrateVisualState(for: tab)
 
-        extensionManager.controller.didOpenTab(tab)
+        Task.detached { [extensionManager, tab] in
+            extensionManager.controller.didOpenTab(tab)
+        }
 
         if !inBackground {
             withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
@@ -453,24 +456,32 @@ final class TabManager: NSObject, WKWebExtensionWindow {
 
         let tab = tabs[index]
         let payload = tab.toTransferPayload()
+
+        let nextID: UUID?
+        if activeTabID == id {
+            nextID = (tabs[safe: index + 1] ?? tabs[safe: index - 1])?.id
+            setActiveTab(nextID)
+        } else {
+            nextID = nil
+        }
+
         tab.close()
         pushRecentlyClosed(payload)
         tabGroupManager.handleTabClosed(id)
-        extensionManager.controller.didCloseTab(tab, windowIsClosing: false)
+        Task.detached { [extensionManager, tab] in
+            extensionManager.controller.didCloseTab(tab, windowIsClosing: false)
+        }
 
         tabs.remove(at: index)
         deindexTab(id: id)
         removeTabAssets(for: id)
         updateProtectedFaviconURLs()
 
-        if activeTabID == id {
-            let nextID = (tabs[safe: index] ?? tabs.last)?.id
-            setActiveTab(nextID)
-        }
-
         if tabs.isEmpty {
+            Task.detached { [sessionURL] in
+                try? FileManager.default.removeItem(at: sessionURL)
+            }
             pendingSaveTask?.cancel()
-            try? FileManager.default.removeItem(at: sessionURL)
             if let window {
                 window.close()
             } else {
