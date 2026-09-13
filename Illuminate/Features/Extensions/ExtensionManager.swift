@@ -769,20 +769,13 @@ final class ExtensionManager: NSObject {
     private func removeExtensionWebsiteData(for stableID: String) {
         guard !isGuestSession, let dataStore = extensionDataStore else { return }
         Task { @MainActor [weak self] in
-            guard let self else { return }
-            guard let allTypes = WKWebsiteDataStore.allWebsiteDataTypes() as? Set<String> else {
-                AppLog.warning("Unable to resolve website data types while cleaning up extension '\(stableID)'")
-                return
-            }
-            do {
-                let records = try await dataStore.dataRecords(ofTypes: allTypes)
-                let matches = records.filter { $0.displayName.contains(stableID) }
-                guard !matches.isEmpty else { return }
-                await dataStore.removeData(ofTypes: allTypes, for: matches)
-                AppLog.info("Removed website data for extension '\(stableID)'")
-            } catch {
-                AppLog.warning("Failed to remove website data for extension '\(stableID)': \(error.localizedDescription)")
-            }
+            guard self != nil else { return }
+            let allTypes = WKWebsiteDataStore.allWebsiteDataTypes()
+            let records = await dataStore.dataRecords(ofTypes: allTypes)
+            let matches = records.filter { $0.displayName.contains(stableID) }
+            guard !matches.isEmpty else { return }
+            await dataStore.removeData(ofTypes: allTypes, for: matches)
+            AppLog.info("Removed website data for extension '\(stableID)'")
         }
     }
 

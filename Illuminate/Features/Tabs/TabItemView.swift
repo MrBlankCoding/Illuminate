@@ -8,7 +8,6 @@
 import SwiftUI
 
 private enum TabItemMetrics {
-    static let titleThreshold: CGFloat = 72
     static let height: CGFloat = MacDesign.Size.tabHeight
     static let cornerRadius: CGFloat = MacDesign.Radius.control
     static let closeButtonSize: CGFloat = 18
@@ -23,6 +22,7 @@ struct TabItemView: View {
 
     let themeColor: Color
     let isActive: Bool
+    let showsTitle: Bool
     let showsTrailingSeparator: Bool
     let namespace: Namespace.ID
     let onSelect: () -> Void
@@ -52,81 +52,77 @@ struct TabItemView: View {
     }
 
     var body: some View {
-        GeometryReader { geo in
-            ZStack(alignment: .trailing) {
-                Button(action: onSelect) {
-                    HStack(spacing: MacDesign.Spacing.mini) {
-                        faviconArea
+        ZStack(alignment: .trailing) {
+            Button(action: onSelect) {
+                HStack(spacing: MacDesign.Spacing.mini) {
+                    faviconArea
 
-                        if geo.size.width >= TabItemMetrics.titleThreshold {
-                            titleLabel
-                        }
-
-                        if showClose {
-                            Spacer(minLength: TabItemMetrics.closeReserve)
-                        }
+                    if showsTitle {
+                        titleLabel
                     }
-                    .padding(.horizontal, TabItemMetrics.hPad)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(tabBackground)
-                    .contentShape(
-                        RoundedRectangle(
-                            cornerRadius: TabItemMetrics.cornerRadius,
-                            style: .continuous
-                        )
-                    )
-                }
-                .buttonStyle(TabPressButtonStyle())
-                .accessibilityLabel(tab.title.isEmpty ? "New Tab" : tab.title)
-                .accessibilityIdentifier("browser.tabbar.tab")
-                .accessibilityAddTraits(isActive ? [.isSelected] : [])
 
-                if showClose {
-                    closeButton
-                        .padding(.trailing, MacDesign.Spacing.mini)
-                        .transition(.opacity)
-                        .zIndex(1)
-                }
-
-                if showsLoadingIndicator && tab.estimatedProgress < 1.0 {
-                    loadingIndicator
-                        .transition(.opacity.animation(MacDesign.fastAnimation))
-                        .allowsHitTesting(false)
+                    if showClose {
+                        Spacer(minLength: TabItemMetrics.closeReserve)
+                    }
                 }
             }
-            .frame(width: geo.size.width, height: TabItemMetrics.height)
-            .clipShape(
+            .padding(.horizontal, TabItemMetrics.hPad)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(tabBackground)
+            .contentShape(
                 RoundedRectangle(
                     cornerRadius: TabItemMetrics.cornerRadius,
                     style: .continuous
                 )
             )
-            .overlay(alignment: .bottom) {
-                if showHoverPreview && !isActive {
-                    TabHoverPreview(
-                        tab: tab,
-                        themeColor: themeColor,
-                        onTogglePiP: { showHoverPreview = false },
-                        onKeepAlive: {
-                            hoverPreviewTask?.cancel()
-                            hoverDismissTask?.cancel()
-                        },
-                        onDismiss: {
-                            hoverDismissTask?.cancel()
-                            hoverDismissTask = Task {
-                                try? await Task.sleep(nanoseconds: 80_000_000)
-                                guard !Task.isCancelled else { return }
-                                await MainActor.run { showHoverPreview = false }
-                            }
+            .buttonStyle(TabPressButtonStyle())
+            .accessibilityLabel(tab.title.isEmpty ? "New Tab" : tab.title)
+            .accessibilityIdentifier("browser.tabbar.tab")
+            .accessibilityAddTraits(isActive ? [.isSelected] : [])
+
+            if showClose {
+                closeButton
+                    .padding(.trailing, MacDesign.Spacing.mini)
+                    .transition(.opacity)
+                    .zIndex(1)
+            }
+
+            if showsLoadingIndicator && tab.estimatedProgress < 1.0 {
+                loadingIndicator
+                    .transition(.opacity.animation(MacDesign.fastAnimation))
+                    .allowsHitTesting(false)
+            }
+        }
+        .frame(height: TabItemMetrics.height)
+        .clipShape(
+            RoundedRectangle(
+                cornerRadius: TabItemMetrics.cornerRadius,
+                style: .continuous
+            )
+        )
+        .overlay(alignment: .bottom) {
+            if showHoverPreview && !isActive {
+                TabHoverPreview(
+                    tab: tab,
+                    themeColor: themeColor,
+                    onTogglePiP: { showHoverPreview = false },
+                    onKeepAlive: {
+                        hoverPreviewTask?.cancel()
+                        hoverDismissTask?.cancel()
+                    },
+                    onDismiss: {
+                        hoverDismissTask?.cancel()
+                        hoverDismissTask = Task {
+                            try? await Task.sleep(nanoseconds: 80_000_000)
+                            guard !Task.isCancelled else { return }
+                            await MainActor.run { showHoverPreview = false }
                         }
-                    )
-                    .frame(width: 320)
-                    // Unrestricted 320pt (not geo.size.width) so long URLs aren't cut off on narrow tabs.
-                    // Still centered under tab via .bottom alignment, pushed past entire top bar.
-                    .offset(y: 72)
-                    .zIndex(100)
-                    .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)).combined(with: .move(edge: .top)))
-                }
+                    }
+                )
+                .frame(width: 320)
+                .offset(y: 72)
+                .zIndex(100)
+                .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)).combined(with: .move(edge: .top)))
             }
         }
         .frame(height: TabItemMetrics.height)

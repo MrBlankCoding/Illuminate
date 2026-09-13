@@ -275,34 +275,35 @@ extension WebScriptBridge {
             if (!canvasPrototype || !canvasPrototype.toDataURL) return;
             const originalToDataURL = canvasPrototype.toDataURL;
             canvasPrototype.toDataURL = function(...args) {
-                const context = this.getContext && this.getContext('2d');
-                if (!context || !this.width || !this.height) return originalToDataURL.apply(this, args);
+                if (!this.width || !this.height) return originalToDataURL.apply(this, args);
                 try {
-                    const imageData = context.getImageData(0, 0, this.width, this.height);
-                    const originalPixels = new Uint8ClampedArray(imageData.data);
+                    const copy = document.createElement('canvas');
+                    copy.width = this.width;
+                    copy.height = this.height;
+                    const context = copy.getContext('2d');
+                    if (!context) return originalToDataURL.apply(this, args);
+                    context.drawImage(this, 0, 0);
+                    const imageData = originalGetImageData.call(context, 0, 0, copy.width, copy.height);
                     alter(imageData);
                     context.putImageData(imageData, 0, 0);
-                    const result = originalToDataURL.apply(this, args);
-                    imageData.data.set(originalPixels);
-                    context.putImageData(imageData, 0, 0);
-                    return result;
+                    return originalToDataURL.apply(copy, args);
                 } catch (_) {
                     return originalToDataURL.apply(this, args);
                 }
             };
         })();
         """
-        return WKUserScript(source: source, injectionTime: .atDocumentStart, forMainFrameOnly: false)
+        return WKUserScript(source: source, injectionTime: .atDocumentStart, forMainFrameOnly: true)
     }
 
     func passwordScript(colorScheme: String) -> WKUserScript {
         let isDark = colorScheme == "dark"
-        let bgColor = isDark ? "#2a2a2a" : "white"
-        let textColor = isDark ? "#eee" : "#333"
-        let subColor = isDark ? "#aaa" : "#666"
-        let borderColor = isDark ? "#444" : "#ddd"
-        let hoverColor = isDark ? "#3a3a3a" : "#f5f5f5"
-        let separatorColor = isDark ? "#444" : "#eee"
+        _ = isDark ? "#2a2a2a" : "white"
+        _ = isDark ? "#eee" : "#333"
+        _ = isDark ? "#aaa" : "#666"
+        _ = isDark ? "#444" : "#ddd"
+        _ = isDark ? "#3a3a3a" : "#f5f5f5"
+        _ = isDark ? "#444" : "#eee"
 
         let source = """
         (() => {

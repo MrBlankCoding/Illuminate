@@ -27,7 +27,6 @@ struct AppRootView: View {
                     .environment(env.passwordService)
                     .environment(env.webKitManager)
                     .environment(env.urlSynchronizer)
-                    .environment(env.trackerBlockingService)
                     .environment(env.websitePermissionService)
                     .environment(env.canvasFingerprintingService)
                     .environment(env.historyManager)

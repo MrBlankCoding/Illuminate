@@ -172,7 +172,8 @@ extension WebViewRepresentable.Coordinator {
 
                 guard
                     let faviconString = body["favicon"] as? String,
-                    let faviconURL = self.resolveFaviconURL(from: faviconString, pageURL: webView?.url),
+                    let pageURL = webView?.url,
+                    let faviconURL = self.resolveFaviconURL(from: faviconString, pageURL: pageURL),
                     faviconURL != self.lastAppliedFaviconURL
                 else {
                     self.applyExtensionIconIfNeeded(for: webView, tab: tab)
@@ -181,8 +182,8 @@ extension WebViewRepresentable.Coordinator {
                 self.lastAppliedFaviconURL = faviconURL
 
                 Task {
-                    await self.loadFavicon(from: faviconURL, for: tab)
-                    if let pageURL = webView?.url {
+                    await self.loadFavicon(from: faviconURL, for: pageURL, tab: tab)
+                    if tab.url == pageURL {
                         await MainActor.run {
                             self.historyManager.updateMetadata(for: pageURL, title: tab.title, faviconURL: faviconURL)
                         }

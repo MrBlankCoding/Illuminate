@@ -21,7 +21,7 @@ A lightweight browser built for MacOS that uses webkit and includes no arbitrary
 * WebKit-based browsing
 * Isolated profiles and Guest mode
 * Download manager
-* Ad and tracker blocking
+* Ad and tracker blocking with Ublock
 * Tab groups, caching, and previews
 * Bookmarks and shortcuts
 * Cookie management
@@ -34,7 +34,6 @@ Illuminate is designed with privacy in mind:
 * No tracking
 * No telemetry or user analytics
 * No account required
-* Tracker blocking
 * Cookie management
 * Canvas fingerprinting protection
 

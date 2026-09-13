@@ -15,7 +15,7 @@ public struct TabTransferPayload: Codable, Sendable {
     var title: String?
 }
 
-struct SessionState: Codable, Sendable {
+struct SessionState: @preconcurrency Codable, Sendable {
     var tabIDs: [UUID]?
     var tabs: [TabTransferPayload]?
     var activeTabID: UUID?

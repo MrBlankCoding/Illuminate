@@ -44,7 +44,22 @@ public final class TabGroupManager {
     }
 
     func prepareForRemoval() {
+        persistImmediately()
+    }
+
+    private func persistImmediately() {
+        guard isPersistenceEnabled else { return }
         pendingSaveTask?.cancel()
+        let payloads = groups.map { $0.toPayload() }
+        let url = groupsURL
+        Task.detached(priority: .userInitiated) {
+            do {
+                try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+                try JSONEncoder().encode(payloads).write(to: url, options: .atomic)
+            } catch {
+                AppLog.error("[TabGroupManager] Group save failed: \(error.localizedDescription)")
+            }
+        }
     }
 
     func group(for tabID: UUID) -> TabGroup? {

@@ -50,6 +50,12 @@ struct FaviconLoaderTests {
         #expect(result == nil)
     }
 
+    @Test func invalidDataURLReturnsNil() async {
+        let loader = FaviconLoader()
+        let url = URL(string: "data:image/png;base64,not-valid")!
+        #expect(await loader.loadFavicon(from: url) == nil)
+    }
+
     @Test func negativeCachePreventsRepeatedFailures() async {
         let loader = FaviconLoader()
         let url = URL(string: "https://127.0.0.1:1/favicon.ico")!

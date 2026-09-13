@@ -31,6 +31,11 @@ struct WebScriptBridgeTests {
             canvasFingerprintingProtectionEnabled: true
         )
         #expect(controller.userScripts.count == 6)
+        let canvasScript = controller.userScripts[5]
+        #expect(canvasScript.isForMainFrameOnly)
+        #expect(canvasScript.source.contains("const copy = document.createElement('canvas');"))
+        #expect(canvasScript.source.contains("originalGetImageData.call(context"))
+        #expect(!canvasScript.source.contains("this.getContext && this.getContext('2d')"))
         bridge.installScripts(
             on: controller,
             handler: handler,

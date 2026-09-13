@@ -37,6 +37,10 @@ final class NavigationPreconnectManager {
         injectPreconnectHintsIfNeeded(origin: origin, host: host, webView: webView, now: now)
     }
 
+    func removeTracking(for webView: WKWebView) {
+        lastInjectedAt.removeValue(forKey: ObjectIdentifier(webView))
+    }
+
     private func throttledDNSPrefetch(host: String, now: Date) {
         if let last = lastDNSPrefetchAt[host], now.timeIntervalSince(last) < dnsCooldown {
             return

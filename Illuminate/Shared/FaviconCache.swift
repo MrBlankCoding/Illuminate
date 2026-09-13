@@ -8,48 +8,8 @@
 
 import AppKit
 import Foundation
-import Nuke
 
 final class FaviconCache: @unchecked Sendable {
-    private enum FaviconFetchError: LocalizedError {
-        case unsupportedScheme(String?)
-        case invalidDataURL
-
-        var errorDescription: String? {
-            switch self {
-            case .unsupportedScheme(let scheme):
-                return "Unsupported favicon URL scheme: \(scheme ?? "nil")"
-            case .invalidDataURL:
-                return "Invalid favicon data URL"
-            }
-        }
-    }
-
-    enum FaviconFetchResult {
-        case data(Data)
-        case decodedImage(NSImage)
-    }
-
-    private enum DataURLDecoder {
-        nonisolated static func decode(_ rawURL: String) -> Data? {
-            guard rawURL.hasPrefix("data:"),
-                  let commaIndex = rawURL.firstIndex(of: ",")
-            else {
-                return nil
-            }
-
-            let metadata = rawURL[..<commaIndex]
-            let payload = String(rawURL[rawURL.index(after: commaIndex)...])
-
-            if metadata.localizedCaseInsensitiveContains(";base64") {
-                let cleanPayload = payload.removingPercentEncoding ?? payload
-                return Data(base64Encoded: cleanPayload, options: .ignoreUnknownCharacters)
-            }
-
-            return (payload.removingPercentEncoding ?? payload).data(using: .utf8)
-        }
-    }
-
     nonisolated static let shared = FaviconCache(capacity: 128)
 
     private let capacity: Int
@@ -65,49 +25,11 @@ final class FaviconCache: @unchecked Sendable {
     private nonisolated static let maxDiskSizeBytes: Int64 = 50 * 1024 * 1024
     private nonisolated static let diskCacheTTL: TimeInterval = 7 * 24 * 60 * 60
     private nonisolated(unsafe) static var pendingDiskPrune = false
-    private let fetchData: @Sendable (String) async throws -> FaviconFetchResult
-    private let inFlightRequests = AsyncRequestDeduplicator<String, FaviconFetchResult>()
-
     nonisolated init(
         capacity: Int,
-        cacheDirectory: URL? = nil,
-        fetchData: (@Sendable (String) async throws -> FaviconFetchResult)? = nil
+        cacheDirectory: URL? = nil
     ) {
         self.capacity = max(1, capacity)
-        if let fetchData {
-            self.fetchData = fetchData
-        } else {
-            self.fetchData = { rawURL in
-                if rawURL.hasPrefix("data:") {
-                    guard let data = DataURLDecoder.decode(rawURL) else {
-                        throw FaviconFetchError.invalidDataURL
-                    }
-                    return .data(data)
-                }
-
-                guard let url = URL(string: rawURL) else {
-                    throw FaviconFetchError.invalidDataURL
-                }
-
-                switch url.scheme?.lowercased() {
-                case "http", "https":
-                    if let nukeImage = try? await BrowserImageLoader.shared.loadImage(from: url) {
-                        return .decodedImage(nukeImage)
-                    }
-                    let (data, _) = try await Task.detached(priority: .utility) {
-                        try await URLSession.shared.data(from: url)
-                    }.value
-                    return .data(data)
-                // this is our icon
-                // dont cache
-                case "webkit-extension":
-                    throw FaviconFetchError.unsupportedScheme(url.scheme)
-                default:
-                    throw FaviconFetchError.unsupportedScheme(url.scheme)
-                }
-            }
-        }
-
         if let customDir = cacheDirectory {
             self.cacheURL = customDir
         } else {
@@ -171,101 +93,9 @@ final class FaviconCache: @unchecked Sendable {
         }
     }
 
-    nonisolated func fetchImage(for url: URL) async -> NSImage? {
-        if let cached = await imageIncludingDisk(for: url) {
-            return cached
-        }
-
-        if url.scheme?.lowercased() == "data" {
-            guard let data = DataURLDecoder.decode(url.absoluteString) else { return nil }
-            guard let result = await Self.decodeAndEncode(.data(data)) else {
-                return nil
-            }
-            let (fetchedImage, pngData) = result
-
-            if let cached = memoryImage(for: url) { return cached }
-            setWithData(fetchedImage, pngData: pngData, for: url)
-            return fetchedImage
-        }
-
-        let requestKey = normalizedRequestKey(for: url)
-
-        do {
-            let fetchResult = try await inFlightRequests.value(for: requestKey) { [fetchData] key in
-                return try await fetchData(key)
-            }
-
-            guard let result = await Self.decodeAndEncode(fetchResult) else {
-                return nil
-            }
-            let (fetchedImage, pngData) = result
-
-            if let cached = memoryImage(for: url) { return cached }
-            setWithData(fetchedImage, pngData: pngData, for: url)
-            return fetchedImage
-        } catch {
-        }
-        return nil
-    }
-
     nonisolated private func normalizedRequestKey(for url: URL) -> String {
         let s = url.absoluteString
         return s.isEmpty ? "INVALID_URL" : s
-    }
-
-    private static let maxCachedPixelSize: CGFloat = 64
-
-    nonisolated private static func decodeAndEncode(_ result: FaviconFetchResult) async -> (NSImage, Data?)? {
-        await Task.detached(priority: .utility) { () -> (NSImage, Data?)? in
-            let img: NSImage
-            switch result {
-            case .data(let data):
-                guard let decoded = NSImage(data: data) else { return nil }
-                img = decoded
-            case .decodedImage(let image):
-                img = image
-            }
-            let resized = await downsampled(img, maxPixel: maxCachedPixelSize)
-            let pngData = await MainActor.run { resized.pngData() }
-            return (resized, pngData)
-        }.value
-    }
-
-    nonisolated private static func downsampled(_ image: NSImage, maxPixel: CGFloat) -> NSImage {
-        let largestDimension = max(image.size.width, image.size.height)
-        guard largestDimension > maxPixel, largestDimension > 0 else { return image }
-
-        let scale = maxPixel / largestDimension
-        let targetPixelsWide = max(1, Int((image.size.width * scale).rounded(.down)))
-        let targetPixelsHigh = max(1, Int((image.size.height * scale).rounded(.down)))
-
-        guard let rep = NSBitmapImageRep(
-            bitmapDataPlanes: nil,
-            pixelsWide: targetPixelsWide,
-            pixelsHigh: targetPixelsHigh,
-            bitsPerSample: 8,
-            samplesPerPixel: 4,
-            hasAlpha: true,
-            isPlanar: false,
-            colorSpaceName: .deviceRGB,
-            bytesPerRow: 0,
-            bitsPerPixel: 0
-        ) else { return image }
-
-        rep.size = NSSize(width: targetPixelsWide, height: targetPixelsHigh)
-        NSGraphicsContext.saveGraphicsState()
-        NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
-        image.draw(
-            in: NSRect(x: 0, y: 0, width: targetPixelsWide, height: targetPixelsHigh),
-            from: NSRect(origin: .zero, size: image.size),
-            operation: .copy,
-            fraction: 1.0
-        )
-        NSGraphicsContext.restoreGraphicsState()
-
-        let result = NSImage(size: NSSize(width: targetPixelsWide, height: targetPixelsHigh))
-        result.addRepresentation(rep)
-        return result
     }
 
     nonisolated func performInline_set(_ image: NSImage, for key: URL) {
@@ -294,23 +124,6 @@ final class FaviconCache: @unchecked Sendable {
             for hash in diskHashes {
                 let path = cacheURL.appendingPathComponent(hash).appendingPathExtension("png").path
                 try? FileManager.default.removeItem(atPath: path)
-            }
-        }
-    }
-
-    nonisolated private func setWithData(_ image: NSImage, pngData: Data?, for key: URL) {
-        let diskPath = diskURL(for: key)
-        let hashes = lock.withLock {
-            storage[key] = image
-            touch(key)
-            let h = Set(protectedKeys.map { stableHash($0) })
-            evictIfNeeded()
-            return h
-        }
-        if let data = pngData {
-            Task.detached(priority: .userInitiated) { [cacheURL] in
-                try? data.write(to: diskPath, options: .atomic)
-                await Self.pruneDiskCacheIfNeeded(directory: cacheURL, protectedHashes: hashes)
             }
         }
     }

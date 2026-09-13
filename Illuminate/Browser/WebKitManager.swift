@@ -37,20 +37,25 @@ final class WebKitManager {
     }
 
     @ObservationIgnored private let userDefaults: UserDefaults
-    @ObservationIgnored private var activeProfileID: UUID?
+    @ObservationIgnored private(set) var activeProfileID: UUID?
     @ObservationIgnored private var isLoadingProfile = false
     @ObservationIgnored private let isPersistenceEnabled: Bool
     @ObservationIgnored private var cachedUserAgent: String?
     @ObservationIgnored private let extensionManager: ExtensionManager
-    
+
+
     @ObservationIgnored private var sharedWebsiteDataStore: WKWebsiteDataStore?
+
+
+
+
 
     var currentUserAgent: String? {
         cachedUserAgent
     }
 
     nonisolated func fetchUserAgent() async -> String {
-        if let cached = await MainActor.run { cachedUserAgent } {
+        if let cached = await MainActor.run(body: { cachedUserAgent }) {
             return cached
         }
 
@@ -60,13 +65,15 @@ final class WebKitManager {
             Task { @MainActor in
                 let configuration = makeConfiguration()
                 let webView = WKWebView(frame: .zero, configuration: configuration)
-                webView.evaluateJavaScript("navigator.userAgent") { result, _ in
+                do {
+                    let result = try await webView.evaluateJavaScript("navigator.userAgent")
                     let defaultUA = (result as? String) ?? "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15"
                     let enhancedUA = "\(defaultUA) Chrome/\(chromeVersion)"
-                    MainActor.assumeIsolated {
-                        self.cachedUserAgent = enhancedUA
-                        continuation.resume(returning: enhancedUA)
-                    }
+                    self.cachedUserAgent = enhancedUA
+                    continuation.resume(returning: enhancedUA)
+                } catch {
+                    AppLog.error("Failed to evaluate JavaScript for user agent", error: error)
+                    continuation.resume(returning: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15") // Fallback
                 }
             }
         }
@@ -109,6 +116,7 @@ final class WebKitManager {
         configuration.mediaTypesRequiringUserActionForPlayback = []
 
         configuration.websiteDataStore = activeWebsiteDataStore()
+        configuration.setURLSchemeHandler(IlluminateSchemeHandler(), forURLScheme: IlluminatePage.urlScheme)
         let javascriptEnabled: Bool
         if let cached = cachedJavascriptEnabled {
             javascriptEnabled = cached
@@ -127,7 +135,9 @@ final class WebKitManager {
         preferences.setValue(true, forKey: "DOMPasteAllowed")
 
         configuration.preferences = preferences
-        configuration.userContentController = WKUserContentController()
+        let contentController = WKUserContentController()
+
+        configuration.userContentController = contentController
         if extensionManager.hasEnabledExtensions {
             configuration.webExtensionController = extensionManager.controller
         }

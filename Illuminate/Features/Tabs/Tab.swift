@@ -177,7 +177,7 @@ final class Tab: NSObject, Identifiable, WKWebExtensionTab {
 
     func setMuted(_ isMuted: Bool, completionHandler: @escaping ((any Error)?) -> Void) {
         self.isMuted = isMuted
-        guard let webView else {
+        guard let attachedWebView = webView else {
             completionHandler(nil)
             return
         }
@@ -188,7 +188,7 @@ final class Tab: NSObject, Identifiable, WKWebExtensionTab {
             }
         })();
         """
-        webView.evaluateJavaScript(script) { _, error in
+        attachedWebView.evaluateJavaScript(script) { _, error in
             completionHandler(error)
         }
     }
@@ -330,12 +330,12 @@ final class Tab: NSObject, Identifiable, WKWebExtensionTab {
         assetsBaseURL: URL? = nil,
         webViewConfiguration: WKWebViewConfiguration? = nil
     ) {
-        let folder = (assetsBaseURL ?? FileManager.default.illuminateAppSupportDirectory())
+        _ = (assetsBaseURL ?? FileManager.default.illuminateAppSupportDirectory())
             .appendingPathComponent("TabAssets", isDirectory: true)
             .appendingPathComponent(id.uuidString, isDirectory: true)
 
-        var title = "New Tab"
-        var url: URL? = nil
+        let title = "New Tab"
+        var url: URL? = IlluminatePage.newPage.url
 
         self.init(
             id: id,
@@ -372,7 +372,7 @@ final class Tab: NSObject, Identifiable, WKWebExtensionTab {
             guard let self else { return }
             let newWebView = webKitManager.makeWebView(configuration: finalConfiguration)
             newWebView.pageZoom = zoomLevel
-            newWebView.underPageBackgroundColor = .windowBackgroundColor
+            newWebView.underPageBackgroundColor = .white
             objc_setAssociatedObject(
                 newWebView,
                 &webViewTabOwnerKey,
@@ -401,36 +401,44 @@ final class Tab: NSObject, Identifiable, WKWebExtensionTab {
     }
 
     func detachWebView() {
-        kvoObservations.removeAll()
-        webView = nil
-        DispatchQueue.main.async { [weak self] in
-            guard let self else { return }
-            self.isLoading = false
-            self.estimatedProgress = 0
-            self.hasPiPCandidate = false
-            self.isDirty = false
+        guard let attachedWebView = webView else {
+            kvoObservations.removeAll()
+            resetWebViewState()
+            return
         }
+
+        kvoObservations.removeAll()
+        attachedWebView.stopLoading()
+        attachedWebView.pauseAllMediaPlayback()
+        attachedWebView.setAllMediaPlaybackSuspended(true)
+        attachedWebView.navigationDelegate = nil
+        attachedWebView.uiDelegate = nil
+        WebScriptBridge.shared.removeAll(from: attachedWebView.configuration.userContentController)
+        NavigationPreconnectManager.shared.removeTracking(for: attachedWebView)
+        attachedWebView.removeFromSuperview()
+        objc_setAssociatedObject(attachedWebView, &webViewTabOwnerKey, nil, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+        webView = nil
+        resetWebViewState()
+    }
+
+    private func resetWebViewState() {
+        isLoading = false
+        estimatedProgress = 0
+        hasPiPCandidate = false
+        isDirty = false
     }
 
     func close() {
         isClosed = true
         pendingMetadataSaveTask?.cancel()
 
-        guard let webView else {
-            detachWebView()
-            return
-        }
+        let attachedWebView = webView
 
         // make sure audio stops when tab is closed
-        webView.pauseAllMediaPlayback()
-        webView.setAllMediaPlaybackSuspended(true)
+        attachedWebView?.pauseAllMediaPlayback()
+        attachedWebView?.setAllMediaPlaybackSuspended(true)
 
-        // Release the tab's reference to the web view immediately so the
-        // UI reflects the close instantly; the detached task keeps its own
-        // strong ref to finish teardown in the background without holding it.
-        detachWebView()
-
-        Task.detached { [webView] in
+        if let attachedWebView {
             let mediaShutdownScript = """
             (() => {
                 try {
@@ -448,15 +456,10 @@ final class Tab: NSObject, Identifiable, WKWebExtensionTab {
                 }
             })();
             """
-
-            await MainActor.run {
-                webView.evaluateJavaScript(mediaShutdownScript, completionHandler: nil)
-                webView.stopLoading()
-                webView.navigationDelegate = nil
-                webView.uiDelegate = nil
-                webView.removeFromSuperview()
-            }
+            attachedWebView.evaluateJavaScript(mediaShutdownScript, completionHandler: nil)
         }
+
+        detachWebView()
     }
 
     func load(url: URL) {

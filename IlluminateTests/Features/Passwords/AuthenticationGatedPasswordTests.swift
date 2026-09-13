@@ -12,7 +12,7 @@ import SwiftData
 
 // TODO
 // real implementation for testing?
-final class MockAuthenticationService: AuthenticationServiceProtocol {
+final nonisolated class MockAuthenticationService: AuthenticationServiceProtocol {
     var shouldSucceed = true
     var authCount = 0
     var lastReason: String?

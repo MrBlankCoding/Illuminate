@@ -15,7 +15,7 @@ struct InfoPageView: View {
     @Environment(TabManager.self) private var tabManager: TabManager
     @Environment(ProfileEnvironment.self) private var environment: ProfileEnvironment
     @Environment(WebKitManager.self) private var webKitManager: WebKitManager
-    @Environment(TrackerBlockingService.self) private var trackerBlockingService: TrackerBlockingService
+
     @Environment(WebsitePermissionService.self) private var websitePermissionService: WebsitePermissionService
     @Environment(CanvasFingerprintingService.self) private var canvasFingerprintingService: CanvasFingerprintingService
     @Environment(HistoryManager.self) private var historyManager: HistoryManager
@@ -41,7 +41,7 @@ struct InfoPageView: View {
                 userAgentSection
                 profileAndSessionSection
                 tabsAndWindowStateSection
-                protectionServicesSection
+
                 systemDiagnosticsSection
             }
         }
@@ -176,34 +176,7 @@ struct InfoPageView: View {
         }
     }
 
-    private var protectionServicesSection: some View {
-        VStack(alignment: .leading, spacing: MacDesign.Spacing.control) {
-            InternalPageSectionHeader(title: "Protection Services")
 
-            InternalPageRow {
-                VStack(spacing: MacDesign.Spacing.control) {
-                    let blockedTrackers = environment.trackerBlockingService.domainStats.filter(\.isBlocked).count
-                    let totalTrackers = environment.trackerBlockingService.domainStats.count
-                    infoKeyValueRow(
-                        title: "Tracker Learning",
-                        value: environment.trackerBlockingService.isEnabled
-                            ? "Enabled (Threshold: \(environment.trackerBlockingService.learnThreshold) sites, \(blockedTrackers) blocked / \(totalTrackers) learned)"
-                            : "Disabled"
-                    )
-                    Divider()
-                    infoKeyValueRow(
-                        title: "Canvas Fingerprinting Protection",
-                        value: environment.canvasFingerprintingService.isEnabled ? "Active (Protection Enabled)" : "Disabled"
-                    )
-                    Divider()
-                    infoKeyValueRow(
-                        title: "Custom Site Permissions",
-                        value: "\(environment.websitePermissionService.sites.count) origin\(environment.websitePermissionService.sites.count == 1 ? "" : "s") configured"
-                    )
-                }
-            }
-        }
-    }
 
     private var systemDiagnosticsSection: some View {
         VStack(alignment: .leading, spacing: MacDesign.Spacing.control) {
@@ -314,13 +287,6 @@ struct InfoPageView: View {
                 "activeTabURL": tabManager.activeTab?.url?.absoluteString ?? "",
                 "tabGroupsCount": tabManager.tabGroupManager.groups.count,
                 "isFullScreen": tabManager.isFullScreen
-            ],
-            "protection": [
-                "trackerBlockingEnabled": environment.trackerBlockingService.isEnabled,
-                "trackerLearnThreshold": environment.trackerBlockingService.learnThreshold,
-                "trackerDomainsCount": environment.trackerBlockingService.domainStats.count,
-                "canvasFingerprintingEnabled": environment.canvasFingerprintingService.isEnabled,
-                "configuredSitePermissionsCount": environment.websitePermissionService.sites.count
             ]
         ]
 

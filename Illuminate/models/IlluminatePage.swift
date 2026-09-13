@@ -9,6 +9,7 @@ import Foundation
 import SwiftUI
 
 enum IlluminatePage: String, CaseIterable, Equatable {
+    case newPage
     case passwords
     case protection
     case downloads
@@ -47,6 +48,7 @@ enum IlluminatePage: String, CaseIterable, Equatable {
         // why is this and tab title the same shit
         // im too tired 
         switch self {
+        case .newPage: return "New Tab"
         case .passwords: return "Passwords"
         case .protection: return "Privacy & Protection"
         case .downloads: return "Downloads"
@@ -59,6 +61,7 @@ enum IlluminatePage: String, CaseIterable, Equatable {
 
     var tabTitle: String {
         switch self {
+        case .newPage: return "New Tab"
         case .passwords: return "Passwords"
         case .protection: return "Protection"
         case .downloads: return "Downloads"
@@ -71,6 +74,7 @@ enum IlluminatePage: String, CaseIterable, Equatable {
 
     var icon: String {
         switch self {
+        case .newPage: return "doc.on.clipboard"
         case .passwords: return "key.fill"
         case .protection: return "shield.fill"
         case .downloads: return "arrow.down.circle.fill"
@@ -83,8 +87,9 @@ enum IlluminatePage: String, CaseIterable, Equatable {
 
     var keywords: [String] {
         switch self {
+        case .newPage: return ["new tab", "home", "start"]
         case .passwords: return ["passwords", "credentials", "logins", "keys", "accounts", "autofill"]
-        case .protection: return ["protection", "privacy", "tracker", "security", "https", "shield", "cookies", "cache", "data", "storage", "website data"]
+        case .protection: return ["protection", "privacy", "security", "https", "shield", "cookies", "cache", "data", "storage", "website data"]
         case .downloads: return ["downloads", "files", "transfers"]
         case .history: return ["history", "recent", "visited", "sites", "logs"]
         case .permissions: return ["permissions", "camera", "microphone", "location", "notifications", "sites"]

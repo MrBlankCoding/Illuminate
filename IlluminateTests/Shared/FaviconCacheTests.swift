@@ -22,10 +22,4 @@ struct FaviconCacheTests {
         }
         #expect(cache.image(for: firstURL) == nil)
     }
-
-    @Test func invalidAndUnsupportedFetchesReturnNil() async {
-        let cache = FaviconCache(capacity: 8)
-        #expect(await cache.fetchImage(for: URL(string: "ftp://example.com/icon")!) == nil)
-        #expect(await cache.fetchImage(for: URL(string: "data:image/png;base64,not-valid")!) == nil)
-    }
 }

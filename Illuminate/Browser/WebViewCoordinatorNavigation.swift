@@ -17,6 +17,7 @@ extension WebViewRepresentable.Coordinator {
         tab.networkError = nil
         tab.hoveredLinkURLString = nil
         tab.favicon = nil
+        tab.faviconURL = nil
         lastAppliedFaviconURL = nil
         tab.isDirty = false
         syncTabURL(from: webView, for: tab)
@@ -46,8 +47,10 @@ extension WebViewRepresentable.Coordinator {
             DNSPreFetcher.shared.prefetchLinks(in: webView)
         }
 
-        if let fallbackFaviconURL = defaultFaviconURL(for: webView.url), tab.favicon == nil {
-            Task { await self.loadFavicon(from: fallbackFaviconURL, for: tab) }
+        if let pageURL = webView.url,
+           let fallbackFaviconURL = defaultFaviconURL(for: pageURL),
+           tab.favicon == nil {
+            Task { await self.loadFavicon(from: fallbackFaviconURL, for: pageURL, tab: tab) }
         }
 
         if let finishedURL = webView.url {
@@ -191,20 +194,7 @@ extension WebViewRepresentable.Coordinator {
             return
         }
 
-        if let frameInfo = navigationAction.targetFrame,
-           !frameInfo.isMainFrame,
-           let topURL = navigationAction.sourceFrame.webView?.url ?? tab?.url,
-           let firstParty = topURL.eTLDPlusOne,
-           let thirdParty = url.eTLDPlusOne,
-           thirdParty != firstParty
-        {
-            Task { @MainActor [weak self] in
-                self?.trackerBlockingService.record(
-                    thirdPartyDomain: thirdParty,
-                    seenOn: firstParty
-                )
-            }
-        }
+
 
         decisionHandler(navigationAction.shouldPerformDownload ? .download : .allow)
     }
@@ -429,10 +419,11 @@ extension WebViewRepresentable.Coordinator {
         ["http", "https", "webkit-extension"].contains(url.scheme?.lowercased() ?? "")
     }
 
-    func loadFavicon(from url: URL, for tab: Tab) async {
-        guard tab.faviconURL != url else { return }
+    func loadFavicon(from url: URL, for pageURL: URL, tab: Tab) async {
+        guard tab.url == pageURL, tab.faviconURL != url else { return }
         if let image = await FaviconLoader.shared.loadFavicon(from: url) {
             await MainActor.run {
+                guard tab.url == pageURL else { return }
                 tab.favicon = image
                 tab.faviconURL = url
             }

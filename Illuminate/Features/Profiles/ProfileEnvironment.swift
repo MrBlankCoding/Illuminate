@@ -29,7 +29,7 @@ final class ProfileEnvironment {
     @ObservationIgnored private var tabManagerStorage: TabManager?
     @ObservationIgnored private var webKitManagerStorage: WebKitManager?
     @ObservationIgnored private var passwordServiceStorage: PasswordService?
-    @ObservationIgnored private var trackerBlockingServiceStorage: TrackerBlockingService?
+
     @ObservationIgnored private var websitePermissionServiceStorage: WebsitePermissionService?
     @ObservationIgnored private var canvasFingerprintingServiceStorage: CanvasFingerprintingService?
     @ObservationIgnored private var viewModelStorage: ContentViewModel?
@@ -95,6 +95,7 @@ final class ProfileEnvironment {
             extensionManager: self.extensionManager
         )
         webKitManagerStorage = value
+
         return value
     }
 
@@ -108,15 +109,7 @@ final class ProfileEnvironment {
         return value
     }
 
-    var trackerBlockingService: TrackerBlockingService {
-        if let existing = trackerBlockingServiceStorage { return existing }
-        let value = TrackerBlockingService(
-            profileID: isGuestSession ? nil : profile.id,
-            isPersistenceEnabled: !isGuestSession
-        )
-        trackerBlockingServiceStorage = value
-        return value
-    }
+
 
     var websitePermissionService: WebsitePermissionService {
         if let existing = websitePermissionServiceStorage { return existing }
@@ -153,7 +146,7 @@ final class ProfileEnvironment {
 
     var isTornDown = false
     var hasLazyServicesLoaded: Bool {
-        webKitManagerStorage != nil || passwordServiceStorage != nil || trackerBlockingServiceStorage != nil
+        webKitManagerStorage != nil || passwordServiceStorage != nil
             || websitePermissionServiceStorage != nil || canvasFingerprintingServiceStorage != nil || tabManagerStorage != nil
     }
 
@@ -177,7 +170,7 @@ final class ProfileEnvironment {
         _ = tabManager
         _ = webKitManager
         _ = passwordService
-        _ = trackerBlockingService
+
         _ = websitePermissionService
         _ = canvasFingerprintingService
         _ = viewModel
@@ -188,10 +181,10 @@ final class ProfileEnvironment {
         isTornDown = true
         AppLog.info("Tearing down environment (profile: \(self.profile.id.uuidString), guest: \(self.isGuestSession))")
         extensionManagerStorage?.prepareForRemoval()
-        webKitManagerStorage?.prepareForRemoval()
         tabManagerStorage?.prepareForRemoval()
         historyManagerStorage?.prepareForRemoval()
-        trackerBlockingServiceStorage?.prepareForRemoval()
+
+        webKitManagerStorage?.prepareForRemoval()
         websitePermissionServiceStorage?.prepareForRemoval()
         if let store = downloadHistoryStoreStorage {
             DownloadHistoryRegistry.shared.unregister(store)

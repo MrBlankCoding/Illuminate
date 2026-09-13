@@ -14,7 +14,7 @@ struct WebViewRepresentable: NSViewRepresentable {
     let webKitManager: WebKitManager
     let passwordService: PasswordService
     let tabManager: TabManager
-    let trackerBlockingService: TrackerBlockingService
+
     let historyManager: HistoryManager
     let websitePermissionService: WebsitePermissionService
     var canvasFingerprintingService: CanvasFingerprintingService
@@ -25,7 +25,7 @@ struct WebViewRepresentable: NSViewRepresentable {
             tab: tab,
             tabManager: tabManager,
             webScriptBridge: WebScriptBridge.shared,
-            trackerBlockingService: trackerBlockingService,
+
             dohService: DNSOverHTTPSService.shared,
             faviconCache: FaviconCache.shared,
             passwordService: passwordService,

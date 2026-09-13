@@ -421,7 +421,11 @@ actor HistoryModelActor: ModelActor {
             predicate: #Predicate { $0.urlString == urlString }
         )
         do {
-            guard let entry = try modelContext.fetch(fetch).first else { return }
+            guard let entry = try modelContext.fetch(fetch).first else {
+                modelContext.insert(HistoryEntry(urlString: urlString, title: title, faviconURLString: faviconURLString))
+                try modelContext.save()
+                return
+            }
             entry.title = title
             if let fs = faviconURLString { entry.faviconURLString = fs }
             try modelContext.save()

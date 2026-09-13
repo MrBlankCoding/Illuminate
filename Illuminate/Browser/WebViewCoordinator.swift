@@ -16,7 +16,7 @@ extension WebViewRepresentable {
         weak var tab: Tab?
         let tabManager: TabManager
         let webScriptBridge: WebScriptBridge
-        let trackerBlockingService: TrackerBlockingService
+
         let dohService: DNSOverHTTPSService
         let faviconCache: FaviconCache
         let passwordService: PasswordService
@@ -103,7 +103,7 @@ extension WebViewRepresentable {
             tab: Tab,
             tabManager: TabManager,
             webScriptBridge: WebScriptBridge,
-            trackerBlockingService: TrackerBlockingService,
+
             dohService: DNSOverHTTPSService,
             faviconCache: FaviconCache,
             passwordService: PasswordService,
@@ -114,7 +114,7 @@ extension WebViewRepresentable {
             self.tab = tab
             self.tabManager = tabManager
             self.webScriptBridge = webScriptBridge
-            self.trackerBlockingService = trackerBlockingService
+
             self.dohService = dohService
             self.faviconCache = faviconCache
             self.passwordService = passwordService

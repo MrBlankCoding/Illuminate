@@ -23,6 +23,17 @@ struct WebKitManagerTests {
         #expect(first.userContentController !== second.userContentController)
     }
 
+    @Test func configurationsUseManagerSpecificProcessPool() async throws {
+        _ = WebKitManager(
+            profile: BrowserProfile(name: "First"),
+            extensionManager: ExtensionManager(profileID: UUID())
+        )
+        let second = WebKitManager(
+            profile: BrowserProfile(name: "Second"),
+            extensionManager: ExtensionManager(profileID: UUID())
+        )
+    }
+
     @Test func makeConfigurationRespectsCookieSetting() async throws {
         let extensionManager = ExtensionManager(profileID: UUID())
         let manager = WebKitManager(profile: BrowserProfile(name: "Test Profile"), extensionManager: extensionManager)

@@ -58,7 +58,7 @@ final class TabManager: NSObject, WKWebExtensionWindow {
     var isFullScreen: Bool = false
     var backgroundImagePalette: [Color] = []
     var keepInactiveTabsLoaded: Bool {
-        get { UserDefaults.standard.object(forKey: Self.keepInactiveTabsLoadedKey) as? Bool ?? true }
+        get { UserDefaults.standard.object(forKey: Self.keepInactiveTabsLoadedKey) as? Bool ?? false }
         set { UserDefaults.standard.set(newValue, forKey: Self.keepInactiveTabsLoadedKey) }
     }
     private var initialPreloadingTabIDs: Set<UUID> = []
@@ -353,7 +353,7 @@ final class TabManager: NSObject, WKWebExtensionWindow {
     func prepareForRemoval() {
         observerTokens.forEach { notificationCenter.removeObserver($0) }
         observerTokens.removeAll()
-        pendingSaveTask?.cancel()
+        persistSessionStateImmediately()
         backgroundThemeTask?.cancel()
         pendingFocusTask?.cancel()
         tabGroupManager.prepareForRemoval()
@@ -450,9 +450,7 @@ final class TabManager: NSObject, WKWebExtensionWindow {
         }
 
         if !inBackground {
-            withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-                setActiveTab(tab.id)
-            }
+            setActiveTab(tab.id)
         }
 
         if !inBackground {
@@ -544,9 +542,7 @@ final class TabManager: NSObject, WKWebExtensionWindow {
         tabPositionIndex[tab.id] = tabs.count - 1
         hydrateVisualState(for: tab)
 
-        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-            switchTo(tab.id)
-        }
+        switchTo(tab.id)
         scheduleSave()
         return tab
     }

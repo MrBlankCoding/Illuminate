@@ -31,7 +31,6 @@ struct ProfileEnvironmentStartupTests {
 
         _ = env.passwordService
         _ = env.webKitManager
-        _ = env.trackerBlockingService
 
         #expect(env.hasLazyServicesLoaded == true)
     }

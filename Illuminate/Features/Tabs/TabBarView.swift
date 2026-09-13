@@ -10,25 +10,32 @@ import SwiftUI
 private enum TabBarMetrics {
     static let minTabWidth: CGFloat = 48
     static let maxTabWidth: CGFloat = 220
+    static let titleThreshold: CGFloat = 72
     static let tabSpacing: CGFloat = MacDesign.Spacing.tiny
     static let scrollThreshold: CGFloat = 72
     static let newTabButtonSize: CGFloat = MacDesign.Size.iconButton
     static let rowHeight: CGFloat = MacDesign.Size.tabStripHeight
     static let reorderSpring: Animation = .spring(response: 0.26, dampingFraction: 0.85, blendDuration: 0)
     static let swapThreshold: CGFloat = 0.6
+    static let detachHapticEngageDistance: CGFloat = 72
+    static let detachHapticResetDistance: CGFloat = 32
 }
 
 private struct TabDragSession {
-    var tabID: UUID
-    var startIndex: Int
-    var currentIndex: Int      // where it would land if the drag ended now
+    let tabID: UUID
+    let startIndex: Int
+    var currentIndex: Int      // Where the tab would land if the drag ended now.
     var translation: CGFloat = 0
-    var tabWidth: CGFloat
-    var spacing: CGFloat = TabBarMetrics.tabSpacing
+    let tabWidth: CGFloat
+    let spacing: CGFloat = TabBarMetrics.tabSpacing
     var isSettling = false
     var settleAnimation: Animation?
 
     var stride: CGFloat { tabWidth + spacing }
+    var isInteractive: Bool { !isSettling }
+    var projectedPosition: CGFloat {
+        CGFloat(startIndex) + translation / stride
+    }
 }
 
 private enum TabBarElement: Identifiable, Equatable {
@@ -67,9 +74,7 @@ struct TabBarView: View {
 
             if let group = groupsManager.group(for: tab.id) {
                 elements.append(.group(group.id, group.tabIDs))
-                for gTabID in group.tabIDs {
-                    processedTabIDs.insert(gTabID)
-                }
+                processedTabIDs.formUnion(group.tabIDs)
             } else {
                 elements.append(.tab(tab.id))
                 processedTabIDs.insert(tab.id)
@@ -96,12 +101,7 @@ struct TabBarView: View {
 
     @ViewBuilder
     private func tabStrip(availableWidth: CGFloat) -> some View {
-        let count    = max(tabManager.tabs.count, 1)
-        let newTabRoom = TabBarMetrics.newTabButtonSize + TabBarMetrics.tabSpacing
-        let spacing  = TabBarMetrics.tabSpacing * CGFloat(count - 1)
-        let usable   = availableWidth - newTabRoom
-        let rawWidth = (usable - spacing) / CGFloat(count)
-        let tabWidth = min(max(rawWidth, TabBarMetrics.minTabWidth), TabBarMetrics.maxTabWidth)
+        let tabWidth = idealTabWidth(availableWidth: availableWidth)
 
         if tabWidth <= TabBarMetrics.scrollThreshold {
             ScrollViewReader { proxy in
@@ -109,13 +109,7 @@ struct TabBarView: View {
                     tabRow(tabWidth: TabBarMetrics.scrollThreshold)
                 }
                 .onChange(of: tabManager.activeTabID) { _, newID in
-                    guard newID != previousActiveTabID else { return }
-                    previousActiveTabID = newID
-                    if let id = newID {
-                        withAnimation(MacDesign.springAnimation) {
-                            proxy.scrollTo(id, anchor: .center)
-                        }
-                    }
+                    scrollToActiveTab(newID, proxy: proxy)
                 }
             }
         } else {
@@ -123,54 +117,34 @@ struct TabBarView: View {
         }
     }
 
+    private func idealTabWidth(availableWidth: CGFloat) -> CGFloat {
+        let count = max(tabManager.tabs.count, 1)
+        let newTabRoom = TabBarMetrics.newTabButtonSize + TabBarMetrics.tabSpacing
+        let spacing = TabBarMetrics.tabSpacing * CGFloat(count - 1)
+        let usable = availableWidth - newTabRoom
+        let rawWidth = (usable - spacing) / CGFloat(count)
+        return min(max(rawWidth, TabBarMetrics.minTabWidth), TabBarMetrics.maxTabWidth)
+    }
+
+    private func scrollToActiveTab(_ newID: UUID?, proxy: ScrollViewProxy) {
+        guard newID != previousActiveTabID else { return }
+        previousActiveTabID = newID
+        guard let id = newID else { return }
+        withAnimation(MacDesign.springAnimation) {
+            proxy.scrollTo(id, anchor: .center)
+        }
+    }
+
     private func tabRow(tabWidth: CGFloat) -> some View {
-        HStack(spacing: TabBarMetrics.tabSpacing) {
+        let showsTitle = tabWidth >= TabBarMetrics.titleThreshold
+
+        return HStack(spacing: TabBarMetrics.tabSpacing) {
             ForEach(layoutElements) { element in
                 switch element {
                 case .group(let groupID, let tabIDs):
-                    if let group = tabManager.tabGroupManager.group(byID: groupID) {
-                        HStack(spacing: TabBarMetrics.tabSpacing) {
-                            TabGroupHeaderView(
-                                group: group,
-                                onToggleCollapse: {
-                                    withAnimation(MacDesign.springAnimation) {
-                                        tabManager.tabGroupManager.toggleCollapse(groupID)
-                                    }
-                                },
-                                onRename: { tabManager.tabGroupManager.renameGroup(groupID, to: $0) },
-                                onChangeColor: { tabManager.tabGroupManager.changeGroupColor(groupID, to: $0) },
-                                onCloseGroup: {
-                                    let ids = group.tabIDs
-                                    tabManager.tabGroupManager.closeGroup(groupID, tabs: tabManager.tabs)
-                                    ids.forEach { tabManager.closeTab(id: $0) }
-                                },
-                                onDeleteGroup: { tabManager.tabGroupManager.deleteGroup(groupID) },
-                                onUngroupTabs: {
-                                    for id in group.tabIDs {
-                                        tabManager.tabGroupManager.removeTabFromGroup(id)
-                                    }
-                                }
-                            )
-                            .padding(.trailing, MacDesign.Spacing.micro)
-                            .padding(.leading, MacDesign.Spacing.micro)
-
-                            if !group.isCollapsed {
-                                ForEach(tabIDs, id: \.self) { tabID in
-                                    renderTab(tabID: tabID, tabWidth: tabWidth)
-                                }
-                            }
-                        }
-                        .padding(.bottom, MacDesign.Spacing.small)
-                        .overlay(alignment: .bottom) {
-                            RoundedRectangle(cornerRadius: MacDesign.Spacing.hairline)
-                                .fill(group.groupColor.color)
-                                .frame(height: MacDesign.Spacing.micro)
-                                .padding(.horizontal, MacDesign.Spacing.small)
-                        }
-                    }
-
+                    groupView(groupID: groupID, tabIDs: tabIDs, tabWidth: tabWidth, showsTitle: showsTitle)
                 case .tab(let tabID):
-                    renderTab(tabID: tabID, tabWidth: tabWidth)
+                    renderTab(tabID: tabID, tabWidth: tabWidth, showsTitle: showsTitle)
                 }
             }
         }
@@ -179,11 +153,55 @@ struct TabBarView: View {
     }
 
     @ViewBuilder
-    private func renderTab(tabID: UUID, tabWidth: CGFloat) -> some View {
+    private func groupView(groupID: UUID, tabIDs: [UUID], tabWidth: CGFloat, showsTitle: Bool) -> some View {
+        if let group = tabManager.tabGroupManager.group(byID: groupID) {
+            HStack(spacing: TabBarMetrics.tabSpacing) {
+                TabGroupHeaderView(
+                    group: group,
+                    onToggleCollapse: {
+                        withAnimation(MacDesign.springAnimation) {
+                            tabManager.tabGroupManager.toggleCollapse(groupID)
+                        }
+                    },
+                    onRename: { tabManager.tabGroupManager.renameGroup(groupID, to: $0) },
+                    onChangeColor: { tabManager.tabGroupManager.changeGroupColor(groupID, to: $0) },
+                    onCloseGroup: {
+                        let ids = group.tabIDs
+                        tabManager.tabGroupManager.closeGroup(groupID, tabs: tabManager.tabs)
+                        ids.forEach { tabManager.closeTab(id: $0) }
+                    },
+                    onDeleteGroup: { tabManager.tabGroupManager.deleteGroup(groupID) },
+                    onUngroupTabs: {
+                        for id in group.tabIDs {
+                            tabManager.tabGroupManager.removeTabFromGroup(id)
+                        }
+                    }
+                )
+                .padding(.trailing, MacDesign.Spacing.micro)
+                .padding(.leading, MacDesign.Spacing.micro)
+
+                if !group.isCollapsed {
+                    ForEach(tabIDs, id: \.self) { tabID in
+                        renderTab(tabID: tabID, tabWidth: tabWidth, showsTitle: showsTitle)
+                    }
+                }
+            }
+            .padding(.bottom, MacDesign.Spacing.small)
+            .overlay(alignment: .bottom) {
+                RoundedRectangle(cornerRadius: MacDesign.Spacing.hairline)
+                    .fill(group.groupColor.color)
+                    .frame(height: MacDesign.Spacing.micro)
+                    .padding(.horizontal, MacDesign.Spacing.small)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func renderTab(tabID: UUID, tabWidth: CGFloat, showsTitle: Bool) -> some View {
         if let tab = tabManager.tab(forID: tabID),
            let index = tabManager.indexOfTab(withID: tabID) {
-            let isDragging  = dragSession?.tabID == tab.id
-            let isLifted    = isDragging && dragSession?.isSettling != true
+            let isDragging = dragSession?.tabID == tab.id
+            let isLifted = isDragging && dragSession?.isSettling != true
             let dragOffsetX = offset(forTabAt: index, isDragging: isDragging)
 
             let offsetAnimation: Animation? = isLifted
@@ -194,25 +212,22 @@ struct TabBarView: View {
                 tab: tab,
                 themeColor: tabManager.windowThemeColor,
                 isActive: tab.id == tabManager.activeTabID,
+                showsTitle: showsTitle,
                 showsTrailingSeparator: index < tabManager.tabs.count - 1,
                 namespace: activeTabNamespace,
-                onSelect: {
-                    withAnimation(MacDesign.springAnimation) { tabManager.switchTo(tab.id) }
-                },
-                onClose: {
-                    withAnimation(MacDesign.springAnimation) { tabManager.closeTab(id: tab.id) }
-                },
+                onSelect: { tabManager.switchTo(tab.id) },
+                onClose: { tabManager.closeTab(id: tab.id) },
                 onDuplicate: {
                     if let url = tab.url { tabManager.createTab(url: url) }
                 },
                 onCloseOthers: {
                     let ids = tabManager.tabs.filter { $0.id != tab.id }.map { $0.id }
-                    withAnimation(MacDesign.springAnimation) { ids.forEach { tabManager.closeTab(id: $0) } }
+                    ids.forEach { tabManager.closeTab(id: $0) }
                 },
                 onCloseToRight: {
                     guard let idx = tabManager.indexOfTab(withID: tab.id) else { return }
                     let ids = tabManager.tabs[(idx + 1)...].map { $0.id }
-                    withAnimation(MacDesign.springAnimation) { ids.forEach { tabManager.closeTab(id: $0) } }
+                    ids.forEach { tabManager.closeTab(id: $0) }
                 },
                 onCopyLink: {
                     guard let s = tab.url?.absoluteString, !s.isEmpty else { return }
@@ -259,35 +274,12 @@ struct TabBarView: View {
     private func tabDragGesture(for tab: Tab, tabWidth: CGFloat) -> some Gesture {
         DragGesture(minimumDistance: 4, coordinateSpace: .named("top"))
             .onChanged { value in
-                if dragSession == nil || dragSession?.tabID != tab.id {
-                    guard dragSession?.isSettling != true,
-                          let idx = tabManager.indexOfTab(withID: tab.id)
-                    else { return }
-                    if tabManager.activeTabID != tab.id { tabManager.switchTo(tab.id) }
-                    dragSession = TabDragSession(
-                        tabID: tab.id,
-                        startIndex: idx,
-                        currentIndex: idx,
-                        translation: 0,
-                        tabWidth: tabWidth
-                    )
-                    hasTriggeredDetachHaptic = false
-                }
+                beginSessionIfNeeded(for: tab, tabWidth: tabWidth)
 
-                guard dragSession?.isSettling != true else { return }
+                guard dragSession?.isInteractive == true else { return }
                 dragSession?.translation = value.translation.width
 
-                // Hapticcc timeeeee
-                // gotta be scarce abou this
-                if !hasTriggeredDetachHaptic && abs(value.translation.height) > 72 {
-                    hasTriggeredDetachHaptic = true
-                    HapticFeedback.tabDetached()
-                }
-                // Reset haptic
-                if hasTriggeredDetachHaptic && abs(value.translation.height) < 32 {
-                    hasTriggeredDetachHaptic = false
-                }
-
+                updateDetachHaptic(verticalTranslation: value.translation.height)
                 updateCurrentIndex()
             }
             .onEnded { value in
@@ -296,10 +288,41 @@ struct TabBarView: View {
             }
     }
 
-    private func updateCurrentIndex() {
-        guard let session = dragSession, !session.isSettling else { return }
+    private func beginSessionIfNeeded(for tab: Tab, tabWidth: CGFloat) {
+        guard dragSession == nil || dragSession?.tabID != tab.id else { return }
+        guard dragSession?.isSettling != true,
+              let idx = tabManager.indexOfTab(withID: tab.id)
+        else { return }
 
-        let position = CGFloat(session.startIndex) + session.translation / session.stride
+        if tabManager.activeTabID != tab.id { tabManager.switchTo(tab.id) }
+
+        dragSession = TabDragSession(
+            tabID: tab.id,
+            startIndex: idx,
+            currentIndex: idx,
+            translation: 0,
+            tabWidth: tabWidth
+        )
+        hasTriggeredDetachHaptic = false
+    }
+
+    private func updateDetachHaptic(verticalTranslation: CGFloat) {
+        let distance = abs(verticalTranslation)
+
+        if !hasTriggeredDetachHaptic && distance > TabBarMetrics.detachHapticEngageDistance {
+            hasTriggeredDetachHaptic = true
+            HapticFeedback.tabDetached()
+        }
+
+        if hasTriggeredDetachHaptic && distance < TabBarMetrics.detachHapticResetDistance {
+            hasTriggeredDetachHaptic = false
+        }
+    }
+
+    private func updateCurrentIndex() {
+        guard let session = dragSession, session.isInteractive else { return }
+
+        let position = session.projectedPosition
         var target = session.currentIndex
 
         if position >= CGFloat(session.currentIndex) + TabBarMetrics.swapThreshold {
@@ -309,11 +332,11 @@ struct TabBarView: View {
         }
 
         let clamped = min(max(target, 0), tabManager.tabs.count - 1)
-        if clamped != session.currentIndex {
-            HapticFeedback.tabReordered()
-            withAnimation(TabBarMetrics.reorderSpring) {
-                dragSession?.currentIndex = clamped
-            }
+        guard clamped != session.currentIndex else { return }
+
+        HapticFeedback.tabReordered()
+        withAnimation(TabBarMetrics.reorderSpring) {
+            dragSession?.currentIndex = clamped
         }
     }
 
@@ -321,15 +344,7 @@ struct TabBarView: View {
         guard var session = dragSession, !session.isSettling else { return }
         session.isSettling = true
 
-        if abs(predictedEndTranslation - session.translation) > session.stride * 0.5 {
-            let flickIndex = session.startIndex + Int((predictedEndTranslation / session.stride).rounded())
-            if abs(flickIndex - session.currentIndex) == 1 {
-                session.currentIndex = min(max(flickIndex, 0), tabManager.tabs.count - 1)
-                withAnimation(TabBarMetrics.reorderSpring) {
-                    dragSession?.currentIndex = session.currentIndex
-                }
-            }
-        }
+        applyFlickIfNeeded(to: &session, predictedEndTranslation: predictedEndTranslation)
 
         let snappedTranslation = CGFloat(session.currentIndex - session.startIndex) * session.stride
         let distance = abs(snappedTranslation - session.translation)
@@ -342,40 +357,54 @@ struct TabBarView: View {
             dragSession?.translation = snappedTranslation
             dragSession?.isSettling = true
         } completion: {
-            // Finish as soon as the settle animation actually completes
-            // instead of waiting on a fixed timer.
             Task { @MainActor in
                 finishReorder()
             }
         }
     }
 
+    private func applyFlickIfNeeded(to session: inout TabDragSession, predictedEndTranslation: CGFloat) {
+        guard abs(predictedEndTranslation - session.translation) > session.stride * 0.5 else { return }
+
+        let flickIndex = session.startIndex + Int((predictedEndTranslation / session.stride).rounded())
+        guard abs(flickIndex - session.currentIndex) == 1 else { return }
+
+        session.currentIndex = min(max(flickIndex, 0), tabManager.tabs.count - 1)
+        withAnimation(TabBarMetrics.reorderSpring) {
+            dragSession?.currentIndex = session.currentIndex
+        }
+    }
+
     private func finishReorder() {
         guard let session = dragSession, session.isSettling else { return }
+
         var transaction = Transaction()
         transaction.disablesAnimations = true
         withTransaction(transaction) {
-            if session.currentIndex != session.startIndex {
-                let destination = session.currentIndex > session.startIndex
-                    ? session.currentIndex + 1
-                    : session.currentIndex
-                tabManager.moveTab(
-                    fromOffsets: IndexSet(integer: session.startIndex),
-                    toOffset: destination
-                )
-            }
-
-            // If landing adjacent to or inside an existing group, assign to that group
-            let landedIndex = session.currentIndex
-            if let landedTab = tabManager.tabs[safe: landedIndex] {
-                let neighborGroup = (tabManager.tabs[safe: landedIndex - 1]).flatMap { tabManager.tabGroupManager.group(for: $0.id) }
-                    ?? (tabManager.tabs[safe: landedIndex + 1]).flatMap { tabManager.tabGroupManager.group(for: $0.id) }
-                if let targetGroup = neighborGroup, tabManager.tabGroupManager.group(for: landedTab.id) == nil {
-                    tabManager.tabGroupManager.addTabToGroup(landedTab.id, groupID: targetGroup.id)
-                }
-            }
-
+            moveTabIfNeeded(session)
+            assignToNeighboringGroupIfNeeded(session)
             dragSession = nil
+        }
+    }
+
+    private func moveTabIfNeeded(_ session: TabDragSession) {
+        guard session.currentIndex != session.startIndex else { return }
+        let destination = session.currentIndex > session.startIndex
+            ? session.currentIndex + 1
+            : session.currentIndex
+        tabManager.moveTab(fromOffsets: IndexSet(integer: session.startIndex), toOffset: destination)
+    }
+
+    private func assignToNeighboringGroupIfNeeded(_ session: TabDragSession) {
+        let landedIndex = session.currentIndex
+        guard let landedTab = tabManager.tabs[safe: landedIndex] else { return }
+        guard tabManager.tabGroupManager.group(for: landedTab.id) == nil else { return }
+
+        let neighborGroup = tabManager.tabs[safe: landedIndex - 1].flatMap { tabManager.tabGroupManager.group(for: $0.id) }
+            ?? tabManager.tabs[safe: landedIndex + 1].flatMap { tabManager.tabGroupManager.group(for: $0.id) }
+
+        if let targetGroup = neighborGroup {
+            tabManager.tabGroupManager.addTabToGroup(landedTab.id, groupID: targetGroup.id)
         }
     }
 

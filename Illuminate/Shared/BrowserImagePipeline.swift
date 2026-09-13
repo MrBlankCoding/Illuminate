@@ -29,7 +29,6 @@ enum BrowserImagePipeline {
         urlConfig.timeoutIntervalForRequest = 10
         urlConfig.timeoutIntervalForResource = 15
         urlConfig.requestCachePolicy = .returnCacheDataElseLoad
-        urlConfig.urlCache = URLCache(memoryCapacity: 4 * 1024 * 1024, diskCapacity: 20 * 1024 * 1024)
         config.dataLoader = DataLoader(configuration: urlConfig)
 
         config.isTaskCoalescingEnabled = true

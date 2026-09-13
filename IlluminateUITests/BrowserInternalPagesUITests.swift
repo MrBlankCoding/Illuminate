@@ -52,15 +52,6 @@ final class BrowserInternalPagesUITests: BrowserUITestCase {
     }
 
 
-    func testProtectionPageExposesTrackerLearningConfiguration() {
-        openInternalPage("protection")
-
-        let learningToggle = app.descendants(matching: .any)["browser.protection.trackerLearningToggle"].firstMatch
-        let threshold = app.descendants(matching: .any)["browser.protection.learnThresholdStepper"].firstMatch
-        XCTAssertTrue(learningToggle.waitForExistence(timeout: 10))
-        XCTAssertTrue(threshold.exists)
-        XCTAssertFalse(learningToggle.label.isEmpty)
-    }
 
     private func openInternalPage(_ page: String) {
         let addressBar = app.textFields["browser.urlBar.textField"]

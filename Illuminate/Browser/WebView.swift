@@ -16,7 +16,7 @@ struct WebView: View {
     @Environment(ProfileEnvironment.self) private var profileEnvironment: ProfileEnvironment
     @Environment(WebKitManager.self) private var webKitManager: WebKitManager
     @Environment(PasswordService.self) private var passwordService: PasswordService
-    @Environment(TrackerBlockingService.self) private var trackerBlockingService: TrackerBlockingService
+
     @Environment(HistoryManager.self) private var historyManager: HistoryManager
     @Environment(WebsitePermissionService.self) private var websitePermissionService: WebsitePermissionService
     @Environment(CanvasFingerprintingService.self) private var canvasFingerprintingService: CanvasFingerprintingService
@@ -38,6 +38,10 @@ struct WebView: View {
     @ViewBuilder
     private func content(for url: URL) -> some View {
         switch IlluminatePage(url: url) {
+        case .newPage:
+            NewTabView()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .ignoresSafeArea(.container, edges: .bottom)
         case .passwords:
             PasswordsPageView()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -72,7 +76,7 @@ struct WebView: View {
                 webKitManager: webKitManager,
                 passwordService: passwordService,
                 tabManager: tabManager,
-                trackerBlockingService: trackerBlockingService,
+
                 historyManager: historyManager,
                 websitePermissionService: websitePermissionService,
                 canvasFingerprintingService: canvasFingerprintingService,
