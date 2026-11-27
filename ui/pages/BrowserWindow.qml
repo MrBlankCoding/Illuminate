@@ -367,13 +367,7 @@ Window {
             { label: "Bookmark Page", icon: "qrc:/illuminate/ui/icons/star.svg", run: () => root.toggleBookmark() },
             { label: "Theme Picker", icon: "qrc:/illuminate/ui/icons/sun.svg", run: () => themePickerPopup.open() },
             { label: "Toggle Full Screen", icon: "qrc:/illuminate/ui/icons/monitor.svg", run: () => root.toggleFullScreen() },
-            { label: "Close Other Tabs", icon: "qrc:/illuminate/ui/icons/x.svg", run: () => {
-                const active = Browser.tabModel.activeIndex;
-                for (let i = Browser.tabModel.count - 1; i >= 0; --i) {
-                    if (i !== active)
-                        Browser.closeTab(i);
-                }
-            }}
+            { label: "Close Other Tabs", icon: "qrc:/illuminate/ui/icons/x.svg", run: () => Browser.closeOtherTabs(Browser.tabModel.activeIndex) }
         ]
     }
 

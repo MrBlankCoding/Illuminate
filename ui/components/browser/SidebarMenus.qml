@@ -197,9 +197,21 @@ Item {
         property var target: ({})
 
         parent: Overlay.overlay
+        // its own window: an in-scene popup would sit under the page
+        popupType: Popup.Window
         modal: true
         focus: true
         Component.onCompleted: PopupCloser.watch(deleteFolderPopup)
+        onOpened: {
+            const window = root.sidebar ? root.sidebar.targetWindow : null;
+            if (window && window.claimUiFocus)
+                window.claimUiFocus("deleteFolder");
+        }
+        onClosed: {
+            const window = root.sidebar ? root.sidebar.targetWindow : null;
+            if (window && window.releaseUiFocus)
+                window.releaseUiFocus("deleteFolder");
+        }
         padding: 20
         width: Math.min(300, parent ? parent.width - 32 : 300)
         x: parent ? Math.round((parent.width - width) / 2) : 0

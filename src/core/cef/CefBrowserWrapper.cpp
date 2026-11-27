@@ -137,9 +137,29 @@ void cefFocusParentWindow(void *parentHandle)
 #include <X11/Xlib.h>
 
 namespace {
+// Xlib's default handler exits the process. A BadWindow from a page window
+// CEF already destroyed, or a BadMatch from focusing an unmapped parent, is
+// harmless here: log it and carry on, as CEF's own sample does.
+int logX11Error(Display *, XErrorEvent *event)
+{
+    qWarning("[X11] ignored error %d (request %d.%d) on window 0x%lx",
+             event->error_code, event->request_code, event->minor_code, event->resourceid);
+    return 0;
+}
+
+int logX11IOError(Display *)
+{
+    qWarning("[X11] connection to the display was lost");
+    return 0;
+}
+
 Display *cefX11Display()
 {
-    static Display *display = XOpenDisplay(nullptr);
+    static Display *display = []() {
+        XSetErrorHandler(logX11Error);
+        XSetIOErrorHandler(logX11IOError);
+        return XOpenDisplay(nullptr);
+    }();
     return display;
 }
 }
@@ -217,6 +237,7 @@ void cefFocusParentWindow(void *parentHandle)
                        RevertToParent, CurrentTime);
         XFlush(display);
     }
+}
 #elif !defined(__APPLE__)
 // Native embedding is unavailable on platforms without a supported window system.
 void cefSetNativeViewGeometry(cef_window_handle_t, const QRect &, bool) {}

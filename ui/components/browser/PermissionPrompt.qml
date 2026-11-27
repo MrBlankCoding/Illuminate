@@ -81,7 +81,11 @@ Item {
         x: Math.round((root.tabSlot.width - width) / 2)
         y: Math.round((root.tabSlot.height - height) / 2)
         closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+        // keys go to the prompt, not the page behind it
+        onOpened: if (root.tabSlot.browserWindow) root.tabSlot.browserWindow.claimUiFocus(permissionPopup)
         onClosed: {
+            if (root.tabSlot.browserWindow)
+                root.tabSlot.browserWindow.releaseUiFocus(permissionPopup)
             const p = root.pendingPermission
             root.pendingPermission = null
             if (p)

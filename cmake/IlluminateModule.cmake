@@ -45,6 +45,8 @@ qt_add_library(illuminatemodule STATIC
     src/core/system/PermissionHandler.h
     src/core/system/PermissionHandler.cpp
     src/core/system/platform/PermissionHandlerPlatform.cpp
+    src/core/system/SystemIntegration.h
+    src/core/system/SystemIntegration.cpp
 
     src/core/spaces/Space.h
     src/core/spaces/Space.cpp
@@ -123,7 +125,8 @@ if(APPLE)
     target_sources(illuminatemodule PRIVATE src/utils/WindowRounding_mac.mm)
     target_sources(illuminatemodule PRIVATE src/core/system/PermissionHandler_mac.mm)
     target_sources(illuminatemodule PRIVATE src/core/cef/CefManager_mac.mm src/core/cef/CefBrowserWrapper_mac.mm)
-    set_source_files_properties(src/core/system/PermissionHandler_mac.mm PROPERTIES
+    target_sources(illuminatemodule PRIVATE src/core/system/SystemIntegration_mac.mm)
+    set_source_files_properties(src/core/system/PermissionHandler_mac.mm src/core/system/SystemIntegration_mac.mm PROPERTIES
         SKIP_UNITY_BUILD_INCLUSION ON
         SKIP_PRECOMPILE_HEADERS ON
         COMPILE_OPTIONS "-fobjc-arc"

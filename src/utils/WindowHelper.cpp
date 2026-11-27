@@ -57,7 +57,8 @@ void WindowHelper::applyTitleBarStyle(QQuickWindow *window, qreal barHeight)
         const int roundedCorners = 2;
         DwmSetWindowAttribute(hwnd, cornerPreferenceAttribute, &roundedCorners,
                               sizeof(roundedCorners));
-        MARGINS margins = {0, 0, 0, static_cast<LONG>(barHeight)};
+        // left, right, top, bottom: the title strip is at the top, in device pixels
+        MARGINS margins = {0, 0, static_cast<int>(qRound(barHeight * window->devicePixelRatio())), 0};
         DwmExtendFrameIntoClientArea(hwnd, &margins);
         SetWindowPos(hwnd, nullptr, 0, 0, 0, 0,
                      SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);

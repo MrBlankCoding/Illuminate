@@ -405,8 +405,11 @@ Item {
                                     onTapped: {
                                         for (let i = 0; i < Browser.tabModel.count; ++i) {
                                             const tab = Browser.tabModel.tabAt(i);
-                                            if (tab && tab.id === splitMember.modelData.id && !root.isBlankPlaceholder(tab.url)) {
+                                            if (tab && tab.id === splitMember.modelData.id) {
                                                 Browser.activateTab(i);
+                                                // an empty half: ask where it should go
+                                                if (root.isBlankPlaceholder(tab.url) && root.sidebar)
+                                                    root.sidebar.commandBarRequested("new");
                                                 break;
                                             }
                                         }
@@ -478,6 +481,7 @@ Item {
                                         Layout.fillWidth: true
                                         Layout.minimumWidth: 0
                                         text: splitMember.modelData.title
+                                        textFormat: Text.PlainText // page-controlled: never render it as markup
                                         color: Theme.text
                                         elide: Text.ElideRight
                                         font { family: Theme.fontFamily; pixelSize: Theme.fontSizeS }

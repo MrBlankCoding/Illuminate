@@ -44,15 +44,15 @@ Popup {
 
     enter: Transition {
         ParallelAnimation {
-            NumberAnimation { property: "opacity"; from: 0; to: 1; duration: 160; easing.type: Easing.OutCubic }
-            NumberAnimation { target: content; property: "y"; from: 10; to: 0; duration: 320; easing.type: Easing.OutBack; easing.overshoot: 1.6 }
-            NumberAnimation { target: content; property: "scale"; from: 0.92; to: 1; duration: 320; easing.type: Easing.OutBack }
+            NumberAnimation { property: "opacity"; from: 0; to: 1; duration: Theme.motion(160); easing.type: Easing.OutCubic }
+            NumberAnimation { target: content; property: "y"; from: 10; to: 0; duration: Theme.motion(320); easing.type: Easing.OutBack; easing.overshoot: 1.6 }
+            NumberAnimation { target: content; property: "scale"; from: 0.92; to: 1; duration: Theme.motion(320); easing.type: Easing.OutBack }
         }
     }
     exit: Transition {
         ParallelAnimation {
-            NumberAnimation { property: "opacity"; to: 0; duration: 180; easing.type: Easing.InCubic }
-            NumberAnimation { target: content; property: "y"; to: 6; duration: 180; easing.type: Easing.InCubic }
+            NumberAnimation { property: "opacity"; to: 0; duration: Theme.motion(180); easing.type: Easing.InCubic }
+            NumberAnimation { target: content; property: "y"; to: 6; duration: Theme.motion(180); easing.type: Easing.InCubic }
         }
     }
 
@@ -71,8 +71,8 @@ Popup {
 
             SequentialAnimation {
                 id: bump
-                NumberAnimation { target: content; property: "scale"; to: 1.06; duration: 90; easing.type: Easing.OutCubic }
-                NumberAnimation { target: content; property: "scale"; to: 1; duration: 220; easing.type: Easing.OutBack }
+                NumberAnimation { target: content; property: "scale"; to: 1.06; duration: Theme.motion(90); easing.type: Easing.OutCubic }
+                NumberAnimation { target: content; property: "scale"; to: 1; duration: Theme.motion(220); easing.type: Easing.OutBack }
             }
 
             RowLayout {

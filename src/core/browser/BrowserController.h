@@ -78,6 +78,7 @@ public:
     Q_INVOKABLE void newTab(const QString &url = {}, bool background = false);
     Q_INVOKABLE void completeFirstRun();
     Q_INVOKABLE void closeTab(int index);
+    Q_INVOKABLE void closeOtherTabs(int keepIndex);
     Q_INVOKABLE void onTabCloseApproved(const QString &tabId);
     Q_INVOKABLE void onTabCloseCancelled(const QString &tabId);
     Q_INVOKABLE void onTabBeforeUnloadShown(const QString &tabId);
@@ -93,6 +94,8 @@ public:
     Q_INVOKABLE void cycleTab(int delta);
     Q_INVOKABLE void navigate(const QString &input);
     Q_INVOKABLE void reload();
+    // stops the active page loading
+    Q_INVOKABLE void stop();
     Q_INVOKABLE void goBack();
     Q_INVOKABLE void goForward();
     Q_INVOKABLE void toggleDevTools();

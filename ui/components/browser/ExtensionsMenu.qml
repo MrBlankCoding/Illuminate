@@ -141,6 +141,7 @@ Popup {
                     Text {
                         Layout.fillWidth: true
                         text: row.modelData.name
+                        textFormat: Text.PlainText // page-controlled: never render it as markup
                         color: Theme.text
                         font {
                             family: Theme.fontFamily

@@ -126,7 +126,7 @@ void CefHostWindow::OnWindowDestroyed(CefRefPtr<CefWindow> window)
 {
     BrowserLogger::instance().debug("Diag", "CefHostWindow::OnWindowDestroyed");
     Q_UNUSED(window);
-    m_nativeHandle.store(nullptr, std::memory_order_release);
+    m_nativeHandle.store(cef_window_handle_t{}, std::memory_order_release);
     m_browserView = nullptr;
     m_chromeToolbar = nullptr;
     m_windowLayout = nullptr;

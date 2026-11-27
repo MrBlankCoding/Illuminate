@@ -55,8 +55,15 @@ Item {
         x: Math.round((root.tabSlot.width - width) / 2)
         y: Math.round((root.tabSlot.height - height) / 3)
         closePolicy: Popup.CloseOnEscape
+        // keys go to the prompt, not the page behind it
+        onOpened: if (root.tabSlot.browserWindow) root.tabSlot.browserWindow.claimUiFocus(popup)
         // Escape, or the popup going away any other way, keeps the page
-        onClosed: if (root.request) root.answer(false)
+        onClosed: {
+            if (root.tabSlot.browserWindow)
+                root.tabSlot.browserWindow.releaseUiFocus(popup)
+            if (root.request)
+                root.answer(false)
+        }
         Overlay.modal: Rectangle { color: Qt.rgba(0, 0, 0, 0.35) }
         background: Rectangle {
             radius: 16

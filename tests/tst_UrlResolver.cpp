@@ -22,7 +22,12 @@ private slots:
         QTest::newRow("search phrase") << QStringLiteral("two words") << false;
         QTest::newRow("leading dot") << QStringLiteral(".example.com") << false;
         QTest::newRow("trailing dot") << QStringLiteral("example.") << false;
-        QTest::newRow("dotted numeric hostname") << QStringLiteral("1.2.3") << true;
+        QTest::newRow("a number, not a host") << QStringLiteral("3.14") << false;
+        QTest::newRow("dotted number that isn't an address") << QStringLiteral("1.2.3") << false;
+        QTest::newRow("out-of-range ipv4") << QStringLiteral("300.1.1.1") << false;
+        QTest::newRow("file name, not a site") << QStringLiteral("node.js") << false;
+        QTest::newRow("site with a script path") << QStringLiteral("example.com/app.js") << true;
+        QTest::newRow("bracketed ipv6") << QStringLiteral("[::1]:8080") << true;
         QTest::newRow("uppercase localhost") << QStringLiteral("LOCALHOST") << true;
     }
 
@@ -36,22 +41,53 @@ private slots:
     void resolveHost_data()
     {
         QTest::addColumn<QString>("input");
+        QTest::addColumn<QString>("expectedScheme");
         QTest::addColumn<QString>("expectedHost");
 
-        QTest::newRow("domain") << QStringLiteral("example.com") << QStringLiteral("example.com");
-        QTest::newRow("localhost") << QStringLiteral("localhost:8080") << QStringLiteral("localhost");
-        QTest::newRow("ipv4") << QStringLiteral("192.168.1.10") << QStringLiteral("192.168.1.10");
+        QTest::newRow("domain") << QStringLiteral("example.com") << QStringLiteral("https") << QStringLiteral("example.com");
         QTest::newRow("surrounding whitespace") << QStringLiteral("  example.com  ")
-                                                    << QStringLiteral("example.com");
+                                                    << QStringLiteral("https") << QStringLiteral("example.com");
+        // dev servers and routers don't speak TLS; Chrome doesn't upgrade these either
+        QTest::newRow("localhost") << QStringLiteral("localhost:8080") << QStringLiteral("http") << QStringLiteral("localhost");
+        QTest::newRow("ipv4") << QStringLiteral("192.168.1.10") << QStringLiteral("http") << QStringLiteral("192.168.1.10");
+        QTest::newRow("ipv6") << QStringLiteral("[::1]:8080") << QStringLiteral("http") << QStringLiteral("::1");
     }
 
     void resolveHost()
     {
         QFETCH(QString, input);
+        QFETCH(QString, expectedScheme);
         QFETCH(QString, expectedHost);
         const QUrl result = UrlResolver::resolve(input);
-        QCOMPARE(result.scheme(), QStringLiteral("https"));
+        QCOMPARE(result.scheme(), expectedScheme);
         QCOMPARE(result.host(), expectedHost);
+    }
+
+    void completeUrlsWithoutSlashesOpenAsTyped()
+    {
+        QCOMPARE(UrlResolver::resolve(QStringLiteral("about:blank")), QUrl(QStringLiteral("about:blank")));
+        QCOMPARE(UrlResolver::resolve(QStringLiteral("mailto:someone@example.com")).scheme(), QStringLiteral("mailto"));
+        QCOMPARE(UrlResolver::resolve(QStringLiteral("view-source:https://example.com")).scheme(),
+                 QStringLiteral("view-source"));
+    }
+
+    void localFilesOpenAsFiles()
+    {
+        QTemporaryDir dir;
+        const QString path = dir.filePath(QStringLiteral("page.html"));
+        QFile file(path);
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        file.close();
+        QCOMPARE(UrlResolver::resolve(path), QUrl::fromLocalFile(path));
+        // a path that doesn't exist reads as a search ("/r/rust")
+        QCOMPARE(UrlResolver::resolve(QStringLiteral("/r/rust")).host(), QStringLiteral("duckduckgo.com"));
+        QCOMPARE(UrlResolver::resolve(QStringLiteral("C:\\Users\\me\\a.html")).scheme(), QStringLiteral("file"));
+    }
+
+    void fileNamesAndNumbersAreSearched()
+    {
+        QCOMPARE(UrlResolver::resolve(QStringLiteral("node.js")).host(), QStringLiteral("duckduckgo.com"));
+        QCOMPARE(UrlResolver::resolve(QStringLiteral("3.14")).host(), QStringLiteral("duckduckgo.com"));
     }
 
     void emptyInputProducesInvalidUrl()

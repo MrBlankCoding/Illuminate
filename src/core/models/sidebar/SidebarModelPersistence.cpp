@@ -1,4 +1,7 @@
 #include "SidebarModel.h"
+
+#include <algorithm>
+#include <functional>
 #include "BrowserTab.h"
 #include "TabModel.h"
 
@@ -178,6 +181,33 @@ void SidebarModel::load(const QString &filePath, bool restoreTabs)
         for (const Pending &orphan : entry.second)
             forget(orphan.node.get());
     }
+
+    // A split needs both halves. One that came back with fewer (a blank half
+    // isn't saved, since there's no page to reopen) would be stuck: too small
+    // to separate, yet its tab could never join another split.
+    std::function<void(Node *)> dropIncompleteSplits = [&](Node *parent) {
+        for (std::size_t i = 0; i < parent->children.size();)
+        {
+            Node *child = parent->children[i].get();
+            if (child->split)
+            {
+                const auto members = std::count_if(child->children.begin(), child->children.end(),
+                                                   [](const auto &member) { return member->tab != nullptr; });
+                if (members < 2)
+                {
+                    forget(child);
+                    detach(child);
+                    continue;
+                }
+            }
+            else if (child->folder)
+            {
+                dropIncompleteSplits(child);
+            }
+            ++i;
+        }
+    };
+    dropIncompleteSplits(&m_root);
 
     rebuild();
 }

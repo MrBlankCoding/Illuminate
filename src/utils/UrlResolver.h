@@ -5,11 +5,13 @@
 
 // Converts raw address-bar text into a loadable QUrl.
 // Rules (priority order):
-//   1. Contains "://"           → treat as a full URL
-//   2. Starts with "localhost"  → prepend https://
-//   3. Looks like an IP address → prepend https://
-//   4. No spaces, contains "."  → prepend https://
-//   5. Anything else            → search the query
+//   1. Contains "://"                       → a full URL, as typed
+//   2. about:, mailto:, data:, view-source: → a full URL, as typed
+//   3. A local path that exists, or C:\…    → file://
+//   4. localhost, an IPv4 or [IPv6] address → http:// (these rarely speak TLS)
+//   5. A dotted host, not a number and not
+//      a file name like "node.js"           → https://
+//   6. Anything else                        → search the query
 
 namespace UrlResolver
 {

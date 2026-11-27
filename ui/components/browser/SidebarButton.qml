@@ -10,6 +10,11 @@ Item {
     property alias hovered: hover.hovered
     signal clicked
 
+    // icon-only: set Accessible.name where it's used so VoiceOver can say what it does
+    Accessible.role: Accessible.Button
+    Accessible.focusable: true
+    Accessible.onPressAction: if (root.enabled) root.clicked()
+
     implicitWidth: Theme.iconButton
     implicitHeight: Theme.iconButton
     opacity: enabled ? 1 : 0.35

@@ -110,8 +110,8 @@ Popup {
     Component.onCompleted: PopupCloser.watch(root)
 
     enter: Transition {
-        NumberAnimation { property: "opacity"; from: 0; to: 1; duration: 150; easing.type: Easing.OutCubic }
-        NumberAnimation { property: "scale"; from: 0.97; to: 1; duration: 180; easing.type: Easing.OutCubic }
+        NumberAnimation { property: "opacity"; from: 0; to: 1; duration: Theme.motion(150); easing.type: Easing.OutCubic }
+        NumberAnimation { property: "scale"; from: 0.97; to: 1; duration: Theme.motion(180); easing.type: Easing.OutCubic }
     }
     exit: Transition {
         NumberAnimation { property: "opacity"; to: 0; duration: Theme.durationFast; easing.type: Easing.InQuad }

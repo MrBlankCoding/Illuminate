@@ -36,7 +36,8 @@ Popup {
     property var heldSuggestions: []
     property point lastPointer: Qt.point(-1, -1)
     readonly property var activeTab: Browser.tabModel.tabAt(Browser.tabModel.activeIndex)
-    readonly property bool activeTabIsSplit: activeTab
+    // structureRevision: re-checked when a split forms or breaks around this tab
+    readonly property bool activeTabIsSplit: activeTab && Browser.sidebar.structureRevision >= 0
         ? Browser.sidebar.isSplitTab(String(activeTab.id)) : false
     popupType: mode === "new" && String(Browser.activeUrl) === "newtab://newtab" && !root.activeTabIsSplit
         ? Popup.Item : Popup.Window
@@ -368,8 +369,8 @@ Popup {
     }
 
     enter: Transition {
-        NumberAnimation { property: "opacity"; from: 0; to: 1; duration: 180; easing.type: Easing.OutCubic }
-        NumberAnimation { property: "scale"; from: 0.96; to: 1; duration: 180; easing.type: Easing.OutBack; easing.overshoot: 1.2 }
+        NumberAnimation { property: "opacity"; from: 0; to: 1; duration: Theme.motion(180); easing.type: Easing.OutCubic }
+        NumberAnimation { property: "scale"; from: 0.96; to: 1; duration: Theme.motion(180); easing.type: Easing.OutBack; easing.overshoot: 1.2 }
     }
     exit: Transition {
         NumberAnimation { property: "opacity"; to: 0; duration: Theme.durationFast; easing.type: Easing.InQuad }
@@ -401,7 +402,7 @@ Popup {
             }
             height: root.cardTargetHeight
             Behavior on height {
-                NumberAnimation { duration: 180; easing.type: Easing.OutCubic }
+                NumberAnimation { duration: Theme.motion(180); easing.type: Easing.OutCubic }
             }
             radius: Theme.radiusCommand
             color: Theme.cardBg

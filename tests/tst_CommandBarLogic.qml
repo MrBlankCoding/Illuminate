@@ -52,7 +52,15 @@ TestCase {
             { tag: "localhost with port", text: "localhost:3000/app", url: true },
             { tag: "single word", text: "weather", url: false },
             { tag: "words with a dot", text: "node.js tutorial", url: false },
-            { tag: "trailing dot only", text: "hello.", url: false }
+            { tag: "trailing dot only", text: "hello.", url: false },
+            { tag: "file name", text: "node.js", url: false },
+            { tag: "site with a script path", text: "example.com/app.js", url: true },
+            { tag: "a number", text: "3.14", url: false },
+            { tag: "ipv4", text: "192.168.1.1", url: true },
+            { tag: "out-of-range ipv4", text: "300.1.1.1", url: false },
+            { tag: "bracketed ipv6", text: "[::1]:8080", url: true },
+            { tag: "about page", text: "about:blank", url: true },
+            { tag: "mail link", text: "mailto:a@example.com", url: true }
         ]
     }
     function test_looksLikeUrl(data) {
@@ -252,6 +260,23 @@ TestCase {
             suggestions: [{ text: "git rebase", url: "", isBookmark: false }]
         }))
         compare(kinds(rows), ["go", "tab", "suggest"])
+    }
+
+    function test_evaluateMath_data() {
+        return [
+            { tag: "multiplication", text: "24 * 1024", result: "24576" },
+            { tag: "thousands separator", text: "12,000 / 4", result: "3000" },
+            { tag: "fraction", text: "12/25", result: "0.48" },
+            { tag: "phone number", text: "555-1234", result: null },
+            { tag: "long phone number", text: "555-123-4567", result: null },
+            { tag: "date with slashes", text: "1/2/2026", result: null },
+            { tag: "date with dashes", text: "2026-11-26", result: null },
+            { tag: "decimal comma", text: "1,5*2", result: null }
+        ]
+    }
+    function test_evaluateMath(data) {
+        const calc = Logic.evaluateMath(data.text)
+        compare(calc ? calc.result : null, data.result)
     }
 
     function test_inlineCalculation() {

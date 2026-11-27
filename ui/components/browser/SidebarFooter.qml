@@ -82,8 +82,12 @@ RowLayout {
             MenuSeparator {}
             MenuItem {
                 text: qsTr("New Split")
-                enabled: Browser.tabModel.activeIndex >= 0
-                    && !Browser.sidebar.isSplitTab(Browser.tabModel.tabAt(Browser.tabModel.activeIndex).id)
+                // structureRevision: re-checked as splits form and break
+                enabled: {
+                    const tab = Browser.tabModel.tabAt(Browser.tabModel.activeIndex);
+                    return !!tab && Browser.sidebar.structureRevision >= 0
+                        && !Browser.sidebar.isSplitTab(tab.id);
+                }
                 onTriggered: root.createSplit()
             }
         }
@@ -100,7 +104,16 @@ RowLayout {
             return;
 
         const second = Browser.tabModel.tabAt(Browser.tabModel.count - 1);
-        if (second)
-            Browser.sidebar.createSplit(first.id, second.id);
+        if (!second || Browser.sidebar.createSplit(first.id, second.id) === "")
+            return;
+        // straight to the new, empty half, ready for an address
+        for (let i = 0; i < Browser.tabModel.count; ++i) {
+            if (Browser.tabModel.tabAt(i).id === second.id) {
+                Browser.activateTab(i);
+                break;
+            }
+        }
+        if (root.sidebar)
+            root.sidebar.commandBarRequested("new");
     }
 }

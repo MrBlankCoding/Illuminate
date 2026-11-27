@@ -2,6 +2,7 @@
 #include "CefBrowserWrapper.h"
 #include "PermissionHandler.h"
 #include "../utils/cef_helpers.h"
+#include "../utils/BrowserLogger.h"
 
 #include <QCoreApplication>
 #include <QMetaObject>
@@ -221,6 +222,16 @@ bool CefPermissionHandlerImpl::OnShowPermissionPrompt(CefRefPtr<CefBrowser> brow
     else if (requested_permissions == CEF_PERMISSION_TYPE_POINTER_LOCK ||
              requested_permissions == CEF_PERMISSION_TYPE_KEYBOARD_LOCK)
         type = PermissionHandler::MouseLock;
+
+    // Something we can't name to the person (MIDI, window management, a
+    // bundle mixing kinds): a generic "Allow?" would grant all of it blind.
+    if (type == PermissionHandler::Unsupported)
+    {
+        BrowserLogger::instance().info("Permissions", QStringLiteral("Denied unsupported permission request 0x%1 from %2")
+            .arg(requested_permissions, 0, 16).arg(origin.toDisplayString()));
+        callback->Continue(CEF_PERMISSION_RESULT_DENY);
+        return true;
+    }
 
     if (m_wrapper)
     {

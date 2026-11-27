@@ -46,19 +46,22 @@ Item {
             icon: "qrc:/illuminate/ui/icons/chevron-left.svg"
             iconSize: 18
             enabled: root.sidebar.canGoBack
+            Accessible.name: qsTr("Back")
             onClicked: Browser.goBack()
         }
         SidebarButton {
             icon: "qrc:/illuminate/ui/icons/chevron-right.svg"
             iconSize: 18
             enabled: root.sidebar.canGoForward
+            Accessible.name: qsTr("Forward")
             onClicked: Browser.goForward()
         }
         SidebarButton {
             icon: root.sidebar.isLoading ? "qrc:/illuminate/ui/icons/x.svg" : "qrc:/illuminate/ui/icons/rotate-cw.svg"
             iconSize: 15
             enabled: root.sidebar.currentUrl !== ""
-            onClicked: Browser.reload()
+            Accessible.name: root.sidebar.isLoading ? qsTr("Stop") : qsTr("Reload")
+            onClicked: root.sidebar.isLoading ? Browser.stop() : Browser.reload()
         }
     }
 }

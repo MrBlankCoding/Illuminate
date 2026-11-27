@@ -101,7 +101,7 @@ Item {
         }
         onFinished: root.spaceSlideDirection = 0
         NumberAnimation { target: spaceContents; property: "x"; to: 0; duration: Theme.durationSlow; easing.type: Easing.OutCubic }
-        NumberAnimation { target: spaceContentsFade; property: "opacity"; to: 1; duration: 220; easing.type: Easing.OutCubic }
+        NumberAnimation { target: spaceContentsFade; property: "opacity"; to: 1; duration: Theme.motion(220); easing.type: Easing.OutCubic }
     }
     // shared by the essentials and the tree; layouts own their positions
     Translate { id: spaceContents }
@@ -318,8 +318,8 @@ Item {
         }
 
         enter: Transition {
-            NumberAnimation { property: "opacity"; from: 0; to: 1; duration: 160 }
-            NumberAnimation { property: "scale"; from: 0.96; to: 1; duration: 200; easing.type: Easing.OutCubic }
+            NumberAnimation { property: "opacity"; from: 0; to: 1; duration: Theme.motion(160) }
+            NumberAnimation { property: "scale"; from: 0.96; to: 1; duration: Theme.motion(200); easing.type: Easing.OutCubic }
         }
 
         contentItem: ColumnLayout {
@@ -392,9 +392,19 @@ Item {
         }
 
         parent: Overlay.overlay
+        // its own window: an in-scene popup would sit under the page
+        popupType: Popup.Window
         modal: true
         focus: true
         Component.onCompleted: PopupCloser.watch(deleteSpacePopup)
+        onOpened: {
+            if (root.targetWindow && root.targetWindow.claimUiFocus)
+                root.targetWindow.claimUiFocus("deleteSpace");
+        }
+        onClosed: {
+            if (root.targetWindow && root.targetWindow.releaseUiFocus)
+                root.targetWindow.releaseUiFocus("deleteSpace");
+        }
         padding: 24
         width: Math.min(340, parent ? parent.width - 32 : 340)
         x: parent ? Math.round((parent.width - width) / 2) : 0

@@ -137,7 +137,7 @@ Item {
                     visible: scale > 0
                     scale: shown ? 1 : 0
                     Behavior on scale {
-                        NumberAnimation { duration: 260; easing.type: Easing.OutBack; easing.overshoot: 2.2 }
+                        NumberAnimation { duration: Theme.motion(260); easing.type: Easing.OutBack; easing.overshoot: 2.2 }
                     }
                 }
             }

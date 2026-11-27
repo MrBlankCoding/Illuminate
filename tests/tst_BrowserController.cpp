@@ -134,6 +134,24 @@ private slots:
         QCOMPARE(closeSpy.size(), 0);
     }
 
+    void closeOtherTabsClosesEveryOtherTab()
+    {
+        std::unique_ptr<Space> space(makeSpace(QStringLiteral("close-others"), QStringLiteral("Close Others")));
+        BrowserController browser(space.get(), nullptr, m_dir.filePath(QStringLiteral("browser-settings.ini")));
+        for (int i = 0; i < 6; ++i)
+            browser.newTab(QStringLiteral("https://example.com/%1").arg(i), true);
+        browser.newTab(QStringLiteral("https://example.com/keep"));
+        const int keepIndex = browser.tabModel()->rowCount() - 1;
+        const QString keepId = browser.tabModel()->tabAt(keepIndex)->id();
+        QVERIFY(browser.tabModel()->rowCount() >= 7);
+
+        browser.closeOtherTabs(keepIndex);
+
+        QCOMPARE(browser.tabModel()->rowCount(), 1);
+        QCOMPARE(browser.tabModel()->tabAt(0)->id(), keepId);
+        QCOMPARE(browser.activeIndex(), 0);
+    }
+
     void reopenClosedTabRestoresMostRecentlyClosedPage()
     {
         std::unique_ptr<Space> space(makeSpace(QStringLiteral("reopen-test"), QStringLiteral("Reopen Test")));

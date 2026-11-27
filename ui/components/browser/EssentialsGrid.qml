@@ -37,6 +37,11 @@ Item {
     Connections {
         target: Bookmarks
         function onDataChanged() { root.bookmarkRevision++ }
+        // a space switch resets the model; the count can stay the same
+        function onModelReset() { root.bookmarkRevision++ }
+        function onRowsInserted() { root.bookmarkRevision++ }
+        function onRowsRemoved() { root.bookmarkRevision++ }
+        function onRowsMoved() { root.bookmarkRevision++ }
     }
 
     Repeater {

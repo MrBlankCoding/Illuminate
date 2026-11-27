@@ -282,6 +282,30 @@ private slots:
         QCOMPARE(restoredGroup, group);
     }
 
+    void aSplitWithABlankHalfDoesNotComeBackHalfMade()
+    {
+        QTemporaryDir dir;
+        const QString path = dir.filePath(QStringLiteral("sidebar.json"));
+        {
+            TabModel tabs;
+            SidebarModel model(&tabs);
+            model.load(path);
+            const auto t = fill(tabs, 1);
+            BrowserTab *blank = tabs.addTab(QUrl(QStringLiteral("newtab://newtab")), /*suspended=*/true);
+            QVERIFY(!model.createSplit(t[0]->id(), blank->id()).isEmpty());
+            model.saveNow();
+        }
+
+        TabModel tabs;
+        SidebarModel model(&tabs);
+        model.load(path);
+        for (int i = 0; i < model.rowCount(); ++i)
+            QVERIFY2(model.index(i).data(SidebarModel::KindRole).toString() != QLatin1String("split"),
+                     "a one-tab split was restored");
+        for (int i = 0; i < tabs.rowCount(); ++i)
+            QVERIFY(!model.isSplitTab(tabs.tabAt(i)->id()));
+    }
+
     void closingAMemberDissolvesTheRemainingPair()
     {
         TabModel tabs;
