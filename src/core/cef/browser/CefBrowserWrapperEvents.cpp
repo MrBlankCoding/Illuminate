@@ -1,4 +1,5 @@
 #include "browser/CefBrowserWrapperPrivate.h"
+#include "../utils/ShortcutBridge.h"
 
 using namespace CefBrowserWrapperPrivate;
 
@@ -64,6 +65,13 @@ void CefBrowserWrapper::itemChange(ItemChange change, const ItemChangeData &data
                 m_nativeRect = QRect();
                 refreshNativeView(true);
             });
+#ifndef Q_OS_MACOS
+            // keys reach us on CEF's thread here; it needs the window's
+            // shortcuts before the first one arrives
+            QTimer::singleShot(0, data.window, [window = data.window]() {
+                ShortcutBridge::refreshShortcuts(window);
+            });
+#endif
             if (m_hostWindowReady)
                 onHostWindowReady();
             initializeBrowserHost();

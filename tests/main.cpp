@@ -13,6 +13,7 @@
 #include "BrowserSettings.h"
 #include "ShortcutRegistry.h"
 #include "Space.h"
+#include "SystemIntegration.h"
 
 class Setup : public QObject
 {
@@ -24,6 +25,7 @@ class Setup : public QObject
     BrowserSettings *m_prefs = nullptr;
     BookmarkModel *m_bookmarks = nullptr;
     ShortcutRegistry *m_shortcuts = nullptr;
+    SystemIntegration *m_system = nullptr;
 
 public:
     ~Setup() override
@@ -32,6 +34,8 @@ public:
         BrowserSettings::setQmlInstance(nullptr);
         BookmarkModel::setQmlInstance(nullptr);
         ShortcutRegistry::setQmlInstance(nullptr);
+        SystemIntegration::setQmlInstance(nullptr);
+        delete m_system;
         delete m_shortcuts;
         delete m_bookmarks;
         delete m_prefs;
@@ -67,6 +71,8 @@ public slots:
         BookmarkModel::setQmlInstance(m_bookmarks);
         m_shortcuts = new ShortcutRegistry(nullptr);
         ShortcutRegistry::setQmlInstance(m_shortcuts);
+        m_system = new SystemIntegration(nullptr);
+        SystemIntegration::setQmlInstance(m_system);
     }
 
     // the app's QML module is linked in statically; its qmldir lives at

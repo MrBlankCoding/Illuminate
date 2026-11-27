@@ -58,7 +58,7 @@ private:
     CefRefPtr<CefWindow> m_window;
     CefRefPtr<CefBoxLayout> m_windowLayout;
     CefRefPtr<CefView> m_chromeToolbar;
-    std::atomic<cef_window_handle_t> m_nativeHandle{nullptr};
+    std::atomic<cef_window_handle_t> m_nativeHandle{}; // a pointer on mac/Windows, an XID on Linux
     bool m_visible = false;
     bool m_closing = false;
 

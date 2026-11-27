@@ -23,6 +23,8 @@
 #include "core/system/PermissionHandler.h"
 
 #include "core/system/SystemInfo.h"
+#include "core/system/SystemIntegration.h"
+#include "core/models/DownloadModel.h"
 #include "utils/BrowserLogger.h"
 #include <include/base/cef_compiler_specific.h>
 
@@ -63,7 +65,11 @@ static QStringList urlsFromArguments(const QStringList &args)
 // only one instance
 static bool claimSingleInstance(QLocalServer &server, const QStringList &urls)
 {
-    const QString name = QStringLiteral("illuminate-") + qEnvironmentVariable("USER");
+    // per user: Windows has no USER, so everyone would share one pipe
+    QString user = qEnvironmentVariable("USER");
+    if (user.isEmpty())
+        user = qEnvironmentVariable("USERNAME");
+    const QString name = QStringLiteral("illuminate-") + user;
 
     QLocalSocket probe;
     probe.connectToServer(name);
@@ -244,6 +250,18 @@ NO_STACK_PROTECTOR int main(int argc, char *argv[])
 
     AppMenu appMenu(nullptr);
     AppMenu::setQmlInstance(&appMenu);
+
+    SystemIntegration systemIntegration(nullptr);
+    SystemIntegration::setQmlInstance(&systemIntegration);
+    const auto offerActivePage = [&controller, &systemIntegration]() {
+        systemIntegration.setCurrentPage(QUrl(controller.activeUrl()), controller.activeTitle());
+    };
+    QObject::connect(&controller, &BrowserController::activeUrlChanged, &systemIntegration, offerActivePage);
+    QObject::connect(&controller, &BrowserController::activeTitleChanged, &systemIntegration, offerActivePage);
+    DownloadModel &downloads = DownloadModel::instance();
+    QObject::connect(&downloads, &DownloadModel::progressChanged, &systemIntegration, [&downloads, &systemIntegration]() {
+        systemIntegration.setActiveDownloads(downloads.activeCount());
+    });
 
     listenForSecondLaunches(instanceServer, controller);
     UrlOpenFilter urlOpenFilter(controller);

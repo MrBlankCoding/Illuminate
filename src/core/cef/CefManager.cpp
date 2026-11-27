@@ -128,10 +128,10 @@ CefProfile *CefManager::defaultProfile()
 bool CefManager::chromeStyle()
 {
     static const QString style = qEnvironmentVariable("ILLUMINATE_ALLOY_STYLE");
-#ifdef Q_OS_WIN
-    static const bool chrome = !style.isNull() && style == QLatin1String("0");
-#else
+#ifdef Q_OS_MACOS
     static const bool chrome = style.isEmpty() || style == QLatin1String("0");
+#else
+    static const bool chrome = !style.isNull() && style == QLatin1String("0");
 #endif
     return chrome;
 }

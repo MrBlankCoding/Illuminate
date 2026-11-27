@@ -26,12 +26,20 @@ Item {
         const activeTab = browserContext.tabModel.tabAt(browserContext.tabModel.activeIndex);
         return activeTab && !InternalPages.isInternal(String(activeTab.url));
     }
+    readonly property bool isActiveTab: index === (browserContext ? browserContext.tabModel.activeIndex : -1)
+    // only the split the active tab belongs to is on screen; other splits wait
+    readonly property bool inActiveSplit: {
+        if (!browserContext || splitMemberIndex < 0)
+            return false;
+        const activeTab = browserContext.tabModel.tabAt(browserContext.tabModel.activeIndex);
+        return !!activeTab && splitMemberIds.indexOf(activeTab.id) >= 0;
+    }
     readonly property real splitGap: splitMemberIndex >= 0 ? 8 : 0
     x: splitMemberIndex === 1 ? parent.width / 2 + splitGap / 2 : 0
     width: splitMemberIndex < 0 ? parent.width
         : parent.width / 2 - splitGap / 2
     height: parent.height
-    visible: index === (browserContext ? browserContext.tabModel.activeIndex : -1) || splitMemberIndex >= 0
+    visible: isActiveTab || inActiveSplit
 
     function refreshNativeView() {
         if (!root.webView || !root.visible || !root.browserContext)
@@ -164,13 +172,28 @@ Item {
                 anchors.fill: parent
                 visible: root.visible
                 keepVisibleWhileLoading: !root.visible && webView.loading && root.activeTabHasWebView
-                inputSuppressed: root.browserWindow.inputOverlayOpen
-                    && root.index === (root.browserContext ? root.browserContext.tabModel.activeIndex : -1)
+                inputSuppressed: root.browserWindow.inputOverlayOpen && root.isActiveTab
+                focusTarget: root.isActiveTab
                 lifecycleState: webView.visible
                     ? CefBrowser.Active
                     : CefBrowser.Frozen
                 onLifecycleStateChanged: root.syncRenderPid()
-                onNativeFocusRequested: root.browserWindow.returnFocusToWeb()
+                onNativeFocusRequested: {
+                    if (root.isActiveTab) {
+                        root.browserWindow.returnFocusToWeb();
+                        return;
+                    }
+                    // the other half of a split: once the person has clicked
+                    // into it, it becomes the tab ⌘L, reload and the rest act on.
+                    // A page merely loading there doesn't hold key, so it can't
+                    // take over the active tab or close an open overlay.
+                    Qt.callLater(() => {
+                        if (!root.browserContext || root.splitMemberIndex < 0 || !webView.hasNativeFocus())
+                            return;
+                        root.browserContext.activateTab(root.index);
+                        root.browserWindow.returnFocusToWeb();
+                    });
+                }
                 // the speaker on the tab, and its mute
                 audioMuted: root.model.muted === true
                 onAudibleChanged: {
@@ -295,6 +318,8 @@ Item {
                             webView.goForward();
                         else if (action === "reload")
                             webView.reload();
+                        else if (action === "stop")
+                            webView.stop();
                         else if (action === "devtools")
                             webView.toggleDevTools();
                     }

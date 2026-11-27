@@ -59,6 +59,7 @@ Item {
                 Text {
                     Layout.fillWidth: true
                     text: root.tree.dragSplitMemberTitle
+                    textFormat: Text.PlainText // page-controlled: never render it as markup
                     color: Theme.text
                     elide: Text.ElideRight
                     font { family: Theme.fontFamily; pixelSize: Theme.fontSizeS }

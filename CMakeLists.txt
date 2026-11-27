@@ -241,6 +241,37 @@ if(WIN32 AND CEF_FOUND)
     install(FILES ${_cef_install_files} DESTINATION "${CMAKE_INSTALL_BINDIR}")
 endif()
 
+set(ILLUMINATE_RUNTIME_DESTINATION "${CMAKE_INSTALL_BINDIR}")
+if(UNIX AND NOT APPLE AND CEF_FOUND)
+    set(ILLUMINATE_RUNTIME_DESTINATION "${CMAKE_INSTALL_LIBDIR}/illuminate")
+    set(_cef_stage_dir "$<TARGET_FILE_DIR:illuminate>")
+    # settings.no_sandbox is set, so the setuid sandbox helper isn't needed
+    set(_cef_linux_binaries ${CEF_BINARY_FILES})
+    list(REMOVE_ITEM _cef_linux_binaries "chrome-sandbox")
+    COPY_FILES(illuminate "${_cef_linux_binaries}" "${CEF_BINARY_DIR}" "${_cef_stage_dir}")
+    COPY_FILES(illuminate "${CEF_RESOURCE_FILES}" "${CEF_RESOURCE_DIR}" "${_cef_stage_dir}")
+    set_target_properties(illuminate PROPERTIES INSTALL_RPATH "\$ORIGIN")
+
+    set(_cef_install_files "")
+    foreach(_cef_file IN LISTS _cef_linux_binaries)
+        list(APPEND _cef_install_files "${CEF_BINARY_DIR_RELEASE}/${_cef_file}")
+    endforeach()
+    foreach(_cef_file IN LISTS CEF_RESOURCE_FILES)
+        if(_cef_file STREQUAL "locales")
+            install(DIRECTORY "${CEF_RESOURCE_DIR}/locales"
+                    DESTINATION "${ILLUMINATE_RUNTIME_DESTINATION}")
+        else()
+            list(APPEND _cef_install_files "${CEF_RESOURCE_DIR}/${_cef_file}")
+        endif()
+    endforeach()
+    install(FILES ${_cef_install_files} DESTINATION "${ILLUMINATE_RUNTIME_DESTINATION}")
+    install(CODE "
+        set(_bin \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_BINDIR}\")
+        file(MAKE_DIRECTORY \"\${_bin}\")
+        file(CREATE_LINK \"../${ILLUMINATE_RUNTIME_DESTINATION}/illuminate\" \"\${_bin}/illuminate\" SYMBOLIC)
+    ")
+endif()
+
 set_target_properties(illuminate PROPERTIES
     WIN32_EXECUTABLE TRUE
 )
@@ -276,7 +307,7 @@ include(cmake/IlluminateModule.cmake)
 
 install(TARGETS illuminate
     BUNDLE  DESTINATION .
-    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+    RUNTIME DESTINATION ${ILLUMINATE_RUNTIME_DESTINATION}
 )
 
 if(UNIX AND NOT APPLE)

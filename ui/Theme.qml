@@ -56,6 +56,11 @@ QtObject {
         "#4A90E2", "#2DA7A1", "#F3A43B", "#E86F67",
         "#8A6CFF", "#69B578", "#D96ACF"
     ]
+    // what menus call them, in the same order
+    readonly property var avatarColorNames: [
+        qsTr("Blue"), qsTr("Teal"), qsTr("Orange"), qsTr("Coral"),
+        qsTr("Violet"), qsTr("Green"), qsTr("Pink")
+    ]
 
     function luma(c) { return 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b }
 
@@ -139,16 +144,22 @@ QtObject {
 
     // font
     readonly property string fontFamily:  Application.font.family
+    // a monospace face every platform has; "monospace" is fontconfig's alias on Linux
+    readonly property string monoFontFamily: isMac ? "Menlo"
+        : Qt.platform.os === "windows" ? "Consolas" : "monospace"
     readonly property int    fontSizeS:   11
     readonly property int    fontSizeM:   13
     readonly property int    fontSizeL:   15
     readonly property int    fontSizeXL:  17
 
-    // animation
-    readonly property int durationFast:   120        // hover
-    readonly property int durationMid:    200        // panels
-    readonly property int durationSlow:   300        // space transitions
-    readonly property int durationFolder: 150        // folder open/close
+    // animation: none at all when the system asks for reduced motion
+    readonly property bool reduceMotion: UI.System ? UI.System.reduceMotion : false
+    readonly property int durationFast:   reduceMotion ? 0 : 120   // hover
+    readonly property int durationMid:    reduceMotion ? 0 : 200   // panels
+    readonly property int durationSlow:   reduceMotion ? 0 : 300   // space transitions
+    readonly property int durationFolder: reduceMotion ? 0 : 150   // folder open/close
     readonly property int folderHoverExpandMs: 600   // drag over a closed folder
-    readonly property real pressScale:    0.97
+    readonly property real pressScale:    reduceMotion ? 1 : 0.97
+    // for a one-off duration: motion(180) is 180 ms, or 0 with reduced motion
+    function motion(ms) { return root.reduceMotion ? 0 : ms; }
 }

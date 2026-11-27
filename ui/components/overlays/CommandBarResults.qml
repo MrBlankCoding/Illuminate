@@ -26,7 +26,7 @@ Item {
         opacity: root.visibleRows > 0 ? 1 : 0
 
         Behavior on opacity {
-            NumberAnimation { duration: 140; easing.type: Easing.OutCubic }
+            NumberAnimation { duration: Theme.motion(140); easing.type: Easing.OutCubic }
         }
 
         ColumnLayout {

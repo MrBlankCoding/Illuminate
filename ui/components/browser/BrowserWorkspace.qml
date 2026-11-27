@@ -40,14 +40,14 @@ Item {
                     target: dockLoader
                     property: "x"
                     to: 0
-                    duration: 220
+                    duration: Theme.motion(220)
                     easing.type: Easing.OutCubic
                 }
                 NumberAnimation {
                     target: dockLoader
                     property: "opacity"
                     to: 1
-                    duration: 180
+                    duration: Theme.motion(180)
                     easing.type: Easing.OutCubic
                 }
             }
@@ -58,14 +58,14 @@ Item {
                     target: dockLoader
                     property: "x"
                     to: -dockLoader.width
-                    duration: 190
+                    duration: Theme.motion(190)
                     easing.type: Easing.InCubic
                 }
                 NumberAnimation {
                     target: dockLoader
                     property: "opacity"
                     to: 0
-                    duration: 150
+                    duration: Theme.motion(150)
                     easing.type: Easing.InCubic
                 }
                 onFinished: {

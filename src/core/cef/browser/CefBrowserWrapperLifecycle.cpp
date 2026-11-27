@@ -228,10 +228,9 @@ void CefBrowserWrapper::updateHostWindow()
                             nativeHandleOf(window()), sceneRect(), visible);
     if (showing)
     {
-        // Keep key where it is: the page coming up only takes it over from
-        // the page going away, never from our window.
         void *handle = m_hostWindow->nativeHandle();
-        cefSetChildWindowCanTakeKey(handle, !m_inputSuppressed && cefChildWindowIsKey(nativeHandleOf(window())));
+        cefSetChildWindowCanTakeKey(handle, !m_inputSuppressed && m_focusTarget
+                                                && cefChildWindowIsKey(nativeHandleOf(window())));
         m_hostWindow->setVisible(true);
         cefSetChildWindowCanTakeKey(handle, !m_inputSuppressed);
         cefRaiseChildWindow(nativeHandleOf(window()), handle);
@@ -250,11 +249,8 @@ void CefBrowserWrapper::updateHostWindow()
         m_hostWindow->setVisible(visible);
     }
 #if !defined(__APPLE__)
-#ifdef _WIN32
+    // an HWND on Windows, an XID (unsigned long) on Linux
     cefSetNativeViewGeometry(reinterpret_cast<cef_window_handle_t>(m_hostWindow->nativeHandle()), native, visible);
-#else
-    cefSetNativeViewGeometry(m_hostWindow->nativeHandle(), native, visible);
-#endif
 #endif
     if (m_nativeCornerRadius != m_cornerRadius)
     {

@@ -142,7 +142,10 @@ Item {
                 model: Theme.avatarColors
                 delegate: MenuItem {
                     required property string modelData
-                    text: modelData
+                    required property int index
+                    text: Theme.avatarColorNames[index] || modelData
+                    checkable: true
+                    checked: !!spaceMenu.target && Qt.colorEqual(spaceMenu.target.color, modelData)
                     onTriggered: if (spaceMenu.target) spaceMenu.target.color = modelData
                 }
                 onObjectAdded: (index, object) => colorMenu.insertItem(index, object)

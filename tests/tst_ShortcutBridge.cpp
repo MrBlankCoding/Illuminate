@@ -5,6 +5,8 @@
 #include <QQmlEngine>
 #include <QQuickWindow>
 
+#include <thread>
+
 #include <include/internal/cef_types.h>
 
 #include "ShortcutBridge.h"
@@ -142,6 +144,30 @@ private slots:
         QVERIFY(root->setProperty("findEnabled", false));
         QVERIFY(!ShortcutBridge::dispatchKeyPress(window, 'G', kPrimary));
         QCOMPARE(root->property("activatedCount").toInt(), 0);
+    }
+
+    // Windows and Linux deliver keys on CEF's own thread. Qt's thread may be
+    // waiting on that thread's windows, so a key must never wait for Qt.
+    void keysFromCefThreadNeverWaitForQt()
+    {
+        QObject *root = freshWindow();
+        QVERIFY(root);
+        auto *window = qobject_cast<QQuickWindow *>(root);
+        QVERIFY(window);
+        ShortcutBridge::refreshShortcuts(window);
+
+        bool consumed = false;
+        bool unboundConsumed = true;
+        std::thread cefThread([&]() {
+            consumed = ShortcutBridge::dispatchKeyPress(window, kVkT, kPrimary);
+            unboundConsumed = ShortcutBridge::dispatchKeyPress(window, 'K', kPrimary);
+        });
+        cefThread.join(); // Qt's thread is busy right here; a blocking hand-off hangs
+
+        QVERIFY(consumed);
+        QVERIFY(!unboundConsumed);
+        QCOMPARE(root->property("activatedCount").toInt(), 0);
+        QTRY_COMPARE(root->property("activatedCount").toInt(), 1);
     }
 
     void windowShortcutMatchesWhenFocused()

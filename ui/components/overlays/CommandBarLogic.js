@@ -10,11 +10,35 @@ const localhostRegex = /^localhost(:\d+)?(\/|$)/i;
 const schemePrefixRegex = /^([a-z][a-z0-9+.-]*):/i;
 const stripSchemeRegex = /^[a-z][a-z0-9+.-]*:\/\/(www\.)?/i;
 const wordBoundaryRegex = /[\s\/._\-:]/;
+const opaqueSchemeRegex = /^(about|mailto|tel|data|view-source|blob):\S/i;
+const ipv4Regex = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})(:\d+)?(\/.*)?$/;
+const ipv6Regex = /^\[[0-9a-f:.]+\](:\d+)?(\/.*)?$/i;
+const plainNumberRegex = /^[\d.]+$/;
+const hostEndRegex = /[:\/?#]/;
+// "node.js", "main.cpp": things people search for. Not real top-level domains.
+const fileExtensions = ["js", "jsx", "ts", "tsx", "mjs", "cjs", "json", "txt", "cpp", "hpp", "cc", "h",
+                        "java", "kt", "swift", "html", "htm", "css", "scss", "exe", "dmg", "pdf", "png",
+                        "jpg", "jpeg", "gif", "svg", "yml", "yaml", "toml", "lock", "log", "csv", "qml",
+                        "dll", "dylib"];
+
+function isIPv4(text) {
+    const m = ipv4Regex.exec(text);
+    return m !== null && [m[1], m[2], m[3], m[4]].every(part => Number(part) <= 255);
+}
 
 function looksLikeUrl(text) {
-    if (schemeRegex.test(text))
+    if (schemeRegex.test(text) || opaqueSchemeRegex.test(text))
         return true;
-    return !whitespaceRegex.test(text) && (domainRegex.test(text) || localhostRegex.test(text));
+    if (whitespaceRegex.test(text))
+        return false;
+    if (localhostRegex.test(text) || ipv6Regex.test(text) || isIPv4(text))
+        return true;
+    if (plainNumberRegex.test(text) || !domainRegex.test(text))
+        return false;
+    const host = text.split(hostEndRegex)[0];
+    if (host.startsWith(".") || host.endsWith(".") || !host.includes("."))
+        return false;
+    return fileExtensions.indexOf(host.slice(host.lastIndexOf(".") + 1).toLowerCase()) < 0;
 }
 
 function isInternalUrl(url, schemes) {
@@ -76,6 +100,14 @@ function evaluateMath(text) {
         return null;
     // Don't calculate if it looks like a version or date or bare number
     if (/^\d+(\.\d+)?$/.test(trimmed))
+        return null;
+    // dates (1/2/2026, 12-25-2026) and phone numbers (555-1234, 555-123-4567)
+    if (/^\d{1,4}([\/.-])\d{1,2}\1\d{2,4}$/.test(trimmed)
+            || /^\(?\d{3}\)?[\s-]?\d{3}-\d{4}$/.test(trimmed)
+            || /^\d{3}-\d{4}$/.test(trimmed))
+        return null;
+    // commas only as thousands separators (12,000); "1,5" is a decimal elsewhere
+    if (trimmed.includes(",") && /\d,(?!\d{3}(\D|$))/.test(trimmed))
         return null;
     try {
         let sanitized = trimmed.replace(/,/g, "").replace(/\^/g, "**");

@@ -49,6 +49,9 @@ class CefBrowserWrapper : public QQuickItem
     Q_PROPERTY(qreal cornerRadius READ cornerRadius WRITE setCornerRadius NOTIFY cornerRadiusChanged)
     // while set, keyboard focus stays with the Qt UI (overlays) instead of the page
     Q_PROPERTY(bool inputSuppressed READ inputSuppressed WRITE setInputSuppressed NOTIFY inputSuppressedChanged)
+    // the page keyboard input belongs to. Re-showing a page that isn't (the
+    // other half of a split) must not pull key focus away from the one that is.
+    Q_PROPERTY(bool focusTarget READ focusTarget WRITE setFocusTarget NOTIFY focusTargetChanged)
 
     Q_PROPERTY(bool fullScreen READ fullScreen NOTIFY fullScreenChanged)
     // something on the page is playing with sound
@@ -115,6 +118,8 @@ public:
     void setCornerRadius(qreal radius);
     bool inputSuppressed() const { return m_inputSuppressed; }
     void setInputSuppressed(bool suppressed);
+    bool focusTarget() const { return m_focusTarget; }
+    void setFocusTarget(bool target);
 
     bool fullScreen() const { return m_fullScreen; }
     bool audible() const { return m_audible.audible(); }
@@ -211,6 +216,7 @@ signals:
     void backgroundColorChanged();
     void cornerRadiusChanged();
     void inputSuppressedChanged();
+    void focusTargetChanged();
     void nativeFocusRequested();
 
     void profileChanged();
@@ -261,6 +267,7 @@ private:
     qreal m_nativeCornerRadius = -1;
     std::atomic<bool> m_inputSuppressed = false;
     bool m_restoreFocus = false;
+    bool m_focusTarget = true;
     int m_browserId = 0;
     int m_actionTabId = 0;
     bool m_focusWhenShown = false;

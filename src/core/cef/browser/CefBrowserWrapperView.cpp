@@ -58,14 +58,14 @@ void CefBrowserWrapper::refreshNativeView(bool raiseAboveSiblings)
         return;
     if (m_hostWindowReady)
     {
-        // AppKit can order a child window out while the application is
-        // inactive. Re-show it explicitly; the cached visible state may still
-        // say true when the parent window becomes active again. Restore is
-        // dispatched to CEF's UI thread, so raise only after Show() has run;
-        // raising immediately here races that asynchronous native operation.
         QPointer<CefBrowserWrapper> guard(this);
+        if (!m_focusTarget)
+            cefSetChildWindowCanTakeKey(m_hostWindow->nativeHandle(), false);
         m_hostWindow->restore([guard]() {
-            if (!guard || !guard->window() || !guard->isVisible() || !guard->m_hostWindowReady)
+            if (!guard || !guard->m_hostWindowReady)
+                return;
+            cefSetChildWindowCanTakeKey(guard->m_hostWindow->nativeHandle(), !guard->m_inputSuppressed);
+            if (!guard->window() || !guard->isVisible())
                 return;
             cefRaiseChildWindow(nativeHandleOf(guard->window()), guard->m_hostWindow->nativeHandle());
         });
@@ -75,7 +75,7 @@ void CefBrowserWrapper::refreshNativeView(bool raiseAboveSiblings)
         cefRaiseChildWindow(nativeHandleOf(window()), host->GetWindowHandle());
 #elif defined(ILLUMINATE_HAS_X11)
     else if (auto host = hostOf(m_browser))
-        cefRaiseChildWindow(nativeHandleOf(window()), host->GetWindowHandle());
+        cefRaiseChildWindow(nativeHandleOf(window()), reinterpret_cast<void *>(host->GetWindowHandle()));
 #endif
 }
 
@@ -118,6 +118,14 @@ void CefBrowserWrapper::setInputSuppressed(bool suppressed)
     m_inputSuppressed = suppressed;
     emit inputSuppressedChanged();
     applyInputSuppression();
+}
+
+void CefBrowserWrapper::setFocusTarget(bool target)
+{
+    if (m_focusTarget == target)
+        return;
+    m_focusTarget = target;
+    emit focusTargetChanged();
 }
 
 void CefBrowserWrapper::applyInputSuppression()

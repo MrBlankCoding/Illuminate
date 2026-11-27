@@ -232,6 +232,9 @@ Window {
             root.closeAfterPageCheck()
     }
 
+    readonly property bool darkTheme: Theme.isDark
+    onDarkThemeChanged: WindowHelper.setDarkTitleBar(root, root.darkTheme)
+
     readonly property bool sidebarCollapsed: Prefs.sidebarCollapsed
     property bool sidebarDockCollapsed: Prefs.sidebarCollapsed
     onSidebarCollapsedChanged: {
@@ -328,6 +331,7 @@ Window {
         Qt.callLater(root.openStartupCommandBar);
         Logger.info("BrowserWindow", "Window ready, platform=" + Qt.platform.os);
         WindowHelper.applyTitleBarStyle(root, Theme.titleBarHeight);
+        WindowHelper.setDarkTitleBar(root, Theme.isDark);
         root.syncMacWindowButtons();
         AppMenu.attach(root);
     }
@@ -367,13 +371,7 @@ Window {
             { label: "Bookmark Page", icon: "qrc:/illuminate/ui/icons/star.svg", run: () => root.toggleBookmark() },
             { label: "Theme Picker", icon: "qrc:/illuminate/ui/icons/sun.svg", run: () => themePickerPopup.open() },
             { label: "Toggle Full Screen", icon: "qrc:/illuminate/ui/icons/monitor.svg", run: () => root.toggleFullScreen() },
-            { label: "Close Other Tabs", icon: "qrc:/illuminate/ui/icons/x.svg", run: () => {
-                const active = Browser.tabModel.activeIndex;
-                for (let i = Browser.tabModel.count - 1; i >= 0; --i) {
-                    if (i !== active)
-                        Browser.closeTab(i);
-                }
-            }}
+            { label: "Close Other Tabs", icon: "qrc:/illuminate/ui/icons/x.svg", run: () => Browser.closeOtherTabs(Browser.tabModel.activeIndex) }
         ]
     }
 

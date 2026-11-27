@@ -68,7 +68,7 @@ Item {
             target: contentStack
             property: "opacity"
             to: 0
-            duration: 110
+            duration: Theme.motion(110)
             easing.type: Easing.InCubic
         }
         ScriptAction { script: root.step = stepTransition.pendingStep }
@@ -77,7 +77,7 @@ Item {
                 target: contentStack
                 property: "opacity"
                 to: 1
-                duration: 220
+                duration: Theme.motion(220)
                 easing.type: Easing.OutCubic
             }
             NumberAnimation {
@@ -85,7 +85,7 @@ Item {
                 property: "scale"
                 from: 0.985
                 to: 1
-                duration: 220
+                duration: Theme.motion(220)
                 easing.type: Easing.OutCubic
             }
         }
@@ -122,7 +122,7 @@ Item {
                 property: "opacity"
                 from: 0
                 to: 1
-                duration: 320
+                duration: Theme.motion(320)
                 easing.type: Easing.OutCubic
             }
 
@@ -331,7 +331,7 @@ Item {
                                     spacing: 8
                                     Text {
                                         text: "⌘L / ⌘T"
-                                        font { family: "Menlo"; pixelSize: 11; bold: true }
+                                        font { family: Theme.monoFontFamily; pixelSize: 11; bold: true }
                                         color: Theme.accent
                                     }
                                     Text {
@@ -346,7 +346,7 @@ Item {
                                     spacing: 8
                                     Text {
                                         text: "> or :"
-                                        font { family: "Menlo"; pixelSize: 11; bold: true }
+                                        font { family: Theme.monoFontFamily; pixelSize: 11; bold: true }
                                         color: Theme.accent
                                     }
                                     Text {
@@ -361,7 +361,7 @@ Item {
                                     spacing: 8
                                     Text {
                                         text: "!w, !yt, !g"
-                                        font { family: "Menlo"; pixelSize: 11; bold: true }
+                                        font { family: Theme.monoFontFamily; pixelSize: 11; bold: true }
                                         color: Theme.accent
                                     }
                                     Text {
@@ -376,7 +376,7 @@ Item {
                                     spacing: 8
                                     Text {
                                         text: "12 * 45"
-                                        font { family: "Menlo"; pixelSize: 11; bold: true }
+                                        font { family: Theme.monoFontFamily; pixelSize: 11; bold: true }
                                         color: Theme.accent
                                     }
                                     Text {
@@ -421,7 +421,7 @@ Item {
                             target: doneBadge
                             property: "scale"
                             to: 1
-                            duration: 360
+                            duration: Theme.motion(360)
                             easing.type: Easing.OutBack
                         }
                         NumberAnimation {
@@ -429,7 +429,7 @@ Item {
                             target: doneBadge
                             property: "opacity"
                             to: 1
-                            duration: 220
+                            duration: Theme.motion(220)
                             easing.type: Easing.OutCubic
                         }
                         // Small, deliberate "arrival" moment on the last step only —

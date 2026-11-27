@@ -107,7 +107,7 @@ SettingsPage {
             textFormat: Text.PlainText
             color: Theme.textMuted
             elide: Text.ElideMiddle
-            font { family: "Menlo"; pixelSize: 11 }
+            font { family: Theme.monoFontFamily; pixelSize: 11 }
         }
     }
 }

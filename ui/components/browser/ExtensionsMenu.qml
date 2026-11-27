@@ -35,25 +35,6 @@ Popup {
     closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
     Component.onCompleted: PopupCloser.watch(root)
     onAboutToShow: if (root.registry) root.registry.refresh()
-    // temporary: why the list renders narrower than its width
-    function logGeometry(when) {
-        const w = root.contentItem ? root.contentItem.Window.window : null;
-        Logger.info("ExtensionsMenu", when + ": popup " + root.x + "," + root.y + " " + root.width + "x" + root.height
-                    + " implicit " + root.implicitWidth + " available " + root.availableWidth
-                    + " content " + (root.contentItem ? root.contentItem.width : -1)
-                    + " bg " + (root.background ? root.background.width : -1)
-                    + " window " + (w ? w + " " + w.x + "," + w.y + " " + w.width + "x" + w.height : "none")
-                    + " parent " + root.parent + " " + (root.parent ? root.parent.width : -1)
-                    + " margins " + root.leftMargin + "/" + root.rightMargin
-                     + " screen " + (w && Screen ? Screen.width + "x" + Screen.height + " dpr " + Screen.devicePixelRatio : "?")
-                    + " list " + list.width + " row " + (list.itemAtIndex(0) ? list.itemAtIndex(0).width : -1)
-                    + " flags " + (w ? w.flags : "?") + " transient " + (w ? w.transientParent : "?"));
-    }
-    onOpened: {
-        logGeometry("opened");
-        Qt.callLater(() => root.logGeometry("after"));
-    }
-    onWidthChanged: if (visible) logGeometry("width changed")
 
     background: Rectangle {
         radius: Theme.radiusCard
@@ -141,6 +122,7 @@ Popup {
                     Text {
                         Layout.fillWidth: true
                         text: row.modelData.name
+                        textFormat: Text.PlainText // page-controlled: never render it as markup
                         color: Theme.text
                         font {
                             family: Theme.fontFamily

@@ -83,14 +83,33 @@ void BrowserController::closeTab(int index)
     finishCloseTab(index);
 }
 
+void BrowserController::closeOtherTabs(int keepIndex)
+{
+    BrowserTab *keep = m_model->tabAt(keepIndex);
+    if (!keep || m_closeInProgress)
+        return;
+
+    QStringList ids;
+    for (int i = 0; i < m_model->rowCount(); ++i)
+        if (BrowserTab *tab = m_model->tabAt(i); tab && tab != keep)
+            ids.append(tab->id());
+
+    m_model->setActiveIndex(m_model->indexOf(keep));
+    for (const QString &id : std::as_const(ids))
+    {
+        BrowserTab *tab = tabForId(id);
+        if (!tab || tab->requestClose())
+            continue;
+        finishCloseTab(m_model->indexOf(tab));
+    }
+}
+
 void BrowserController::onTabCloseApproved(const QString &tabId)
 {
     BrowserTab *tab = tabForId(tabId);
     if (!tab)
         return;
 
-    // closing the window or quitting: keep the tab (it's saved with the
-    // session) and move on to the next page
     if (m_pageCheck.active)
     {
         if (!m_pageCheck.closed.contains(tabId))
@@ -104,7 +123,6 @@ void BrowserController::onTabCloseApproved(const QString &tabId)
         return;
     }
 
-    // its page is already gone: never drop this, or the tab is left empty
     if (m_closeInProgress)
     {
         QMetaObject::invokeMethod(this, [this, tabId]() { onTabCloseApproved(tabId); }, Qt::QueuedConnection);
@@ -229,7 +247,8 @@ void BrowserController::rememberClosedTab(const BrowserTab *tab)
 
     const QString spaceId = m_space ? m_space->id() : QString();
     QList<ClosedTab> &closedTabs = m_closedTabsBySpace[spaceId];
-    closedTabs.append({tab->url()});
+    const auto [folderId, folderIndex] = m_sidebar->placementOf(tab->id());
+    closedTabs.append({tab->url(), tab->title(), m_model->indexOf(tab), folderId, folderIndex});
     constexpr qsizetype maxRecentlyClosedTabs = 25;
     while (closedTabs.size() > maxRecentlyClosedTabs)
         closedTabs.removeFirst();
@@ -258,7 +277,19 @@ void BrowserController::reopenLastClosedTab()
         }
     }
 
+    const int before = m_model->rowCount();
     newTab(closedTab.url.toString());
+    if (m_model->rowCount() != before + 1)
+        return;
+
+    // back where it was: in its folder if that's still there, else its old spot
+    BrowserTab *tab = m_model->tabAt(m_model->rowCount() - 1);
+    if (!closedTab.title.isEmpty())
+        tab->setTitle(closedTab.title);
+    if (!closedTab.folderId.isEmpty() && m_sidebar->moveNode(tab->id(), closedTab.folderId, closedTab.folderIndex))
+        return;
+    if (closedTab.index >= 0 && closedTab.index < m_model->rowCount() - 1)
+        m_model->moveTab(m_model->indexOf(tab), closedTab.index);
 }
 
 void BrowserController::executeChromeCommand(const QString &command)
@@ -351,6 +382,11 @@ void BrowserController::reload()
 {
     if (BrowserTab *tab = m_model->tabAt(m_model->activeIndex()))
         emit navigationRequested(tab->id(), QStringLiteral("reload"));
+}
+void BrowserController::stop()
+{
+    if (BrowserTab *tab = m_model->tabAt(m_model->activeIndex()))
+        emit navigationRequested(tab->id(), QStringLiteral("stop"));
 }
 void BrowserController::goBack()
 {

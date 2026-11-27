@@ -97,7 +97,7 @@ Item {
             width: parent.width * (root.loadProgress / 100)
             color: Theme.accent
             opacity: root.isLoading && root.loadProgress > 0 && root.loadProgress < 100 ? 1 : 0
-            Behavior on width { NumberAnimation { duration: 80; easing.type: Easing.OutQuad } }
+            Behavior on width { NumberAnimation { duration: Theme.motion(80); easing.type: Easing.OutQuad } }
             Behavior on opacity { NumberAnimation { duration: Theme.durationFast } }
         }
     }
