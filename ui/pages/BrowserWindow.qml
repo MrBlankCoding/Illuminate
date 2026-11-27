@@ -298,11 +298,9 @@ Window {
                 return;
             }
             settingsWindow = component.createObject(root, { transientParent: root }) as Window;
+            // the property nulls itself if the window is ever deleted
             if (!settingsWindow)
                 return;
-            settingsWindow.destroyed.connect(function() {
-                settingsWindow = null;
-            });
         }
         settingsWindow.show();
         settingsWindow.raise();

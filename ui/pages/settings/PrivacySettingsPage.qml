@@ -6,7 +6,6 @@ import illuminate.ui
 SettingsPage {
     id: root
     heading: "Privacy"
-    subtitle: "Control what sites can access and what browsing data Illuminate keeps."
 
     Text {
         Layout.fillWidth: true
@@ -26,7 +25,6 @@ SettingsPage {
         SettingItem {
             topDivider: false
             title: "Allow third-party cookies"
-            description: "Allows embedded services from other sites to use cookies. Blocking them can limit cross-site tracking, but may sign you out of embedded services or affect some sign-ins."
 
             SettingSwitch {
                 id: thirdPartyCookiesSwitch
@@ -34,15 +32,6 @@ SettingsPage {
                 onToggled: Prefs.thirdPartyCookiesEnabled = !thirdPartyCookiesSwitch.checked
             }
         }
-    }
-
-    Text {
-        Layout.fillWidth: true
-        Layout.topMargin: 4
-        text: "First-party cookies remain available when third-party cookies are blocked. This policy applies to every space."
-        color: Theme.textMuted
-        wrapMode: Text.WordWrap
-        font { family: Theme.fontFamily; pixelSize: Theme.fontSizeS }
     }
 
     SectionHeader {

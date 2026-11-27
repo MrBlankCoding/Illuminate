@@ -1,17 +1,27 @@
 import QtQuick
-import QtQuick.Layouts
 import illuminate.ui
 
 SettingsPage {
     id: root
     heading: "Startup"
-    subtitle: "Choose what you see when the app opens."
 
     SettingsCard {
         SettingItem {
             topDivider: false
+            title: "Restore tabs"
+            description: "Reopen the tabs each space had when you last quit. Tabs in sidebar folders always come back."
+
+            SettingSwitch {
+                id: restoreTabsSwitch
+                objectName: "restoreTabsSwitch"
+                checked: Prefs.restoreTabsOnStartup
+                onToggled: Prefs.restoreTabsOnStartup = !restoreTabsSwitch.checked
+            }
+        }
+
+        SettingItem {
             title: "Open"
-            description: "What the first window shows when the app starts."
+            description: "What a space shows when it has no tabs to restore."
 
             SettingCombo {
                 id: startupCombo
@@ -52,10 +62,5 @@ SettingsPage {
                 }
             }
         }
-    }
-
-    Footnote {
-        Layout.topMargin: 4
-        text: "Saved tabs are restored whenever you open a space. This setting chooses the first page only when that space has no saved tabs."
     }
 }

@@ -7,7 +7,6 @@ import illuminate.ui
 SettingsPage {
     id: root
     heading: "Statistics"
-    subtitle: "Resource usage, browser memory footprint, and disk cache limits."
 
     property real totalMemory: 0
     property real mainProcessMemory: 0
@@ -145,10 +144,5 @@ SettingsPage {
                 onActivated: Prefs.maxDiskCacheSize = cacheSizeCombo.currentValue
             }
         }
-    }
-
-    Footnote {
-        Layout.topMargin: 4
-        text: "Physical memory and storage footprints are updated live."
     }
 }

@@ -19,6 +19,7 @@ class BrowserSettings : public QObject, public ExternalQmlSingleton<BrowserSetti
     // startup and session
     Q_PROPERTY(QString startupBehavior READ startupBehavior WRITE setStartupBehavior NOTIFY startupBehaviorChanged)
     Q_PROPERTY(QString homepageUrl READ homepageUrl WRITE setHomepageUrl NOTIFY homepageUrlChanged)
+    Q_PROPERTY(bool restoreTabsOnStartup READ restoreTabsOnStartup WRITE setRestoreTabsOnStartup NOTIFY restoreTabsOnStartupChanged)
     // search
     Q_PROPERTY(QString searchEngineId READ searchEngineId WRITE setSearchEngineId NOTIFY searchEngineChanged)
     Q_PROPERTY(QString searchEngineName READ searchEngineName NOTIFY searchEngineChanged)
@@ -62,6 +63,8 @@ public:
     void setStartupBehavior(const QString &behavior);
     QString homepageUrl() const;
     void setHomepageUrl(const QString &url);
+    bool restoreTabsOnStartup() const { return m_restoreTabsOnStartup; }
+    void setRestoreTabsOnStartup(bool enabled);
 
     QString searchEngineId() const;
     void setSearchEngineId(const QString &id);
@@ -123,6 +126,7 @@ public:
 signals:
     void startupBehaviorChanged();
     void homepageUrlChanged();
+    void restoreTabsOnStartupChanged();
     void searchEngineChanged();
     void searchSuggestionsEnabledChanged();
     void commandBarCalculatorEnabledChanged();
@@ -148,6 +152,7 @@ private:
 
     QString m_startupBehavior;
     QString m_homepageUrl;
+    bool m_restoreTabsOnStartup = false;
     QString m_searchEngineId;
     QString m_customSearchUrl;
     bool m_searchSuggestions = true;
