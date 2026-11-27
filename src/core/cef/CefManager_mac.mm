@@ -1,7 +1,3 @@
-// CEF on macOS requires NSApp to implement CefAppProtocol (Chromium CHECKs
-// -isHandlingSendEvent while pumping events). Qt owns the NSApplication
-// subclass, so the protocol is grafted onto it at runtime instead.
-
 #include "CefManager.h"
 
 #import <Cocoa/Cocoa.h>

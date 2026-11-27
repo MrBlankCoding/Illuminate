@@ -256,3 +256,29 @@ check_deps() {
         fi
     fi
 }
+
+# ── Code signing (macOS) ─────────────────────────────────────────────────────
+resolve_codesign_identity() {
+    if [[ -n "${CODESIGN_IDENTITY:-}" ]]; then
+        echo "$CODESIGN_IDENTITY"
+        return
+    fi
+    local _id
+    _id="$(security find-identity -v -p codesigning 2>/dev/null \
+           | grep -v CSSMERR | grep -E '"(Apple Development|Developer ID Application):' \
+           | head -1 | awk '{print $2}')"
+    echo "${_id:--}"
+}
+
+# Signs a bundle and its nested helpers/frameworks with the resolved identity.
+sign_app_bundle() {
+    local _bundle="$1" _identity
+    _identity="$(resolve_codesign_identity)"
+    if [[ "$_identity" == "-" ]]; then
+        echo "→ Signing ad-hoc (no Apple Development identity found; macOS will"
+        echo "  re-ask for folder access after every rebuild — set CODESIGN_IDENTITY to fix)"
+    else
+        echo "→ Signing with identity ${_identity:0:10}…"
+    fi
+    codesign --force --deep --timestamp=none --sign "$_identity" "$_bundle"
+}
