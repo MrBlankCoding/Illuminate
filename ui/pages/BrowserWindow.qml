@@ -232,6 +232,9 @@ Window {
             root.closeAfterPageCheck()
     }
 
+    readonly property bool darkTheme: Theme.isDark
+    onDarkThemeChanged: WindowHelper.setDarkTitleBar(root, root.darkTheme)
+
     readonly property bool sidebarCollapsed: Prefs.sidebarCollapsed
     property bool sidebarDockCollapsed: Prefs.sidebarCollapsed
     onSidebarCollapsedChanged: {
@@ -328,6 +331,7 @@ Window {
         Qt.callLater(root.openStartupCommandBar);
         Logger.info("BrowserWindow", "Window ready, platform=" + Qt.platform.os);
         WindowHelper.applyTitleBarStyle(root, Theme.titleBarHeight);
+        WindowHelper.setDarkTitleBar(root, Theme.isDark);
         root.syncMacWindowButtons();
         AppMenu.attach(root);
     }

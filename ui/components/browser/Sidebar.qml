@@ -52,39 +52,6 @@ Item {
         WindowHelper.haptic("level");
     }
 
-    // two fingers sideways across the sidebar moves between spaces
-    WheelHandler {
-        id: spaceSwipe
-        objectName: "spaceSwipe"
-        target: null
-        acceptedDevices: PointerDevice.TouchPad
-        property real travelled: 0
-        property bool spent: false
-
-        onWheel: event => {
-            const dx = event.pixelDelta.x !== 0 ? event.pixelDelta.x : event.angleDelta.x / 8;
-            const dy = event.pixelDelta.y !== 0 ? event.pixelDelta.y : event.angleDelta.y / 8;
-            swipeQuiet.restart();
-            // vertical scrolling is the tab list's
-            if (Math.abs(dx) < Math.abs(dy) * 1.5 || spaceSwipe.spent)
-                return;
-            spaceSwipe.travelled += dx;
-            if (Math.abs(spaceSwipe.travelled) < 110)
-                return;
-            // one switch per gesture, however far it goes (momentum included)
-            spaceSwipe.spent = true;
-            root.switchSpace(spaceSwipe.travelled < 0 ? 1 : -1);
-        }
-    }
-    Timer {
-        id: swipeQuiet
-        interval: 320
-        onTriggered: {
-            spaceSwipe.travelled = 0;
-            spaceSwipe.spent = false;
-        }
-    }
-
     Connections {
         target: Spaces
         function onActiveSpaceChanged() {
@@ -508,13 +475,14 @@ Item {
         }
     }
 
-    // a two-finger swipe sideways anywhere in the sidebar moves one space over;
-    // sits on top but lets every wheel event through to the list below
+    // the only space swipe: two fingers sideways anywhere in the sidebar move
+    // one space over. Sits on top but lets every wheel event through below.
     Item {
         anchors.fill: parent
         z: 5
 
         WheelHandler {
+            id: spaceSwipe
             target: null
             blocking: false
             enabled: !root.menuOpen && Spaces.spaces.length > 1
@@ -523,32 +491,43 @@ Item {
             property real travelY: 0
             property bool spent: false
 
+            function reset() {
+                travelX = 0;
+                travelY = 0;
+                spent = false;
+            }
+
             onWheel: event => {
-                // mouse wheels have no phase: only trackpad gestures count
-                if (event.phase === Qt.NoScrollPhase || event.phase === Qt.ScrollMomentum)
+                if (event.phase === Qt.ScrollMomentum)
                     return;
                 if (event.phase === Qt.ScrollBegin) {
-                    travelX = 0;
-                    travelY = 0;
-                    spent = false;
+                    reset();
                     return;
                 }
+                // no phases (most Windows and Linux trackpads): a pause ends the gesture
+                if (event.phase === Qt.NoScrollPhase)
+                    swipeQuiet.restart();
                 if (spent)
                     return;
 
                 // deltas follow the content; flip them back to the fingers
                 const sign = event.inverted ? 1 : -1;
-                travelX += sign * event.pixelDelta.x;
-                travelY += Math.abs(event.pixelDelta.y);
+                const dx = event.pixelDelta.x !== 0 ? event.pixelDelta.x : event.angleDelta.x / 8;
+                const dy = event.pixelDelta.y !== 0 ? event.pixelDelta.y : event.angleDelta.y / 8;
+                travelX += sign * dx;
+                travelY += Math.abs(dy);
                 if (Math.abs(travelX) < 60 || Math.abs(travelX) < travelY * 2)
                     return;
 
+                // one switch per gesture, however far it goes
                 spent = true;
-                const spaces = Spaces.spaces;
-                const next = spaces.indexOf(Spaces.activeSpace) + (travelX < 0 ? 1 : -1);
-                if (next >= 0 && next < spaces.length)
-                    Spaces.activeSpace = spaces[next];
+                root.switchSpace(travelX < 0 ? 1 : -1);
             }
+        }
+        Timer {
+            id: swipeQuiet
+            interval: 320
+            onTriggered: spaceSwipe.reset()
         }
     }
 

@@ -151,6 +151,14 @@ QString SidebarModel::moveToNewFolder(const QString &id)
 
 // moving
 
+QPair<QString, int> SidebarModel::placementOf(const QString &tabId) const
+{
+    const Node *node = m_nodes.value(tabId);
+    if (!node || node->folder || !node->parent || node->parent == &m_root || node->parent->split)
+        return {};
+    return {node->parent->id, indexInParent(node)};
+}
+
 bool SidebarModel::moveNode(const QString &id, const QString &newParentId, int newIndex)
 {
     Node *parent = folderOrRoot(newParentId);

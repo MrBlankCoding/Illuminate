@@ -7,9 +7,13 @@
 #include <include/cef_values.h>
 
 #include <QCoreApplication>
+#include <QHash>
+#include <QMutex>
+#include <QPair>
 #include <QMetaObject>
 #include <QStandardPaths>
 
+#include <algorithm>
 #include <utility>
 
 CefDownloadHandlerImpl::CefDownloadHandlerImpl() = default;
@@ -51,6 +55,37 @@ void hideChromeDownloadBubble(CefRefPtr<CefBrowser> browser)
         BrowserLogger::instance().warning("Downloads",
             "Could not turn off Chromium's download bubble: " + cefStringToQString(error));
 }
+
+// Every space has its own request context, and each one numbers its downloads
+// from 1. The sidebar lists them all together, so give each its own id.
+quint32 appDownloadId(CefRefPtr<CefBrowser> browser, uint32_t chromiumId)
+{
+    static QMutex mutex;
+    static QHash<QPair<QString, quint32>, quint32> ids;
+    static quint32 next = 0;
+
+    CefRefPtr<CefRequestContext> context = browser && browser->GetHost()
+        ? browser->GetHost()->GetRequestContext() : nullptr;
+    QMutexLocker lock(&mutex);
+    if (!context)
+    {
+        // its page is gone: the newest download Chromium numbered this way
+        quint32 found = 0;
+        for (auto it = ids.cbegin(); it != ids.cend(); ++it)
+            if (it.key().second == chromiumId)
+                found = std::max(found, it.value());
+        if (found)
+            return found;
+    }
+    const QPair<QString, quint32> key(context ? cefStringToQString(context->GetCachePath()) : QString(),
+                                      chromiumId);
+    auto it = ids.constFind(key);
+    if (it != ids.cend())
+        return it.value();
+    const quint32 id = ++next;
+    ids.insert(key, id);
+    return id;
+}
 }
 
 bool CefDownloadHandlerImpl::OnBeforeDownload(CefRefPtr<CefBrowser> browser,
@@ -72,12 +107,11 @@ void CefDownloadHandlerImpl::OnDownloadUpdated(CefRefPtr<CefBrowser> browser,
                                                CefRefPtr<CefDownloadItem> download_item,
                                                CefRefPtr<CefDownloadItemCallback> callback)
 {
-    Q_UNUSED(browser);
     if (!download_item || !download_item->IsValid())
         return;
 
     DownloadModel::Update update;
-    update.id = download_item->GetId();
+    update.id = appDownloadId(browser, download_item->GetId());
     update.fullPath = cefStringToQString(download_item->GetFullPath());
     update.suggestedName = cefStringToQString(download_item->GetSuggestedFileName());
     update.receivedBytes = download_item->GetReceivedBytes();

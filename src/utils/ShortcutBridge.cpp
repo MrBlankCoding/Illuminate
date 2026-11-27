@@ -7,6 +7,11 @@
 #include <QWindow>
 
 #include <QCoreApplication>
+#include <QGuiApplication>
+#include <QHash>
+#include <QMutex>
+#include <QSet>
+#include <QStringList>
 #include <QList>
 #include <QMetaObject>
 #include <QObject>
@@ -91,75 +96,98 @@ bool isQmlShortcut(const QObject *object)
     return object && qstrcmp(object->metaObject()->className(), kQmlShortcutClassName) == 0;
 }
 
-bool replayIntoWindowShortcuts(QWindow *window, Qt::Key key, Qt::KeyboardModifiers modifiers)
+QStringList sequencesOf(const QObject *shortcut)
 {
-    if (!window)
-        return false;
+    QStringList out;
+    const QVariant sequence = shortcut->property("sequence");
+    if (sequence.isValid() && !sequence.toString().isEmpty())
+        out << QKeySequence(sequence.toString()).toString(QKeySequence::PortableText);
+    const QVariant sequences = shortcut->property("sequences");
+    if (sequences.isValid())
+        for (const QString &entry : sequences.toStringList())
+            out << QKeySequence(entry).toString(QKeySequence::PortableText);
+    return out;
+}
 
-    if (QThread::currentThread() != QCoreApplication::instance()->thread())
-    {
-        bool result = false;
-        QMetaObject::invokeMethod(
-            QCoreApplication::instance(),
-            [&]() { result = replayIntoWindowShortcuts(window, key, modifiers); },
-            Qt::BlockingQueuedConnection);
-        return result;
-    }
-
-    const QString sequence = QKeySequence(QKeyCombination(modifiers, key)).toString(QKeySequence::PortableText);
-    const QList<QObject *> descendants = window->findChildren<QObject *>();
+// the enabled shortcuts in |window| bound to |sequence|; Qt thread only
+QList<QObject *> matchingShortcuts(QWindow *window, const QString &sequence)
+{
     QList<QObject *> candidates;
-    for (QObject *object : descendants)
+    for (QObject *object : window->findChildren<QObject *>())
     {
-        if (!isQmlShortcut(object))
-            continue;
-        if (!object->property("enabled").toBool())
-            continue;
-
-        const QVariant seqProp = object->property("sequence");
-        if (seqProp.isValid())
-        {
-            const QString s = QKeySequence(seqProp.toString()).toString(QKeySequence::PortableText);
-            if (s == sequence)
-                candidates.append(object);
-        }
-
-        const QVariant seqsProp = object->property("sequences");
-        if (seqsProp.isValid())
-        {
-            const QStringList list = seqsProp.toStringList();
-            for (const QString &entry : list)
-            {
-                if (QKeySequence(entry).toString(QKeySequence::PortableText) == sequence)
-                {
-                    if (!candidates.contains(object))
-                        candidates.append(object);
-                    break;
-                }
-            }
-        }
+        if (isQmlShortcut(object) && object->property("enabled").toBool()
+            && sequencesOf(object).contains(sequence))
+            candidates.append(object);
     }
+    return candidates;
+}
 
-    if (candidates.isEmpty())
-        return false;
-
+bool activateMatching(QWindow *window, const QString &sequence)
+{
     // CEF's native child view can own the macOS key window while Qt's parent
     // QQuickWindow is still the shortcut owner. Replaying a key event through
     // QWindow then fails Qt's active-window context check. We've already
     // matched an enabled shortcut belonging to this window, so activate it
     // directly and let its QML onActivated handler perform the action.
-    for (QObject *object : candidates)
-    {
+    for (QObject *object : matchingShortcuts(window, sequence))
         if (QMetaObject::invokeMethod(object, "activated", Qt::DirectConnection))
-        {
             return true;
-        }
-    }
-
     return false;
 }
 
+struct ShortcutCache
+{
+    QMutex mutex;
+    QHash<const QWindow *, QSet<QString>> sequences;
+};
+
+ShortcutCache &shortcutCache()
+{
+    static ShortcutCache cache;
+    return cache;
+}
+
+bool isLiveWindow(const QWindow *window)
+{
+    return window && QGuiApplication::allWindows().contains(const_cast<QWindow *>(window));
+}
+
+QString sequenceText(Qt::Key key, Qt::KeyboardModifiers modifiers)
+{
+    return QKeySequence(QKeyCombination(modifiers, key)).toString(QKeySequence::PortableText);
+}
+
 } // namespace
+
+void ShortcutBridge::refreshShortcuts(QWindow *window)
+{
+    if (!window)
+        return;
+    QSet<QString> sequences;
+    for (QObject *object : window->findChildren<QObject *>())
+        if (isQmlShortcut(object) && object->property("enabled").toBool())
+            for (const QString &sequence : sequencesOf(object))
+                sequences.insert(sequence);
+
+    ShortcutCache &cache = shortcutCache();
+    QMutexLocker lock(&cache.mutex);
+    if (!cache.sequences.contains(window))
+    {
+        QObject::connect(window, &QObject::destroyed, QCoreApplication::instance(), [window]() {
+            ShortcutCache &cache = shortcutCache();
+            QMutexLocker lock(&cache.mutex);
+            cache.sequences.remove(window);
+        });
+    }
+    cache.sequences.insert(window, sequences);
+}
+
+bool ShortcutBridge::isCachedShortcut(const QWindow *window, Qt::Key key, Qt::KeyboardModifiers modifiers)
+{
+    ShortcutCache &cache = shortcutCache();
+    QMutexLocker lock(&cache.mutex);
+    return cache.sequences.value(window).contains(sequenceText(key, modifiers));
+}
 
 Qt::Key ShortcutBridge::keyFromWindowsKeyCode(int code)
 {
@@ -174,10 +202,25 @@ Qt::KeyboardModifiers ShortcutBridge::modifiersFromCef(uint32_t cefEventFlags)
 bool ShortcutBridge::dispatchKeyPress(QWindow *window, int windowsKeyCode, uint32_t cefEventFlags)
 {
     const Qt::Key key = keyFromWindowsKeyCodeImpl(windowsKeyCode);
-    if (key == Qt::Key_unknown)
+    if (key == Qt::Key_unknown || !window)
         return false;
 
     const Qt::KeyboardModifiers modifiers = modifiersFromCefImpl(cefEventFlags);
+    const QString sequence = sequenceText(key, modifiers);
 
-    return replayIntoWindowShortcuts(window, key, modifiers);
+    // macOS runs CEF on Qt's thread: answer directly
+    if (QThread::currentThread() == QCoreApplication::instance()->thread())
+        return activateMatching(window, sequence);
+
+    // CEF's UI thread: decide from the cache, act later on Qt's thread, and
+    // refresh the cache there for the next key
+    const bool consumed = isCachedShortcut(window, key, modifiers);
+    QMetaObject::invokeMethod(QCoreApplication::instance(), [window, sequence, consumed]() {
+        if (!isLiveWindow(window))
+            return;
+        if (consumed)
+            activateMatching(window, sequence);
+        refreshShortcuts(window);
+    }, Qt::QueuedConnection);
+    return consumed;
 }

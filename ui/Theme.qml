@@ -56,6 +56,11 @@ QtObject {
         "#4A90E2", "#2DA7A1", "#F3A43B", "#E86F67",
         "#8A6CFF", "#69B578", "#D96ACF"
     ]
+    // what menus call them, in the same order
+    readonly property var avatarColorNames: [
+        qsTr("Blue"), qsTr("Teal"), qsTr("Orange"), qsTr("Coral"),
+        qsTr("Violet"), qsTr("Green"), qsTr("Pink")
+    ]
 
     function luma(c) { return 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b }
 

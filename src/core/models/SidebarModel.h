@@ -2,6 +2,7 @@
 
 #include <QAbstractListModel>
 #include <QHash>
+#include <QPair>
 #include <QPointer>
 #include <QTimer>
 #include <QUrl>
@@ -109,6 +110,9 @@ public:
     Q_INVOKABLE bool separateSplitTab(const QString &tabId);
     Q_INVOKABLE void copyLink(const QString &id);
     Q_INVOKABLE int rowOf(const QString &id) const;
+    // the folder a tab is filed in and its place there; empty when it's loose
+    // or half of a split
+    QPair<QString, int> placementOf(const QString &tabId) const;
     // [{id, title, icon, depth}] depth-first, for "Add to Folder" menus
     Q_INVOKABLE QVariantList folders() const;
 

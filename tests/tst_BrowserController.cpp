@@ -8,6 +8,7 @@
 
 #include "BrowserController.h"
 #include "BrowserTab.h"
+#include "SidebarModel.h"
 #include "Space.h"
 
 class TestBrowserController : public QObject
@@ -165,6 +166,47 @@ private slots:
         browser.reopenLastClosedTab();
         QCOMPARE(browser.tabModel()->rowCount(), 3);
         QCOMPARE(browser.tabModel()->tabAt(browser.activeIndex())->url(), QUrl(QStringLiteral("https://example.com/second")));
+    }
+
+    void reopenedTabReturnsToItsPlace()
+    {
+        std::unique_ptr<Space> space(makeSpace(QStringLiteral("reopen-place"), QStringLiteral("Reopen Place")));
+        BrowserController browser(space.get(), nullptr, m_dir.filePath(QStringLiteral("browser-settings.ini")));
+        for (int i = 0; i < 4; ++i)
+            browser.newTab(QStringLiteral("https://example.com/%1").arg(i));
+
+        const int index = 1;
+        const QUrl url = browser.tabModel()->tabAt(index)->url();
+        browser.activateTab(index);
+        browser.closeTab(index);
+        browser.reopenLastClosedTab();
+        QCOMPARE(browser.tabModel()->tabAt(index)->url(), url);
+        QCOMPARE(browser.activeIndex(), index);
+    }
+
+    void reopenedTabReturnsToItsFolder()
+    {
+        std::unique_ptr<Space> space(makeSpace(QStringLiteral("reopen-folder"), QStringLiteral("Reopen Folder")));
+        BrowserController browser(space.get(), nullptr, m_dir.filePath(QStringLiteral("browser-settings.ini")));
+        browser.newTab(QStringLiteral("https://example.com/a"));
+        browser.newTab(QStringLiteral("https://example.com/b"));
+        browser.newTab(QStringLiteral("https://example.com/c"));
+        SidebarModel *sidebar = browser.sidebar();
+        const QString folder = sidebar->createFolder({}, QStringLiteral("Work"));
+        const QString a = browser.tabModel()->tabAt(1)->id();
+        const QString b = browser.tabModel()->tabAt(2)->id();
+        QVERIFY(sidebar->moveNode(a, folder, 0));
+        QVERIFY(sidebar->moveNode(b, folder, 1));
+        QCOMPARE(sidebar->placementOf(b), qMakePair(folder, 1));
+
+        BrowserTab *tab = browser.tabModel()->tabAt(2);
+        QCOMPARE(tab->id(), b);
+        browser.closeTab(2);
+        browser.reopenLastClosedTab();
+
+        BrowserTab *reopened = browser.tabModel()->tabAt(browser.activeIndex());
+        QCOMPARE(reopened->url(), QUrl(QStringLiteral("https://example.com/b")));
+        QCOMPARE(sidebar->placementOf(reopened->id()), qMakePair(folder, 1));
     }
 
     void initialControllerHasAnInitialTab()

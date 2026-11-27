@@ -163,6 +163,10 @@ signals:
 private:
     struct ClosedTab {
         QUrl url;
+        QString title;
+        int index = -1;
+        QString folderId;
+        int folderIndex = -1;
     };
 
     void rememberClosedTab(const BrowserTab *tab);

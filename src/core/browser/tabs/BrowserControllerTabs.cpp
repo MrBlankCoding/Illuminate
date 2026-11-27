@@ -247,7 +247,8 @@ void BrowserController::rememberClosedTab(const BrowserTab *tab)
 
     const QString spaceId = m_space ? m_space->id() : QString();
     QList<ClosedTab> &closedTabs = m_closedTabsBySpace[spaceId];
-    closedTabs.append({tab->url()});
+    const auto [folderId, folderIndex] = m_sidebar->placementOf(tab->id());
+    closedTabs.append({tab->url(), tab->title(), m_model->indexOf(tab), folderId, folderIndex});
     constexpr qsizetype maxRecentlyClosedTabs = 25;
     while (closedTabs.size() > maxRecentlyClosedTabs)
         closedTabs.removeFirst();
@@ -276,7 +277,19 @@ void BrowserController::reopenLastClosedTab()
         }
     }
 
+    const int before = m_model->rowCount();
     newTab(closedTab.url.toString());
+    if (m_model->rowCount() != before + 1)
+        return;
+
+    // back where it was: in its folder if that's still there, else its old spot
+    BrowserTab *tab = m_model->tabAt(m_model->rowCount() - 1);
+    if (!closedTab.title.isEmpty())
+        tab->setTitle(closedTab.title);
+    if (!closedTab.folderId.isEmpty() && m_sidebar->moveNode(tab->id(), closedTab.folderId, closedTab.folderIndex))
+        return;
+    if (closedTab.index >= 0 && closedTab.index < m_model->rowCount() - 1)
+        m_model->moveTab(m_model->indexOf(tab), closedTab.index);
 }
 
 void BrowserController::executeChromeCommand(const QString &command)

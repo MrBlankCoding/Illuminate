@@ -3,12 +3,56 @@
 #include <QKeySequence>
 #include <QSettings>
 
+#include <algorithm>
+
 namespace
 {
     constexpr char kGroup[] = "shortcuts";
     QString standard(QKeySequence::StandardKey key)
     {
         return QKeySequence(key).toString(QKeySequence::PortableText);
+    }
+
+    bool editsText(QKeyCombination combo)
+    {
+        switch (combo.key())
+        {
+        case Qt::Key_Backspace:
+        case Qt::Key_Delete:
+        case Qt::Key_Left:
+        case Qt::Key_Right:
+        case Qt::Key_Up:
+        case Qt::Key_Down:
+        case Qt::Key_Home:
+        case Qt::Key_End:
+            // Alt+Left is Back on Windows and Linux; Cmd+Left is line start on macOS
+            return !combo.keyboardModifiers().testFlag(Qt::AltModifier);
+        default:
+            return combo.keyboardModifiers() == Qt::NoModifier
+                && !(combo.key() >= Qt::Key_F1 && combo.key() <= Qt::Key_F35);
+        }
+    }
+
+    QStringList standards(QKeySequence::StandardKey key)
+    {
+        QStringList out;
+        for (const QKeySequence &sequence : QKeySequence::keyBindings(key))
+        {
+            if (sequence.isEmpty() || editsText(sequence[0]))
+                continue;
+            const QString text = sequence.toString(QKeySequence::PortableText);
+            if (!out.contains(text))
+                out << text;
+        }
+        // a letter reads better in menus and settings than Ctrl+F4
+        std::stable_partition(out.begin(), out.end(), [](const QString &text) {
+            const QKeySequence sequence(text);
+            const int k = sequence.isEmpty() ? 0 : sequence[0].key();
+            return (k >= Qt::Key_A && k <= Qt::Key_Z) || (k >= Qt::Key_0 && k <= Qt::Key_9);
+        });
+        if (out.isEmpty())
+            out << standard(key);
+        return out;
     }
 }
 
@@ -33,8 +77,8 @@ QList<ShortcutRegistry::Command> ShortcutRegistry::buildTable()
         table.append({std::move(id), std::move(label), std::move(category), std::move(sequences)});
     };
 
-    add("Tabs", "newTab", "New tab", {standard(QKeySequence::StandardKey::AddTab)});
-    add("Tabs", "closeTab", "Close tab", {standard(QKeySequence::StandardKey::Close)});
+    add("Tabs", "newTab", "New tab", standards(QKeySequence::StandardKey::AddTab));
+    add("Tabs", "closeTab", "Close tab", standards(QKeySequence::StandardKey::Close));
 #ifdef Q_OS_MACOS
     add("Tabs", "reopenClosedTab", "Reopen closed tab", {QStringLiteral("Meta+Shift+T")});
 #else
@@ -52,22 +96,25 @@ QList<ShortcutRegistry::Command> ShortcutRegistry::buildTable()
     add("Tabs", "lastTab", "Open last tab", {QStringLiteral("Ctrl+9")});
     add("Tabs", "splitTabs", "Split active tab with next tab", {QStringLiteral("Ctrl+Alt+\\")});
 
-    add("Navigation", "reload", "Reload", {standard(QKeySequence::StandardKey::Refresh)});
-    add("Navigation", "back", "Go back", {standard(QKeySequence::StandardKey::Back)});
-    add("Navigation", "forward", "Go forward", {standard(QKeySequence::StandardKey::Forward)});
+    QStringList reload = standards(QKeySequence::StandardKey::Refresh);
+    if (!reload.contains(QStringLiteral("Ctrl+R")))
+        reload.prepend(QStringLiteral("Ctrl+R")); // Windows' table has only F5
+    add("Navigation", "reload", "Reload", reload);
+    add("Navigation", "back", "Go back", standards(QKeySequence::StandardKey::Back));
+    add("Navigation", "forward", "Go forward", standards(QKeySequence::StandardKey::Forward));
     add("Navigation", "copyUrl", "Copy current URL", {QStringLiteral("Ctrl+Shift+C")});
 
-    add("Page", "print", "Print", {standard(QKeySequence::StandardKey::Print)});
+    add("Page", "print", "Print", standards(QKeySequence::StandardKey::Print));
     add("Page", "savePdf", "Save as PDF", {QStringLiteral("Ctrl+Shift+S")});
     add("Page", "toggleBookmark", "Bookmark this page", {QStringLiteral("Ctrl+B")});
     add("Page", "downloads", "Show downloads", {QStringLiteral("Ctrl+Shift+J")});
 
-    add("Find", "find", "Find in page", {standard(QKeySequence::StandardKey::Find)});
-    add("Find", "findNext", "Find next", {standard(QKeySequence::StandardKey::FindNext)});
-    add("Find", "findPrevious", "Find previous", {standard(QKeySequence::StandardKey::FindPrevious)});
+    add("Find", "find", "Find in page", standards(QKeySequence::StandardKey::Find));
+    add("Find", "findNext", "Find next", standards(QKeySequence::StandardKey::FindNext));
+    add("Find", "findPrevious", "Find previous", standards(QKeySequence::StandardKey::FindPrevious));
 
-    add("View", "zoomIn", "Zoom in", {standard(QKeySequence::StandardKey::ZoomIn), QStringLiteral("Ctrl+=")});
-    add("View", "zoomOut", "Zoom out", {standard(QKeySequence::StandardKey::ZoomOut)});
+    add("View", "zoomIn", "Zoom in", standards(QKeySequence::StandardKey::ZoomIn) + QStringList{QStringLiteral("Ctrl+=")});
+    add("View", "zoomOut", "Zoom out", standards(QKeySequence::StandardKey::ZoomOut));
     add("View", "zoomReset", "Reset zoom", {QStringLiteral("Ctrl+0")});
     add("View", "toggleSidebar", "Toggle sidebar", {QStringLiteral("Ctrl+S")});
     add("View", "toggleFullScreen", "Toggle full screen", {QStringLiteral("Ctrl+Shift+F")});

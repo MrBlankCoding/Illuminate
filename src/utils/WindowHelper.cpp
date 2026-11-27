@@ -50,8 +50,6 @@ void WindowHelper::applyTitleBarStyle(QQuickWindow *window, qreal barHeight)
         if (!hwnd)
             return;
 
-        BOOL enable = TRUE;
-        DwmSetWindowAttribute(hwnd, 20, &enable, sizeof(enable));
         // DWMWA_WINDOW_CORNER_PREFERENCE = 33, DWMWCP_ROUND = 2.
         const DWORD cornerPreferenceAttribute = 33;
         const int roundedCorners = 2;
@@ -70,6 +68,23 @@ void WindowHelper::applyTitleBarStyle(QQuickWindow *window, qreal barHeight)
 #else
     Q_UNUSED(window);
     Q_UNUSED(barHeight);
+#endif
+}
+
+void WindowHelper::setDarkTitleBar(QQuickWindow *window, bool dark)
+{
+#if defined(Q_OS_WIN)
+    if (!window)
+        return;
+    HWND hwnd = reinterpret_cast<HWND>(window->winId());
+    if (!hwnd)
+        return;
+    // DWMWA_USE_IMMERSIVE_DARK_MODE
+    const BOOL value = dark ? TRUE : FALSE;
+    DwmSetWindowAttribute(hwnd, 20, &value, sizeof(value));
+#else
+    Q_UNUSED(window);
+    Q_UNUSED(dark);
 #endif
 }
 

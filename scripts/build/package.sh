@@ -164,6 +164,6 @@ package_application() {
         tar -C "$STAGE_DIR" -czf "$TAR_PATH" usr
         rm -rf "$STAGE_DIR"
         echo "✓ Package: $TAR_PATH"
-        echo "  Extract to / (or a prefix) — requires libcef and its dependencies."
+        echo "  Extract to / (or a prefix). CEF is bundled; Qt 6.8+ must be installed."
     fi
 }
