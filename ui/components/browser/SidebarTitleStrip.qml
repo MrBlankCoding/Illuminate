@@ -10,6 +10,12 @@ Item {
     property var sidebar
     readonly property bool fullscreen: sidebar.isFullScreen
 
+    function focusPage() {
+        const window = root.sidebar.targetWindow;
+        if (window && window.activeWebView)
+            window.activeWebView.takeFocus();
+    }
+
     Layout.fillWidth: true
     Layout.preferredHeight: Theme.titleBarHeight
 
@@ -47,21 +53,33 @@ Item {
             iconSize: 18
             enabled: root.sidebar.canGoBack
             Accessible.name: qsTr("Back")
-            onClicked: Browser.goBack()
+            onClicked: {
+                Browser.goBack();
+                root.focusPage();
+            }
         }
         SidebarButton {
             icon: "qrc:/illuminate/ui/icons/chevron-right.svg"
             iconSize: 18
             enabled: root.sidebar.canGoForward
             Accessible.name: qsTr("Forward")
-            onClicked: Browser.goForward()
+            onClicked: {
+                Browser.goForward();
+                root.focusPage();
+            }
         }
         SidebarButton {
             icon: root.sidebar.isLoading ? "qrc:/illuminate/ui/icons/x.svg" : "qrc:/illuminate/ui/icons/rotate-cw.svg"
             iconSize: 15
             enabled: root.sidebar.currentUrl !== ""
             Accessible.name: root.sidebar.isLoading ? qsTr("Stop") : qsTr("Reload")
-            onClicked: root.sidebar.isLoading ? Browser.stop() : Browser.reload()
+            onClicked: {
+                if (root.sidebar.isLoading)
+                    Browser.stop();
+                else
+                    Browser.reload();
+                root.focusPage();
+            }
         }
     }
 }

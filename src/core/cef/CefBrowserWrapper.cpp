@@ -268,6 +268,7 @@ bool cefChildWindowIsKey(void *) { return false; }
 void cefSetChildWindowCanTakeKey(void *, bool) {}
 void cefMakeChildWindowKey(void *) {}
 bool cefChildWindowHasKey(void *) { return false; }
+bool cefMouseButtonDown() { return false; }
 void *cefObserveKeyLoss(void *, std::function<void()>) { return nullptr; }
 void cefStopObservingKeyLoss(void *) {}
 #endif

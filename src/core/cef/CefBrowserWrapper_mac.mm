@@ -265,6 +265,11 @@ void cefMakeChildWindowKey(void *childHandle)
     [child makeKeyWindow];
 }
 
+bool cefMouseButtonDown()
+{
+    return NSEvent.pressedMouseButtons != 0;
+}
+
 bool cefChildWindowHasKey(void *childHandle)
 {
     NSWindow *child = cefWindowFromHandle(childHandle);

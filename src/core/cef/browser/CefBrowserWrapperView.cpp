@@ -58,8 +58,9 @@ void CefBrowserWrapper::refreshNativeView(bool raiseAboveSiblings)
         return;
     if (m_hostWindowReady)
     {
+
         QPointer<CefBrowserWrapper> guard(this);
-        if (!m_focusTarget)
+        if (!m_focusTarget || cefMouseButtonDown())
             cefSetChildWindowCanTakeKey(m_hostWindow->nativeHandle(), false);
         m_hostWindow->restore([guard]() {
             if (!guard || !guard->m_hostWindowReady)
