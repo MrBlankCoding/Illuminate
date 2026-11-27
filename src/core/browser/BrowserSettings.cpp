@@ -14,6 +14,7 @@ namespace
 {
     constexpr char kStartupBehaviorKey[] = "startup/behavior";
     constexpr char kStartupHomepageKey[] = "startup/homepage";
+    constexpr char kRestoreTabsKey[] = "startup/restoreTabs";
     constexpr char kSearchEngineKey[] = "search/engine";
     constexpr char kSearchCustomUrlKey[] = "search/customUrl";
     constexpr char kSearchSuggestionsKey[] = "search/suggestions";
@@ -104,6 +105,7 @@ BrowserSettings::BrowserSettings(QObject *parent, const QString &settingsFilePat
         m_appSettings->value(QLatin1String(kConfirmCloseKey), true).toBool();
     m_uiDensity = normalizedDensity(m_appSettings->value(QLatin1String(kDensityKey)).toString());
     m_preloadSpaces = m_appSettings->value(QLatin1String(kPreloadSpacesKey), true).toBool();
+    m_restoreTabsOnStartup = m_appSettings->value(QLatin1String(kRestoreTabsKey), false).toBool();
     const int storedWidth = m_appSettings->value(QLatin1String(kSidebarWidthKey), kSidebarDefaultWidth).toInt();
     m_sidebarWidth = std::clamp(storedWidth, kSidebarMinWidth, kSidebarMaxWidth);
     m_sidebarCollapsed = m_appSettings->value(QLatin1String(kSidebarCollapsedKey), false).toBool();
@@ -362,6 +364,15 @@ void BrowserSettings::setUiDensity(const QString &density)
     m_uiDensity = normalized;
     writeValue(m_appSettings, kDensityKey, normalized);
     emit uiDensityChanged();
+}
+
+void BrowserSettings::setRestoreTabsOnStartup(bool enabled)
+{
+    if (m_restoreTabsOnStartup == enabled)
+        return;
+    m_restoreTabsOnStartup = enabled;
+    writeValue(m_appSettings, kRestoreTabsKey, enabled);
+    emit restoreTabsOnStartupChanged();
 }
 
 void BrowserSettings::setPreloadSpaces(bool enabled)

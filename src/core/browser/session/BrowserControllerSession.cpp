@@ -98,9 +98,12 @@ void BrowserController::restoreSession()
         return;
     m_sessionRestoredForSpace = true;
 
+    const BrowserSettings *prefs = BrowserSettings::instance();
+    const bool restoreTabs = !prefs || prefs->restoreTabsOnStartup();
+
     const QString path = sessionFilePath();
     QFile file(path);
-    if (path.isEmpty() || !file.open(QFile::ReadOnly | QFile::Text))
+    if (!restoreTabs || path.isEmpty() || !file.open(QFile::ReadOnly | QFile::Text))
     {
         openInitialTab();
         return;

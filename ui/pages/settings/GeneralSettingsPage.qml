@@ -6,13 +6,11 @@ import illuminate.ui
 SettingsPage {
     id: root
     heading: "General"
-    subtitle: "Appearance, language and other global preferences."
 
     SettingsCard {
         SettingItem {
             topDivider: false
             title: "Appearance"
-            description: "Light or dark, for every space. Each space picks its own colour from the theme picker."
 
             SettingCombo {
                 id: appearanceCombo
@@ -30,7 +28,6 @@ SettingsPage {
 
         SettingItem {
             title: "Density"
-            description: "How much room the sidebar and the space around the page take."
 
             SettingSegmented {
                 id: densityControl
@@ -47,7 +44,6 @@ SettingsPage {
 
         SettingItem {
             title: "Browser language"
-            description: "Interface language for browser chrome and page UI."
 
             SettingCombo {
                 id: languageCombo
@@ -123,10 +119,5 @@ SettingsPage {
                 onActivated: Prefs.browserLanguage = languageCombo.currentValue
             }
         }
-    }
-
-    Footnote {
-        Layout.topMargin: 4
-        text: "This changes the browser UI language, which requires a restart to take effect."
     }
 }

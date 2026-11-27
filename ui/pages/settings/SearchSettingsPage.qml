@@ -5,7 +5,6 @@ import illuminate.ui
 SettingsPage {
     id: root
     heading: "Search"
-    subtitle: "Control what happens when you type in the address bar."
 
     SettingsCard {
         SettingItem {
@@ -82,32 +81,6 @@ SettingsPage {
                 checked: Prefs.commandBarBangsEnabled
                 onToggled: Prefs.commandBarBangsEnabled = !bangsSwitch.checked
             }
-        }
-    }
-
-    SectionHeader {
-        text: "Currently searching with"
-    }
-
-    Rectangle {
-        Layout.fillWidth: true
-        Layout.preferredHeight: 28
-        radius: 8
-        color: Theme.surface
-
-        Text {
-            anchors {
-                left: parent.left
-                right: parent.right
-                verticalCenter: parent.verticalCenter
-                leftMargin: 12
-                rightMargin: 12
-            }
-            text: Prefs.searchUrlTemplate
-            textFormat: Text.PlainText
-            color: Theme.textMuted
-            elide: Text.ElideMiddle
-            font { family: Theme.monoFontFamily; pixelSize: 11 }
         }
     }
 }

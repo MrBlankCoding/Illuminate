@@ -10,17 +10,10 @@ QtObject {
     readonly property string mode: (UI.Browser && UI.Browser.themeMode) ? UI.Browser.themeMode : "system"
     readonly property bool isDark: mode === "dark" || (mode === "system" && Application.styleHints.colorScheme === Qt.Dark)
     readonly property bool isMac: Qt.platform.os === "osx"
-
-    // A theme is one seed colour per space: its hue, and how vivid it is.
-    // Everything below is derived from it by ThemePalette, so there is no
-    // per-role colour to store, validate or keep in step between modes.
-    // A space without a seed of its own uses the default.
     readonly property color defaultSeed: Qt.hsla(0.62, 0.35, 0.5, 1)
     readonly property bool hasCustomSeed: UI.Browser ? UI.Browser.themeColor.valid : false
     readonly property color seed: hasCustomSeed ? UI.Browser.themeColor : defaultSeed
 
-    // the palette follows this rather than the seed, so a space switch or a
-    // new pick crossfades instead of snapping
     property color animatedSeed: seed
     Behavior on animatedSeed { ColorAnimation { duration: root.durationMid; easing.type: Easing.OutCubic } }
 
@@ -114,7 +107,6 @@ QtObject {
     readonly property int menuBarHeight: 28
     readonly property int trafficLightW: 78          // macOS traffic-light safe area
     readonly property int sysControlW:   40          // Windows/Linux control-button width
-    // UI density (Settings → General): how much room the sidebar and the
     // frame around the page take. Sizes ease to their new values.
     readonly property string density: Prefs ? Prefs.uiDensity : "compact"
     function byDensity(compact, normal, cosy) {

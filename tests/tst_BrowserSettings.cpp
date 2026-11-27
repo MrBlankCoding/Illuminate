@@ -134,6 +134,20 @@ private slots:
         QVERIFY(!reopened.preloadSpaces());
     }
 
+    void tabsAreNotRestoredByDefaultAndTheChoicePersists()
+    {
+        {
+            BrowserSettings prefs(nullptr, settingsFile());
+            QVERIFY(!prefs.restoreTabsOnStartup());
+            QSignalSpy spy(&prefs, &BrowserSettings::restoreTabsOnStartupChanged);
+            prefs.setRestoreTabsOnStartup(true);
+            prefs.setRestoreTabsOnStartup(true);
+            QCOMPARE(spy.size(), 1);
+        }
+        BrowserSettings reopened(nullptr, settingsFile());
+        QVERIFY(reopened.restoreTabsOnStartup());
+    }
+
     void browserLanguageDefaults()
     {
         BrowserSettings prefs(nullptr, settingsFile());

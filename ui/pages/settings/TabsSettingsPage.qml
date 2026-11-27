@@ -4,7 +4,6 @@ import illuminate.ui
 SettingsPage {
     id: root
     heading: "Tabs"
-    subtitle: "Manage memory use and closing behavior."
 
     SectionHeader {
         text: "Spaces"
@@ -62,19 +61,7 @@ SettingsPage {
             }
         }
     }
-
-    SectionHeader {
-        text: "Session"
-    }
-
-    SettingsCard {
-        SettingItem {
-            topDivider: false
-            title: "Per-space sessions"
-            description: "Saved tabs are restored in every space when you open it, including after restarting the browser."
-        }
-    }
-
+    
     SectionHeader {
         text: "Closing"
     }

@@ -342,6 +342,13 @@ if (( IS_MAC )); then
     fi
 fi
 
+if (( IS_MAC )) && [[ -f "$APP_BINARY" ]]; then
+    if [[ ! -f "$APP_BUNDLE/Contents/Info.plist" ]]; then
+        cmake "$BUILD_DIR" >/dev/null
+    fi
+    (( DO_PACKAGE )) || sign_app_bundle "$APP_BUNDLE"
+fi
+
 if [[ -f "$APP_BINARY" ]]; then
     echo "✓ Build succeeded."
     if (( IS_MAC )); then

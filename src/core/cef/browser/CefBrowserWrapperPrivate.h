@@ -71,6 +71,8 @@ void cefSetChildWindowCanTakeKey(void *childHandle, bool allowed);
 // key focus of a page's own window (|childHandle|); no-ops without one
 void cefMakeChildWindowKey(void *childHandle);
 bool cefChildWindowHasKey(void *childHandle);
+// a mouse button is held right now, by the hardware's count, not Qt's
+bool cefMouseButtonDown();
 // calls |callback| whenever that window stops being key; returns a token
 void *cefObserveKeyLoss(void *childHandle, std::function<void()> callback);
 void cefStopObservingKeyLoss(void *token);

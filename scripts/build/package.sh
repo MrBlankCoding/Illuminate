@@ -127,8 +127,7 @@ package_application() {
             exit 1
         }
 
-        echo "→ Signing (${CODESIGN_IDENTITY:-ad-hoc})…"
-        codesign --force --deep --sign "${CODESIGN_IDENTITY:--}" "$STAGED_APP"
+        sign_app_bundle "$STAGED_APP"
         codesign --verify --deep --strict "$STAGED_APP" || {
             echo "✗ Deployed bundle failed signature verification."
             exit 1
